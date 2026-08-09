@@ -1,0 +1,89 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "compileSdkVersion": "6.1.1(24)",
+        "targetSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.1(24)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "phone",
+      "srcPath": "./products/phone",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "constants",
+      "srcPath": "./commons/constants",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "models",
+      "srcPath": "./commons/models",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "storage",
+      "srcPath": "./commons/storage",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "network",
+      "srcPath": "./commons/network",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "utils",
+      "srcPath": "./commons/utils",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "ui_components",
+      "srcPath": "./commons/ui-components",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "device",
+      "srcPath": "./commons/device",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "home",
+      "srcPath": "./features/home",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "category",
+      "srcPath": "./features/category",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "cart",
+      "srcPath": "./features/cart",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    },
+    {
+      "name": "mine",
+      "srcPath": "./features/mine",
+      "targets": [{ "name": "default", "applyToProducts": ["default"] }]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "module": {
+    "name": "home",
+    "type": "shared",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      }
+    ],
+    "description": "$string:shared_desc",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1"
+    ],
+    "deliveryWithInstall": true,
+    "pages": "$profile:main_pages",
+    "routerMap": "$profile:router_map"
+  }
+}
