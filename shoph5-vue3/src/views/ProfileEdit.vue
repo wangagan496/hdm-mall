@@ -18,8 +18,8 @@ const showAvatarSheet = ref(false)
 const selectAvatar = async (_action: ActionSheetAction, index: number) => {
   try {
     const base64 = index === 0
-      ? await harmonyos.pickerCamera()
-      : await harmonyos.pickerPhoto()
+      ? await window.mk.pickerCamera()
+      : await window.mk.pickerPhoto()
     if (base64) {
       userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
     }
@@ -38,7 +38,7 @@ const onChangeBirthday = ({ selectedValues }: IPickerParams) => {
 const birthdayList = computed(() => userInfo.value.birthday?.split('-') ?? [])
 
 const showAreaPopup = ref(false)
-const areaColumns = ref<Area[]>(JSON.parse(harmonyos.getAreaColumns()))
+const areaColumns = ref<Area[]>(JSON.parse(window.mk.getAreaColumns()))
 const areaData = flattenAreaData(areaColumns.value)
 
 const selectArea = (area: IPickerParams) => {
@@ -91,7 +91,7 @@ const onSubmit = async () => {
   isLoading.value = true
   try {
     await request.put('/member/profile', userInfo.value)
-    harmonyos.updateUser(userInfo.value)
+    await window.mk.updateUser(userInfo.value)
     showToast('修改成功')
   } finally {
     isLoading.value = false

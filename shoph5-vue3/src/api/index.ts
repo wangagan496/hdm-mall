@@ -9,9 +9,8 @@ const request = axios.create({
 request.interceptors.request.use(
   (config) => {
     try {
-      // harmonyos.queryUser() 目前会有警告
-      const user = harmonyos.queryUser()
-      if (user.token) {
+      const user = window.mk?.queryUser()
+      if (user?.token) {
         config.headers.Authorization = `Bearer ${user.token}`
       }
     } catch (e) {

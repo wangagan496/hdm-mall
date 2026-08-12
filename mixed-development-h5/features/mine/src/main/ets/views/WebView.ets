@@ -1,5 +1,5 @@
 import { promptAction } from '@kit.ArkUI'
-import { auth, cameraPlugin, GlobalVariable, HDMUser, locationPlugin, photoPlugin, sensorPlugin } from 'basic'
+import { auth, cameraPlugin, GlobalVariable, HDMUser, locationPlugin, photoPlugin, sensorPlugin, storeManager } from 'basic'
 import { webview } from '@kit.ArkWeb'
 
 @Builder
@@ -57,9 +57,16 @@ struct WebView {
       //  查询用户信息
       queryUser: (): HDMUser => auth.getUserInfo()!,
       //   更新用户信息
-      updateUser: (user: HDMUser): void => auth.setUserInfo(user),
+      updateUser: async (user: HDMUser): Promise<void> => {
+        auth.setUserInfo(user)
+        await storeManager.setUserInfo(user)
+      },
       //   移除用户信息
-      removeUser: (): void => auth.clearUserInfo(),
+      removeUser: async (): Promise<void> => {
+        const emptyUser = {} as HDMUser
+        auth.clearUserInfo()
+        await storeManager.setUserInfo(emptyUser)
+      },
       pickerCamera: (): Promise<string> => cameraPlugin.pickerCamera(), // 调用相机
       pickerPhoto: (): Promise<string> => photoPlugin.pickerPhoto(), // 调用相册
       vibrator: (): void => sensorPlugin.vibrator(), // 震动
