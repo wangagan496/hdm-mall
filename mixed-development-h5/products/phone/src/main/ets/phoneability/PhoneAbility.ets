@@ -1,11 +1,32 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import { auth, screenManager, screenManagerByMedia, storeManager } from 'basic';
+import { auth, localGoodsStore, storeManager } from 'storage';
+import { screenManager, screenManagerByMedia } from 'utils';
+import { GlobalVariable } from 'constants';
 
 const DOMAIN = 0x0000;
 
 export default class PhoneAbility extends UIAbility {
+  private restoreUserSession(): void {
+    try {
+      const userInfo = storeManager.getUserInfo()
+      if (userInfo?.token) {
+        auth.setUserInfo(userInfo)
+        localGoodsStore.migrateLegacyData().catch((error: Error) => {
+          hilog.error(DOMAIN, 'LocalGoodsStore', 'Failed to migrate legacy local goods. Cause: %{public}s',
+            JSON.stringify(error) ?? '')
+        })
+      } else {
+        auth.clearUserInfo()
+      }
+    } catch (error) {
+      auth.clearUserInfo()
+      hilog.error(DOMAIN, 'UserSession', 'Failed to restore user session. Cause: %{public}s',
+        JSON.stringify(error) ?? '')
+    }
+  }
+
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
@@ -21,8 +42,10 @@ export default class PhoneAbility extends UIAbility {
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     screenManager.full(this.context)
-    storeManager.ctx = this.context // 赋值上下文
-    auth.setUserInfo(storeManager.getUserInfo())
+    storeManager.ctx = this.context
+    // 将 context 存入 AppStorage，供 network 模块的 toast 使用（避免循环依赖）
+    AppStorage.setOrCreate(GlobalVariable.ABILITY_CONTEXT_KEY, this.context)
+    this.restoreUserSession()
     // Main window is created, set main page for this ability
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
     windowStage.loadContent('pages/Index', (err) => {
@@ -30,13 +53,13 @@ export default class PhoneAbility extends UIAbility {
         hilog.error(0x0000, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
         return;
       }
-      screenManagerByMedia.registerListenerScreen()
+      screenManagerByMedia.registerListenerScreen(this.context)
       hilog.info(0x0000, 'testTag', 'Succeeded in loading the content.');
     });
   }
 
   onWindowStageDestroy(): void {
-    screenManagerByMedia.unregisterListenerScreen()
+    screenManagerByMedia.unregisterListenerScreen(this.context)
     // Main window is destroyed, release UI related resources
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
   }

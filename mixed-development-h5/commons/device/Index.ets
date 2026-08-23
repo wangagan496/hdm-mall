@@ -1,0 +1,7 @@
+export { AccessManager, accessManager } from './src/main/ets/AccessManager'
+export { cameraPlugin } from './src/main/ets/CameraPlugin'
+export { photoPlugin } from './src/main/ets/PhotoPlugin'
+export { sensorPlugin } from './src/main/ets/SensorPlugin'
+export { locationPlugin } from './src/main/ets/LocationPlugin'
+export { AudioCapturerManager, audioCapturerManager } from './src/main/ets/AudioCapturerManager'
+export { SpeechToTextManager, speechToTextManager } from './src/main/ets/SpeechToTextManager'

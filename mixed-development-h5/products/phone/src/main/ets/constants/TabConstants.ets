@@ -1,4 +1,4 @@
-import { TabItem } from 'basic' // 记得引 basic 里的类型
+import { TabItem } from 'models'
 
 // 1. 抽离业务枚举
 export enum TabIndex {

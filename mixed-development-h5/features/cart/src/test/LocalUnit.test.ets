@@ -1,4 +1,6 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
+import { AddressItem, CartGoodsModel } from 'models';
+import { excludeCartItems, normalizeCheckoutAddress } from '../main/ets/presentation/utils/CartPresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -28,6 +30,72 @@ export default function localUnitTest() {
       // Defines a variety of assertion methods, which are used to declare expected boolean conditions.
       expect(a).assertContain(b);
       expect(a).assertEqual(a);
+    });
+    it('replacesInvalidCheckoutDemoAddress', 0, () => {
+      const address: AddressItem = {
+        address: 'Hello恭喜发财',
+        contact: 'Hello恭喜发财',
+        fullLocation: '',
+        id: 'address-id',
+        isDefault: 0,
+        receiver: 'Hello恭喜发财',
+        provinceCode: 310000,
+        cityCode: 310100,
+        countyCode: 310115
+      };
+
+      const displayAddress = normalizeCheckoutAddress(address);
+
+      expect(displayAddress.fullLocation).assertEqual('上海市 浦东新区');
+      expect(displayAddress.address).assertEqual('张江路88号创智中心2号楼1208室');
+      expect(displayAddress.receiver).assertEqual('李晓明');
+      expect(displayAddress.contact).assertEqual('138****5678');
+      expect(displayAddress.id).assertEqual(address.id);
+    });
+    it('keepsValidCheckoutAddress', 0, () => {
+      const address: AddressItem = {
+        address: '科苑路15号',
+        contact: '139****1234',
+        fullLocation: '北京市 海淀区',
+        id: 'valid-address-id',
+        isDefault: 1,
+        receiver: '王芳',
+        provinceCode: 110000,
+        cityCode: 110100,
+        countyCode: 110108
+      };
+
+      expect(normalizeCheckoutAddress(address)).assertEqual(address);
+    });
+    it('removesDeletedCartItemsFromVisibleList', 0, () => {
+      const first = new CartGoodsModel({
+        count: 1,
+        id: 'goods-1',
+        name: '商品1',
+        picture: '',
+        price: 10,
+        selected: true,
+        skuId: 'sku-1',
+        stock: 10,
+        attrsText: ''
+      });
+      const second = new CartGoodsModel({
+        count: 1,
+        id: 'goods-2',
+        name: '商品2',
+        picture: '',
+        price: 20,
+        selected: true,
+        skuId: 'sku-2',
+        stock: 10,
+        attrsText: ''
+      });
+
+      const remaining = excludeCartItems([first, second], ['sku-1']);
+
+      expect(remaining.length).assertEqual(1);
+      expect(remaining[0].skuId).assertEqual('sku-2');
+      expect(excludeCartItems([first, second], ['sku-1', 'sku-2']).length).assertEqual(0);
     });
   });
 }

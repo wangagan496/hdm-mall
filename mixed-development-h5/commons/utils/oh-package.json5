@@ -1,0 +1,14 @@
+{
+  "name": "utils",
+  "version": "1.0.0",
+  "description": "Utility functions and helpers",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
+  "dependencies": {
+    "constants": "file:../constants",
+    "models": "file:../models"
+  },
+  "devDependencies": {}
+}

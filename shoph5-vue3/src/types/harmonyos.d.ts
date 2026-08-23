@@ -1,14 +1,15 @@
 interface HarmonyBridge {
-  queryUser: () => HDMUser
+  queryUser: () => HDMUser | undefined
   updateUser: (user: HDMUser) => Promise<void> // 更新用户
+  removeUser: () => Promise<void> // 清除用户
   pickerCamera: () => Promise<string> // 调用相机拍照，返回base64字符串
   pickerPhoto: () => Promise<string> // 调用相册选择图片，返回base64字符串
   vibrator: () => void // 调用传感器
-  getAreaColumns:() => string
+  getAreaColumns: () => string
 }
 
 interface Window {
-  mk: HarmonyBridge
+  mk?: HarmonyBridge
 }
 
 

@@ -3,17 +3,17 @@
     {
       "name": "SearchView",
       "buildFunction": "SearchViewBuilder",
-      "pageSourceFile": "src/main/ets/views/SearchView.ets"
+      "pageSourceFile": "src/main/ets/presentation/views/SearchView.ets"
     },
     {
       "name": "SearchResultView",
       "buildFunction": "SearchResultViewBuilder",
-      "pageSourceFile": "src/main/ets/views/SearchResultView.ets"
+      "pageSourceFile": "src/main/ets/presentation/views/SearchResultView.ets"
     },
     {
       "name": "GoodsView",
       "buildFunction": "GoodsViewBuilder",
-      "pageSourceFile": "src/main/ets/views/GoodsView.ets"
+      "pageSourceFile": "src/main/ets/presentation/views/GoodsView.ets"
     }
   ]
 }

@@ -1,0 +1,11 @@
+{
+  "name": "constants",
+  "version": "1.0.0",
+  "description": "Global constants and business constants",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
+  "dependencies": {},
+  "devDependencies": {}
+}

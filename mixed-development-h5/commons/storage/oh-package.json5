@@ -1,0 +1,15 @@
+{
+  "name": "storage",
+  "version": "1.0.0",
+  "description": "Local storage and state management",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
+  "dependencies": {
+    "constants": "file:../constants",
+    "models": "file:../models",
+    "network": "file:../network"
+  },
+  "devDependencies": {}
+}

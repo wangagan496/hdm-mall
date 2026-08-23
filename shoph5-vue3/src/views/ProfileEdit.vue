@@ -16,10 +16,16 @@ interface IPickerParams {
 const showAvatarSheet = ref(false)
 
 const selectAvatar = async (_action: ActionSheetAction, index: number) => {
+  const bridge = window.mk
+  if (!bridge) {
+    showToast({ message: '当前环境不支持选择头像' })
+    return
+  }
+
   try {
     const base64 = index === 0
-      ? await window.mk.pickerCamera()
-      : await window.mk.pickerPhoto()
+      ? await bridge.pickerCamera()
+      : await bridge.pickerPhoto()
     if (base64) {
       userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
     }
@@ -35,22 +41,54 @@ const onChangeBirthday = ({ selectedValues }: IPickerParams) => {
   userInfo.value.birthday = selectedValues.join('-')
 }
 
-const birthdayList = computed(() => userInfo.value.birthday?.split('-') ?? [])
+const birthdayList = computed(() => {
+  const birthday = userInfo.value.birthday
+  return /^\d{4}-\d{2}-\d{2}$/.test(birthday) ? birthday.split('-') : []
+})
 
 const showAreaPopup = ref(false)
-const areaColumns = ref<Area[]>(JSON.parse(window.mk.getAreaColumns()))
-const areaData = flattenAreaData(areaColumns.value)
+const areaColumns = ref<Area[]>([])
+const areaData = ref<Record<string, string>>({})
+
+const loadAreaColumns = (): boolean => {
+  try {
+    const source = window.mk?.getAreaColumns()
+    if (!source) {
+      return false
+    }
+    const columns = JSON.parse(source) as unknown
+    if (!Array.isArray(columns)) {
+      return false
+    }
+    areaColumns.value = columns as Area[]
+    areaData.value = flattenAreaData(areaColumns.value)
+    return areaColumns.value.length > 0
+  } catch {
+    return false
+  }
+}
+
+const openAreaPopup = () => {
+  if (!areaColumns.value.length && !loadAreaColumns()) {
+    showToast({ message: '地区服务暂不可用，请稍后重试' })
+    return
+  }
+  showAreaPopup.value = true
+}
 
 const selectArea = (area: IPickerParams) => {
+  const [provinceCode, cityCode, countyCode] = area.selectedValues
+  const locations = [provinceCode, cityCode, countyCode].map((code) => code ? areaData.value[code] : undefined)
+  if (!provinceCode || !cityCode || !countyCode || locations.some((name) => !name)) {
+    showToast({ message: '请选择完整的省、市、区' })
+    return
+  }
+
   showAreaPopup.value = false
-  userInfo.value.provinceCode = area.selectedValues[0]!
-  userInfo.value.cityCode = area.selectedValues[1]!
-  userInfo.value.countyCode = area.selectedValues[2]!
-  userInfo.value.fullLocation = [
-    areaData[area.selectedValues[0]!],
-    areaData[area.selectedValues[1]!],
-    areaData[area.selectedValues[2]!],
-  ].join(' ')
+  userInfo.value.provinceCode = provinceCode
+  userInfo.value.cityCode = cityCode
+  userInfo.value.countyCode = countyCode
+  userInfo.value.fullLocation = locations.join(' ')
 }
 
 // 选择职业
@@ -81,18 +119,30 @@ onMounted(() => {
 
 const getUserInfo = async () => {
   showLoadingToast({ message: '加载中...', duration: 0, forbidClick: true })
-  const res = await request.get('member/profile')
-  closeToast()
-  userInfo.value = res.data.result
+  try {
+    const res = await request.get('member/profile')
+    userInfo.value = res.data.result
+  } catch {
+    showToast({ message: '资料加载失败，请稍后重试' })
+  } finally {
+    closeToast()
+  }
 }
 
 const isLoading = ref(false)
 const onSubmit = async () => {
+  if (!window.mk?.updateUser) {
+    showToast({ message: '当前环境不支持保存资料' })
+    return
+  }
+
   isLoading.value = true
   try {
     await request.put('/member/profile', userInfo.value)
     await window.mk.updateUser(userInfo.value)
     showToast('修改成功')
+  } catch {
+    showToast({ message: '资料保存失败，请稍后重试' })
   } finally {
     isLoading.value = false
   }
@@ -149,7 +199,7 @@ const onSubmit = async () => {
         label="所在地"
         readonly
         placeholder="请选择所在地"
-        @click="showAreaPopup = true"
+        @click="openAreaPopup"
         v-model="userInfo.fullLocation"
       ></van-field>
       <van-popup v-model:show="showAreaPopup" position="bottom" :style="{ height: '40%' }">

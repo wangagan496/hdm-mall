@@ -1,4 +1,5 @@
-import { display, mediaquery, window } from "@kit.ArkUI"
+import { display, window } from "@kit.ArkUI"
+import { common } from "@kit.AbilityKit"
 import { GlobalVariable } from "../constants"
 import { BreakPointEnum } from "../viewmodels"
 
@@ -45,17 +46,22 @@ export class ScreenManagerByMedia {
   //  setBreakPoint(breakPoint: string) {
   //   AppStorage.setOrCreate<string>(GlobalVariable.BREAK_POINT_KEY, breakPoint)
   // }
+  private sizeChangeCallback: ((size: window.Size) => void) | null = null
+
   // 开启监听屏幕变化
-  async registerListenerScreen(ctx?: Context) {
+  async registerListenerScreen(ctx: common.UIAbilityContext) {
+    const mainWindow = await window.getLastWindow(ctx)
+    const uiContext = mainWindow.getUIContext()
+    // 先卸载旧监听器，防止重复注册
+    if (this.sizeChangeCallback) {
+      mainWindow.off("windowSizeChange", this.sizeChangeCallback)
+    }
     // 只调用一次
-    this.judgeScreen(px2vp(display.getDefaultDisplaySync().width))
-    // let windowStage = AppStorage.get<window.WindowStage>("win")
-    let mainWindow = await window.getLastWindow(getContext() || ctx)
-    // let mainWindow = windowStage?.getMainWindowSync()
-    mainWindow?.on("windowSizeChange", (size) => {
-      // 会调用多次
-      this.judgeScreen(px2vp(size.width))
-    })
+    this.judgeScreen(uiContext.px2vp(display.getDefaultDisplaySync().width))
+    this.sizeChangeCallback = (size: window.Size) => {
+      this.judgeScreen(uiContext.px2vp(size.width))
+    }
+    mainWindow.on("windowSizeChange", this.sizeChangeCallback)
   }
 
   // 判断屏幕大小
@@ -75,9 +81,12 @@ export class ScreenManagerByMedia {
   }
 
   // 卸载
-  async unregisterListenerScreen(ctx?: Context) {
-    let mainWindow = await window.getLastWindow(getContext() || ctx)
-    mainWindow.off("windowSizeChange")
+  async unregisterListenerScreen(ctx: common.UIAbilityContext) {
+    const mainWindow = await window.getLastWindow(ctx)
+    if (this.sizeChangeCallback) {
+      mainWindow.off("windowSizeChange", this.sizeChangeCallback)
+      this.sizeChangeCallback = null
+    }
   }
 }
 

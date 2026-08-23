@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite --host",
     "build": "run-p type-check \"build-only {@}\" --",
+    "build:mobile": "run-s build sync:rawfile",
     "preview": "vite preview",
     "build-only": "vite build",
+    "sync:rawfile": "node scripts/sync-rawfile.mjs",
     "type-check": "vue-tsc --build",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",

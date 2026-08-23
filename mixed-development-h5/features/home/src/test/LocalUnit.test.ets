@@ -1,4 +1,5 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
+import { isFallbackSkuId } from '../main/ets/data/api/mockData';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -28,6 +29,10 @@ export default function localUnitTest() {
       // Defines a variety of assertion methods, which are used to declare expected boolean conditions.
       expect(a).assertContain(b);
       expect(a).assertEqual(a);
+    });
+    it('recognizesFallbackSkuIds', 0, () => {
+      expect(isFallbackSkuId('3388018_fallback_c2l')).assertTrue();
+      expect(isFallbackSkuId('300081002')).assertFalse();
     });
   });
 }

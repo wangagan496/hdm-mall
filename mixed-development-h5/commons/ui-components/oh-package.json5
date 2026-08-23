@@ -1,0 +1,16 @@
+{
+  "name": "ui_components",
+  "version": "1.0.0",
+  "description": "Shared UI component library",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
+  "dependencies": {
+    "@ohmos/sku": "^1.0.1",
+    "constants": "file:../constants",
+    "models": "file:../models",
+    "network": "file:../network"
+  },
+  "devDependencies": {}
+}

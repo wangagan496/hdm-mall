@@ -1,0 +1,11 @@
+{
+  "name": "device",
+  "version": "1.0.0",
+  "description": "Device capabilities: camera, location, sensors, audio, permissions",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
+  "dependencies": {},
+  "devDependencies": {}
+}

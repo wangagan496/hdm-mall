@@ -1,0 +1,14 @@
+export class PAGE_PATH {
+  static readonly SEARCH_PAGE: string = "SearchView"
+  static readonly SEARCH_RESULT_PAGE: string = "SearchResultView"
+  static readonly LOGIN_PAGE: string = "LoginView"
+  static readonly SETTINGS_PAGE: string = "SettingsView"
+  static readonly GOODS_PAGE: string = "GoodsView"
+  static readonly CART_PAGE: string = "CartView"
+  static readonly CHECK_ORDER_PAGE: string = "CheckView"
+  static readonly PAY_PAGE: string = "PayView"
+  static readonly PAY_RESULT_PAGE: string = "PayResultView"
+  static readonly FAVORITES_PAGE: string = "FavoritesView"
+  static readonly HISTORY_PAGE: string = "HistoryView"
+  static readonly CUSTOMER_SERVICE_PAGE: string = "CustomerServiceView"
+}

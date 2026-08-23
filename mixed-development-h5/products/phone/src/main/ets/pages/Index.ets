@@ -1,9 +1,12 @@
-import { TabItem, GlobalVariable, BreakPointType, authCart, BusinessVariable, PAGE_PATH } from 'basic'
+import { TabItem, BreakPointType } from 'models'
+import { GlobalVariable, BusinessVariable, PAGE_PATH } from 'constants'
+import { authCart } from 'storage'
 import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
 import { MineView } from 'mine'
 import { emitter } from '@kit.BasicServicesKit'
+import { common } from '@kit.AbilityKit'
 // 导入抽离的常量和枚举
 import { TAB_LIST, TabIndex } from '../constants/TabConstants'
 
@@ -24,7 +27,7 @@ struct Index {
         .width(24)
         .aspectRatio(1)
       Text(item.text)
-        .fontColor($r('[basic].color.black'))
+        .fontColor($r('[ui_components].color.black'))
         .fontSize(12)
     }
   }
@@ -50,7 +53,8 @@ struct Index {
   }
 
   registerListener() {
-    getContext().eventHub.on(GlobalVariable.SWITCH_TAB, (index: number) => {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    context.eventHub.on(GlobalVariable.SWITCH_TAB, (index: number) => {
       this.activeIndex = index
     })
     emitter.on(BusinessVariable.TO_SEARCH, () => {

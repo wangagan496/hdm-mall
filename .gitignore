@@ -5,6 +5,10 @@
 node_modules/
 **/node_modules/
 
+# HarmonyOS module dependencies
+oh_modules/
+**/oh_modules/
+
 # Build outputs
 dist/
 **/dist/

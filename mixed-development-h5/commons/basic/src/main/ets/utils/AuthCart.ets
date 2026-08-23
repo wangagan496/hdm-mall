@@ -23,7 +23,7 @@ export class AuthCart {
         this.updateCardData(result.count)
 
         // 触发更新
-        getContext().eventHub.emit(BusinessVariable.UPDATE_CART_LIST) // 触发更新列表事件
+        storeManager.ctx?.eventHub.emit(BusinessVariable.UPDATE_CART_LIST) // 触发更新列表事件
 
       } catch (error) {
         // 购物车获取不到 出异常 那就退0

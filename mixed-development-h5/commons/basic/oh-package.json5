@@ -7,9 +7,14 @@
   "license": "Apache-2.0",
   "packageType": "InterfaceHar",
   "dependencies": {
-    "@abner/log": "^1.0.3",
-    "@ohos/axios": "^2.2.4",
     "@ohmos/sku": "^1.0.1",
+    "constants": "file:../constants",
+    "models": "file:../models",
+    "storage": "file:../storage",
+    "network": "file:../network",
+    "utils": "file:../utils",
+    "device": "file:../device",
+    "ui_components": "file:../ui-components"
   },
   "devDependencies": {}
 }
