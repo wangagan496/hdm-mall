@@ -14,6 +14,7 @@ interface IPickerParams {
 }
 
 const showAvatarSheet = ref(false)
+const pendingAvatarBase64 = ref('')
 
 const selectAvatar = async (_action: ActionSheetAction, index: number) => {
   const bridge = window.mk
@@ -27,9 +28,11 @@ const selectAvatar = async (_action: ActionSheetAction, index: number) => {
       ? await bridge.pickerCamera()
       : await bridge.pickerPhoto()
     if (base64) {
+      pendingAvatarBase64.value = base64
       userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
     }
-  } catch {
+  } catch (error) {
+    console.error('头像选择失败', error)
     showToast({ message: '头像获取失败' })
   }
 }
@@ -113,6 +116,52 @@ const onChangejob = (job: IPickerParams) => {
 
 const userInfo = ref<HDMUser>({} as HDMUser)
 
+interface ProfileUpdatePayload {
+  nickname: string
+  gender: HDMUser['gender']
+  birthday: string
+  provinceCode: string
+  cityCode: string
+  countyCode: string
+  profession: string
+}
+
+interface AvatarUploadResponse {
+  result: {
+    avatar: string
+  }
+}
+
+const createProfileUpdatePayload = (user: HDMUser): ProfileUpdatePayload => ({
+  nickname: user.nickname,
+  gender: user.gender,
+  birthday: user.birthday,
+  provinceCode: user.provinceCode,
+  cityCode: user.cityCode,
+  countyCode: user.countyCode,
+  profession: user.profession,
+})
+
+const base64ToAvatarFile = (base64: string): File => {
+  const binary = window.atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index++) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return new File([bytes], 'avatar.jpg', { type: 'image/jpeg' })
+}
+
+const uploadPendingAvatar = async (): Promise<string> => {
+  const formData = new FormData()
+  formData.append('file', base64ToAvatarFile(pendingAvatarBase64.value))
+  const response = await request.post<AvatarUploadResponse>('/member/profile/avatar', formData)
+  const avatar = response.data.result.avatar
+  if (!avatar) {
+    throw new Error('头像上传接口未返回头像地址')
+  }
+  return avatar
+}
+
 onMounted(() => {
   getUserInfo()
 })
@@ -121,7 +170,12 @@ const getUserInfo = async () => {
   showLoadingToast({ message: '加载中...', duration: 0, forbidClick: true })
   try {
     const res = await request.get('member/profile')
-    userInfo.value = res.data.result
+    const sessionUser = window.mk?.queryUser()
+    userInfo.value = {
+      ...sessionUser,
+      ...res.data.result,
+      token: sessionUser?.token || '',
+    } as HDMUser
   } catch {
     showToast({ message: '资料加载失败，请稍后重试' })
   } finally {
@@ -138,7 +192,12 @@ const onSubmit = async () => {
 
   isLoading.value = true
   try {
-    await request.put('/member/profile', userInfo.value)
+    if (pendingAvatarBase64.value) {
+      userInfo.value.avatar = await uploadPendingAvatar()
+      pendingAvatarBase64.value = ''
+      await window.mk.updateUser(userInfo.value)
+    }
+    await request.put('/member/profile', createProfileUpdatePayload(userInfo.value))
     await window.mk.updateUser(userInfo.value)
     showToast('修改成功')
   } catch {

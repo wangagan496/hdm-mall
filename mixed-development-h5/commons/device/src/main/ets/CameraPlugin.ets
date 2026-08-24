@@ -1,7 +1,7 @@
 import { camera, cameraPicker } from '@kit.CameraKit'
 import { common } from '@kit.AbilityKit'
-import { util } from '@kit.ArkTS'
 import { fileIo } from '@kit.CoreFileKit'
+import { encodeAvatarFile } from './AvatarImage'
 
 class CameraPlugin {
   async pickerCamera(context: common.UIAbilityContext): Promise<string> {
@@ -15,11 +15,7 @@ class CameraPlugin {
     }
     const file = fileIo.openSync(pickerResult.resultUri)
     try {
-      const stat = fileIo.statSync(file.fd)
-      const buffer = new ArrayBuffer(stat.size)
-      fileIo.readSync(file.fd, buffer)
-      const helper = new util.Base64Helper()
-      return helper.encodeToStringSync(new Uint8Array(buffer))
+      return await encodeAvatarFile(file.fd)
     } finally {
       fileIo.closeSync(file)
     }

@@ -1,6 +1,6 @@
 import fs from '@ohos.file.fs'
-import { util } from '@kit.ArkTS'
 import { photoAccessHelper } from '@kit.MediaLibraryKit'
+import { encodeAvatarFile } from './AvatarImage'
 
 class PhotoPlugin {
   async pickerPhoto(): Promise<string> {
@@ -15,11 +15,7 @@ class PhotoPlugin {
     }
     const file = fs.openSync(uri)
     try {
-      const stat = fs.statSync(file.fd)
-      const buffer = new ArrayBuffer(stat.size)
-      fs.readSync(file.fd, buffer)
-      const helper = new util.Base64Helper()
-      return helper.encodeToStringSync(new Uint8Array(buffer))
+      return await encodeAvatarFile(file.fd)
     } finally {
       fs.closeSync(file)
     }

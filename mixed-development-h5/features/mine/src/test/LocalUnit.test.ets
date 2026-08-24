@@ -1,4 +1,6 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
+import { HDMUser } from 'models';
+import { mergeBridgeUser } from '../main/ets/presentation/views/userBridgePresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -28,6 +30,27 @@ export default function localUnitTest() {
       // Defines a variety of assertion methods, which are used to declare expected boolean conditions.
       expect(a).assertContain(b);
       expect(a).assertEqual(a);
+    });
+    it('preservesSessionTokenWhenProfileUpdateOmitsIt', 0, () => {
+      const current: HDMUser = {
+        token: 'session-token',
+        nickname: '旧昵称',
+        avatar: 'old-avatar.jpg',
+        account: 'zhousg'
+      };
+      const profileUpdate: HDMUser = {
+        token: '',
+        nickname: '新昵称',
+        avatar: 'new-avatar.jpg',
+        account: 'zhousg'
+      };
+
+      const merged: HDMUser = mergeBridgeUser(current, profileUpdate);
+
+      expect(merged.token).assertEqual('session-token');
+      expect(merged.nickname).assertEqual('新昵称');
+      expect(merged.avatar).assertEqual('new-avatar.jpg');
+      expect(merged.account).assertEqual('zhousg');
     });
   });
 }

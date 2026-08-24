@@ -4,6 +4,7 @@ import { auth, storeManager, userSession } from 'storage'
 import { cameraPlugin, locationPlugin, photoPlugin, sensorPlugin } from 'device'
 import { common } from '@kit.AbilityKit'
 import { webview } from '@kit.ArkWeb'
+import { mergeBridgeUser } from './userBridgePresentation'
 
 const BRIDGE_NAME: string = 'mk'
 const BRIDGE_PERMISSION: string =
@@ -24,8 +25,9 @@ class HDMWebBridge {
   }
 
   async updateUser(user: HDMUser): Promise<void> {
-    await storeManager.setUserInfo(user)
-    auth.setUserInfo(user)
+    const mergedUser: HDMUser = mergeBridgeUser(auth.getUserInfo(), user)
+    await storeManager.setUserInfo(mergedUser)
+    auth.setUserInfo(mergedUser)
   }
 
   async removeUser(): Promise<void> {
@@ -151,9 +153,12 @@ struct WebView {
             .javaScriptProxy({
               object: this.bridgeObject,
               name: BRIDGE_NAME,
-              methodList: ['queryUser', 'vibrator', 'getAreaColumns'],
+              methodList: [
+                'queryUser', 'vibrator', 'getAreaColumns',
+                'updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto'
+              ],
               controller: this.controller,
-              asyncMethodList: ['updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto'],
+              asyncMethodList: [],
               permission: BRIDGE_PERMISSION
             })
             .onProgressChange((data) => {
