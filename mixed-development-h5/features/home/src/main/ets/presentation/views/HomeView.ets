@@ -217,6 +217,7 @@ export struct HomeView {
           .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK, { scale: 0.25 })
         }
         .onClick(() => {
+          AppStorage.setOrCreate(BusinessVariable.CATEGORY_TARGET_ID, item.id)
           AppStorage.setOrCreate('currentTabIndex', 1)
         })
       })

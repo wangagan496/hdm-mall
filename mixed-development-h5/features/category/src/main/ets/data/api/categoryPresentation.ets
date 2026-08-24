@@ -2,6 +2,10 @@ import { CategoryItem, CategoryItemChild } from 'models'
 
 export const STORAGE_BAG_KEYWORD_CATEGORY_ID: string = '__keyword_storage_bag__'
 
+export function findCategoryIndexById(categories: CategoryItem[], categoryId: string): number {
+  return categories.findIndex((category: CategoryItem): boolean => category.id === categoryId)
+}
+
 export function renameSunHatCategory(categories: CategoryItem[]): CategoryItem[] {
   return categories.map((category: CategoryItem): CategoryItem => {
     return {

@@ -1,9 +1,10 @@
-import { GlobalVariable, PAGE_PATH } from 'constants'
+import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { CategoryItem, CategoryItemChild } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { getCategoryTopAPI, getStorageBagPictureAPI } from '../../data/api'
 import {
   addStorageBagCategory,
+  findCategoryIndexById,
   isStorageBagKeywordCategory,
   renameSunHatCategory,
   updateStorageBagCategoryPicture
@@ -15,6 +16,7 @@ import { SearchRouterParam } from '../../domain/models'
 export struct CategoryView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) topHeight: number = 0
   @Prop @Watch('onActiveChange') isActive: boolean = false
+  @StorageLink(BusinessVariable.CATEGORY_TARGET_ID) requestedCategoryId: string = ''
   @State categories: CategoryItem[] = []
   @State activeIndex: number = 0
   @State loading: boolean = false
@@ -28,8 +30,20 @@ export struct CategoryView {
 
   onActiveChange(): void {
     if (this.isActive) {
+      this.applyRequestedCategory()
       this.loadStorageBagPicture()
     }
+  }
+
+  applyRequestedCategory(): void {
+    if (!this.requestedCategoryId || this.categories.length === 0) {
+      return
+    }
+    const targetIndex: number = findCategoryIndexById(this.categories, this.requestedCategoryId)
+    if (targetIndex >= 0) {
+      this.activeIndex = targetIndex
+    }
+    this.requestedCategoryId = ''
   }
 
   async loadCategories() {
@@ -40,6 +54,7 @@ export struct CategoryView {
         renameSunHatCategory(categories),
         $r('app.media.category_storage_bag')
       )
+      this.applyRequestedCategory()
       if (this.isActive) {
         this.loadStorageBagPicture()
       }

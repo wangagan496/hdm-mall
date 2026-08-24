@@ -14,6 +14,7 @@ export class GlobalVariable {
 
 export class BusinessVariable {
   static readonly CATEGORY_DATA: string = "category"
+  static readonly CATEGORY_TARGET_ID: string = "category_target_id"
   static readonly CART_COUNT: string = "cart_count"
   static readonly UPDATE_CART_LIST: string = "update_cart_list"
   static readonly UPDATE_HOME_DATA: string = "update_home_data"

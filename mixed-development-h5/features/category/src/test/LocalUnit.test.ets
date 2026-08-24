@@ -3,6 +3,7 @@ import { CategoryItem, HDMGoodsItem } from 'models';
 import { findStorageBagPicture } from '../main/ets/data/api';
 import {
   addStorageBagCategory,
+  findCategoryIndexById,
   isStorageBagKeywordCategory,
   renameSunHatCategory,
   STORAGE_BAG_KEYWORD_CATEGORY_ID,
@@ -57,6 +58,17 @@ export default function localUnitTest() {
       expect(children[1].name).assertEqual('收纳包');
       expect(children[1].id).assertEqual(STORAGE_BAG_KEYWORD_CATEGORY_ID);
       expect(isStorageBagKeywordCategory(children[1].id)).assertTrue();
+    });
+    it('findsHomeCategoryByStableIdInsteadOfListPosition', 0, () => {
+      const categories: CategoryItem[] = [
+        { id: 'bags', name: '箱包手袋', picture: '' },
+        { id: 'women', name: '气质女装', picture: '' },
+        { id: 'accessories', name: '时尚饰品', picture: '' }
+      ];
+
+      expect(findCategoryIndexById(categories, 'women')).assertEqual(1);
+      expect(findCategoryIndexById(categories, 'accessories')).assertEqual(2);
+      expect(findCategoryIndexById(categories, 'missing')).assertEqual(-1);
     });
     it('doesNotDuplicateBackendStorageBagCategory', 0, () => {
       const categories: CategoryItem[] = [
