@@ -2,6 +2,7 @@ import { RequestAxios } from 'network'
 import { CategoryItem, HDMGoodsItem } from 'models'
 import { Banner, Goods, HotResult, SearchResult, RecommendParams } from '../../domain/models'
 import { generateFallbackGoods } from './mockData'
+import { normalizeGoodsPresentation, normalizeGoodsSummaryPicture } from './goodsPresentation'
 
 export const getBannerAPI = () => {
   return RequestAxios.get<Banner[]>("/home/banner")
@@ -31,8 +32,32 @@ export const getRecommendAPI = (params: RecommendParams) => {
   return RequestAxios.get<HDMGoodsItem[]>("/home/recommend", params)
 }
 
+async function requestGoodsDetail(goodsId: string): Promise<Goods> {
+  const params: GoodsDetailParams = { id: goodsId }
+  const detail: Goods = await RequestAxios.getSilent<Goods>('/goods', params)
+  if (!detail || detail.id !== goodsId) {
+    throw new Error('商品详情与入口商品不匹配')
+  }
+  return detail
+}
+
 export const searchGoodsAPI = (data: object) => {
-  return RequestAxios.post<SearchResult>("/search/all", data)
+  return RequestAxios.post<SearchResult>('/search/all', data)
+}
+
+export const normalizeSearchGoodsPicturesAPI = async (
+  items: HDMGoodsItem[]
+): Promise<HDMGoodsItem[]> => {
+  const results: PromiseSettledResult<Goods>[] = await Promise.allSettled(
+    items.map((item: HDMGoodsItem): Promise<Goods> => requestGoodsDetail(item.id))
+  )
+  return items.map((item: HDMGoodsItem, index: number): HDMGoodsItem => {
+    const result: PromiseSettledResult<Goods> = results[index]
+    if (result.status !== 'fulfilled') {
+      return item
+    }
+    return normalizeGoodsSummaryPicture(item, result.value)
+  })
 }
 
 export interface RealGoodsItem {
@@ -74,16 +99,8 @@ export const getRealSearchGoodsAPI = (
 
 export const getDetailAPI = async (source: HDMGoodsItem): Promise<Goods> => {
   try {
-    const params: GoodsDetailParams = { id: source.id }
-    const detail: Goods = await RequestAxios.getSilent<Goods>(
-      '/goods',
-      params
-    )
-    // 部分接口会以 200 返回空结果，不能把 undefined 继续传给详情子组件。
-    if (detail) {
-      return detail
-    }
-    return generateFallbackGoods(source)
+    const detail: Goods = await requestGoodsDetail(source.id)
+    return normalizeGoodsPresentation(source, detail)
   } catch {
     return generateFallbackGoods(source)
   }

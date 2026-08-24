@@ -1,7 +1,8 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { BreakPointType, HDMGoodsItem, ListDataSource } from 'models'
 import { HDMEmpty, HDMGoods } from 'ui_components'
-import { searchGoodsAPI } from '../../data/api'
+import { normalizeSearchGoodsPicturesAPI, searchGoodsAPI } from '../../data/api'
+import { filterSearchGoods } from '../../data/api/searchPresentation'
 import { SearchParams, SearchRouterParam, SortCompAttr, SortField, SortMethod } from '../../domain/models'
 import { SearchSortItem } from './SearchSortItem'
 
@@ -51,13 +52,23 @@ export struct SearchResultView {
   async queryGoodsData() {
     this.loading = true
     try {
-      const result = await searchGoodsAPI(this.params)
-      this.resultCount = result.pageData.counts
-      this.lazyDataSource.addArr(result.pageData.items)
-      this.params.page++
-      if (result.pageData.pages < this.params.page) {
-        this.isFinished = true
-      }
+      let visibleItems: HDMGoodsItem[] = []
+      do {
+        const result = await searchGoodsAPI(this.params)
+        const relevantItems: HDMGoodsItem[] = filterSearchGoods(
+          result.pageData.items,
+          this.params.keyword,
+          this.params.categoryId
+        )
+        visibleItems = await normalizeSearchGoodsPicturesAPI(relevantItems)
+        if (visibleItems.length > 0) {
+          this.lazyDataSource.addArr(visibleItems)
+        }
+        this.params.page++
+        this.isFinished = result.pageData.pages < this.params.page
+        // 若当前页全是被排除的错误类型，继续取下一页，避免提前展示“暂无商品”。
+      } while (visibleItems.length === 0 && !this.isFinished)
+      this.resultCount = this.lazyDataSource.totalCount()
     } finally {
       this.loading = false
     }
@@ -143,9 +154,9 @@ export struct SearchResultView {
           })
             .layoutWeight(1)
         } else {
-          WaterFlow({ scroller: this.scroller }) {
+          Grid(this.scroller) {
             LazyForEach(this.lazyDataSource, (item: HDMGoodsItem) => {
-              FlowItem() {
+              GridItem() {
                 HDMGoods({ goods: item, smallImage: true })
               }
             })
@@ -159,8 +170,8 @@ export struct SearchResultView {
               .getValue(this.breakPoint)
 
           )
-          .columnsGap(0.5)
-          .rowsGap(0.5)
+          .columnsGap(1)
+          .rowsGap(1)
           .layoutWeight(1)
           .onReachEnd(async () => {
             if (!this.loading && !this.isFinished) {

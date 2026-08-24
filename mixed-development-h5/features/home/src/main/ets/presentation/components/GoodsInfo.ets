@@ -1,5 +1,6 @@
 import { HDMPreviewImage } from 'ui_components'
 import { Goods } from "../../domain/models"
+import { excludeFailedPicture } from '../../data/api/goodsPresentation'
 
 @Component
 export struct GoodsInfo {
@@ -8,6 +9,7 @@ export struct GoodsInfo {
   goods: Goods = {} as Goods
   @Link
   showSheet: boolean
+  @State displayPictures: string[] = []
   urls: string[] = [] // 要提前声明
   activeIndex: number = 0
   previewDialog: CustomDialogController | null = null
@@ -28,20 +30,16 @@ export struct GoodsInfo {
   }
 
   getMainPictures(): string[] {
-    if (!this.goods) {
-      return []
-    }
-    if (this.goods.mainPictures && this.goods.mainPictures.length > 0) {
-      return this.goods.mainPictures
-    }
-    if (this.goods.picture) {
-      return [this.goods.picture as string]
-    }
-    return []
+    return this.displayPictures
   }
 
   getGoods(): Goods {
     return this.goods || {} as Goods
+  }
+
+  getDisplayPrice(): string {
+    const price: string = this.getGoods().price
+    return price ? Number(price).toString() : ''
   }
 
   aboutToAppear(): void {
@@ -49,46 +47,63 @@ export struct GoodsInfo {
   }
 
   updateGoods() {
-    // 不考虑第二次
-    //
     if (!this.goods) {
+      this.displayPictures = []
       return
     }
-    if (this.goods.picture && !this.goods.mainPictures?.length) {
-      this.goods.mainPictures = [this.goods.picture as string] // 直接就一个图片数组赋值
-      // this.goods.mainPictures.push(this.goods.picture as string)
+
+    const candidates: string[] = []
+    if (this.goods.mainPictures && this.goods.mainPictures.length > 0) {
+      this.goods.mainPictures.forEach((picture: string): void => {
+        if (picture && !candidates.includes(picture)) {
+          candidates.push(picture)
+        }
+      })
+    } else if (typeof this.goods.picture === 'string' && this.goods.picture) {
+      candidates.push(this.goods.picture)
     }
-    // ["xxx/1.png"]
-    // ["xxx/1.png", ....]
+    this.displayPictures = candidates
+  }
+
+  removeFailedPicture(src: string): void {
+    this.displayPictures = excludeFailedPicture(this.displayPictures, src)
   }
 
   build() {
     Column() {
-      // 有 多张图片显示轮播图
-      // if (this.goods.mainPictures && this.goods.mainPictures.length) {
-      Swiper() {
-        ForEach(this.getMainPictures(), (src: string, index: number) => {
-          Image(src)
-            .onClick(() => {
-              this.openPreview(this.getMainPictures(), index)
-            })
-        }) // 默认key index_JSON.stringify(item) 0_xxx
+      if (this.displayPictures.length > 0) {
+        Swiper() {
+          ForEach(this.displayPictures, (src: string, index: number) => {
+            Image(src)
+              .alt($r('[ui_components].media.ic_public_empty'))
+              .objectFit(ImageFit.Contain)
+              .accessibilityText(`商品图片${index + 1}`)
+              .onError(() => {
+                this.removeFailedPicture(src)
+              })
+              .onClick(() => {
+                this.openPreview(this.displayPictures, index)
+              })
+          }, (src: string): string => src)
+        }
+        .cachedCount(5)
+        .indicator(Indicator.digit()
+          .right(10)
+          .bottom(6))
+        .width('100%')
+        .aspectRatio(1)
+      } else {
+        Image($r('[ui_components].media.ic_public_empty'))
+          .objectFit(ImageFit.Contain)
+          .accessibilityText('商品图片加载失败')
+          .width('100%')
+          .aspectRatio(1)
       }
-      .cachedCount(5)
-      .indicator(Indicator.digit()
-        .right(10)
-        .bottom(6))
-      .width('100%')
-      .aspectRatio(1)
-
-      // }
 
       Column() {
-        Text() {
-          Span('¥ ')
-          Span(this.getGoods().price)
-            .fontSize(24)
-        }
+        // 与列表卡片共用数值格式，同时避免异步刷新后价格 Span 丢失。
+        Text('¥ ' + this.getDisplayPrice())
+          .fontSize(24)
         .width('100%')
         .fontWeight(500)
         .fontColor($r('[ui_components].color.black'))

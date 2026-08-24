@@ -10,79 +10,14 @@ import {
   getInVogueAPI,
   getOneStopAPI,
   getRecommendAPI,
+  fillPromotionGoods,
+  getDistinctGoods
 } from '../../data/api'
 import { HDMDiscountGoods } from '../components'
 import { Banner, Params, DiscountType, RecommendParams } from '../../domain/models'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 import { storeManager } from 'storage'
-
-function getPictureKey(item: HDMGoodsItem): string {
-  if (typeof item.picture !== 'string') {
-    return ''
-  }
-  return item.picture.split('?')[0].split('#')[0].toLowerCase()
-}
-
-function getContentKey(item: HDMGoodsItem): string {
-  const name: string = item.name.trim().toLowerCase()
-  if (!name) {
-    return ''
-  }
-  return `${name}|${item.price.trim()}`
-}
-
-function getDistinctGoods(
-  primary: HDMGoodsItem[],
-  excluded: HDMGoodsItem[],
-  fallbacks: HDMGoodsItem[][],
-  limit: number = primary.length
-): HDMGoodsItem[] {
-  const result: HDMGoodsItem[] = []
-  const blockedIds: Set<string> = new Set<string>()
-  const blockedPictures: Set<string> = new Set<string>()
-  const blockedContents: Set<string> = new Set<string>()
-  const targetCount: number = limit
-
-  excluded.forEach((item: HDMGoodsItem) => {
-    blockedIds.add(item.id)
-    const pictureKey: string = getPictureKey(item)
-    const contentKey: string = getContentKey(item)
-    if (pictureKey) {
-      blockedPictures.add(pictureKey)
-    }
-    if (contentKey) {
-      blockedContents.add(contentKey)
-    }
-  })
-
-  const appendGoods = (candidates: HDMGoodsItem[]): void => {
-    candidates.forEach((item: HDMGoodsItem) => {
-      if (result.length >= targetCount) {
-        return
-      }
-      const pictureKey: string = getPictureKey(item)
-      const contentKey: string = getContentKey(item)
-      if (blockedIds.has(item.id) ||
-        (pictureKey && blockedPictures.has(pictureKey)) ||
-        (contentKey && blockedContents.has(contentKey))) {
-        return
-      }
-      blockedIds.add(item.id)
-      if (pictureKey) {
-        blockedPictures.add(pictureKey)
-      }
-      if (contentKey) {
-        blockedContents.add(contentKey)
-      }
-      result.push(item)
-    })
-  }
-
-  appendGoods(primary)
-  fallbacks.forEach((items: HDMGoodsItem[]) => appendGoods(items))
-  return result
-}
 
 @Component
 export struct HomeView {
@@ -152,16 +87,24 @@ export struct HomeView {
     const newGoods: HDMGoodsItem[] = result[5].status === "fulfilled" ? result[5].value : []
 
     const promotionLimit: number = 4
-    this.saleGoods = getDistinctGoods(saleGoods, newGoods, [hotGoods, oneGoods], promotionLimit)
+    const selectedSaleGoods: HDMGoodsItem[] =
+      getDistinctGoods(saleGoods, newGoods, [hotGoods, oneGoods], promotionLimit)
+    const saleAndNewGoods: HDMGoodsItem[] = newGoods.concat(selectedSaleGoods)
+    const selectedHotGoods: HDMGoodsItem[] =
+      getDistinctGoods(hotGoods, saleAndNewGoods, [oneGoods, saleGoods], promotionLimit)
+    const promotedGoods: HDMGoodsItem[] = selectedSaleGoods.concat(selectedHotGoods)
+    const reservedGoods: HDMGoodsItem[] = newGoods.concat(promotedGoods)
+    const distinctOneGoods: HDMGoodsItem[] =
+      getDistinctGoods(oneGoods, reservedGoods, [hotGoods, saleGoods], promotionLimit)
+    const selectedOneGoods: HDMGoodsItem[] = fillPromotionGoods(distinctOneGoods, oneGoods, promotionLimit)
+
+    this.saleGoods = selectedSaleGoods
     if (this.saleGoods.length > 0) {
       this.pushImageToCard(this.saleGoods)
     }
-    const saleAndNewGoods: HDMGoodsItem[] = newGoods.concat(this.saleGoods)
-    this.hotGoods = getDistinctGoods(hotGoods, saleAndNewGoods, [oneGoods, saleGoods], promotionLimit)
-    const promotedGoods: HDMGoodsItem[] = this.saleGoods.concat(this.hotGoods)
-    const reservedGoods: HDMGoodsItem[] = newGoods.concat(promotedGoods)
-    this.oneGoods = getDistinctGoods(oneGoods, reservedGoods, [hotGoods, saleGoods], promotionLimit)
-    const displayedGoods: HDMGoodsItem[] = promotedGoods.concat(this.oneGoods)
+    this.hotGoods = selectedHotGoods
+    this.oneGoods = selectedOneGoods
+    const displayedGoods: HDMGoodsItem[] = promotedGoods.concat(selectedOneGoods)
     this.newGoods = getDistinctGoods(newGoods, displayedGoods, [])
 
     this.loading = false

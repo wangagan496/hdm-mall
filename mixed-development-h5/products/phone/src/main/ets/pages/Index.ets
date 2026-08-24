@@ -72,7 +72,9 @@ struct Index {
         ForEach(TAB_LIST, (item: TabItem, index: number) => {
           TabContent() {
             if (index === TabIndex.HOME) { HomeView() }
-            else if (index === TabIndex.CATEGORY) { CategoryView() }
+            else if (index === TabIndex.CATEGORY) {
+              CategoryView({ isActive: this.activeIndex === TabIndex.CATEGORY })
+            }
             else if (index === TabIndex.CART) { CartView() }
             else if (index === TabIndex.MINE) { MineView() }
           }
