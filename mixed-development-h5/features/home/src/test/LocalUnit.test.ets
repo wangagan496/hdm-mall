@@ -7,6 +7,7 @@ import {
   normalizeGoodsPresentation,
   normalizeGoodsSummaryPicture
 } from '../main/ets/data/api/goodsPresentation';
+import { normalizeGoodsSummaryPictures } from '../main/ets/data/api/home';
 import { HDMGoodsItem } from 'models';
 import { Goods } from '../main/ets/domain/models';
 import { filterSearchGoods } from '../main/ets/data/api/searchPresentation';
@@ -151,6 +152,41 @@ export default function localUnitTest() {
       expect(normalized.picture).assertEqual('cream-drawstring-bag.png');
       expect(normalized.id).assertEqual(source.id);
       expect(normalized.name).assertEqual(source.name);
+    });
+    it('replacesWrongOneStopCoverWithoutChangingProductIdentity', 0, () => {
+      const oneStopItem: HDMGoodsItem = createGoodsItem(
+        'coat-1437',
+        'gym master 时尚多口袋长款保暖大衣 拼色'
+      );
+      oneStopItem.price = '1437';
+      oneStopItem.picture = 'glasses.png';
+      const coatDetail: Goods = createGoodsDetail(oneStopItem, [
+        'glasses.png',
+        'coat.png',
+        'coat.png'
+      ]);
+
+      const normalized: HDMGoodsItem[] = normalizeGoodsSummaryPictures(
+        [oneStopItem],
+        [coatDetail]
+      );
+
+      expect(normalized.length).assertEqual(1);
+      expect(normalized[0].id).assertEqual(oneStopItem.id);
+      expect(normalized[0].name).assertEqual(oneStopItem.name);
+      expect(normalized[0].price).assertEqual(oneStopItem.price);
+      expect(normalized[0].picture).assertEqual('coat.png');
+    });
+    it('keepsPromotionCardWhenItsDetailRequestFails', 0, () => {
+      const oneStopItem: HDMGoodsItem = createGoodsItem('one-stop', '一站买全商品');
+
+      const normalized: HDMGoodsItem[] = normalizeGoodsSummaryPictures(
+        [oneStopItem],
+        [undefined]
+      );
+
+      expect(normalized.length).assertEqual(1);
+      expect(normalized[0]).assertEqual(oneStopItem);
     });
     it('fillsOneStopPromotionToTheSameCountAsHotPromotion', 0, () => {
       const distinctOneStopGoods: HDMGoodsItem[] = [

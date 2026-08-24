@@ -1,5 +1,70 @@
 import { HDMGoodsItem } from 'models'
 import { Goods } from '../../domain/models'
+import { HDMSkuType, HDMSpec } from 'ui_components'
+
+function skuSupportsSelection(sku: HDMSkuType, selectedValues: (string | undefined)[]): boolean {
+  for (let index: number = 0; index < selectedValues.length; index++) {
+    const selectedValue: string | undefined = selectedValues[index]
+    if (!selectedValue) {
+      continue
+    }
+    if (index >= sku.specs.length || sku.specs[index].valueName !== selectedValue) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
+ * SKU 组件要求每条可点击的选择路径都能命中有库存的 SKU。
+ * 挂载前修正初始选中和禁用状态，避免不完整的接口规格矩阵触发组件内部空值访问。
+ */
+export function normalizeSkuSpecs(skus: HDMSkuType[], specs: HDMSpec[]): HDMSpec[] {
+  const availableSkus: HDMSkuType[] = skus.filter((sku: HDMSkuType): boolean => sku.inventory > 0)
+  const normalizedSpecs: HDMSpec[] = specs.map((spec: HDMSpec): HDMSpec => {
+    const normalizedSpec: HDMSpec = {
+      name: spec.name,
+      values: []
+    }
+    spec.values.forEach(value => {
+      normalizedSpec.values.push({
+        name: value.name,
+        picture: value.picture,
+        selected: value.selected,
+        disabled: value.disabled
+      })
+    })
+    return normalizedSpec
+  })
+  const selectedValues: (string | undefined)[] = []
+
+  normalizedSpecs.forEach((spec: HDMSpec): void => {
+    const selectedValue = spec.values.find(value => value.selected)
+    selectedValues.push(selectedValue ? selectedValue.name : undefined)
+  })
+
+  const hasSelection: boolean = selectedValues.some((value: string | undefined): boolean => !!value)
+  if (hasSelection && !availableSkus.some((sku: HDMSkuType): boolean => {
+    return skuSupportsSelection(sku, selectedValues)
+  })) {
+    normalizedSpecs.forEach((spec: HDMSpec): void => {
+      spec.values.forEach(value => value.selected = false)
+    })
+    selectedValues.fill(undefined)
+  }
+
+  normalizedSpecs.forEach((spec: HDMSpec, specIndex: number): void => {
+    spec.values.forEach(value => {
+      const candidateValues: (string | undefined)[] = selectedValues.slice()
+      candidateValues[specIndex] = value.name
+      value.disabled = !availableSkus.some((sku: HDMSkuType): boolean => {
+        return skuSupportsSelection(sku, candidateValues)
+      })
+    })
+  })
+
+  return normalizedSpecs
+}
 
 function getPictureKey(item: HDMGoodsItem): string {
   if (typeof item.picture !== 'string') {
@@ -135,7 +200,7 @@ export function normalizeGoodsPresentation(source: HDMGoodsItem, detail: Goods):
     inventory: detail.inventory,
     mainPictures: productPicture ? [productPicture] : [],
     details: detail.details,
-    specs: detail.specs,
+    specs: normalizeSkuSpecs(detail.skus, detail.specs),
     skus: detail.skus
   }
 }

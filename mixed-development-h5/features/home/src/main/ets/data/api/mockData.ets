@@ -63,10 +63,8 @@ export function generateFallbackGoods(source: HDMGoodsItem): Goods {
       {
         name: '尺码',
         values: [
-          { name: 'S',  picture: null, selected: false, disabled: false },
           { name: 'M',  picture: null, selected: true,  disabled: false },
-          { name: 'L',  picture: null, selected: false, disabled: false },
-          { name: 'XL', picture: null, selected: false, disabled: false }
+          { name: 'L',  picture: null, selected: false, disabled: false }
         ]
       }
     ],

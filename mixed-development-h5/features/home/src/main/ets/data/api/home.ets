@@ -45,20 +45,35 @@ export const searchGoodsAPI = (data: object) => {
   return RequestAxios.post<SearchResult>('/search/all', data)
 }
 
-export const normalizeSearchGoodsPicturesAPI = async (
+export function normalizeGoodsSummaryPictures(
+  items: HDMGoodsItem[],
+  details: (Goods | undefined)[]
+): HDMGoodsItem[] {
+  return items.map((item: HDMGoodsItem, index: number): HDMGoodsItem => {
+    const detail: Goods | undefined = details[index]
+    if (!detail || detail.id !== item.id) {
+      return item
+    }
+    return normalizeGoodsSummaryPicture(item, detail)
+  })
+}
+
+export const normalizeGoodsSummaryPicturesAPI = async (
   items: HDMGoodsItem[]
 ): Promise<HDMGoodsItem[]> => {
   const results: PromiseSettledResult<Goods>[] = await Promise.allSettled(
     items.map((item: HDMGoodsItem): Promise<Goods> => requestGoodsDetail(item.id))
   )
-  return items.map((item: HDMGoodsItem, index: number): HDMGoodsItem => {
-    const result: PromiseSettledResult<Goods> = results[index]
+  const details: (Goods | undefined)[] = results.map((result: PromiseSettledResult<Goods>): Goods | undefined => {
     if (result.status !== 'fulfilled') {
-      return item
+      return undefined
     }
-    return normalizeGoodsSummaryPicture(item, result.value)
+    return result.value
   })
+  return normalizeGoodsSummaryPictures(items, details)
 }
+
+export const normalizeSearchGoodsPicturesAPI = normalizeGoodsSummaryPicturesAPI
 
 export interface RealGoodsItem {
   goodsId: string

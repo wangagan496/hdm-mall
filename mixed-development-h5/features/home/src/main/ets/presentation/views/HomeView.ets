@@ -10,6 +10,7 @@ import {
   getInVogueAPI,
   getOneStopAPI,
   getRecommendAPI,
+  normalizeGoodsSummaryPicturesAPI,
   fillPromotionGoods,
   getDistinctGoods
 } from '../../data/api'
@@ -97,14 +98,19 @@ export struct HomeView {
     const distinctOneGoods: HDMGoodsItem[] =
       getDistinctGoods(oneGoods, reservedGoods, [hotGoods, saleGoods], promotionLimit)
     const selectedOneGoods: HDMGoodsItem[] = fillPromotionGoods(distinctOneGoods, oneGoods, promotionLimit)
+    const normalizedPromotions: HDMGoodsItem[][] = await Promise.all([
+      normalizeGoodsSummaryPicturesAPI(selectedSaleGoods),
+      normalizeGoodsSummaryPicturesAPI(selectedHotGoods),
+      normalizeGoodsSummaryPicturesAPI(selectedOneGoods)
+    ])
 
-    this.saleGoods = selectedSaleGoods
+    this.saleGoods = normalizedPromotions[0]
     if (this.saleGoods.length > 0) {
       this.pushImageToCard(this.saleGoods)
     }
-    this.hotGoods = selectedHotGoods
-    this.oneGoods = selectedOneGoods
-    const displayedGoods: HDMGoodsItem[] = promotedGoods.concat(selectedOneGoods)
+    this.hotGoods = normalizedPromotions[1]
+    this.oneGoods = normalizedPromotions[2]
+    const displayedGoods: HDMGoodsItem[] = this.saleGoods.concat(this.hotGoods, this.oneGoods)
     this.newGoods = getDistinctGoods(newGoods, displayedGoods, [])
 
     this.loading = false
