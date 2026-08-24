@@ -15,6 +15,7 @@ export struct HDMGuess {
   page: number = 1
   @State
   allPage: number = 1
+  inset: boolean = false
 
   aboutToAppear(): void {
     this.getGuess()
@@ -32,11 +33,13 @@ export struct HDMGuess {
       Row() {
         Text("猜你喜欢")
           .fontColor($r("app.color.black"))
+          .fontSize(this.inset ? 16 : 14)
+          .fontWeight(this.inset ? FontWeight.Medium : FontWeight.Normal)
       }
-      .height(50)
+      .height(this.inset ? 48 : 50)
       .width("100%")
       .justifyContent(FlexAlign.Center)
-      .backgroundColor($r("app.color.white"))
+      .backgroundColor(this.inset ? $r("app.color.under") : $r("app.color.white"))
 
       WaterFlow() {
         LazyForEach(this.lazyDataSource, (item: HDMGoodsItem) => {
@@ -58,6 +61,7 @@ export struct HDMGuess {
       )
       .columnsGap(10)
       .rowsGap(10)
+      .padding({ left: this.inset ? 12 : 0, right: this.inset ? 12 : 0 })
       .onReachEnd(async () => {
         if (!this.loading && this.page <= this.allPage) {
           this.loading = true

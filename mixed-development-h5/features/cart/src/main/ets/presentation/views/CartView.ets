@@ -114,7 +114,7 @@ export struct CartView {
     Text('删除')
       .fontSize(14)
       .width(60)
-      .height(100)
+      .height(112)
       .backgroundColor($r('[ui_components].color.red'))
       .fontColor($r('[ui_components].color.white'))
       .textAlign(TextAlign.Center)
@@ -172,7 +172,7 @@ export struct CartView {
           .backgroundColor($r('[ui_components].color.white'))
         }
 
-        List() {
+        List({ space: 8 }) {
           if (this.user.token) {
 
 
@@ -208,7 +208,7 @@ export struct CartView {
                   })
                 }
                 .backgroundColor($r('[ui_components].color.under'))
-                .padding({ left: 8, right: 8 })
+                .padding({ left: 12, right: 12 })
                 .transition({ type: TransitionType.Delete, opacity: 0 })
                 .swipeAction({
                   end: this.DeleteBuilder(cart.skuId)
@@ -246,8 +246,8 @@ export struct CartView {
             }
           }
           ListItem() {
-            HDMGuess()
-              .margin({ top: 8, bottom: 8 })
+            HDMGuess({ inset: true })
+              .margin({ top: 4, bottom: 8 })
           }
 
         }
@@ -260,7 +260,9 @@ export struct CartView {
           Row() {
             Checkbox()
               .selectedColor($r('[ui_components].color.red'))
+              .size({ width: 20, height: 20 })
               .select(this.isCheckAll)
+              .accessibilityText(this.isCheckAll ? '取消全选' : '全选商品')
               .onClick(async () => {
                 // 点击全选中/全取消
                 this.isCheckAll = !this.isCheckAll
@@ -282,19 +284,21 @@ export struct CartView {
             Text('全选')
               .fontSize(14)
               .fontColor($r('[ui_components].color.black'))
-              .margin({ right: 20 })
-            Text('合计:')
+              .margin({ right: 12 })
+            Text('合计')
               .fontSize(14)
               .fontColor($r('[ui_components].color.black'))
-              .margin({ right: 2 })
-            Text(this.allPrice.toFixed(2))
+              .margin({ right: 4 })
+            Text(`¥${this.allPrice.toFixed(2)}`)
               .fontSize(16)
               .fontWeight(500)
               .fontColor($r('[ui_components].color.red'))
               .layoutWeight(1)
             Button('去结算')
               .fontSize(14)
-              .height(36)
+              .width(88)
+              .height(40)
+              .borderRadius(20)
               .backgroundColor($r('[ui_components].color.red'))// .enabled(this.allPrice > 0)
               .enabled(this.cartList.some(item => item.selected))
               .onClick(() => {
@@ -303,14 +307,14 @@ export struct CartView {
                 })
               })
           }
-          .height(50)
+          .height(56)
           .width('100%')
           .backgroundColor($r('[ui_components].color.white'))
           .border({
             width: { top: 0.5, bottom: 0.5 },
             color: '#e4e4e4'
           })
-          .padding({ left: 16, right: 16 })
+          .padding({ left: 12, right: 12 })
         }
       }
       .height('100%')

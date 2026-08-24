@@ -15,21 +15,25 @@ export struct CartItem {
   }
 
   build() {
-    Row({ space: 10 }) {
+    Row({ space: 12 }) {
       Checkbox()
         .selectedColor($r('[ui_components].color.red'))
-        .size({ width: 14, height: 14 })
+        .size({ width: 18, height: 18 })
         .select(this.cart.selected)
+        .accessibilityText(this.cart.selected ? '取消选择商品' : '选择商品')
         .onClick(() => {
           this.cart.selected = !this.cart.selected
           // 取消勾选或者勾选
           this.onChangeSelected(this.cart.selected)
         })
       Image(this.cart.picture)
-        .width(80)
-        .height(80)
+        .width(84)
+        .height(84)
+        .objectFit(ImageFit.Contain)
+        .borderRadius(8)
+        .backgroundColor($r('[ui_components].color.under'))
         .syncLoad(true) // 解决图片闪烁
-      Column({ space: 8 }) {
+      Column({ space: 6 }) {
         Row({ space: 8 }) {
           Text(this.cart.name)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -38,9 +42,9 @@ export struct CartItem {
             .fontColor($r('[ui_components].color.black'))
             .layoutWeight(1)
           Image($r('app.media.ic_cart_delete'))
-            .width(32)
-            .height(32)
-            .padding(7)
+            .width(28)
+            .height(28)
+            .padding(6)
             .fillColor($r('[ui_components].color.red'))
             .accessibilityText('删除商品')
             .onClick(() => {
@@ -61,10 +65,10 @@ export struct CartItem {
             .height(16)
         }
         .padding({ left: 6, right: 4 })
-        .width(100)
+        .constraintSize({ maxWidth: 140 })
         .height(24)
         .backgroundColor($r('[ui_components].color.under'))
-        .borderRadius(2)
+        .borderRadius(4)
 
         Row() {
           Text(`¥${this.cart.price}`)
@@ -73,6 +77,7 @@ export struct CartItem {
           Counter() {
             Text(this.cart.count.toString())
           }
+          .height(28)
           .enableDec(this.cart.count > 1)
           .onInc(async () => {
 
@@ -93,9 +98,10 @@ export struct CartItem {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .height(100)
-    .padding(10)
-    .border({ width: { bottom: 0.5 }, color: '#e4e4e4' })
+    .height(112)
+    .padding(12)
+    .borderRadius(12)
+    .clip(true)
     .backgroundColor($r('[ui_components].color.white'))
   }
 }
