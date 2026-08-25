@@ -15,6 +15,13 @@ interface IPickerParams {
 
 const showAvatarSheet = ref(false)
 const pendingAvatarBase64 = ref('')
+const isPickingAvatar = ref(false)
+
+const openAvatarSheet = () => {
+  if (!isPickingAvatar.value) {
+    showAvatarSheet.value = true
+  }
+}
 
 const selectAvatar = async (_action: ActionSheetAction, index: number) => {
   const bridge = window.mk
@@ -23,17 +30,23 @@ const selectAvatar = async (_action: ActionSheetAction, index: number) => {
     return
   }
 
+  isPickingAvatar.value = true
+  showLoadingToast({ message: '正在读取头像...', duration: 0, forbidClick: true })
   try {
     const base64 = index === 0
       ? await bridge.pickerCamera()
       : await bridge.pickerPhoto()
+    closeToast()
     if (base64) {
       pendingAvatarBase64.value = base64
       userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
     }
   } catch (error) {
+    closeToast()
     console.error('头像选择失败', error)
     showToast({ message: '头像获取失败' })
+  } finally {
+    isPickingAvatar.value = false
   }
 }
 
@@ -212,11 +225,17 @@ const onSubmit = async () => {
   <div class="profile-edit-page">
     <!-- 头像部分 -->
     <div class="avatar">
-      <van-image round width="100" height="100" class="avatar-img" :src="userInfo.avatar">
-      </van-image>
-      <div class="avatar-btn" @click="showAvatarSheet = true">
+      <button
+        type="button"
+        class="avatar-button"
+        aria-label="修改头像"
+        :disabled="isPickingAvatar"
+        @click="openAvatarSheet"
+      >
+        <van-image round width="100" height="100" class="avatar-img" :src="userInfo.avatar">
+        </van-image>
         <span>修改头像</span>
-      </div>
+      </button>
     </div>
     <!-- 头像选择弹窗 -->
     <van-action-sheet
@@ -304,9 +323,32 @@ const onSubmit = async () => {
   box-shadow: 0 0 5px #ccc;
 }
 
-.avatar-btn {
+.avatar-button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
   color: var(--mk-linear_end);
-  margin-top: 10px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.avatar-button:focus-visible {
+  outline: 2px solid var(--mk-linear_end);
+  outline-offset: 6px;
+  border-radius: 8px;
+}
+
+.avatar-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.avatar-button span {
+  color: var(--mk-linear_end);
 }
 
 .gender ::v-deep(.van-cell__title) {

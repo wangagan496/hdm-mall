@@ -53,19 +53,33 @@ export struct MineView {
                 Text(this.user.nickname || this.user.account)
                   .fontColor($r('[ui_components].color.black'))
                   .fontWeight(500)
+                Blank()
+                Text('编辑资料')
+                  .fontSize(12)
+                  .fontColor($r('[ui_components].color.gray'))
+                Image($r('[ui_components].media.ic_public_right'))
+                  .width(20)
+                  .aspectRatio(1)
+                  .fillColor($r('[ui_components].color.gray'))
               } else {
                 Text('立即登录')
                   .fontColor($r('[ui_components].color.black'))
                   .fontWeight(500)
-                  .onClick(() => {
-                    this.stackPath.pushPath({
-                      name: PAGE_PATH.LOGIN_PAGE
-                    })
-                  })
               }
             }
             .width('100%')
             .height(72)
+            .focusable(true)
+            .accessibilityText(this.user.token ? '头像和个人资料，点击编辑' : '头像，点击登录')
+            .onClick(() => {
+              if (this.user.token) {
+                this.stackPath.pushPathByName('WebView', null)
+              } else {
+                this.stackPath.pushPath({
+                  name: PAGE_PATH.LOGIN_PAGE
+                })
+              }
+            })
 
             Row({ space: 8 }) {
               Image($r('app.media.ic_user_vip'))
