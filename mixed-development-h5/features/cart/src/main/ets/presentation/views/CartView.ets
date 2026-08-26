@@ -1,23 +1,20 @@
-import { authCart } from 'storage'
 import { HDMConfirm, HDMEmpty, HDMGuess, HDMNavBar } from 'ui_components'
-import { CartGoods, CartGoodsModel, HDMUser, UpdateCartParams } from 'models'
+import { CartGoods, CartGoodsModel, HDMUser } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { delCart, getCartListAPI, selectOrUnSelect, updateCart } from '../../data/api'
+import { getCartListAPI } from '../../data/api'
 import { CartItem } from '../components'
 import { common } from '@kit.AbilityKit'
 import { excludeCartItems } from '../utils/CartPresentation'
+import { CartOperationHelper as CartOperations } from '../utils/CartOperations'
 
 @Component
 export struct CartView {
-  // 用户信息
   @StorageProp(GlobalVariable.USER_INFO_KEY)
   user: HDMUser = {} as HDMUser
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
-  // 商品信息
   @State
   cartList: CartGoodsModel[] = []
-  // 页面栈
   @Consume
   stackPath: NavPathStack
   @State
@@ -46,26 +43,15 @@ export struct CartView {
     context.eventHub.off(BusinessVariable.UPDATE_CART_LIST, this.cartUpdateCb)
   }
 
-  // 注册事件
   registerEvent() {
     this.getCartList()
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     context.eventHub.on(BusinessVariable.UPDATE_CART_LIST, this.cartUpdateCb)
   }
 
-  calcAllPrice() {
-    this.allPrice = this.cartList.filter(item => item.selected)
-      .reduce((preValue: number, item: CartGoodsModel) => {
-        return preValue + item.price * item.count
-      }, 0)
-  }
-
-  // 获取购物车列表
   async getCartList() {
     if (this.user.token) {
       const list = await getCartListAPI()
-      // 对每个购物车对象进行的new
-      // this.cartList = list
       this.cartList = list.map((item: CartGoods) => new CartGoodsModel(item))
       this.refreshCartSummary()
     } else {
@@ -75,13 +61,9 @@ export struct CartView {
     }
   }
 
-  checkAllIsSelect() {
-    this.isCheckAll = this.cartList.length > 0 && this.cartList.every(item => item.selected)
-  }
-
   refreshCartSummary(): void {
-    this.checkAllIsSelect()
-    this.calcAllPrice()
+    this.isCheckAll = CartOperations.checkIsAllSelected(this.cartList)
+    this.allPrice = CartOperations.calculateTotalPrice(this.cartList)
   }
 
   async deleteCartItems(skuIds: string[], clearAll: boolean = false): Promise<void> {
@@ -90,10 +72,9 @@ export struct CartView {
     }
     this.isDeleting = true
     try {
-      await delCart({ ids: skuIds })
+      await CartOperations.deleteCartItems(skuIds)
       this.cartList = excludeCartItems(this.cartList, skuIds)
       this.refreshCartSummary()
-      await authCart.updateCartCount()
       this.getUIContext().getPromptAction().showToast({
         message: clearAll ? '购物车已清空' : '商品已删除'
       })
@@ -174,33 +155,16 @@ export struct CartView {
 
         List({ space: 8 }) {
           if (this.user.token) {
-
-
             if (this.cartList.length) {
-
               ForEach(this.cartList, (cart: CartGoodsModel) => {
                 ListItem() {
                   CartItem({
                     cart: cart,
                     onChangeSelected: async selected => {
-                      // 更新数据
-                      // 更新页面
-                      await updateCart(cart.skuId, {
-                        selected, //
-                        count: cart.count
-                      })
-                      authCart.updateCartCount()
+                      await CartOperations.updateCartSelection(cart, selected)
                     },
                     onChangeCount: async count => {
-                      // 更新数据
-                      // 更新页面
-                      await updateCart(cart.skuId, {
-                        selected: cart.selected, //
-                        count
-                      })
-                      // 服务器已经更新成功
-                      authCart.updateCartCount()
-
+                      await CartOperations.updateCartCount(cart, count)
                     },
                     onDelete: () => {
                       this.deleteCartItems([cart.skuId])
@@ -220,11 +184,6 @@ export struct CartView {
                   buttonText: '去逛逛',
                   tip: '购物车空空哒',
                   onBtnClick: () => {
-                    // emitter.emit(GlobalVariable.SWITCH_TAB, {
-                    //   data: {
-                    //     index: 0
-                    //   }
-                    // })
                     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
                     context.eventHub.emit(GlobalVariable.SWITCH_TAB, 0)
                   }
@@ -232,7 +191,6 @@ export struct CartView {
               }
             }
           } else {
-            // 未登录
             ListItem() {
               HDMEmpty({
                 buttonText: '去登录',
@@ -249,7 +207,6 @@ export struct CartView {
             HDMGuess({ inset: true })
               .margin({ top: 4, bottom: 8 })
           }
-
         }
         .contentStartOffset(8)
         .width('100%')
@@ -264,22 +221,10 @@ export struct CartView {
               .select(this.isCheckAll)
               .accessibilityText(this.isCheckAll ? '取消全选' : '全选商品')
               .onClick(async () => {
-                // 点击全选中/全取消
                 this.isCheckAll = !this.isCheckAll
-                this.cartList.forEach(item => item.selected = this.isCheckAll) // 客户端变化
+                this.cartList.forEach(item => item.selected = this.isCheckAll)
                 this.refreshCartSummary()
-                // 服务器也变化
-                const selectAllParams: UpdateCartParams = { selected: this.isCheckAll, count: 0 }
-                await selectOrUnSelect(selectAllParams)
-                authCart.updateCartCount()
-                // if(this.isCheckAll) {
-                //   // 所有的都选中
-                //   this.cartList.forEach(item => item.selected = true)
-                // }else {
-                //   // 所有的都取消
-                //   this.cartList.forEach(item => item.selected = false)
-                //
-                // }
+                await CartOperations.toggleSelectAll(this.isCheckAll)
               })
             Text('全选')
               .fontSize(14)
@@ -297,37 +242,38 @@ export struct CartView {
             Button('去结算')
               .fontSize(14)
               .width(88)
-              .height(40)
-              .borderRadius(20)
-              .backgroundColor($r('[ui_components].color.red'))// .enabled(this.allPrice > 0)
-              .enabled(this.cartList.some(item => item.selected))
+              .height(36)
+              .backgroundColor($r('[ui_components].color.red'))
               .onClick(() => {
+                const selectedCount = this.cartList.filter(item => item.selected).length
+                if (selectedCount === 0) {
+                  this.getUIContext().getPromptAction().showToast({
+                    message: '请选择要结算的商品'
+                  })
+                  return
+                }
                 this.stackPath.pushPath({
                   name: PAGE_PATH.CHECK_ORDER_PAGE
                 })
               })
           }
-          .height(56)
           .width('100%')
+          .height(50)
+          .padding({ left: 16, right: 16 })
           .backgroundColor($r('[ui_components].color.white'))
           .border({
-            width: { top: 0.5, bottom: 0.5 },
+            width: { top: 0.5 },
             color: '#e4e4e4'
           })
-          .padding({ left: 12, right: 12 })
         }
       }
-      .height('100%')
       .width('100%')
+      .height('100%')
       .backgroundColor($r('[ui_components].color.under'))
-      .padding({
-        top: this.topHeight
-      })
     }
     .hideTitleBar(true)
   }
 }
-
 
 @Builder
 function CartViewBuilder() {

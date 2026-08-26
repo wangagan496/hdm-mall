@@ -14,11 +14,19 @@ import {
   fillPromotionGoods,
   getDistinctGoods
 } from '../../data/api'
-import { HDMDiscountGoods } from '../components'
-import { Banner, Params, DiscountType, RecommendParams } from '../../domain/models'
+import {
+  HomeBannerSection,
+  HomeCategorySection,
+  HomeSaleGoodsSection,
+  HomeNewGoodsSection,
+  HomeDiscountSection,
+  DiscountSectionParams
+} from '../components'
+import { Banner, RecommendParams } from '../../domain/models'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 import { storeManager } from 'storage'
+import { HomeGoodsDeduplication } from '../utils/HomeGoodsDeduplication'
 
 @Component
 export struct HomeView {
@@ -79,29 +87,27 @@ export struct HomeView {
       this.categories = result[1].value
       AppStorage.setOrCreate(BusinessVariable.CATEGORY_DATA, this.categories)
     }
-    const saleGoods: HDMGoodsItem[] = result[2].status === "fulfilled" ?
+    const saleGoodsRaw: HDMGoodsItem[] = result[2].status === "fulfilled" ?
       result[2].value?.subTypes?.[0]?.goodsItems?.items || [] : []
-    const hotGoods: HDMGoodsItem[] = result[3].status === "fulfilled" ?
+    const hotGoodsRaw: HDMGoodsItem[] = result[3].status === "fulfilled" ?
       result[3].value?.subTypes?.[0]?.goodsItems?.items || [] : []
-    const oneGoods: HDMGoodsItem[] = result[4].status === "fulfilled" ?
+    const oneGoodsRaw: HDMGoodsItem[] = result[4].status === "fulfilled" ?
       result[4].value?.subTypes?.[0]?.goodsItems?.items || [] : []
-    const newGoods: HDMGoodsItem[] = result[5].status === "fulfilled" ? result[5].value : []
+    const newGoodsRaw: HDMGoodsItem[] = result[5].status === "fulfilled" ? result[5].value : []
 
-    const promotionLimit: number = 4
-    const selectedSaleGoods: HDMGoodsItem[] =
-      getDistinctGoods(saleGoods, newGoods, [hotGoods, oneGoods], promotionLimit)
-    const saleAndNewGoods: HDMGoodsItem[] = newGoods.concat(selectedSaleGoods)
-    const selectedHotGoods: HDMGoodsItem[] =
-      getDistinctGoods(hotGoods, saleAndNewGoods, [oneGoods, saleGoods], promotionLimit)
-    const promotedGoods: HDMGoodsItem[] = selectedSaleGoods.concat(selectedHotGoods)
-    const reservedGoods: HDMGoodsItem[] = newGoods.concat(promotedGoods)
-    const distinctOneGoods: HDMGoodsItem[] =
-      getDistinctGoods(oneGoods, reservedGoods, [hotGoods, saleGoods], promotionLimit)
-    const selectedOneGoods: HDMGoodsItem[] = fillPromotionGoods(distinctOneGoods, oneGoods, promotionLimit)
+    const deduplicatedGoods = HomeGoodsDeduplication.processHomeGoods(
+      saleGoodsRaw,
+      hotGoodsRaw,
+      oneGoodsRaw,
+      newGoodsRaw,
+      getDistinctGoods,
+      fillPromotionGoods
+    )
+
     const normalizedPromotions: HDMGoodsItem[][] = await Promise.all([
-      normalizeGoodsSummaryPicturesAPI(selectedSaleGoods),
-      normalizeGoodsSummaryPicturesAPI(selectedHotGoods),
-      normalizeGoodsSummaryPicturesAPI(selectedOneGoods)
+      normalizeGoodsSummaryPicturesAPI(deduplicatedGoods.saleGoods),
+      normalizeGoodsSummaryPicturesAPI(deduplicatedGoods.hotGoods),
+      normalizeGoodsSummaryPicturesAPI(deduplicatedGoods.oneGoods)
     ])
 
     this.saleGoods = normalizedPromotions[0]
@@ -110,8 +116,7 @@ export struct HomeView {
     }
     this.hotGoods = normalizedPromotions[1]
     this.oneGoods = normalizedPromotions[2]
-    const displayedGoods: HDMGoodsItem[] = this.saleGoods.concat(this.hotGoods, this.oneGoods)
-    this.newGoods = getDistinctGoods(newGoods, displayedGoods, [])
+    this.newGoods = deduplicatedGoods.newGoods
 
     this.loading = false
   }
@@ -124,51 +129,12 @@ export struct HomeView {
 
   async getRecommend() {
     const list = await getRecommendAPI({ limit: this.page * 8 } as RecommendParams)
-    this.recommendDataSource.loadData(list)
+    this.recommendDataSource.loadData(await normalizeGoodsSummaryPicturesAPI(list))
     if (list.length === this.page * 8) {
       this.page++
     } else {
       this.isFinished = true
     }
-  }
-
-  @Builder
-  DiscountBuilder(params: Params) {
-    Column() {
-      Row({ space: 10 }) {
-        Text(params.title)
-          .fontColor($r('[ui_components].color.black'))
-          .fontSize(14)
-        Text(params.subTitle)
-          .fontColor($r('[ui_components].color.text'))
-          .fontSize(11)
-      }
-      .width('100%')
-      .margin({ bottom: 10 })
-
-      List({ space: 10 }) {
-        ForEach(params.list, (item: HDMGoodsItem) => {
-          ListItem() {
-            HDMDiscountGoods({ type: DiscountType.DISCOUNT, goods: item })
-          }
-          .onClick(() => {
-            this.stackPath.pushPath({
-              name: PAGE_PATH.GOODS_PAGE,
-              param: item
-            })
-          })
-        })
-      }
-      .width('100%')
-      .height(116)
-      .scrollBar(BarState.Off)
-      .listDirection(Axis.Horizontal)
-    }
-    .height(160)
-    .layoutWeight(1)
-    .padding(10)
-    .backgroundColor(params.bg)
-    .borderRadius(8)
   }
 
   @Builder
@@ -180,116 +146,6 @@ export struct HomeView {
     .width("100%")
   }
 
-  @Builder
-  BannerSectionBuilder() {
-    Swiper() {
-      ForEach(this.banners, (item: Banner) => {
-        Image(item.imgUrl)
-      })
-    }
-    .displayCount(
-      new BreakPointType({ sm: 1, md: 2, lg: 3 }).getValue(this.breakPoint)
-    )
-    .itemSpace(
-      new BreakPointType({ sm: 0, md: 10, lg: 20 }).getValue(this.breakPoint)
-    )
-    .indicator(
-      this.breakPoint === BreakPointEnum.sm ?
-        DotIndicator.dot()
-          .itemWidth(8).itemHeight(4).color('#33191919')
-          .selectedItemWidth(24).selectedItemHeight(4).selectedColor('#191919') : false
-    )
-  }
-
-  @Builder
-  CategorySectionBuilder() {
-    List({
-      space: new BreakPointType({ sm: 14, md: 36, lg: 72 }).getValue(this.breakPoint)
-    }) {
-      ForEach(this.categories, (item: CategoryItem) => {
-        ListItem() {
-          Column() {
-            Image(item.picture)
-              .width(56)
-              .aspectRatio(1)
-            Text(item.name)
-              .fontSize(10)
-              .fontColor('#CC191919')
-          }
-          .width(60).height(80).borderRadius(30).clip(true)
-          .backgroundImage(item.picture)
-          .backgroundImageSize(ImageSize.Contain)
-          .backgroundImagePosition(Alignment.Center)
-          .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK, { scale: 0.25 })
-        }
-        .onClick(() => {
-          AppStorage.setOrCreate(BusinessVariable.CATEGORY_TARGET_ID, item.id)
-          AppStorage.setOrCreate('currentTabIndex', 1)
-        })
-      })
-    }
-    .width('100%').height(92).scrollBar(BarState.Off)
-    .listDirection(Axis.Horizontal).alignListItem(ListItemAlign.Center)
-  }
-
-  @Builder
-  SaleGoodsSectionBuilder() {
-    Column({ space: 10 }) {
-      Image($r('app.media.home_cmd_title'))
-        .width(150).height(20)
-      Row() {
-        Image($r('app.media.home_cmd_inner'))
-          .width(86).height(116)
-        List({
-          space: new BreakPointType({ sm: 14, md: 36, lg: 72 }).getValue(this.breakPoint)
-        }) {
-          ForEach(this.saleGoods, (item: HDMGoodsItem) => {
-            ListItem() {
-              HDMDiscountGoods({ goods: item })
-            }
-            .onClick(() => {
-              this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: item })
-            })
-          })
-        }
-        .layoutWeight(1).width('100%').height(116)
-        .backgroundColor($r('[ui_components].color.white'))
-        .borderRadius({ topRight: 8, bottomRight: 8 })
-        .padding({ right: 10, left: 10 })
-        .scrollBar(BarState.Off).listDirection(Axis.Horizontal)
-      }
-    }
-    .width('100%').height(166)
-    .backgroundImage($r('app.media.home_cmd_sm'))
-    .backgroundImageSize(ImageSize.Cover)
-    .borderRadius(8).padding(10)
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  NewGoodsSectionBuilder() {
-    Column({ space: 10 }) {
-      Image($r('app.media.home_new'))
-        .width(146).height(19)
-      List({
-        space: new BreakPointType({ sm: 14, md: 36, lg: 72 }).getValue(this.breakPoint)
-      }) {
-        ForEach(this.newGoods, (item: HDMGoodsItem) => {
-          ListItem() {
-            HDMDiscountGoods({ type: DiscountType.NEW, goods: item })
-          }
-          .onClick(() => {
-            this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: item })
-          })
-        })
-      }
-      .width('100%').height(116).scrollBar(BarState.Off).listDirection(Axis.Horizontal)
-    }
-    .width('100%').height(156).padding(10)
-    .backgroundColor('#F7EFF5').borderRadius(8)
-    .alignItems(HorizontalAlign.Start)
-  }
-
   build() {
     RelativeContainer() {
       if (this.loading) {
@@ -299,7 +155,7 @@ export struct HomeView {
           Scroll(this.scroller) {
             Column() {
               Stack({ alignContent: Alignment.Top }) {
-                this.BannerSectionBuilder()
+                HomeBannerSection({ banners: this.banners })
                 Row() {
                   Row({ space: 4 }) {
                     Image($r('[ui_components].media.ic_public_search'))
@@ -315,57 +171,75 @@ export struct HomeView {
               .width('100%')
 
               Column({ space: 10 }) {
-                this.CategorySectionBuilder()
-                this.SaleGoodsSectionBuilder()
+                HomeCategorySection({ categories: this.categories })
+                HomeSaleGoodsSection({ saleGoods: this.saleGoods })
                 Row({ space: 10 }) {
-                  this.DiscountBuilder({
-                    title: '爆款推荐', subTitle: '最受欢迎', bg: '#EDF1FB', list: this.hotGoods
+                  HomeDiscountSection({
+                    params: {
+                      title: '爆款推荐', subTitle: '最受欢迎', bg: '#EDF1FB', list: this.hotGoods
+                    } as DiscountSectionParams
                   })
-                  this.DiscountBuilder({
-                    title: '一站买全', subTitle: '精心优选', bg: '#FCF6EA', list: this.oneGoods
+                  HomeDiscountSection({
+                    params: {
+                      title: '一站买全', subTitle: '精心优选', bg: '#FCF6EA', list: this.oneGoods
+                    } as DiscountSectionParams
                   })
                 }
-                this.NewGoodsSectionBuilder()
+                HomeNewGoodsSection({ newGoods: this.newGoods })
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 10 })
+
+              Column() {
                 WaterFlow() {
                   LazyForEach(this.recommendDataSource, (item: HDMGoodsItem) => {
                     FlowItem() {
                       HDMGoods({ goods: item })
                     }
-                  })
+                    .onClick(() => {
+                      this.stackPath.pushPath({
+                        name: PAGE_PATH.GOODS_PAGE,
+                        param: item
+                      })
+                    })
+                  }, (item: HDMGoodsItem) => item.id)
                 }
-                .columnsTemplate(new BreakPointType({ sm: "1fr 1fr", md: "1fr 1fr 1fr", lg: "1fr 1fr 1fr 1fr" }).getValue(this.breakPoint))
-                .columnsGap(8)
+                .columnsTemplate(new BreakPointType({
+                  sm: '1fr 1fr',
+                  md: '1fr 1fr 1fr 1fr',
+                  lg: '1fr 1fr 1fr 1fr 1fr 1fr'
+                }).getValue(this.breakPoint))
+                .columnsGap(10)
                 .rowsGap(10)
+                .padding({ left: 16, right: 16 })
+                .onReachEnd(async () => {
+                  if (this.isReachLoad || this.isFinished) {
+                    return
+                  }
+                  this.isReachLoad = true
+                  await this.getRecommend()
+                  this.isReachLoad = false
+                })
               }
-              .padding({ left: 8, right: 8, bottom: 10, top: 10 })
+              .width('100%')
+              .padding({ top: 10, bottom: 10 })
             }
+            .width('100%')
           }
+          .width('100%')
+          .height('100%')
+          .align(Alignment.TopStart)
           .scrollBar(BarState.Off)
-          .onDidScroll((_xOffset: number, yOffset: number,) => {
-            this.yOffset += yOffset
-            if (this.yOffset > this.topHeight && this.yOffset < (this.topHeight + 40)) {
-              this.searchOpacity = (this.yOffset - this.topHeight) / 40
-            } else if (this.yOffset >= (this.topHeight + 40)) {
-              this.searchOpacity = 1
-            } else {
-              this.searchOpacity = 0
-            }
-          })
-          .onReachEnd(async () => {
-            if (!this.isReachLoad && !this.isFinished) {
-              this.isReachLoad = true
-              await this.getRecommend()
-              this.isReachLoad = false
-            }
+          .onDidScroll(() => {
+            this.yOffset = this.scroller.currentOffset().yOffset
+            this.searchOpacity = this.yOffset > 80 ? 1 : this.yOffset / 80
           })
         }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('[ui_components].color.under'))
         .onRefreshing(async () => {
           await this.getHomeData(true)
-          this.page = 1
-          this.yOffset = 0
-          this.recommendDataSource.loadData([])
-          this.isFinished = false
-          this.isReachLoad = false
           this.isRefreshing = false
         })
       }
@@ -373,51 +247,27 @@ export struct HomeView {
       Row() {
         Row({ space: 4 }) {
           Image($r('[ui_components].media.ic_public_search'))
-            .width(16)
-            .height(16)
-            .fillColor($r('[ui_components].color.white'))
+            .width(16).height(16).fillColor($r('[ui_components].color.white'))
           Text('搜索...')
-            .fontSize(14)
-            .fontColor($r('[ui_components].color.white'))
+            .fontSize(14).fontColor($r('[ui_components].color.white'))
         }
-        .backgroundColor('#33191919')
-        .width('100%')
-        .height(40)
-        .borderRadius(20)
-        .padding({ left: 12 })
+        .backgroundColor($r('[ui_components].color.red'))
+        .width('100%').height(40).borderRadius(20).padding({ left: 12 })
         .onClick(() => {
           this.stackPath.pushPath({ name: PAGE_PATH.SEARCH_PAGE })
         })
       }
-      .padding({ left: 16, right: 16, top: this.topHeight, bottom: this.topHeight })
+      .width('100%')
+      .height(40)
+      .padding({ left: 16, right: 16, top: this.topHeight + 10 })
       .opacity(this.searchOpacity)
-      .backgroundColor($r("[ui_components].color.white"))
-      .linearGradient({
-        direction: GradientDirection.Bottom,
-        colors: [["#ffdebfee", 0], [$r("[ui_components].color.white"), 1]]
+      .id('search_bar')
+      .alignRules({
+        top: { anchor: '__container__', align: VerticalAlign.Top },
+        left: { anchor: '__container__', align: HorizontalAlign.Start }
       })
-
-      if (this.yOffset > 100) {
-        Row() {
-          Image($r("app.media.home_top"))
-            .width(30)
-            .aspectRatio(1)
-            .fillColor("#0095d3")
-        }
-        .justifyContent(FlexAlign.Center)
-        .width(40)
-        .aspectRatio(1)
-        .borderRadius(20)
-        .backgroundColor("#fff8f9fa")
-        .alignRules({
-          right: { anchor: '__container__', align: HorizontalAlign.End },
-          bottom: { anchor: '__container__', align: VerticalAlign.Bottom }
-        })
-        .margin({ right: 20, bottom: 80 })
-        .onClick(() => {
-          this.scroller.scrollEdge(Edge.Top)
-        })
-      }
     }
+    .width('100%')
+    .height('100%')
   }
 }
