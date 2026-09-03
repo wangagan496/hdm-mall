@@ -37,4 +37,17 @@ export class ListDataSource<T> implements IDataSource {
       listener.onDataAdd(index)
     })
   }
+
+  replaceArr(startIndex: number, data: T[]): void {
+    data.forEach((item: T, offset: number): void => {
+      const index: number = startIndex + offset
+      if (index >= this.totalCount()) {
+        return
+      }
+      this.originArr[index] = item
+      this.listeners.forEach((listener: DataChangeListener): void => {
+        listener.onDataChange(index)
+      })
+    })
+  }
 }

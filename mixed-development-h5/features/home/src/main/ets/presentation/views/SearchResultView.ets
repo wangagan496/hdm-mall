@@ -40,42 +40,75 @@ export struct SearchResultView {
   ]
   // 控制器
   scroller = new Scroller()
+  private queryGeneration: number = 0
+
+  private submitSearch(value: string): void {
+    const keyword: string = value.trim()
+    if (!keyword) {
+      return
+    }
+    this.params.keyword = keyword
+    this.params.categoryId = undefined
+    this.refreshQuery()
+  }
 
   aboutToAppear(): void {
     const routeParams = this.stackPath.getParamByName(PAGE_PATH.SEARCH_RESULT_PAGE) as SearchRouterParam[]
     const routeParam = routeParams[routeParams.length - 1]
     this.params.keyword = routeParam.keyword
     this.params.categoryId = routeParam.categoryId
+    this.queryGeneration++
     this.queryGoodsData()
   }
 
   async queryGoodsData() {
+    const generation: number = this.queryGeneration
     this.loading = true
     try {
-      let visibleItems: HDMGoodsItem[] = []
+      let relevantItems: HDMGoodsItem[] = []
       do {
         const result = await searchGoodsAPI(this.params)
-        const relevantItems: HDMGoodsItem[] = filterSearchGoods(
+        if (generation !== this.queryGeneration) {
+          return
+        }
+        relevantItems = filterSearchGoods(
           result.pageData.items,
           this.params.keyword,
           this.params.categoryId
         )
-        visibleItems = await normalizeSearchGoodsPicturesAPI(relevantItems)
-        if (visibleItems.length > 0) {
-          this.lazyDataSource.addArr(visibleItems)
+        if (relevantItems.length > 0) {
+          const startIndex: number = this.lazyDataSource.totalCount()
+          this.lazyDataSource.addArr(relevantItems)
+          this.resultCount = this.lazyDataSource.totalCount()
+          this.normalizeSearchPictures(relevantItems, startIndex, generation)
         }
         this.params.page++
         this.isFinished = result.pageData.pages < this.params.page
         // 若当前页全是被排除的错误类型，继续取下一页，避免提前展示“暂无商品”。
-      } while (visibleItems.length === 0 && !this.isFinished)
+      } while (relevantItems.length === 0 && !this.isFinished)
       this.resultCount = this.lazyDataSource.totalCount()
     } finally {
-      this.loading = false
+      if (generation === this.queryGeneration) {
+        this.loading = false
+      }
     }
+  }
+
+  private async normalizeSearchPictures(
+    items: HDMGoodsItem[],
+    startIndex: number,
+    generation: number
+  ): Promise<void> {
+    const normalizedItems: HDMGoodsItem[] = await normalizeSearchGoodsPicturesAPI(items)
+    if (generation !== this.queryGeneration) {
+      return
+    }
+    this.lazyDataSource.replaceArr(startIndex, normalizedItems)
   }
 
   // 重新查询逻辑
   refreshQuery() {
+    this.queryGeneration++
     this.params.page = 1 // 再次搜索回到第一页
     this.isFinished = false // 是否加载完成回到最开始状态
     this.resultCount = 0
@@ -93,6 +126,8 @@ export struct SearchResultView {
             .aspectRatio(1)
             .fillColor($r('[ui_components].color.white'))
             .margin(13)
+            .focusable(true)
+            .accessibilityText('返回')
             .onClick(() => {
               this.stackPath.pop()
             })
@@ -100,6 +135,7 @@ export struct SearchResultView {
             .searchIcon({ src: $r('[ui_components].media.ic_public_search'), color: $r('[ui_components].color.gray') })
             .placeholderColor($r('[ui_components].color.gray'))
             .placeholderFont({ size: 14 })
+            .searchButton('搜索', { fontSize: 14, fontColor: $r('[ui_components].color.red') })
             .backgroundColor($r('[ui_components].color.white'))
             .textFont({ size: 14 })
             .layoutWeight(1)
@@ -107,11 +143,10 @@ export struct SearchResultView {
             .margin(0)
             .height(36)
             .caretStyle({ color: $r('[ui_components].color.red') })
-            .onSubmit((value) => {
+            .onChange((value: string) => {
               this.params.keyword = value
-              this.params.categoryId = undefined
-              this.refreshQuery()
             })
+            .onSubmit((value: string) => this.submitSearch(value))
         }
         .padding({ top: this.safeTop, right: 16 })
         .linearGradient({
