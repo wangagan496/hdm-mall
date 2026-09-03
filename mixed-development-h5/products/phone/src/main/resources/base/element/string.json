@@ -2,31 +2,31 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "惠多美商城手机端"
     },
     {
       "name": "PhoneAbility_desc",
-      "value": "description"
+      "value": "惠多美商城主界面"
     },
     {
       "name": "PhoneAbility_label",
-      "value": "label"
+      "value": "惠多美"
     },
     {
       "name": "PhoneFormAbility_desc",
-      "value": "form_description"
+      "value": "惠多美商城服务卡片"
     },
     {
       "name": "PhoneFormAbility_label",
-      "value": "form_label"
+      "value": "惠多美"
     },
     {
       "name": "widget_desc",
-      "value": "This is a service widget."
+      "value": "快速查看惠多美商城精选内容"
     },
     {
       "name": "widget_display_name",
-      "value": "widget"
+      "value": "惠多美商城"
     }
   ]
 }

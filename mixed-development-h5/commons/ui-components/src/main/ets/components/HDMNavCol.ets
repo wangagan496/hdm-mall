@@ -19,6 +19,8 @@ export struct HDMNavCol {
           .margin({ top: 4 })
       }
       .padding({ top: 16, bottom: 10 })
+      .focusable(true)
+      .accessibilityText(this.text)
       .onClick(() => this.onNavClick())
     }
   }

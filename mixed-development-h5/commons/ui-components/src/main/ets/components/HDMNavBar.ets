@@ -13,6 +13,8 @@ export struct HDMNavBar {
   showLeftIcon: boolean = true
   @Prop
   showRightIcon: boolean = false
+  leftAccessibilityText: string = '返回'
+  rightAccessibilityText: string = '更多操作'
   color: ResourceColor = $r("app.color.black") // 字体颜色
   bg: ResourceColor = $r("app.color.white")
   // 左侧触发
@@ -47,6 +49,8 @@ export struct HDMNavBar {
           .onClick(() => {
             this.onLeftClick()
           })
+          .focusable(true)
+          .accessibilityText(this.leftAccessibilityText)
           .zIndex(2)
       }
       // 有标题时才渲染
@@ -100,6 +104,8 @@ export struct HDMNavBar {
           .onClick(() => {
             this.onRightClick()
           })
+          .focusable(true)
+          .accessibilityText(this.rightAccessibilityText)
       }
 
     }

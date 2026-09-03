@@ -51,8 +51,13 @@ export struct HomeView {
   @State isRefreshing: boolean = false
   page: number = 1
   private homeRequestId: number = 0
+  private recommendRequesting: boolean = false
   scroller: Scroller = new Scroller()
   @Consume stackPath: NavPathStack
+
+  private openSearch(): void {
+    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_PAGE, null)
+  }
 
   private openBannerGoods(banner: Banner): void {
     const routeParam: SearchRouterParam | undefined = getBannerSearchParam(banner)
@@ -63,9 +68,10 @@ export struct HomeView {
   }
 
   aboutToAppear() {
-    this.getHomeData().then((): void => {
-      this.getRecommend()
-    })
+    // 首屏与推荐区解耦：先显示首页骨架和已返回的核心内容，推荐商品后台加载。
+    // 原先推荐请求必须等待首页 6 个接口全部结束，冷启动时会放大最慢接口的延迟。
+    this.getHomeData()
+    this.getRecommend()
     this.registerEvent()
   }
 
@@ -87,9 +93,39 @@ export struct HomeView {
       this.loading = true
     }
 
+    const bannerRequest = getBannerAPI()
+    const categoryRequest = getCategoryAPI()
+    const hotRequest = getHotResultAPI()
+    const inVogueRequest = getInVogueAPI()
+    const oneStopRequest = getOneStopAPI()
+    const newGoodsRequest = getHomeNewAPI()
+
+    // 核心首屏内容单独到达即可解除全屏 Loading，避免被推荐/促销接口拖住。
+    // 失败时仍交给下面的 allSettled 统一处理，不会产生未捕获 Promise。
+    let coreContentShown: boolean = false
+    const showCoreContent = (): void => {
+      if (!coreContentShown && requestId === this.homeRequestId) {
+        coreContentShown = true
+        this.loading = false
+      }
+    }
+    bannerRequest.then((value: Banner[]): void => {
+      if (requestId === this.homeRequestId) {
+        this.banners = value
+        showCoreContent()
+      }
+    }, (): void => {})
+    categoryRequest.then((value: CategoryItem[]): void => {
+      if (requestId === this.homeRequestId) {
+        this.categories = value
+        AppStorage.setOrCreate(BusinessVariable.CATEGORY_DATA, value)
+        showCoreContent()
+      }
+    }, (): void => {})
+
     const result = await Promise.allSettled([
-      getBannerAPI(), getCategoryAPI(), getHotResultAPI(),
-      getInVogueAPI(), getOneStopAPI(), getHomeNewAPI()
+      bannerRequest, categoryRequest, hotRequest,
+      inVogueRequest, oneStopRequest, newGoodsRequest
     ])
 
     if (requestId !== this.homeRequestId) {
@@ -156,12 +192,22 @@ export struct HomeView {
   }
 
   async getRecommend() {
-    const list = await getRecommendAPI({ limit: this.page * 8 } as RecommendParams)
-    this.recommendDataSource.loadData(await normalizeGoodsSummaryPicturesAPI(list))
-    if (list.length === this.page * 8) {
-      this.page++
-    } else {
-      this.isFinished = true
+    if (this.recommendRequesting || this.isFinished) {
+      return
+    }
+    this.recommendRequesting = true
+    try {
+      const list = await getRecommendAPI({ limit: this.page * 8 } as RecommendParams)
+      this.recommendDataSource.loadData(await normalizeGoodsSummaryPicturesAPI(list))
+      if (list.length === this.page * 8) {
+        this.page++
+      } else {
+        this.isFinished = true
+      }
+    } catch (_) {
+      // 推荐区不是首屏阻塞内容，请求失败后保留重试能力。
+    } finally {
+      this.recommendRequesting = false
     }
   }
 
@@ -177,7 +223,7 @@ export struct HomeView {
   build() {
     RelativeContainer() {
       if (this.loading) {
-        HDMLoadingText({ title: 'Beautify' })
+        HDMLoadingText({ title: '惠多美商城' })
       } else {
         Refresh({ refreshing: $$this.isRefreshing, builder: this.getRefreshBuilder() }) {
           Scroll(this.scroller) {
@@ -196,6 +242,9 @@ export struct HomeView {
                   }
                   .backgroundColor('#33191919')
                   .width('100%').height(40).borderRadius(20).padding({ left: 12 })
+                  .focusable(true)
+                  .accessibilityText('搜索商品')
+                  .onClick(() => this.openSearch())
                 }
                 .padding({ left: 16, right: 16, top: this.topHeight })
               }
@@ -284,9 +333,9 @@ export struct HomeView {
         }
         .backgroundColor($r('[ui_components].color.red'))
         .width('100%').height(40).borderRadius(20).padding({ left: 12 })
-        .onClick(() => {
-          this.stackPath.pushPath({ name: PAGE_PATH.SEARCH_PAGE })
-        })
+        .focusable(true)
+        .accessibilityText('搜索商品')
+        .onClick(() => this.openSearch())
       }
       .width('100%')
       .height(40)

@@ -13,6 +13,8 @@ export struct HDMDiscountGoods {
       Image(this.goods.picture)
         .width(70)
         .aspectRatio(1)
+        .objectFit(ImageFit.Contain)
+        .accessibilityText(this.goods.name || '商品图片')
       Row() {
         Stack() {
           Polygon()
@@ -58,6 +60,8 @@ export struct HDMDiscountGoods {
       Image(this.goods.picture)
         .width(54)
         .aspectRatio(1)
+        .objectFit(ImageFit.Contain)
+        .accessibilityText(this.goods.name || '商品图片')
       Text('¥' + Number(this.goods.price))
         .fontSize(12)
         .fontColor('#FF4B61')
@@ -83,6 +87,8 @@ export struct HDMDiscountGoods {
       Image(this.goods.picture)
         .width(60)
         .aspectRatio(1)
+        .objectFit(ImageFit.Contain)
+        .accessibilityText(this.goods.name || '商品图片')
       Text('¥' + Number(this.goods.price))
         .fontSize(13)
         .lineHeight(30)

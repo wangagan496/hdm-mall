@@ -22,6 +22,8 @@ export struct HDMGoods {
           Image(this.goods.picture)
             .width('100%')
             .aspectRatio(1)
+            .objectFit(ImageFit.Contain)
+            .backgroundColor($r('app.color.under'))
         }
         .width('100%')
         .padding(20)
@@ -29,6 +31,8 @@ export struct HDMGoods {
         Image(this.goods.picture)
           .width('100%')
           .aspectRatio(1)
+          .objectFit(ImageFit.Contain)
+          .backgroundColor($r('app.color.under'))
       }
       Text(this.goods.name)
         .fontSize(14)
@@ -64,6 +68,8 @@ export struct HDMGoods {
     .backgroundColor($r('app.color.white'))
     .borderRadius(8)
     .clip(true)
+    .focusable(true)
+    .accessibilityText(`${this.goods.name}，价格${Number(this.goods.price)}元`)
     .onClick(() => {
       this.stackPath.pushPath({
         name: PAGE_PATH.GOODS_PAGE,

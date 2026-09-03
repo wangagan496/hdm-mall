@@ -90,6 +90,7 @@ export struct CategoryView {
         showLeftIcon: false,
         showRightIcon: true,
         rightIcon: $r('[ui_components].media.ic_public_search'),
+        rightAccessibilityText: '搜索商品',
         onRightClick: () => this.stackPath.pushPathByName(PAGE_PATH.SEARCH_PAGE, null)
       })
 

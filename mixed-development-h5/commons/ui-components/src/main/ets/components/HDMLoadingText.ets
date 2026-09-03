@@ -1,81 +1,26 @@
 @Preview
 @Component
 export struct HDMLoadingText {
-  title: string = "惠多美"
-  @State
-  xOffset: number = 0
-
-  aboutToAppear(): void {
-    this.getUIContext().animateTo({ duration: 200, iterations: -1, playMode: PlayMode.AlternateReverse }, () => {
-      this.xOffset = 2
-    })
-  }
+  title: string = '惠多美商城'
 
   build() {
-    RelativeContainer() {
+    Column({ space: 12 }) {
+      LoadingProgress()
+        .width(36)
+        .height(36)
+        .color($r('app.color.red'))
       Text(this.title)
-        .alignRules({
-          center: {
-            anchor: '__container__',
-            align: VerticalAlign.Center
-          },
-          middle: {
-            anchor: '__container__',
-            align: HorizontalAlign.Center
-          }
-        })
-        .fontSize(40)
-
-        .fontWeight(FontWeight.Bolder)
-        .fontStyle(FontStyle.Italic)
-        .fontColor("#e93323")
-        .translate({
-          x: -this.xOffset,
-          y: -this.xOffset
-        })
-
-
-      Text(this.title)
-        .alignRules({
-          center: {
-            anchor: '__container__',
-            align: VerticalAlign.Center
-          },
-          middle: {
-            anchor: '__container__',
-            align: HorizontalAlign.Center
-          }
-        })
-        .fontSize(40)
-
-        .fontWeight(FontWeight.Bolder)
-        .fontStyle(FontStyle.Italic)
-        .fontColor("#75fbfd")
-        .translate({
-          x: this.xOffset,
-          y: this.xOffset
-        })
-
-      Text(this.title)
-        .alignRules({
-          center: {
-            anchor: '__container__',
-            align: VerticalAlign.Center
-          },
-          middle: {
-            anchor: '__container__',
-            align: HorizontalAlign.Center
-          }
-        })
-        .fontSize(40)
-        .fontColor($r("app.color.white"))
-        .fontWeight(FontWeight.Bolder)
-        .fontStyle(FontStyle.Italic)
-
-
+        .fontSize(18)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.black'))
+      Text('正在为你准备精选好物')
+        .fontSize(12)
+        .fontColor($r('app.color.gray'))
     }
-    .width("100%")
-    .height("100%")
-    .backgroundColor("rgba(0,0,0,0.1)")
+    .justifyContent(FlexAlign.Center)
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.under'))
+    .accessibilityText(`${this.title}，正在加载`)
   }
 }

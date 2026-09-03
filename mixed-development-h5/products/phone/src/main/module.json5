@@ -39,7 +39,7 @@
         "description": "$string:PhoneAbility_desc",
         "icon": "$media:layered_image",
         "label": "$string:PhoneAbility_label",
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:hdm_start_icon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "skills": [

@@ -86,7 +86,7 @@ export struct LoginView {
         }) {
           Column() {
             HDMNavBar({
-              title: '幸福商城登录',
+              title: '惠多美商城登录',
               onLeftClick: () => {
                 this.stackPath.pop()
               }

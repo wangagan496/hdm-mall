@@ -19,6 +19,16 @@ export struct MineView {
   @Consume
   stackPath: NavPathStack
 
+  private showUnavailableFeature(name: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({
+        message: `${name}功能正在完善中`
+      })
+    } catch {
+      return
+    }
+  }
+
   // @StorageProp(auth.KEY) user: MkUser = {} as MkUser
   build() {
     Column() {
@@ -32,6 +42,8 @@ export struct MineView {
                 Image($r('[ui_components].media.ic_public_settings'))
                   .width(24)
                   .aspectRatio(1)
+                  .focusable(true)
+                  .accessibilityText('设置')
                   .onClick(() => {
                     this.stackPath.pushPath({
                       name: PAGE_PATH.SETTINGS_PAGE
@@ -85,7 +97,7 @@ export struct MineView {
               Image($r('app.media.ic_user_vip'))
                 .width(24)
                 .aspectRatio(1)
-              Text('升级美蔻商城会员，尊享无限免邮')
+              Text('升级惠多美商城会员，尊享无限免邮')
                 .fontSize(12)
                 .fontColor('#7E2C1A')
                 .layoutWeight(1)
@@ -165,38 +177,43 @@ export struct MineView {
                 .fontColor($r('[ui_components].color.black'))
               GridRow({ columns: 5 }) {
                 GridCol() {
-                  HDMNavCol({ icon: $r('app.media.ic_user_order'), text: '全部订单' })
-                    .onClick(() => {
-                      // TODO 订单页，无参数
-                    })
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_order'),
+                    text: '全部订单',
+                    onNavClick: () => this.showUnavailableFeature('全部订单')
+                  })
                 }
 
                 GridCol() {
-                  HDMNavCol({ icon: $r('app.media.ic_user_obligation'), text: '待付款' })
-                    .onClick(() => {
-                      // TODO 订单页，无参数 orderState=1
-                    })
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_obligation'),
+                    text: '待付款',
+                    onNavClick: () => this.showUnavailableFeature('待付款')
+                  })
                 }
 
                 GridCol() {
-                  HDMNavCol({ icon: $r('app.media.ic_user_unreceived'), text: '待发货' })
-                    .onClick(() => {
-                      // TODO 订单页，无参数 orderState=2
-                    })
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_unreceived'),
+                    text: '待发货',
+                    onNavClick: () => this.showUnavailableFeature('待发货')
+                  })
                 }
 
                 GridCol() {
-                  HDMNavCol({ icon: $r('app.media.ic_user_unshipped'), text: '待收货' })
-                    .onClick(() => {
-                      // TODO 订单页，无参数 orderState=3
-                    })
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_unshipped'),
+                    text: '待收货',
+                    onNavClick: () => this.showUnavailableFeature('待收货')
+                  })
                 }
 
                 GridCol() {
-                  HDMNavCol({ icon: $r('app.media.ic_user_unevaluated'), text: '待评价' })
-                    .onClick(() => {
-                      // TODO 订单页，无参数 orderState=4
-                    })
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_unevaluated'),
+                    text: '待评价',
+                    onNavClick: () => this.showUnavailableFeature('待评价')
+                  })
                 }
               }
               .width('100%')

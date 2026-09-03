@@ -2,31 +2,31 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "HDM Mall mobile experience"
     },
     {
       "name": "PhoneAbility_desc",
-      "value": "description"
+      "value": "HDM Mall main experience"
     },
     {
       "name": "PhoneAbility_label",
-      "value": "label"
+      "value": "HDM Mall"
     },
     {
       "name": "PhoneFormAbility_desc",
-      "value": "form_description"
+      "value": "HDM Mall service widget"
     },
     {
       "name": "PhoneFormAbility_label",
-      "value": "form_label"
+      "value": "HDM Mall"
     },
     {
       "name": "widget_desc",
-      "value": "This is a service widget."
+      "value": "Quick access to selected products from HDM Mall"
     },
     {
       "name": "widget_display_name",
-      "value": "widget"
+      "value": "HDM Mall"
     }
   ]
 }

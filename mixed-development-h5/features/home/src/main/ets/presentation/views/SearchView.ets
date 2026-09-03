@@ -11,6 +11,17 @@ struct SearchView {
   @Consume
   stackPath: NavPathStack
 
+  private searchGoods(value: string): void {
+    const keyword: string = value.trim()
+    if (!keyword) {
+      return
+    }
+    this.keyword = keyword
+    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, {
+      keyword: keyword
+    } as SearchRouterParam)
+  }
+
   build() {
     NavDestination() {
       Column() {
@@ -21,6 +32,8 @@ struct SearchView {
             .aspectRatio(1)
             .fillColor($r('[ui_components].color.white'))
             .margin(13)
+            .focusable(true)
+            .accessibilityText('返回')
             .onClick(() => {
               this.stackPath.pop()
             })
@@ -37,19 +50,10 @@ struct SearchView {
             .height(36)
             .caretStyle({ color: $r('[ui_components].color.red') })
             .defaultFocus(true)
-            .onSubmit((value) => {
-              // 可以跳转到搜索结果页 传递关键字
-              // let params: SearchRouterParam = {
-              //   keyword: value
-              // }
-              // this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, params)
-
-              this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, {
-                keyword: value
-              } as SearchRouterParam)
+            .onChange((value: string) => {
+              this.keyword = value
             })
-
-
+            .onSubmit((value: string) => this.searchGoods(value))
         }
         .padding({ top: this.topHeight, right: 16 })
         .linearGradient({
@@ -59,11 +63,7 @@ struct SearchView {
 
         HDMAudioSearch({
           onComplete: (keyword) => {
-            // 直接去搜索就可以了
-            this.keyword = keyword
-            this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, {
-              keyword: keyword
-            } as SearchRouterParam)
+            this.searchGoods(keyword)
           }
         })
       }
