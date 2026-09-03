@@ -3,11 +3,11 @@ import { HDMGoodsItem } from 'models'
 import { auth, localGoodsStore } from 'storage'
 import { HDMGuess, HDMLoading, HDMLoadingDialog, HDMNavBar, HDMSku, HDMSkuType } from 'ui_components'
 import { authCart } from 'storage'
-import { Goods } from '../../domain/models'
+import { Goods, GoodsEvaluation } from '../../domain/models'
 import { window } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
-import { getDetailAPI } from '../../data/api'
+import { getDetailAPI, getGoodsEvaluationsAPI } from '../../data/api'
 import { isFallbackSkuId } from '../../data/api/mockData'
 
 
@@ -32,6 +32,9 @@ export struct GoodsView {
   @State count: number = 1
   @State loading: boolean = false
   @State isFavorite: boolean = false
+  @State evaluations: GoodsEvaluation[] = []
+  @State evaluationCount: number = 0
+  @State evaluationLoading: boolean = false
   @State
   sku: HDMSkuType = {} as HDMSkuType
   scroller = new Scroller()
@@ -47,6 +50,18 @@ export struct GoodsView {
     autoCancel: false
   })
   tabs: string[] = ['商品', '评价', '详情', '推荐']
+  private evaluationRequestId: number = 0
+
+  private getSelectedInventory(): number {
+    return this.sku.id.length > 0 ? this.sku.inventory : 0
+  }
+
+  private getInventoryText(): string {
+    if (this.sku.id.length === 0) {
+      return '请选择规格'
+    }
+    return this.getSelectedInventory() > 0 ? `库存 ${this.getSelectedInventory()}` : '暂时缺货'
+  }
 
   setStatusBar() {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -81,6 +96,7 @@ export struct GoodsView {
     }
     this.goods = await getDetailAPI(this.goods)
     this.isFavorite = localGoodsStore.isFavorite(this.goods.id)
+    this.loadEvaluations(this.goods.id)
     try {
       await localGoodsStore.recordHistory(this.goods)
     } catch {
@@ -88,6 +104,33 @@ export struct GoodsView {
     }
     // 通过接口获取真正的详情数据
     this.loadingDialog.close() // 销毁
+  }
+
+  private async loadEvaluations(goodsId: string): Promise<void> {
+    if (!goodsId) {
+      return
+    }
+    const requestId: number = ++this.evaluationRequestId
+    this.evaluationLoading = true
+    this.evaluations = []
+    this.evaluationCount = 0
+    try {
+      const result = await getGoodsEvaluationsAPI(goodsId)
+      if (requestId !== this.evaluationRequestId || goodsId !== this.goods.id) {
+        return
+      }
+      this.evaluations = result.items || []
+      this.evaluationCount = result.counts || this.evaluations.length
+    } catch {
+      if (requestId === this.evaluationRequestId) {
+        this.evaluations = []
+        this.evaluationCount = 0
+      }
+    } finally {
+      if (requestId === this.evaluationRequestId) {
+        this.evaluationLoading = false
+      }
+    }
   }
 
   @Builder
@@ -223,7 +266,7 @@ export struct GoodsView {
               Text(this.count.toString())
             }
             .enableDec(this.count > 1) // 小于1不能减
-            .enableInc(this.count < this.goods.inventory) // 小于库存数量
+            .enableInc(this.sku.id.length > 0 && this.count < this.getSelectedInventory())
             .onInc(() => {
               this.count++
             })
@@ -231,9 +274,10 @@ export struct GoodsView {
               this.count--
             })
 
-            Text(this.goods.inventory <= 10000 ? '库存充足' : '库存紧张')
+            Text(this.getInventoryText())
               .fontSize(12)
-              .fontColor(this.goods.inventory <= 10000 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
+              .fontColor(this.sku.id.length > 0 && this.getSelectedInventory() > 0 ?
+                $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
           }
         }
         .height(80)
@@ -255,6 +299,9 @@ export struct GoodsView {
             specs: this.goods.specs,
             onSkuChange: (sku) => {
               this.sku = sku
+              if (sku.inventory > 0 && this.count > sku.inventory) {
+                this.count = sku.inventory
+              }
             }
           })
         }
@@ -312,8 +359,11 @@ export struct GoodsView {
             }
 
             ListItem() {
-              // 评论 目前无评论数据
-              GoodsComment({ goods: this.goods })
+              GoodsComment({
+                evaluations: this.evaluations,
+                totalCount: this.evaluationCount,
+                loading: this.evaluationLoading
+              })
             }
 
             ListItem() {

@@ -4,6 +4,8 @@ import {
   CreateOrderParams,
   CreateOrderResult,
   DeleteCartParams,
+  OrderListParams,
+  OrderPage,
   PreOrder,
   UpdateCartParams
 } from 'models'
@@ -36,4 +38,8 @@ export const getPreOrderAPI = () => {
 // 创建订单
 export const createOrderAPI = (data: CreateOrderParams) => {
   return RequestAxios.post<CreateOrderResult>('/member/order', data)
+}
+
+export const getOrderListAPI = (params: OrderListParams) => {
+  return RequestAxios.get<OrderPage>('/member/order', params)
 }

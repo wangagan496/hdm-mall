@@ -12,5 +12,7 @@ export {
   CreateOrderParamsGoods,
   CreateOrderParams,
   CreateOrderResult,
+  OrderListParams,
+  OrderPage,
   PayResultParams
 } from 'models'

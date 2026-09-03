@@ -41,6 +41,7 @@ export struct SearchResultView {
   // 控制器
   scroller = new Scroller()
   private queryGeneration: number = 0
+  private loadedGoodsIds: Set<string> = new Set<string>()
 
   private submitSearch(value: string): void {
     const keyword: string = value.trim()
@@ -71,11 +72,18 @@ export struct SearchResultView {
         if (generation !== this.queryGeneration) {
           return
         }
-        relevantItems = filterSearchGoods(
+        const filteredItems: HDMGoodsItem[] = filterSearchGoods(
           result.pageData.items,
           this.params.keyword,
           this.params.categoryId
         )
+        relevantItems = filteredItems.filter((item: HDMGoodsItem): boolean => {
+          if (this.loadedGoodsIds.has(item.id)) {
+            return false
+          }
+          this.loadedGoodsIds.add(item.id)
+          return true
+        })
         if (relevantItems.length > 0) {
           const startIndex: number = this.lazyDataSource.totalCount()
           this.lazyDataSource.addArr(relevantItems)
@@ -112,6 +120,7 @@ export struct SearchResultView {
     this.params.page = 1 // 再次搜索回到第一页
     this.isFinished = false // 是否加载完成回到最开始状态
     this.resultCount = 0
+    this.loadedGoodsIds.clear()
     this.lazyDataSource.loadData([]) // 回到空数据 再去添加的
     this.queryGoodsData()
   }

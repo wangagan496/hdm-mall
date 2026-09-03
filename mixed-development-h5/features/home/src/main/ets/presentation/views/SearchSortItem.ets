@@ -11,8 +11,14 @@ export struct SearchSortItem {
   @Prop sortField: SortField = 'publishTime'
   // 父组件的排序方法
   @Prop sortMethod: SortMethod = 'desc'
-  // TODO 点击筛选条件，回传  sortField 和 sortMethod 给父组件（回调函数）
   onSortChange: (field: SortField, method: SortMethod) => void = () => {
+  }
+
+  private nextSortMethod(): SortMethod {
+    if (this.sortField !== this.field) {
+      return 'desc'
+    }
+    return this.sortMethod === 'desc' ? 'asc' : 'desc'
   }
 
   build() {
@@ -36,8 +42,7 @@ export struct SearchSortItem {
       .justifyContent(FlexAlign.Center)
     }
     .onClick(() => {
-      //
-      this.onSortChange(this.field, this.sortMethod === "desc" ? 'asc' : 'desc')
+      this.onSortChange(this.field, this.nextSortMethod())
     })
   }
 }

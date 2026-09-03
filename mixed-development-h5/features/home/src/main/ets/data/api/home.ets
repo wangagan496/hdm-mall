@@ -1,6 +1,14 @@
 import { RequestAxios } from 'network'
 import { CategoryItem, HDMGoodsItem } from 'models'
-import { Banner, Goods, HotResult, SearchResult, RecommendParams, SearchRouterParam } from '../../domain/models'
+import {
+  Banner,
+  Goods,
+  GoodsEvaluationPage,
+  HotResult,
+  SearchResult,
+  RecommendParams,
+  SearchRouterParam
+} from '../../domain/models'
 import { generateFallbackGoods } from './mockData'
 import { normalizeGoodsPresentation, normalizeGoodsSummaryPicture } from './goodsPresentation'
 
@@ -59,6 +67,17 @@ export const getRecommendAPI = (params: RecommendParams) => {
   return RequestAxios.get<HDMGoodsItem[]>("/home/recommend", params)
 }
 
+export function uniqueGoodsById(items: HDMGoodsItem[]): HDMGoodsItem[] {
+  const ids: Set<string> = new Set<string>()
+  return items.filter((item: HDMGoodsItem): boolean => {
+    if (ids.has(item.id)) {
+      return false
+    }
+    ids.add(item.id)
+    return true
+  })
+}
+
 async function fetchGoodsDetail(goodsId: string): Promise<Goods> {
   const params: GoodsDetailParams = { id: goodsId }
   const detail: Goods = await RequestAxios.getSilent<Goods>('/goods', params)
@@ -87,6 +106,15 @@ async function requestGoodsDetail(goodsId: string): Promise<Goods> {
 
 export const searchGoodsAPI = (data: object) => {
   return RequestAxios.post<SearchResult>('/search/all', data)
+}
+
+export const getGoodsEvaluationsAPI = (
+  goodsId: string,
+  page: number = 1,
+  pageSize: number = 2
+) => {
+  const params: GoodsEvaluationParams = { page, pageSize }
+  return RequestAxios.get<GoodsEvaluationPage>(`/goods/${goodsId}/evaluate/page`, params)
 }
 
 export function normalizeGoodsSummaryPictures(
@@ -142,6 +170,11 @@ interface RealSearchParams {
 
 interface GoodsDetailParams {
   id: string
+}
+
+interface GoodsEvaluationParams {
+  page: number
+  pageSize: number
 }
 
 export const getRealSearchGoodsAPI = (

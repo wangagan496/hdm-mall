@@ -13,7 +13,8 @@ import {
   normalizeGoodsSummaryPicturesAPI,
   fillPromotionGoods,
   getDistinctGoods,
-  getBannerSearchParam
+  getBannerSearchParam,
+  uniqueGoodsById
 } from '../../data/api'
 import {
   HomeBannerSection,
@@ -68,10 +69,11 @@ export struct HomeView {
   }
 
   aboutToAppear() {
-    // 首屏与推荐区解耦：先显示首页骨架和已返回的核心内容，推荐商品后台加载。
-    // 原先推荐请求必须等待首页 6 个接口全部结束，冷启动时会放大最慢接口的延迟。
-    this.getHomeData()
-    this.getRecommend()
+    // 推荐请求与首页模块并发发出，模块数据到齐后再做跨区块去重。
+    const recommendRequest: Promise<HDMGoodsItem[]> = getRecommendAPI({ limit: 8 } as RecommendParams)
+    this.getHomeData().then((): void => {
+      this.getRecommend(recommendRequest)
+    })
     this.registerEvent()
   }
 
@@ -191,19 +193,39 @@ export struct HomeView {
     pushCardManager.pushImageToCard(fileList, storeManager.getFormId())
   }
 
-  async getRecommend() {
+  async getRecommend(preloadedRequest?: Promise<HDMGoodsItem[]>) {
     if (this.recommendRequesting || this.isFinished) {
       return
     }
     this.recommendRequesting = true
     try {
-      const list = await getRecommendAPI({ limit: this.page * 8 } as RecommendParams)
-      this.recommendDataSource.loadData(await normalizeGoodsSummaryPicturesAPI(list))
-      if (list.length === this.page * 8) {
+      let newItems: HDMGoodsItem[] = []
+      do {
+        const limit: number = this.page * 8
+        const rawList: HDMGoodsItem[] = await (
+          preloadedRequest || getRecommendAPI({ limit } as RecommendParams)
+        )
+        preloadedRequest = undefined
+        const list: HDMGoodsItem[] = uniqueGoodsById(rawList)
+        const displayedGoods: HDMGoodsItem[] = this.newGoods.concat(this.saleGoods, this.hotGoods, this.oneGoods)
+        for (let index = 0; index < this.recommendDataSource.totalCount(); index++) {
+          displayedGoods.push(this.recommendDataSource.getData(index))
+        }
+        newItems = getDistinctGoods(list, displayedGoods, [], list.length)
+        if (newItems.length > 0) {
+          const normalizedItems: HDMGoodsItem[] = await normalizeGoodsSummaryPicturesAPI(newItems)
+          if (this.recommendDataSource.totalCount() === 0) {
+            this.recommendDataSource.loadData(normalizedItems)
+          } else {
+            this.recommendDataSource.addArr(normalizedItems)
+          }
+        }
+        if (rawList.length < limit) {
+          this.isFinished = true
+          break
+        }
         this.page++
-      } else {
-        this.isFinished = true
-      }
+      } while (newItems.length === 0 && !this.isFinished)
     } catch (_) {
       // 推荐区不是首屏阻塞内容，请求失败后保留重试能力。
     } finally {

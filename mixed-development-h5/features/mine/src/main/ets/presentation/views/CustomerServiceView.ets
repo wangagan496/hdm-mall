@@ -22,7 +22,7 @@ export struct CustomerServiceView {
   questions: ServiceQuestion[] = [
     { question: '收藏保存在哪里？', answer: '当前演示版将收藏保存在本机，暂未与账号服务端同步。' },
     { question: '足迹会保留多少条？', answer: '浏览足迹按最近访问排序，相同商品会自动去重，最多保留 50 条。' },
-    { question: '为什么看不到历史订单？', answer: '当前项目已经接入购物车和创建订单流程，订单列表服务仍在完善。' },
+    { question: '为什么看不到历史订单？', answer: '登录后可从个人中心的订单入口查看订单，并按订单状态筛选。' },
     { question: '在线客服可以聊天吗？', answer: '当前演示版尚未接入客服会话服务，因此不会展示虚假的聊天记录。' }
   ]
 

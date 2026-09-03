@@ -12,6 +12,28 @@ export interface GoodsDetail {
   properties: GoodsProperty[];
 }
 
+export interface GoodsEvaluationMember {
+  avatar?: string
+  nickname?: string
+}
+
+export interface GoodsEvaluation {
+  content: string
+  createTime: string
+  id: string
+  member: GoodsEvaluationMember | null
+  pictures: string[] | null
+  score: number
+}
+
+export interface GoodsEvaluationPage {
+  counts: number
+  items: GoodsEvaluation[]
+  page: number
+  pageSize: number
+  pages: number
+}
+
 // 7个属性 extend继承这7个属性 再增加5个属性
 export interface Goods extends HDMGoodsItem {
   inventory: number

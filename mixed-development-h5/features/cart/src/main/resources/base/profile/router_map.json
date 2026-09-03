@@ -19,6 +19,11 @@
       "name": "PayResultView",
       "buildFunction": "PayResultViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/PayResultView.ets"
+    },
+    {
+      "name": "OrderView",
+      "buildFunction": "OrderViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/OrderView.ets"
     }
   ]
 }

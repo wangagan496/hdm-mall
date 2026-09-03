@@ -177,6 +177,20 @@ export interface OrderItem {
   totalNum: number
 }
 
+export interface OrderListParams {
+  page: number
+  pageSize: number
+  orderState: number
+}
+
+export interface OrderPage {
+  counts: number
+  items: OrderItem[]
+  page: number
+  pageSize: number
+  pages: number
+}
+
 export interface OrderSku {
   attrsText: string
   curPrice: number

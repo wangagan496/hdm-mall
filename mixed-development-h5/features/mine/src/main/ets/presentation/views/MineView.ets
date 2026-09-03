@@ -19,14 +19,15 @@ export struct MineView {
   @Consume
   stackPath: NavPathStack
 
-  private showUnavailableFeature(name: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({
-        message: `${name}功能正在完善中`
-      })
-    } catch {
+  private openOrders(orderState: number): void {
+    if (!this.user.token) {
+      this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
       return
     }
+    this.stackPath.pushPath({
+      name: PAGE_PATH.ORDER_PAGE,
+      param: orderState
+    })
   }
 
   // @StorageProp(auth.KEY) user: MkUser = {} as MkUser
@@ -180,7 +181,7 @@ export struct MineView {
                   HDMNavCol({
                     icon: $r('app.media.ic_user_order'),
                     text: '全部订单',
-                    onNavClick: () => this.showUnavailableFeature('全部订单')
+                    onNavClick: () => this.openOrders(0)
                   })
                 }
 
@@ -188,7 +189,7 @@ export struct MineView {
                   HDMNavCol({
                     icon: $r('app.media.ic_user_obligation'),
                     text: '待付款',
-                    onNavClick: () => this.showUnavailableFeature('待付款')
+                    onNavClick: () => this.openOrders(1)
                   })
                 }
 
@@ -196,7 +197,7 @@ export struct MineView {
                   HDMNavCol({
                     icon: $r('app.media.ic_user_unreceived'),
                     text: '待发货',
-                    onNavClick: () => this.showUnavailableFeature('待发货')
+                    onNavClick: () => this.openOrders(2)
                   })
                 }
 
@@ -204,7 +205,7 @@ export struct MineView {
                   HDMNavCol({
                     icon: $r('app.media.ic_user_unshipped'),
                     text: '待收货',
-                    onNavClick: () => this.showUnavailableFeature('待收货')
+                    onNavClick: () => this.openOrders(3)
                   })
                 }
 
@@ -212,7 +213,7 @@ export struct MineView {
                   HDMNavCol({
                     icon: $r('app.media.ic_user_unevaluated'),
                     text: '待评价',
-                    onNavClick: () => this.showUnavailableFeature('待评价')
+                    onNavClick: () => this.openOrders(4)
                   })
                 }
               }
