@@ -7,9 +7,13 @@ import {
   normalizeGoodsPresentation,
   normalizeGoodsSummaryPicture
 } from '../main/ets/data/api/goodsPresentation';
-import { normalizeGoodsSummaryPictures } from '../main/ets/data/api/home';
+import {
+  getBannerCategoryId,
+  getBannerSearchParam,
+  normalizeGoodsSummaryPictures
+} from '../main/ets/data/api/home';
 import { HDMGoodsItem } from 'models';
-import { Goods } from '../main/ets/domain/models';
+import { Banner, Goods, SearchRouterParam } from '../main/ets/domain/models';
 import { filterSearchGoods } from '../main/ets/data/api/searchPresentation';
 
 export default function localUnitTest() {
@@ -44,6 +48,24 @@ export default function localUnitTest() {
     it('recognizesFallbackSkuIds', 0, () => {
       expect(isFallbackSkuId('3388018_fallback_c2l')).assertTrue();
       expect(isFallbackSkuId('300081002')).assertFalse();
+    });
+    it('parsesBannerCategoryRoutes', 0, () => {
+      expect(getBannerCategoryId('/category/1181622003')).assertEqual('1181622003');
+      expect(getBannerCategoryId('/category/1181622006')).assertEqual('1181622006');
+      expect(getBannerCategoryId('/goods/123')).assertEqual('');
+    });
+    it('routesWarmWinterBannerToSocksInsteadOfShoes', 0, () => {
+      const banner: Banner = {
+        id: '42',
+        imgUrl: 'winter.png',
+        hrefUrl: '/category/1181622006',
+        type: '1'
+      };
+
+      const routeParam: SearchRouterParam | undefined = getBannerSearchParam(banner);
+
+      expect(routeParam?.keyword).assertEqual('短袜');
+      expect(routeParam?.categoryId).assertEqual('1191110004');
     });
     it('keepsClickedCardIdentityWhenOpeningDetail', 0, () => {
       const source: HDMGoodsItem = {

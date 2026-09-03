@@ -1,8 +1,35 @@
 import { RequestAxios } from 'network'
 import { CategoryItem, HDMGoodsItem } from 'models'
-import { Banner, Goods, HotResult, SearchResult, RecommendParams } from '../../domain/models'
+import { Banner, Goods, HotResult, SearchResult, RecommendParams, SearchRouterParam } from '../../domain/models'
 import { generateFallbackGoods } from './mockData'
 import { normalizeGoodsPresentation, normalizeGoodsSummaryPicture } from './goodsPresentation'
+
+const goodsDetailCache: Map<string, Promise<Goods>> = new Map<string, Promise<Goods>>()
+const BANNER_CATEGORY_PREFIX: string = '/category/'
+
+export function getBannerCategoryId(hrefUrl: string): string {
+  if (!hrefUrl.startsWith(BANNER_CATEGORY_PREFIX)) {
+    return ''
+  }
+  return hrefUrl.substring(BANNER_CATEGORY_PREFIX.length).trim()
+}
+
+export function getBannerSearchParam(banner: Banner): SearchRouterParam | undefined {
+  // Banner 42 advertises winter socks, but the service href points to women's shoes.
+  // Keep the static campaign semantics aligned with the actual product category.
+  if (banner.id === '42') {
+    return { keyword: '短袜', categoryId: '1191110004' }
+  }
+
+  const categoryId: string = getBannerCategoryId(banner.hrefUrl)
+  if (categoryId === '1181622003') {
+    return { keyword: '箱包手袋', categoryId }
+  }
+  if (categoryId === '1181622001') {
+    return { keyword: '气质女装', categoryId }
+  }
+  return undefined
+}
 
 export const getBannerAPI = () => {
   return RequestAxios.get<Banner[]>("/home/banner")
@@ -32,13 +59,30 @@ export const getRecommendAPI = (params: RecommendParams) => {
   return RequestAxios.get<HDMGoodsItem[]>("/home/recommend", params)
 }
 
-async function requestGoodsDetail(goodsId: string): Promise<Goods> {
+async function fetchGoodsDetail(goodsId: string): Promise<Goods> {
   const params: GoodsDetailParams = { id: goodsId }
   const detail: Goods = await RequestAxios.getSilent<Goods>('/goods', params)
   if (!detail || detail.id !== goodsId) {
     throw new Error('商品详情与入口商品不匹配')
   }
   return detail
+}
+
+async function requestGoodsDetail(goodsId: string): Promise<Goods> {
+  const cachedRequest: Promise<Goods> | undefined = goodsDetailCache.get(goodsId)
+  if (cachedRequest) {
+    return cachedRequest
+  }
+
+  const request: Promise<Goods> = fetchGoodsDetail(goodsId)
+  goodsDetailCache.set(goodsId, request)
+  try {
+    return await request
+  } catch {
+    // Failed requests remain retryable instead of poisoning this session's cache.
+    goodsDetailCache.delete(goodsId)
+    throw new Error('商品详情请求失败')
+  }
 }
 
 export const searchGoodsAPI = (data: object) => {

@@ -12,7 +12,8 @@ import {
   getRecommendAPI,
   normalizeGoodsSummaryPicturesAPI,
   fillPromotionGoods,
-  getDistinctGoods
+  getDistinctGoods,
+  getBannerSearchParam
 } from '../../data/api'
 import {
   HomeBannerSection,
@@ -22,11 +23,11 @@ import {
   HomeDiscountSection,
   DiscountSectionParams
 } from '../components'
-import { Banner, RecommendParams } from '../../domain/models'
+import { Banner, RecommendParams, SearchRouterParam } from '../../domain/models'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 import { storeManager } from 'storage'
-import { HomeGoodsDeduplication } from '../utils/HomeGoodsDeduplication'
+import { HomeGoodsDeduplication, HomeGoodsResult } from '../utils/HomeGoodsDeduplication'
 
 @Component
 export struct HomeView {
@@ -49,13 +50,23 @@ export struct HomeView {
   @State isFinished: boolean = false
   @State isRefreshing: boolean = false
   page: number = 1
+  private homeRequestId: number = 0
   scroller: Scroller = new Scroller()
   @Consume stackPath: NavPathStack
 
+  private openBannerGoods(banner: Banner): void {
+    const routeParam: SearchRouterParam | undefined = getBannerSearchParam(banner)
+    if (!routeParam) {
+      return
+    }
+    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, routeParam)
+  }
+
   aboutToAppear() {
-    this.getHomeData()
+    this.getHomeData().then((): void => {
+      this.getRecommend()
+    })
     this.registerEvent()
-    this.getRecommend()
   }
 
   private homeDataCb: () => void = () => {
@@ -71,6 +82,7 @@ export struct HomeView {
   }
 
   async getHomeData(again?: boolean) {
+    const requestId: number = ++this.homeRequestId
     if (!again) {
       this.loading = true
     }
@@ -79,6 +91,10 @@ export struct HomeView {
       getBannerAPI(), getCategoryAPI(), getHotResultAPI(),
       getInVogueAPI(), getOneStopAPI(), getHomeNewAPI()
     ])
+
+    if (requestId !== this.homeRequestId) {
+      return
+    }
 
     if (result[0].status === "fulfilled") {
       this.banners = result[0].value
@@ -104,11 +120,26 @@ export struct HomeView {
       fillPromotionGoods
     )
 
+    // The aggregate APIs already contain everything needed to paint the home
+    // screen. Detail-image correction is progressive and must not block it.
+    this.saleGoods = deduplicatedGoods.saleGoods
+    this.hotGoods = deduplicatedGoods.hotGoods
+    this.oneGoods = deduplicatedGoods.oneGoods
+    this.newGoods = deduplicatedGoods.newGoods
+    this.loading = false
+    this.normalizePromotionPictures(deduplicatedGoods, requestId)
+  }
+
+  private async normalizePromotionPictures(goods: HomeGoodsResult, requestId: number): Promise<void> {
     const normalizedPromotions: HDMGoodsItem[][] = await Promise.all([
-      normalizeGoodsSummaryPicturesAPI(deduplicatedGoods.saleGoods),
-      normalizeGoodsSummaryPicturesAPI(deduplicatedGoods.hotGoods),
-      normalizeGoodsSummaryPicturesAPI(deduplicatedGoods.oneGoods)
+      normalizeGoodsSummaryPicturesAPI(goods.saleGoods),
+      normalizeGoodsSummaryPicturesAPI(goods.hotGoods),
+      normalizeGoodsSummaryPicturesAPI(goods.oneGoods)
     ])
+
+    if (requestId !== this.homeRequestId) {
+      return
+    }
 
     this.saleGoods = normalizedPromotions[0]
     if (this.saleGoods.length > 0) {
@@ -116,9 +147,6 @@ export struct HomeView {
     }
     this.hotGoods = normalizedPromotions[1]
     this.oneGoods = normalizedPromotions[2]
-    this.newGoods = deduplicatedGoods.newGoods
-
-    this.loading = false
   }
 
   async pushImageToCard(list: HDMGoodsItem[]) {
@@ -155,7 +183,10 @@ export struct HomeView {
           Scroll(this.scroller) {
             Column() {
               Stack({ alignContent: Alignment.Top }) {
-                HomeBannerSection({ banners: this.banners })
+                HomeBannerSection({
+                  banners: this.banners,
+                  onBannerClick: (banner: Banner): void => this.openBannerGoods(banner)
+                })
                 Row() {
                   Row({ space: 4 }) {
                     Image($r('[ui_components].media.ic_public_search'))
