@@ -4,6 +4,7 @@ import {
   excludeFailedPicture,
   findProductPicture,
   fillPromotionGoods,
+  getDistinctGoods,
   normalizeGoodsPresentation,
   normalizeGoodsSummaryPicture
 } from '../main/ets/data/api/goodsPresentation';
@@ -232,6 +233,15 @@ export default function localUnitTest() {
       expect(filled[1].id).assertEqual('one-2');
       expect(filled[2].id).assertEqual('shared-1');
       expect(filled[3].id).assertEqual('shared-2');
+    });
+    it('keepsRecommendationsWhosePriceIsNumeric', 0, () => {
+      const recommendation: HDMGoodsItem = createGoodsItem('recommend-1', '数字价格推荐商品');
+      recommendation.price = 199;
+
+      const distinct: HDMGoodsItem[] = getDistinctGoods([recommendation], [], [], 1);
+
+      expect(distinct.length).assertEqual(1);
+      expect(distinct[0].id).assertEqual(recommendation.id);
     });
     it('excludesStoragePouchFromHandbagSearch', 0, () => {
       const handbag: HDMGoodsItem = createGoodsItem('handbag-1', 'Vasic 牛皮通勤手提包 灰色');

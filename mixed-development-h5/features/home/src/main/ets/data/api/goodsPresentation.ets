@@ -78,7 +78,7 @@ function getContentKey(item: HDMGoodsItem): string {
   if (!name) {
     return ''
   }
-  return `${name}|${item.price.trim()}`
+  return `${name}|${item.price.toString().trim()}`
 }
 
 export function getDistinctGoods(

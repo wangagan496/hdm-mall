@@ -314,14 +314,6 @@ export struct HomeView {
                 .columnsGap(10)
                 .rowsGap(10)
                 .padding({ left: 16, right: 16 })
-                .onReachEnd(async () => {
-                  if (this.isReachLoad || this.isFinished) {
-                    return
-                  }
-                  this.isReachLoad = true
-                  await this.getRecommend()
-                  this.isReachLoad = false
-                })
               }
               .width('100%')
               .padding({ top: 10, bottom: 10 })
@@ -332,6 +324,14 @@ export struct HomeView {
           .height('100%')
           .align(Alignment.TopStart)
           .scrollBar(BarState.Off)
+          .onReachEnd(async () => {
+            if (this.isReachLoad || this.isFinished) {
+              return
+            }
+            this.isReachLoad = true
+            await this.getRecommend()
+            this.isReachLoad = false
+          })
           .onDidScroll(() => {
             this.yOffset = this.scroller.currentOffset().yOffset
             this.searchOpacity = this.yOffset > 80 ? 1 : this.yOffset / 80
