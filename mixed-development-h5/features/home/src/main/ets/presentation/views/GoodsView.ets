@@ -63,11 +63,22 @@ export struct GoodsView {
     return this.getSelectedInventory() > 0 ? `库存 ${this.getSelectedInventory()}` : '暂时缺货'
   }
 
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
+
   setStatusBar() {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     window.getLastWindow(context)
       .then((win) => {
-        win.setWindowSystemBarProperties({ statusBarContentColor: '#000000' })
+        try {
+          win.setWindowSystemBarProperties({ statusBarContentColor: '#000000' })
+        } catch {
+        }
+      }).catch(() => {
       })
   }
 
@@ -91,7 +102,7 @@ export struct GoodsView {
       this.isFavorite = localGoodsStore.isFavorite(source.id)
     } else {
       this.loadingDialog.close()
-      this.getUIContext().getPromptAction().showToast({ message: '商品信息加载失败，请返回重试' })
+      this.safeToast('商品信息加载失败，请返回重试')
       return
     }
     this.goods = await getDetailAPI(this.goods)
@@ -163,7 +174,7 @@ export struct GoodsView {
   async addToCart(): Promise<boolean> {
     const user = auth.getUserInfo()
     if (!user || !user.token) {
-      this.getUIContext().getPromptAction().showToast({ message: '您还未登录' })
+      this.safeToast('您还未登录')
       this.showSheet = false // 关闭半模态弹窗
       // 到底跳转不跳转登录 取决于产品的运营逻辑
       this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
@@ -171,11 +182,11 @@ export struct GoodsView {
     }
     // 此时说明用户是有的
     if (!this.sku.id) {
-      this.getUIContext().getPromptAction().showToast({ message: '请选择对应的产品规格' })
+      this.safeToast('请选择对应的产品规格')
       return false
     }
     if (isFallbackSkuId(this.sku.id)) {
-      this.getUIContext().getPromptAction().showToast({ message: '商品规格加载失败，请返回重试' })
+      this.safeToast('商品规格加载失败，请返回重试')
       return false
     }
     this.loadingTitle = "加入中..."
@@ -183,10 +194,10 @@ export struct GoodsView {
     this.loadingDialog.open()
     try {
       await authCart.addCart({ skuId: this.sku.id, count: this.count })
-      this.getUIContext().getPromptAction().showToast({ message: '加入购物车成功' })
+      this.safeToast('加入购物车成功')
       return true
     } catch {
-      this.getUIContext().getPromptAction().showToast({ message: '加入购物车失败，请稍后重试' })
+      this.safeToast('加入购物车失败，请稍后重试')
       return false
     } finally {
       this.loading = false
@@ -212,11 +223,9 @@ export struct GoodsView {
     }
     try {
       this.isFavorite = await localGoodsStore.toggleFavorite(this.goods)
-      this.getUIContext().getPromptAction().showToast({
-        message: this.isFavorite ? '收藏成功' : '已取消收藏'
-      })
+      this.safeToast(this.isFavorite ? '收藏成功' : '已取消收藏')
     } catch {
-      this.getUIContext().getPromptAction().showToast({ message: '收藏操作失败，请稍后重试' })
+      this.safeToast('收藏操作失败，请稍后重试')
     }
   }
 
@@ -244,11 +253,11 @@ export struct GoodsView {
               .fontSize(14)
               .fontColor($r('[ui_components].color.black'))
               .offset({ y: -4 })
-            Text(this.sku.price || this.goods.price)
+            Text((this.sku.price || this.goods.price || '').toString())
               .fontSize(24)
               .fontColor($r('[ui_components].color.black'))
               .fontWeight(500)
-            Text('原价¥' + (this.sku.oldPrice || this.goods.price))
+            Text('原价¥' + (this.sku.oldPrice || this.goods.price || ''))
               .fontSize(12)
               .fontColor($r('[ui_components].color.gray'))
               .margin({ left: 10 })

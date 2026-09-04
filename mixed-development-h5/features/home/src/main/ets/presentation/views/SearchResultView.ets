@@ -22,6 +22,7 @@ export struct SearchResultView {
   @State loading: boolean = false // 是否正在加载
   @State isFinished: boolean = false // 是否已经完成了所有的加载
   @State resultCount: number = 0
+  @State loadFailed: boolean = false
   // 查询参数
   @State
   params: SearchParams =
@@ -65,6 +66,7 @@ export struct SearchResultView {
   async queryGoodsData() {
     const generation: number = this.queryGeneration
     this.loading = true
+    this.loadFailed = false
     try {
       let relevantItems: HDMGoodsItem[] = []
       do {
@@ -95,6 +97,10 @@ export struct SearchResultView {
         // 若当前页全是被排除的错误类型，继续取下一页，避免提前展示“暂无商品”。
       } while (relevantItems.length === 0 && !this.isFinished)
       this.resultCount = this.lazyDataSource.totalCount()
+    } catch {
+      if (generation === this.queryGeneration) {
+        this.loadFailed = true
+      }
     } finally {
       if (generation === this.queryGeneration) {
         this.loading = false
@@ -192,9 +198,15 @@ export struct SearchResultView {
 
         if (!this.loading && this.resultCount === 0) {
           HDMEmpty({
-            tip: `暂无“${this.params.keyword}”相关商品`,
-            buttonText: '返回分类',
-            onBtnClick: () => this.stackPath.pop()
+            tip: this.loadFailed ? '商品加载失败，请稍后重试' : `暂无“${this.params.keyword}”相关商品`,
+            buttonText: this.loadFailed ? '重新加载' : '返回分类',
+            onBtnClick: () => {
+              if (this.loadFailed) {
+                this.refreshQuery()
+              } else {
+                this.stackPath.pop()
+              }
+            }
           })
             .layoutWeight(1)
         } else {

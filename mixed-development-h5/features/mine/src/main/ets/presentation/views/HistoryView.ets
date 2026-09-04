@@ -17,6 +17,13 @@ export struct HistoryView {
   goods: LocalGoodsItem[] = []
   @Consume
   stackPath: NavPathStack
+
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
   clearDialog: CustomDialogController = new CustomDialogController({
     builder: HDMConfirm({
       message: '确定清空全部浏览足迹吗？',
@@ -25,7 +32,7 @@ export struct HistoryView {
           await localGoodsStore.clearHistory()
           this.loadHistory()
         } catch {
-          this.getUIContext().getPromptAction().showToast({ message: '清空失败，请稍后重试' })
+          this.safeToast('清空失败，请稍后重试')
         }
       }
     }),
@@ -46,7 +53,7 @@ export struct HistoryView {
       await localGoodsStore.removeHistory(goodsId)
       this.loadHistory()
     } catch {
-      this.getUIContext().getPromptAction().showToast({ message: '删除失败，请稍后重试' })
+      this.safeToast('删除失败，请稍后重试')
     }
   }
 

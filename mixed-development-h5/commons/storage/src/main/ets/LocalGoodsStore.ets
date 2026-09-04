@@ -38,14 +38,22 @@ export class LocalGoodsStore {
   }
 
   private getGoodsList(key: string): LocalGoodsItem[] {
-    const value = storeManager.getStore().getSync(this.getScopedKey(key), [])
-    return value as LocalGoodsItem[]
+    try {
+      const value = storeManager.getStore().getSync(this.getScopedKey(key), [])
+      return value as LocalGoodsItem[]
+    } catch {
+      return []
+    }
   }
 
   private async saveGoodsList(key: string, goods: LocalGoodsItem[]): Promise<void> {
-    const store = storeManager.getStore()
-    store.putSync(this.getScopedKey(key), goods)
-    await store.flush()
+    try {
+      const store = storeManager.getStore()
+      store.putSync(this.getScopedKey(key), goods)
+      await store.flush()
+    } catch {
+      throw new Error('本地商品数据保存失败')
+    }
   }
 
   private mergeGoods(current: LocalGoodsItem[], legacy: LocalGoodsItem[], maxCount?: number): LocalGoodsItem[] {
@@ -63,16 +71,20 @@ export class LocalGoodsStore {
   }
 
   private migrateLegacyList(key: string, maxCount?: number): boolean {
-    const store = storeManager.getStore()
-    const legacy = store.getSync(key, []) as LocalGoodsItem[]
-    if (legacy.length === 0) {
+    try {
+      const store = storeManager.getStore()
+      const legacy = store.getSync(key, []) as LocalGoodsItem[]
+      if (legacy.length === 0) {
+        return false
+      }
+      const scopedKey = this.getScopedKey(key)
+      const current = store.getSync(scopedKey, []) as LocalGoodsItem[]
+      store.putSync(scopedKey, this.mergeGoods(current, legacy, maxCount))
+      store.deleteSync(key)
+      return true
+    } catch {
       return false
     }
-    const scopedKey = this.getScopedKey(key)
-    const current = store.getSync(scopedKey, []) as LocalGoodsItem[]
-    store.putSync(scopedKey, this.mergeGoods(current, legacy, maxCount))
-    store.deleteSync(key)
-    return true
   }
 
   async migrateLegacyData(): Promise<void> {
@@ -83,7 +95,11 @@ export class LocalGoodsStore {
     const favoritesChanged = this.migrateLegacyList(FAVORITE_GOODS_KEY)
     const historyChanged = this.migrateLegacyList(BROWSE_HISTORY_KEY, MAX_HISTORY_COUNT)
     if (favoritesChanged || historyChanged) {
-      await storeManager.getStore().flush()
+      try {
+        await storeManager.getStore().flush()
+      } catch {
+        throw new Error('本地商品数据迁移失败')
+      }
     }
   }
 

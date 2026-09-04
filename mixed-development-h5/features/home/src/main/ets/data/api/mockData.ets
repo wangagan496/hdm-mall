@@ -19,8 +19,8 @@ function randInt(min: number, max: number): number {
 export function generateFallbackGoods(source: HDMGoodsItem): Goods {
   // 详情接口失败时必须保留列表页的商品身份，不能重新随机拼接图片、标题和价格。
   const picture: string = typeof source.picture === 'string' ? source.picture : FALLBACK_IMAGE
-  const price: string = source.price
-  const oldPrice: string = source.originalPrice || source.price
+  const price: string = source.price.toString()
+  const oldPrice: string = (source.originalPrice || source.price).toString()
   const colorA: string = '默认款'
   const colorB: string = '经典款'
 

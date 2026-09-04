@@ -5,41 +5,60 @@ export class SpeechToTextManager {
   sessionId: string = "123456"
   textCallBack?: (text: string) => void
 
-  async createEngine() {
-    let extraParam: Record<string, Object> = { "locate": "CN", "recognizerMode": "short" }
-    let initParamsInfo: speechRecognizer.CreateEngineParams = {
-      language: 'zh-CN',
-      online: 1,
-      extraParams: extraParam
+  async createEngine(): Promise<void> {
+    try {
+      const extraParam: Record<string, Object> = { "locate": "CN", "recognizerMode": "short" }
+      const initParamsInfo: speechRecognizer.CreateEngineParams = {
+        language: 'zh-CN',
+        online: 1,
+        extraParams: extraParam
+      }
+      this.engine = await speechRecognizer.createEngine(initParamsInfo)
+    } catch {
+      this.engine = null
+      throw new Error('语音引擎创建失败')
     }
-    this.engine = await speechRecognizer.createEngine(initParamsInfo)
   }
 
-  async init(callBack?: (text: string) => void) {
+  async init(callBack?: (text: string) => void): Promise<void> {
     this.textCallBack = callBack
     if (!this.engine) {
       await this.createEngine()
     }
-    this.setListener()
-    let recognizerParams: speechRecognizer.StartParams = {
-      sessionId: this.sessionId,
-      audioInfo: {
-        audioType: 'pcm',
-        sampleRate: 16000,
-        soundChannel: 1,
-        sampleBit: 16
+    try {
+      this.setListener()
+      const recognizerParams: speechRecognizer.StartParams = {
+        sessionId: this.sessionId,
+        audioInfo: {
+          audioType: 'pcm',
+          sampleRate: 16000,
+          soundChannel: 1,
+          sampleBit: 16
+        }
       }
+      this.engine?.startListening(recognizerParams)
+    } catch {
+      this.engine = null
+      throw new Error('语音识别启动失败')
     }
-    this.engine?.startListening(recognizerParams)
   }
 
-  start(bf: ArrayBuffer) {
-    this.engine?.writeAudio(this.sessionId, new Uint8Array(bf))
+  start(bf: ArrayBuffer): void {
+    try {
+      this.engine?.writeAudio(this.sessionId, new Uint8Array(bf))
+    } catch {
+    }
   }
 
-  stop() {
-    this.engine?.finish(this.sessionId)
-    this.engine?.shutdown()
+  stop(): void {
+    try {
+      this.engine?.finish(this.sessionId)
+    } catch {
+    }
+    try {
+      this.engine?.shutdown()
+    } catch {
+    }
     this.engine = null
   }
 
@@ -64,7 +83,10 @@ export class SpeechToTextManager {
         console.error(`onError, sessionId: ${sessionId} errorCode: ${errorCode} errorMessage: ${errorMessage}`)
       }
     }
-    this.engine?.setListener(setListener)
+    try {
+      this.engine?.setListener(setListener)
+    } catch {
+    }
   }
 }
 

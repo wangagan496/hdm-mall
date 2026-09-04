@@ -7,7 +7,7 @@
   "license": "Apache-2.0",
   "packageType": "InterfaceHar",
   "dependencies": {
-    "constants": "file:../constants"
+    "constants": "@module:constants"
   },
   "devDependencies": {}
 }

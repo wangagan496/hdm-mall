@@ -11,8 +11,53 @@ function showToast(message: string): void {
     return
   }
   window.getLastWindow(ctx).then((win) => {
-    win.getUIContext().getPromptAction().showToast({ message })
+    try {
+      win.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }).catch(() => {
   })
+}
+
+const GET_RETRY_DELAYS: number[] = [350, 1000]
+
+export function isRetryableStatus(status?: number): boolean {
+  return status === undefined || status === 408 || status === 429 || status >= 500
+}
+
+function isRetryableError(error: AxiosError): boolean {
+  // A business error created by the response interceptor has no Axios code
+  // or response; do not replay it as if it were a transport failure.
+  if (!error.code && !error.response) {
+    return false
+  }
+  return isRetryableStatus(error.response?.status)
+}
+
+function waitForRetry(delay: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, delay)
+  })
+}
+
+async function getWithRetry<T>(request: () => Promise<T>): Promise<T> {
+  let lastError: AxiosError | null = null
+  for (let attempt = 0; attempt <= GET_RETRY_DELAYS.length; attempt++) {
+    try {
+      return await request()
+    } catch (error) {
+      lastError = error as AxiosError
+      if (!isRetryableError(lastError) || attempt >= GET_RETRY_DELAYS.length) {
+        throw new Error(lastError.message || '网络请求失败')
+      }
+      await waitForRetry(GET_RETRY_DELAYS[attempt])
+    }
+  }
+  throw new Error(lastError?.message || '网络请求失败')
+}
+
+export function executeGetWithRetry<T>(request: () => Promise<T>): Promise<T> {
+  return getWithRetry(request)
 }
 
 const instance = axios.create({
@@ -52,15 +97,15 @@ instance.interceptors.response.use((response: AxiosResponse) => {
 
 export class RequestAxios {
   static get<T>(url: string, params?: object): Promise<T> {
-    return instance.get<null, T>(url, { params })
+    return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params }))
   }
 
   static getSilent<T>(url: string, params?: object): Promise<T> {
-    return instance.get<null, T>(url, { params, headers: { xSilentError: '1' } })
+    return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params, headers: { xSilentError: '1' } }))
   }
 
   static getRaw<T>(url: string, params?: object): Promise<T> {
-    return rawInstance.get<null, T>(url, { params })
+    return executeGetWithRetry<T>(() => rawInstance.get<null, T>(url, { params }))
   }
 
   static post<T>(url: string, data?: object): Promise<T> {

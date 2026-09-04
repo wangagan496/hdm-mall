@@ -20,6 +20,13 @@ export struct LoginView {
   @Consume
   stackPath: NavPathStack
 
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
+
   onInput() {
     return this.loginForm.account && this.loginForm.password ? true : false
   }
@@ -29,7 +36,8 @@ export struct LoginView {
       return
     }
     if (!this.agree) {
-      return this.getUIContext().getPromptAction().showToast({ message: '请先勾选协议' })
+      this.safeToast('请先勾选协议')
+      return
     }
     this.submitting = true
     try {
@@ -42,10 +50,10 @@ export struct LoginView {
         // 旧版全局收藏迁移失败不应把已经成功的登录回报为失败。
       }
       await authCart.updateCartCount()
-      this.getUIContext().getPromptAction().showToast({ message: '登录成功' })
+      this.safeToast('登录成功')
       this.stackPath.pop()
     } catch {
-      this.getUIContext().getPromptAction().showToast({ message: '登录失败，请稍后重试' })
+      this.safeToast('登录失败，请稍后重试')
     } finally {
       this.submitting = false
     }

@@ -18,6 +18,13 @@ export struct FavoritesView {
   @Consume
   stackPath: NavPathStack
 
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
+
   aboutToAppear(): void {
     this.loadFavorites()
   }
@@ -30,9 +37,9 @@ export struct FavoritesView {
     try {
       await localGoodsStore.removeFavorite(goodsId)
       this.loadFavorites()
-      this.getUIContext().getPromptAction().showToast({ message: '已取消收藏' })
+      this.safeToast('已取消收藏')
     } catch {
-      this.getUIContext().getPromptAction().showToast({ message: '操作失败，请稍后重试' })
+      this.safeToast('操作失败，请稍后重试')
     }
   }
 

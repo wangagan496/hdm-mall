@@ -88,7 +88,11 @@ struct WebView {
 
   onWebBack() {
     if (this.historyCurrentIndex > 0) {
-      this.controller.backward()
+      try {
+        this.controller.backward()
+      } catch {
+        this.stackPath.pop()
+      }
     } else {
       this.stackPath.pop()
     }

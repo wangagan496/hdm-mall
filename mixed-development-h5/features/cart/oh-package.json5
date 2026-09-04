@@ -7,10 +7,10 @@
   "license": "Apache-2.0",
   "packageType": "InterfaceHar",
   "dependencies": {
-    "constants": "file:../../commons/constants",
-    "models": "file:../../commons/models",
-    "network": "file:../../commons/network",
-    "storage": "file:../../commons/storage",
-    "ui_components": "file:../../commons/ui-components"
+    "constants": "@module:constants",
+    "models": "@module:models",
+    "network": "@module:network",
+    "storage": "@module:storage",
+    "ui_components": "@module:ui_components"
   }
 }

@@ -25,6 +25,10 @@ export struct CartView {
   allPrice: number = 0
   @State
   isDeleting: boolean = false
+  @State
+  loading: boolean = false
+  @State
+  loadFailed: boolean = false
 
   private cartUpdateCb: () => void = () => {
     this.getCartList()
@@ -51,9 +55,20 @@ export struct CartView {
 
   async getCartList() {
     if (this.user.token) {
-      const list = await getCartListAPI()
-      this.cartList = list.map((item: CartGoods) => new CartGoodsModel(item))
-      this.refreshCartSummary()
+      this.loading = true
+      this.loadFailed = false
+      try {
+        const list = await getCartListAPI()
+        this.cartList = list.map((item: CartGoods) => new CartGoodsModel(item))
+        this.refreshCartSummary()
+      } catch {
+        this.cartList = []
+        this.isCheckAll = false
+        this.allPrice = 0
+        this.loadFailed = true
+      } finally {
+        this.loading = false
+      }
     } else {
       this.cartList = []
       this.isCheckAll = false
@@ -155,7 +170,21 @@ export struct CartView {
 
         List({ space: 8 }) {
           if (this.user.token) {
-            if (this.cartList.length) {
+            if (this.loading) {
+              ListItem() {
+                LoadingProgress().width(48).color($r('[ui_components].color.red'))
+              }
+            } else if (this.loadFailed) {
+              ListItem() {
+                HDMEmpty({
+                  buttonText: '重新加载',
+                  tip: '购物袋加载失败，请稍后重试',
+                  onBtnClick: (): void => {
+                    void this.getCartList()
+                  }
+                })
+              }
+            } else if (this.cartList.length) {
               ForEach(this.cartList, (cart: CartGoodsModel) => {
                 ListItem() {
                   CartItem({

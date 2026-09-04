@@ -1,4 +1,6 @@
-import { promptAction } from '@kit.ArkUI'
+import { window } from '@kit.ArkUI'
+import { common } from '@kit.AbilityKit'
+import { GlobalVariable } from 'constants'
 
 /**
  * 错误处理选项接口
@@ -19,15 +21,26 @@ export class ErrorHandler {
   private static readonly NETWORK_ERROR_MESSAGE: string = '网络连接失败，请检查网络'
   private static readonly TIMEOUT_ERROR_MESSAGE: string = '请求超时，请重试'
 
+  private static showToast(message: string): void {
+    const context = AppStorage.get<common.UIAbilityContext>(GlobalVariable.ABILITY_CONTEXT_KEY)
+    if (!context) {
+      return
+    }
+    window.getLastWindow(context).then((win) => {
+      try {
+        win.getUIContext().getPromptAction().showToast({ message, duration: 2000 })
+      } catch {
+      }
+    }).catch(() => {
+    })
+  }
+
   /**
    * 显示错误提示
    */
   static showError(message?: string): void {
     try {
-      promptAction.showToast({
-        message: message || ErrorHandler.DEFAULT_ERROR_MESSAGE,
-        duration: 2000
-      })
+      ErrorHandler.showToast(message || ErrorHandler.DEFAULT_ERROR_MESSAGE)
     } catch (e) {
       console.error('[ErrorHandler] Failed to show toast:', e)
     }
@@ -38,10 +51,7 @@ export class ErrorHandler {
    */
   static showSuccess(message: string): void {
     try {
-      promptAction.showToast({
-        message: message,
-        duration: 2000
-      })
+      ErrorHandler.showToast(message)
     } catch (e) {
       console.error('[ErrorHandler] Failed to show toast:', e)
     }

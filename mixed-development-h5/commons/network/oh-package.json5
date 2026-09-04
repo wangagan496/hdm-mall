@@ -8,8 +8,8 @@
   "packageType": "InterfaceHar",
   "dependencies": {
     "@ohos/axios": "^2.2.4",
-    "constants": "file:../constants",
-    "models": "file:../models"
+    "constants": "@module:constants",
+    "models": "@module:models"
   },
   "devDependencies": {}
 }

@@ -1,6 +1,6 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { BreakPointEnum, BreakPointType, CategoryItem, HDMGoodsItem, ListDataSource } from 'models'
-import { HDMGoods, HDMLoadingText, HDMProgressLoading } from 'ui_components'
+import { HDMEmpty, HDMGoods, HDMLoadingText, HDMProgressLoading } from 'ui_components'
 import { downLoadManager, pushCardManager } from 'utils'
 import {
   getBannerAPI,
@@ -50,6 +50,7 @@ export struct HomeView {
   @State isReachLoad: boolean = false
   @State isFinished: boolean = false
   @State isRefreshing: boolean = false
+  @State homeLoadFailed: boolean = false
   page: number = 1
   private homeRequestId: number = 0
   private recommendRequesting: boolean = false
@@ -134,6 +135,8 @@ export struct HomeView {
       return
     }
 
+    this.homeLoadFailed = result.every((item): boolean => item.status === 'rejected')
+
     if (result[0].status === "fulfilled") {
       this.banners = result[0].value
     }
@@ -165,7 +168,8 @@ export struct HomeView {
     this.oneGoods = deduplicatedGoods.oneGoods
     this.newGoods = deduplicatedGoods.newGoods
     this.loading = false
-    this.normalizePromotionPictures(deduplicatedGoods, requestId)
+    void this.normalizePromotionPictures(deduplicatedGoods, requestId).catch(() => {
+    })
   }
 
   private async normalizePromotionPictures(goods: HomeGoodsResult, requestId: number): Promise<void> {
@@ -368,6 +372,22 @@ export struct HomeView {
         top: { anchor: '__container__', align: VerticalAlign.Top },
         left: { anchor: '__container__', align: HorizontalAlign.Start }
       })
+
+      if (this.homeLoadFailed) {
+        Column() {
+          HDMEmpty({
+            tip: '首页内容加载失败，请检查网络后重试',
+            buttonText: '重新加载',
+            onBtnClick: (): void => {
+              void this.getHomeData(true)
+            }
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('[ui_components].color.under'))
+        .align(Alignment.Center)
+      }
     }
     .width('100%')
     .height('100%')

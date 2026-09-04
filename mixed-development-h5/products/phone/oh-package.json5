@@ -6,14 +6,14 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "constants": "file:../../commons/constants",
-    "models": "file:../../commons/models",
-    "storage": "file:../../commons/storage",
-    "utils": "file:../../commons/utils",
-    "ui_components": "file:../../commons/ui-components",
-    "cart": "file:../../features/cart",
-    "category": "file:../../features/category",
-    "home": "file:../../features/home",
-    "mine": "file:../../features/mine"
+    "constants": "@module:constants",
+    "models": "@module:models",
+    "storage": "@module:storage",
+    "utils": "@module:utils",
+    "ui_components": "@module:ui_components",
+    "cart": "@module:cart",
+    "category": "@module:category",
+    "home": "@module:home",
+    "mine": "@module:mine"
   }
 }

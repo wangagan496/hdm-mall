@@ -38,7 +38,7 @@ export struct GoodsInfo {
   }
 
   getDisplayPrice(): string {
-    const price: string = this.getGoods().price
+    const price: string | number = this.getGoods().price
     return price ? Number(price).toString() : ''
   }
 

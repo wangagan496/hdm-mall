@@ -8,16 +8,19 @@ export class ScreenManagerByMedia {
 
   // 开启监听屏幕变化
   async registerListenerScreen(ctx: common.UIAbilityContext) {
-    const mainWindow = await window.getLastWindow(ctx)
-    const uiContext = mainWindow.getUIContext()
-    if (this.sizeChangeCallback) {
-      mainWindow.off("windowSizeChange", this.sizeChangeCallback)
+    try {
+      const mainWindow = await window.getLastWindow(ctx)
+      const uiContext = mainWindow.getUIContext()
+      if (this.sizeChangeCallback) {
+        mainWindow.off("windowSizeChange", this.sizeChangeCallback)
+      }
+      this.judgeScreen(uiContext.px2vp(display.getDefaultDisplaySync().width))
+      this.sizeChangeCallback = (size: window.Size) => {
+        this.judgeScreen(uiContext.px2vp(size.width))
+      }
+      mainWindow.on("windowSizeChange", this.sizeChangeCallback)
+    } catch {
     }
-    this.judgeScreen(uiContext.px2vp(display.getDefaultDisplaySync().width))
-    this.sizeChangeCallback = (size: window.Size) => {
-      this.judgeScreen(uiContext.px2vp(size.width))
-    }
-    mainWindow.on("windowSizeChange", this.sizeChangeCallback)
   }
 
   // 判断屏幕大小并写入 AppStorage
@@ -37,10 +40,13 @@ export class ScreenManagerByMedia {
 
   // 卸载监听
   async unregisterListenerScreen(ctx: common.UIAbilityContext) {
-    const mainWindow = await window.getLastWindow(ctx)
-    if (this.sizeChangeCallback) {
-      mainWindow.off("windowSizeChange", this.sizeChangeCallback)
-      this.sizeChangeCallback = null
+    try {
+      const mainWindow = await window.getLastWindow(ctx)
+      if (this.sizeChangeCallback) {
+        mainWindow.off("windowSizeChange", this.sizeChangeCallback)
+        this.sizeChangeCallback = null
+      }
+    } catch {
     }
   }
 }

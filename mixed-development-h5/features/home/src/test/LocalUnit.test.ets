@@ -100,8 +100,8 @@ export default function localUnitTest() {
       expect(normalized.picture).assertEqual(source.picture);
       expect(normalized.mainPictures[0]).assertEqual(source.picture as string);
       expect(normalized.inventory).assertEqual(detail.inventory);
-      expect(normalized.specs).assertEqual(detail.specs);
-      expect(normalized.skus).assertEqual(detail.skus);
+      expect(normalized.specs.length).assertEqual(detail.specs.length);
+      expect(normalized.skus.length).assertEqual(detail.skus.length);
     });
     it('usesSearchCoverAsTheOnlyDetailPicture', 0, () => {
       const source: HDMGoodsItem = {

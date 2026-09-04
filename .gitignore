@@ -26,6 +26,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# HarmonyOS signing material and local signing overrides
+*.p12
+*.p7b
+*.cer
+*.jks
+*.keystore
+*.pem
+**/signing/
+**/build-profile.local.json5
+
 # OS files
 .DS_Store
 Thumbs.db

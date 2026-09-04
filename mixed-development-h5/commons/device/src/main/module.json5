@@ -2,6 +2,11 @@
   "module": {
     "name": "device",
     "type": "shared",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.VIBRATE"
+      }
+    ],
     "description": "$string:shared_desc",
     "deviceTypes": [
       "phone",

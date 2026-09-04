@@ -2,6 +2,7 @@ import { audio } from "@kit.AudioKit"
 
 export class AudioCapturerManager {
   capturer: audio.AudioCapturer | null = null
+  private readDataCallback: ((bf: ArrayBuffer) => void) | null = null
 
   async createCapturer() {
     let audioStreamInfo: audio.AudioStreamInfo = {
@@ -21,21 +22,45 @@ export class AudioCapturerManager {
     this.capturer = await audio.createAudioCapturer(audioCapturerOptions)
   }
 
-  async start(callback: (bf: ArrayBuffer) => void) {
-    if (!this.capturer) {
-      await this.createCapturer()
+  async start(callback: (bf: ArrayBuffer) => void): Promise<void> {
+    try {
+      if (!this.capturer) {
+        await this.createCapturer()
+      }
+      const readDataCallback = (bf: ArrayBuffer): void => {
+        callback(bf)
+      }
+      this.readDataCallback = readDataCallback
+      this.capturer?.on('readData', readDataCallback)
+      await this.capturer?.start()
+    } catch {
+      this.readDataCallback = null
+      this.capturer = null
+      throw new Error('录音启动失败')
     }
-    this.capturer?.on("readData", (bf) => {
-      callback(bf)
-    })
-    this.capturer?.start()
   }
 
-  async stop() {
-    if (this.capturer) {
-      await this.capturer.stop()
-      await this.capturer.release()
-      this.capturer = null
+  async stop(): Promise<void> {
+    const currentCapturer = this.capturer
+    const currentCallback = this.readDataCallback
+    this.capturer = null
+    this.readDataCallback = null
+    if (!currentCapturer) {
+      return
+    }
+    try {
+      if (currentCallback) {
+        currentCapturer.off('readData', currentCallback)
+      }
+    } catch {
+    }
+    try {
+      await currentCapturer.stop()
+    } catch {
+    }
+    try {
+      await currentCapturer.release()
+    } catch {
     }
   }
 }

@@ -28,16 +28,29 @@ export async function encodeAvatarFile(fd: number): Promise<string> {
       y: Math.floor((pixelInfo.size.height - side) / 2),
       size: { width: side, height: side }
     })
-    const data: ArrayBuffer = await packer.packToData(pixelMap, {
-      format: 'image/jpeg',
-      quality: AVATAR_QUALITY
-    })
-    return new util.Base64Helper().encodeToStringSync(new Uint8Array(data))
+    try {
+      const data: ArrayBuffer = await packer.packToData(pixelMap, {
+        format: 'image/jpeg',
+        quality: AVATAR_QUALITY
+      })
+      return new util.Base64Helper().encodeToStringSync(new Uint8Array(data))
+    } catch {
+      throw new Error('头像编码失败')
+    }
   } finally {
     if (pixelMap) {
-      await pixelMap.release()
+      try {
+        await pixelMap.release()
+      } catch {
+      }
     }
-    await packer.release()
-    await source.release()
+    try {
+      await packer.release()
+    } catch {
+    }
+    try {
+      await source.release()
+    } catch {
+    }
   }
 }

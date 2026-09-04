@@ -8,13 +8,13 @@
   "packageType": "InterfaceHar",
   "dependencies": {
     "@ohmos/sku": "^1.0.1",
-    "constants": "file:../constants",
-    "models": "file:../models",
-    "storage": "file:../storage",
-    "network": "file:../network",
-    "utils": "file:../utils",
-    "device": "file:../device",
-    "ui_components": "file:../ui-components"
+    "constants": "@module:constants",
+    "models": "@module:models",
+    "storage": "@module:storage",
+    "network": "@module:network",
+    "utils": "@module:utils",
+    "device": "@module:device",
+    "ui_components": "@module:ui_components"
   },
   "devDependencies": {}
 }

@@ -26,10 +26,15 @@ export struct CustomerServiceView {
     { question: '在线客服可以聊天吗？', answer: '当前演示版尚未接入客服会话服务，因此不会展示虚假的聊天记录。' }
   ]
 
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
+
   private contactService(): void {
-    this.getUIContext().getPromptAction().showToast({
-      message: '当前演示版未接入客服服务端'
-    })
+    this.safeToast('当前演示版未接入客服服务端')
   }
 
   build() {

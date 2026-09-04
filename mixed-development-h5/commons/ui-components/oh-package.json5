@@ -8,9 +8,9 @@
   "packageType": "InterfaceHar",
   "dependencies": {
     "@ohmos/sku": "^1.0.1",
-    "constants": "file:../constants",
-    "models": "file:../models",
-    "network": "file:../network"
+    "constants": "@module:constants",
+    "models": "@module:models",
+    "network": "@module:network"
   },
   "devDependencies": {}
 }

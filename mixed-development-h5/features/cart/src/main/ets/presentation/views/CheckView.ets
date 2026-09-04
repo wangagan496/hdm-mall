@@ -31,13 +31,20 @@ export struct CheckView {
   @Consume
   stackPath: NavPathStack
 
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
+
   async submitOrder() {
     if (this.payChannel !== 1) {
-      this.getUIContext().getPromptAction().showToast({ message: '暂不支持该支付方式' })
+      this.safeToast('暂不支持该支付方式')
       return
     }
     if (!this.addressId) {
-      this.getUIContext().getPromptAction().showToast({ message: '未选择收货地址' })
+      this.safeToast('未选择收货地址')
       return
     }
     this.loading = true
@@ -58,7 +65,7 @@ export struct CheckView {
         param: result.id
       })
     } catch {
-      this.getUIContext().getPromptAction().showToast({ message: '提交订单失败，请稍后重试' })
+      this.safeToast('提交订单失败，请稍后重试')
     } finally {
       this.loading = false
     }
@@ -112,12 +119,16 @@ export struct CheckView {
   }
 
   async getPreOrder() {
-    const result = await getPreOrderAPI()
-    this.addressList = result.userAddresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
-    const defaultAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.isDefault === 0)
-    this.addressId = defaultAddress?.id || this.addressList[0]?.id || ''
-    this.summary = result.summary
-    this.goodsList = result.goods
+    try {
+      const result = await getPreOrderAPI()
+      this.addressList = result.userAddresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
+      const defaultAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.isDefault === 0)
+      this.addressId = defaultAddress?.id || this.addressList[0]?.id || ''
+      this.summary = result.summary
+      this.goodsList = result.goods
+    } catch {
+      this.safeToast('订单信息加载失败，请稍后重试')
+    }
   }
 
   // 半模态

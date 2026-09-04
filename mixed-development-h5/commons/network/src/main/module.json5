@@ -2,6 +2,11 @@
   "module": {
     "name": "network",
     "type": "shared",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      }
+    ],
     "description": "$string:shared_desc",
     "deviceTypes": [
       "phone",

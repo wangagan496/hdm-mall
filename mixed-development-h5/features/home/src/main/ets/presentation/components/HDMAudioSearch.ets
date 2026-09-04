@@ -26,11 +26,9 @@ export struct HDMAudioSearch {
   onComplete: (keyword: string) => void = () => {
   }
 
-  async startRecord() {
-    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    accessManager.checkPermission(context, ["ohos.permission.MICROPHONE"], () => {
-      // 按住语音的时候 加一个马达震动
-      vibrator.startVibration({
+  private async beginRecord(): Promise<void> {
+    try {
+      await vibrator.startVibration({
         type: 'time',
         duration: 200,
       }, {
@@ -41,24 +39,36 @@ export struct HDMAudioSearch {
         this.scaleValue = 1.5
       })
       this.voiceState = VoiceState.VOICING
-      // 开始录音
-      speechToTextManager.init((text: string) => {
-        this.keyword = text // 拿到识别文本 显示到页面上
-      }) // 先初始化
-      audioCapturerManager.start((bf) => {
-
-        // 拿到语音转化 => 语音识别
-        speechToTextManager.start(bf) // 传入音频buffer得到转化文字
+      await speechToTextManager.init((text: string) => {
+        this.keyword = text
       })
+      await audioCapturerManager.start((bf: ArrayBuffer) => {
+        speechToTextManager.start(bf)
+      })
+    } catch {
+      await this.closeRecord()
+      this.voiceState = VoiceState.VOICEOVER
+    }
+  }
+
+  async startRecord(): Promise<void> {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    void accessManager.checkPermission(context, ["ohos.permission.MICROPHONE"], () => {
+      void this.beginRecord()
+    }).catch(() => {
+      this.voiceState = VoiceState.VOICEOVER
     })
   }
 
-  async closeRecord() {
-    vibrator.stopVibration(vibrator.VibratorStopMode.VIBRATOR_STOP_MODE_TIME)
+  async closeRecord(): Promise<void> {
+    try {
+      vibrator.stopVibration(vibrator.VibratorStopMode.VIBRATOR_STOP_MODE_TIME)
+    } catch {
+    }
     this.getUIContext().animateTo({ duration: 500 }, () => {
       this.scaleValue = 1
     })
-    audioCapturerManager.stop()
+    await audioCapturerManager.stop()
     speechToTextManager.stop()
     this.voiceState = VoiceState.DEFAULT
   }

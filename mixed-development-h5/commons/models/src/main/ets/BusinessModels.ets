@@ -2,10 +2,10 @@ export interface HDMGoodsItem {
   id: string
   name: string
   desc: string
-  price: string
+  price: string | number
   picture: ResourceStr
   orderNum: number
-  originalPrice?: string
+  originalPrice?: string | number
 }
 
 // 收藏和足迹只保存可序列化的商品快照，不持久化 Resource 等运行时对象。
@@ -13,10 +13,10 @@ export interface LocalGoodsItem {
   id: string
   name: string
   desc: string
-  price: string
+  price: string | number
   picture: string
   orderNum: number
-  originalPrice?: string
+  originalPrice?: string | number
   updatedAt: number
 }
 

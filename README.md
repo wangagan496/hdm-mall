@@ -202,6 +202,20 @@ Windows 命令行示例：
 
 构建成功只表示源码和打包流程通过。安装、页面导航、接口数据、设备能力与视觉效果需要在目标 HarmonyOS 设备或模拟器上分别验证。
 
+### 工程加固与稳定性验证
+
+- 网络层只对幂等 GET 请求在网络错误、408、429 和 5xx 时做有限重试，创建订单、支付和其他写请求不会自动重放，避免重复业务操作。
+- 同工程 HSP 依赖使用 `@module:<moduleName>` 管理，避免把同仓模块写成不可移植的本地 HAR 路径。
+- 页面接口失败会进入明确的失败态或重试入口：首页、搜索、购物袋、订单、结算和支付页面不会把网络失败伪装成成功或无限加载。
+- 可使用 `tools/verify-harmonyos-smoke.ps1` 对已安装应用执行多次冷启动、连续滚动和首页瀑布流烟测：
+
+  ```powershell
+  .\tools\verify-harmonyos-smoke.ps1 -ColdStarts 3 -SwipesPerStart 8
+  ```
+
+- 正式发布签名不存放在仓库中，配置步骤和安全边界见 [`docs/RELEASE_SIGNING.md`](docs/RELEASE_SIGNING.md)。
+- 各项加固的构建统计、剩余平台提示和验证边界见 [`docs/BUILD_HARDENING.md`](docs/BUILD_HARDENING.md)。
+
 ## 当前边界
 
 - 项目尚未正式上架应用市场；
