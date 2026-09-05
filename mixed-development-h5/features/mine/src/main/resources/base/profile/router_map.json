@@ -29,6 +29,11 @@
       "name": "CustomerServiceView",
       "buildFunction": "CustomerServiceViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/CustomerServiceView.ets"
+    },
+    {
+      "name": "AddressView",
+      "buildFunction": "AddressViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AddressView.ets"
     }
   ]
 }

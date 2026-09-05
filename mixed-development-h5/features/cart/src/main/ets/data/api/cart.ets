@@ -43,3 +43,10 @@ export const createOrderAPI = (data: CreateOrderParams) => {
 export const getOrderListAPI = (params: OrderListParams) => {
   return RequestAxios.get<OrderPage>('/member/order', params)
 }
+
+export interface ConsignmentResult {
+}
+
+export const consignmentOrderAPI = (orderId: string): Promise<ConsignmentResult> => {
+  return RequestAxios.get<ConsignmentResult>(`/member/order/consignment/${orderId}`)
+}

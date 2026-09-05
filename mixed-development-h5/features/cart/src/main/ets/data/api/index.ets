@@ -5,5 +5,6 @@ export {
   delCart,
   getPreOrderAPI,
   createOrderAPI,
-  getOrderListAPI
+  getOrderListAPI,
+  consignmentOrderAPI
 } from './cart'

@@ -17,6 +17,7 @@ export class BusinessVariable {
   static readonly CATEGORY_TARGET_ID: string = "category_target_id"
   static readonly CART_COUNT: string = "cart_count"
   static readonly UPDATE_CART_LIST: string = "update_cart_list"
+  static readonly UPDATE_ADDRESS_LIST: string = "update_address_list"
   static readonly UPDATE_HOME_DATA: string = "update_home_data"
   static readonly TO_SEARCH: string = "to_search"
 }

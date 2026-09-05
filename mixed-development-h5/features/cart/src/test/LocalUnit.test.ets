@@ -31,7 +31,7 @@ export default function localUnitTest() {
       expect(a).assertContain(b);
       expect(a).assertEqual(a);
     });
-    it('replacesInvalidCheckoutDemoAddress', 0, () => {
+    it('preservesAddressReturnedByAPI', 0, () => {
       const address: AddressItem = {
         address: 'Hello恭喜发财',
         contact: 'Hello恭喜发财',
@@ -44,13 +44,7 @@ export default function localUnitTest() {
         countyCode: 310115
       };
 
-      const displayAddress = normalizeCheckoutAddress(address);
-
-      expect(displayAddress.fullLocation).assertEqual('上海市 浦东新区');
-      expect(displayAddress.address).assertEqual('张江路88号创智中心2号楼1208室');
-      expect(displayAddress.receiver).assertEqual('李晓明');
-      expect(displayAddress.contact).assertEqual('138****5678');
-      expect(displayAddress.id).assertEqual(address.id);
+      expect(normalizeCheckoutAddress(address)).assertEqual(address);
     });
     it('keepsValidCheckoutAddress', 0, () => {
       const address: AddressItem = {

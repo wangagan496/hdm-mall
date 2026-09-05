@@ -1,4 +1,4 @@
-import { GlobalVariable } from 'constants'
+import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser } from 'models'
 import { userSession } from 'storage'
 import { HDMNavBar, HDMCell, HDMCellGroup, HDMConfirm } from 'ui_components'
@@ -103,7 +103,10 @@ export struct SettingsView {
           }
 
           HDMCellGroup() {
-            HDMCell({ title: '收货地址管理' })
+            HDMCell({
+              title: '收货地址管理',
+              onRightClick: () => this.stackPath.pushPathByName(PAGE_PATH.ADDRESS_PAGE, null)
+            })
             HDMCell({ title: '账号安全' })
             HDMCell({ title: '消息设置' })
             HDMCell({ title: '隐私设置' })

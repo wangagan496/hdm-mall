@@ -1,7 +1,8 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
 import { AddressItem, OrderGoodsItem, Summary } from 'models'
-import { GlobalVariable, PAGE_PATH } from 'constants'
+import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart } from 'storage'
+import { emitter } from '@kit.BasicServicesKit'
 import { createOrderAPI, getPreOrderAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
 
@@ -20,8 +21,9 @@ export struct CheckView {
   @State addressList: AddressItem[] = []
   // 摘要
   @State summary: Summary = {} as Summary
-  // 弹框
-  @State showPaySheet: boolean = false
+  // 结算页弹层
+  @State showSheet: boolean = false
+  @State sheetMode: number = 0
   // 支付渠道
   @State payChannel: number = 1
   // 地址 id
@@ -30,6 +32,10 @@ export struct CheckView {
   @State loading: boolean = false
   @Consume
   stackPath: NavPathStack
+
+  private readonly addressUpdatedCb: () => void = () => {
+    this.getPreOrder()
+  }
 
   private safeToast(message: string): void {
     try {
@@ -59,7 +65,7 @@ export struct CheckView {
         deliveryTimeType: 1
       })
       authCart.updateCartCount()
-      this.showPaySheet = false
+      this.showSheet = false
       this.stackPath.pushPath({
         name: PAGE_PATH.PAY_PAGE,
         param: result.id
@@ -115,15 +121,22 @@ export struct CheckView {
   payChannels = ['支付宝', '微信支付', '华为支付']
 
   aboutToAppear(): void {
+    emitter.on(BusinessVariable.UPDATE_ADDRESS_LIST, this.addressUpdatedCb)
     this.getPreOrder()
+  }
+
+  aboutToDisappear(): void {
+    emitter.off(BusinessVariable.UPDATE_ADDRESS_LIST, this.addressUpdatedCb)
   }
 
   async getPreOrder() {
     try {
+      const previousAddressId: string = this.addressId
       const result = await getPreOrderAPI()
       this.addressList = result.userAddresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
       const defaultAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.isDefault === 0)
-      this.addressId = defaultAddress?.id || this.addressList[0]?.id || ''
+      const previousAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.id === previousAddressId)
+      this.addressId = previousAddress?.id || defaultAddress?.id || this.addressList[0]?.id || ''
       this.summary = result.summary
       this.goodsList = result.goods
     } catch {
@@ -187,7 +200,12 @@ export struct CheckView {
         List() {
           ListItem() {
             ChangeAddressComp({
-              addressList: this.addressList
+              addressList: this.addressList,
+              selectedAddressId: this.addressId,
+              onAddressClick: () => {
+                this.sheetMode = 2
+                this.showSheet = true
+              }
             })
           }
 
@@ -275,7 +293,8 @@ export struct CheckView {
             .height(36)
             .backgroundColor($r('[ui_components].color.red'))
             .onClick(() => {
-              this.showPaySheet = true
+              this.sheetMode = 1
+              this.showSheet = true
             })
         }
         .height(50 + this.safeBottom)
@@ -288,10 +307,10 @@ export struct CheckView {
         .padding({ left: 16, right: 16, bottom: this.safeBottom })
       }
       .backgroundColor($r('[ui_components].color.under'))
-      .bindSheet($$this.showPaySheet, this.PaySheetBuilder(), {
+      .bindSheet($$this.showSheet, this.SheetBuilder(), {
         title: {
-          title: '支付方式',
-          subtitle: '请选择一种支付方式进行付款'
+          title: this.sheetMode === 1 ? '支付方式' : '选择收货地址',
+          subtitle: this.sheetMode === 1 ? '请选择一种支付方式进行付款' : ''
         }, height: SheetSize.FIT_CONTENT, backgroundColor: $r('[ui_components].color.white')
       })
       .padding({
@@ -300,24 +319,112 @@ export struct CheckView {
     }
     .hideTitleBar(true)
   }
+
+  @Builder
+  SheetBuilder() {
+    if (this.sheetMode === 1) {
+      this.PaySheetBuilder()
+    } else {
+      this.AddressSelectBuilder()
+    }
+  }
+
+  @Builder
+  AddressSelectBuilder() {
+    Column({ space: 10 }) {
+      if (this.addressList.length === 0) {
+        Text('还没有收货地址，请先添加')
+          .fontSize(14)
+          .fontColor($r('[ui_components].color.gray'))
+          .padding({ top: 16, bottom: 16 })
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.addressList, (address: AddressItem) => {
+            ListItem() {
+              Row({ space: 8 }) {
+                Column({ space: 4 }) {
+                  Row({ space: 6 }) {
+                    if (address.isDefault === 0) {
+                      Text('默认')
+                        .fontSize(11)
+                        .fontColor($r('[ui_components].color.white'))
+                        .backgroundColor($r('[ui_components].color.red'))
+                        .borderRadius(3)
+                        .padding({ left: 4, right: 4, top: 2, bottom: 2 })
+                    }
+                    Text(`${address.receiver}  ${address.contact}`)
+                      .fontSize(14)
+                      .fontColor($r('[ui_components].color.black'))
+                  }
+                  Text(`${address.fullLocation} ${address.address}`)
+                    .fontSize(12)
+                    .fontColor($r('[ui_components].color.text'))
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .width('100%')
+                }
+                .layoutWeight(1)
+                if (address.id === this.addressId) {
+                  Text('✓')
+                    .fontSize(18)
+                    .fontColor($r('[ui_components].color.red'))
+                }
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor(address.id === this.addressId ? '#FFF5F2' : $r('[ui_components].color.under'))
+              .borderRadius(6)
+            }
+            .onClick(() => {
+              this.addressId = address.id
+              this.showSheet = false
+            })
+          }, (address: AddressItem) => address.id)
+        }
+        .width('100%')
+        .height(260)
+        .scrollBar(BarState.Off)
+      }
+      Button('管理收货地址')
+        .width('100%')
+        .height(40)
+        .fontSize(14)
+        .backgroundColor($r('[ui_components].color.under'))
+        .fontColor($r('[ui_components].color.text'))
+        .onClick(() => {
+          this.showSheet = false
+          this.stackPath.pushPathByName(PAGE_PATH.ADDRESS_PAGE, null)
+        })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, bottom: 20 })
+  }
 }
 
 @Component
 struct ChangeAddressComp {
   @Prop @Watch('onAddressListChange') addressList: AddressItem[] = []
+  @Prop @Watch('onAddressSelectionChange') selectedAddressId: string = ''
   @State currentAddress: AddressItem = {} as AddressItem
+  onAddressClick: () => void = () => {
+  }
 
   onAddressListChange() {
     if (this.addressList.length === 0) {
       this.currentAddress = {} as AddressItem
       return
     }
-    const defAddress = this.addressList.find(addr => addr.isDefault === 0)
-    if (defAddress) {
-      this.currentAddress = defAddress
+    const selectedAddress = this.addressList.find(addr => addr.id === this.selectedAddressId)
+    if (selectedAddress) {
+      this.currentAddress = selectedAddress
     } else {
-      this.currentAddress = this.addressList[0]
+      const defAddress = this.addressList.find(addr => addr.isDefault === 0)
+      this.currentAddress = defAddress || this.addressList[0]
     }
+  }
+
+  onAddressSelectionChange() {
+    this.onAddressListChange()
   }
 
   aboutToAppear() {
@@ -375,6 +482,7 @@ struct ChangeAddressComp {
     .padding({ left: 16, right: 16 })
     .backgroundColor($r('[ui_components].color.white'))
     .width('100%')
+    .onClick(() => this.onAddressClick())
   }
 }
 

@@ -3,6 +3,7 @@ export class PAGE_PATH {
   static readonly SEARCH_RESULT_PAGE: string = "SearchResultView"
   static readonly LOGIN_PAGE: string = "LoginView"
   static readonly SETTINGS_PAGE: string = "SettingsView"
+  static readonly ADDRESS_PAGE: string = "AddressView"
   static readonly GOODS_PAGE: string = "GoodsView"
   static readonly CART_PAGE: string = "CartView"
   static readonly CHECK_ORDER_PAGE: string = "CheckView"

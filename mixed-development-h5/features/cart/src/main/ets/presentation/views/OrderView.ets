@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser, OrderItem, OrderSku } from 'models'
 import { HDMEmpty, HDMNavBar } from 'ui_components'
-import { getOrderListAPI } from '../../data/api'
+import { consignmentOrderAPI, getOrderListAPI } from '../../data/api'
 
 interface OrderTab {
   label: string
@@ -28,8 +28,16 @@ export struct OrderView {
   @State selectedState: number = 0
   @State loading: boolean = false
   @State loadFailed: boolean = false
+  @State consignmentOrderId: string = ''
   @State isFinished: boolean = false
   @Consume stackPath: NavPathStack
+
+  private safeToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message })
+    } catch {
+    }
+  }
 
   private page: number = 1
   private readonly pageSize: number = 10
@@ -102,6 +110,22 @@ export struct OrderView {
     }
     this.selectedState = orderState
     this.reloadOrders()
+  }
+
+  private async simulateConsignment(orderId: string): Promise<void> {
+    if (this.consignmentOrderId || !orderId) {
+      return
+    }
+    this.consignmentOrderId = orderId
+    try {
+      await consignmentOrderAPI(orderId)
+      this.safeToast('模拟发货成功，订单状态将刷新')
+      await this.reloadOrders()
+    } catch {
+      this.safeToast('模拟发货失败，请稍后重试')
+    } finally {
+      this.consignmentOrderId = ''
+    }
   }
 
   private getOrderStateText(orderState: number): string {
@@ -204,6 +228,22 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ top: 8, bottom: 12 })
+
+      if (order.orderState === 2) {
+        Row() {
+          Blank()
+          Button(this.consignmentOrderId === order.id ? '发货中...' : '模拟发货')
+            .height(32)
+            .fontSize(12)
+            .fontColor($r('[ui_components].color.red'))
+            .backgroundColor($r('[ui_components].color.white'))
+            .border({ width: 0.5, color: $r('[ui_components].color.red') })
+            .enabled(!this.consignmentOrderId)
+            .onClick(() => this.simulateConsignment(order.id))
+        }
+        .width('100%')
+        .padding({ bottom: 10 })
+      }
     }
     .width('100%')
     .padding({ left: 12, right: 12 })
