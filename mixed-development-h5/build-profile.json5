@@ -125,5 +125,16 @@
         }
       ]
     },
-  ]
+    {
+      "name": "cart",
+      "srcPath": "./features/cart",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },  ]
 }
