@@ -125,5 +125,16 @@
         }
       ]
     },
-  ]
+    {
+      "name": "category",
+      "srcPath": "./features/category",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },  ]
 }
