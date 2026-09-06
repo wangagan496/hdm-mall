@@ -125,5 +125,16 @@
         }
       ]
     },
-  ]
+    {
+      "name": "mine",
+      "srcPath": "./features/mine",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },  ]
 }
