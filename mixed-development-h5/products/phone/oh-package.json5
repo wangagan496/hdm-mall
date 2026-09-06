@@ -9,6 +9,7 @@
     "constants": "@module:constants",
     "models": "@module:models",
     "storage": "@module:storage",
-    "utils": "@module:utils"
+    "utils": "@module:utils",
+    "home": "@module:home"
   }
 }
