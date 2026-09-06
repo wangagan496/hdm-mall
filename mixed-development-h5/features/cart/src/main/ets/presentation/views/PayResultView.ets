@@ -1,6 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMGuess, HDMNavBar } from 'ui_components'
 import { PayResultParams } from 'models'
+import { getOrderDetailAPI } from '../../data/api'
 
 @Builder
 function PayResultViewBuilder() {
@@ -14,6 +15,9 @@ export struct PayResultView {
   topHeight: number = 0
   payResult: boolean = false
   orderId: string = ''
+  @State checking: boolean = true
+  @State checkFailed: boolean = false
+  @State serverOrderState: number = 0
   @Consume
   stackPath: NavPathStack
 
@@ -22,6 +26,26 @@ export struct PayResultView {
     if (params && params.length && params[params.length - 1]) {
       this.payResult = params[params.length - 1].payResult
       this.orderId = params[params.length - 1].orderId
+      this.checkOrderStatus()
+    }
+  }
+
+  private async checkOrderStatus(): Promise<void> {
+    if (!this.orderId) {
+      this.checking = false
+      this.checkFailed = true
+      return
+    }
+    this.checking = true
+    this.checkFailed = false
+    try {
+      const order = await getOrderDetailAPI(this.orderId)
+      this.serverOrderState = order.orderState
+      this.payResult = order.orderState >= 2 && order.orderState <= 4
+    } catch {
+      this.checkFailed = true
+    } finally {
+      this.checking = false
     }
   }
 
@@ -38,6 +62,23 @@ export struct PayResultView {
                 .height(60)
                 .fillColor(this.payResult ? '#00C1BF' : '#B0171F')
               Text(this.payResult ? '付款成功' : '付款失败')
+              if (this.checking) {
+                Text('正在向服务端确认订单状态…')
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.gray'))
+              } else if (this.checkFailed) {
+                Text('暂时无法查到服务端订单状态，以上结果仅供参考')
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.gray'))
+                Button('重新查单')
+                  .fontSize(13)
+                  .height(32)
+                  .onClick(() => this.checkOrderStatus())
+              } else {
+                Text(`服务端订单状态：${this.serverOrderState >= 2 && this.serverOrderState <= 4 ? '已支付/处理中' : '未支付或已关闭'}`)
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.gray'))
+              }
               Row({ space: 20 }) {
                 Button('返回首页')
                   .backgroundColor($r('[ui_components].color.black'))
@@ -55,7 +96,7 @@ export struct PayResultView {
                   .fontColor($r('[ui_components].color.black'))
                   .border({ width: 0.5, color: $r('[ui_components].color.border') })
                   .onClick(() => {
-
+                    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
                   })
 
               }

@@ -81,6 +81,8 @@ export struct LoginView {
     if (error) {
       if (error.code === 1001502012) {
         this.safeToast('已取消华为登录')
+      } else if (error.code === 1001502003) {
+        this.safeToast('华为登录配置无效：请核对 Client ID、包名和 Profile')
       } else {
         this.safeToast('华为登录失败，请检查账号服务配置')
       }

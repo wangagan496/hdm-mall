@@ -4,6 +4,7 @@ import {
   CreateOrderParams,
   CreateOrderResult,
   DeleteCartParams,
+  OrderItem,
   OrderListParams,
   OrderPage,
   PreOrder,
@@ -42,6 +43,11 @@ export const createOrderAPI = (data: CreateOrderParams) => {
 
 export const getOrderListAPI = (params: OrderListParams) => {
   return RequestAxios.get<OrderPage>('/member/order', params)
+}
+
+// 按订单号查询最新服务端状态，不能用支付回调替代。
+export const getOrderDetailAPI = (orderId: string) => {
+  return RequestAxios.get<OrderItem>(`/member/order/${orderId}`)
 }
 
 export interface ConsignmentResult {

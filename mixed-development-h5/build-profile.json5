@@ -7,7 +7,11 @@
         "targetSdkVersion": "6.1.1(24)",
         "compatibleSdkVersion": "6.1.1(24)",
         "runtimeOS": "HarmonyOS",
+        "signingConfig": "hdm",
         "buildOption": {
+          "packOptions": {
+            "appWithSignedPkg": true
+          },
           "strictMode": {
             "caseSensitiveCheck": true,
             "useNormalizedOHMUrl": true

@@ -35,6 +35,7 @@ yarn-error.log*
 *.pem
 **/signing/
 **/build-profile.local.json5
+**/agconnect-services.json
 
 # OS files
 .DS_Store

@@ -32,6 +32,12 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "metadata": [
+      {
+        "name": "client_id",
+        "value": "6917615590457018290"
+      }
+    ],
     "abilities": [
       {
         "name": "PhoneAbility",
