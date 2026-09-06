@@ -1,4 +1,5 @@
 export * from './MineView'
+export * from './LoginView'
 export * from './FavoritesView'
 export * from './HistoryView'
 export * from './CustomerServiceView'
