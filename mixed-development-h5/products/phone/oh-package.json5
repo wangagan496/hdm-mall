@@ -9,11 +9,6 @@
     "constants": "@module:constants",
     "models": "@module:models",
     "storage": "@module:storage",
-    "utils": "@module:utils",
-    "ui_components": "@module:ui_components",
-    "cart": "@module:cart",
-    "category": "@module:category",
-    "home": "@module:home",
-    "mine": "@module:mine"
+    "utils": "@module:utils"
   }
 }
