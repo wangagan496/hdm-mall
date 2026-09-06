@@ -1,15 +1,16 @@
 {
-  "name": "phone",
+  "name": "cart",
   "version": "1.0.0",
   "description": "Please describe the basic information.",
-  "main": "",
+  "main": "Index.ets",
   "author": "",
-  "license": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
   "dependencies": {
     "constants": "@module:constants",
     "models": "@module:models",
+    "network": "@module:network",
     "storage": "@module:storage",
-    "utils": "@module:utils",
-    "cart": "@module:cart"
+    "ui_components": "@module:ui_components"
   }
 }
