@@ -9,6 +9,7 @@ import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 // 导入抽离的常量和枚举
 import { TAB_LIST, TabIndex } from '../constants/TabConstants'
+import { LaunchPerf } from 'utils'
 
 @Entry
 @Component
@@ -48,6 +49,7 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    LaunchPerf.mark('tabsAboutToAppear')
     this.registerListener()
     authCart.updateCartCount()
   }

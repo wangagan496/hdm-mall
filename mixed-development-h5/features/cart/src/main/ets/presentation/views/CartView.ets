@@ -191,9 +191,11 @@ export struct CartView {
                     cart: cart,
                     onChangeSelected: async selected => {
                       await CartOperations.updateCartSelection(cart, selected)
+                      this.refreshCartSummary()
                     },
                     onChangeCount: async count => {
                       await CartOperations.updateCartCount(cart, count)
+                      this.refreshCartSummary()
                     },
                     onDelete: () => {
                       this.deleteCartItems([cart.skuId])

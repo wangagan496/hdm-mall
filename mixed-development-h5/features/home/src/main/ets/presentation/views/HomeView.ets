@@ -24,11 +24,13 @@ import {
   HomeDiscountSection,
   DiscountSectionParams
 } from '../components'
-import { Banner, RecommendParams, SearchRouterParam } from '../../domain/models'
+import { Banner, HotResult, RecommendParams, SearchRouterParam } from '../../domain/models'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 import { storeManager } from 'storage'
 import { HomeGoodsDeduplication, HomeGoodsResult } from '../utils/HomeGoodsDeduplication'
+import { LaunchPerf } from 'utils'
+import { HomePrefetch, HomeCoreRequests } from '../../data/api/homePrefetch'
 
 @Component
 export struct HomeView {
@@ -70,9 +72,13 @@ export struct HomeView {
   }
 
   aboutToAppear() {
-    // 推荐请求与首页模块并发发出，模块数据到齐后再做跨区块去重。
-    const recommendRequest: Promise<HDMGoodsItem[]> = getRecommendAPI({ limit: 8 } as RecommendParams)
-    this.getHomeData().then((): void => {
+    LaunchPerf.mark('homeAboutToAppear')
+    // 消费 onCreate 阶段预加载的在途请求；未预加载时回退为现场发请求。
+    const preloadedRequests: HomeCoreRequests | null = HomePrefetch.take()
+    const recommendRequest: Promise<HDMGoodsItem[]> =
+      preloadedRequests ? preloadedRequests.recommendRequest :
+        getRecommendAPI({ limit: 8 } as RecommendParams)
+    this.getHomeData(false, preloadedRequests).then((): void => {
       this.getRecommend(recommendRequest)
     })
     this.registerEvent()
@@ -90,18 +96,24 @@ export struct HomeView {
     emitter.off(BusinessVariable.UPDATE_HOME_DATA, this.homeDataCb)
   }
 
-  async getHomeData(again?: boolean) {
+  async getHomeData(again?: boolean, preloadedRequests?: HomeCoreRequests | null) {
     const requestId: number = ++this.homeRequestId
     if (!again) {
       this.loading = true
     }
 
-    const bannerRequest = getBannerAPI()
-    const categoryRequest = getCategoryAPI()
-    const hotRequest = getHotResultAPI()
-    const inVogueRequest = getInVogueAPI()
-    const oneStopRequest = getOneStopAPI()
-    const newGoodsRequest = getHomeNewAPI()
+    const bannerRequest: Promise<Banner[]> =
+      preloadedRequests ? preloadedRequests.bannerRequest : getBannerAPI()
+    const categoryRequest: Promise<CategoryItem[]> =
+      preloadedRequests ? preloadedRequests.categoryRequest : getCategoryAPI()
+    const hotRequest: Promise<HotResult> =
+      preloadedRequests ? preloadedRequests.hotRequest : getHotResultAPI()
+    const inVogueRequest: Promise<HotResult> =
+      preloadedRequests ? preloadedRequests.inVogueRequest : getInVogueAPI()
+    const oneStopRequest: Promise<HotResult> =
+      preloadedRequests ? preloadedRequests.oneStopRequest : getOneStopAPI()
+    const newGoodsRequest: Promise<HDMGoodsItem[]> =
+      preloadedRequests ? preloadedRequests.newGoodsRequest : getHomeNewAPI()
 
     // 核心首屏内容单独到达即可解除全屏 Loading，避免被推荐/促销接口拖住。
     // 失败时仍交给下面的 allSettled 统一处理，不会产生未捕获 Promise。
@@ -110,6 +122,8 @@ export struct HomeView {
       if (!coreContentShown && requestId === this.homeRequestId) {
         coreContentShown = true
         this.loading = false
+        LaunchPerf.mark('homeCoreContentLoaded')
+        LaunchPerf.report()
       }
     }
     bannerRequest.then((value: Banner[]): void => {
@@ -135,7 +149,7 @@ export struct HomeView {
       return
     }
 
-    this.homeLoadFailed = result.every((item): boolean => item.status === 'rejected')
+    this.homeLoadFailed = result.every((item: PromiseSettledResult<Banner[] | CategoryItem[] | HotResult | HDMGoodsItem[]>): boolean => item.status === 'rejected')
 
     if (result[0].status === "fulfilled") {
       this.banners = result[0].value

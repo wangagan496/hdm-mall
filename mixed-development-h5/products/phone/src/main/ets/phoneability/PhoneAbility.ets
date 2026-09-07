@@ -2,8 +2,9 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { auth, localGoodsStore, storeManager } from 'storage';
-import { screenManager, screenManagerByMedia } from 'utils';
+import { screenManager, screenManagerByMedia, LaunchPerf } from 'utils';
 import { GlobalVariable } from 'constants';
+import { HomePrefetch } from 'home';
 import { loginAPI, LoginParams } from 'mine';
 
 const DOMAIN = 0x0000;
@@ -30,7 +31,10 @@ export default class PhoneAbility extends UIAbility {
   }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    LaunchPerf.mark('abilityOnCreate')
     this.debugLaunchWant = want
+    // 冷启动关键路径：首屏请求在 onCreate 发出，与 HSP 加载和 UI 构建并行。
+    HomePrefetch.start()
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     } catch (err) {
@@ -44,6 +48,7 @@ export default class PhoneAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
+    LaunchPerf.mark('onWindowStageCreate')
     screenManager.full(this.context)
     storeManager.ctx = this.context
     // 将 context 存入 AppStorage，供 network 模块的 toast 使用（避免循环依赖）
@@ -57,6 +62,7 @@ export default class PhoneAbility extends UIAbility {
         hilog.error(0x0000, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
         return;
       }
+      LaunchPerf.mark('indexLoaded')
       screenManagerByMedia.registerListenerScreen(this.context)
       hilog.info(0x0000, 'testTag', 'Succeeded in loading the content.');
     });

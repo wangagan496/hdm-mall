@@ -20,7 +20,13 @@ export struct CheckView {
   // 地址
   @State addressList: AddressItem[] = []
   // 摘要
-  @State summary: Summary = {} as Summary
+  @State summary: Summary = {
+    discountPrice: 0,
+    goodsCount: 0,
+    postFee: 0,
+    totalPayPrice: 0,
+    totalPrice: 0
+  }
   // 结算页弹层
   @State showSheet: boolean = false
   @State sheetMode: number = 0
@@ -133,12 +139,26 @@ export struct CheckView {
     try {
       const previousAddressId: string = this.addressId
       const result = await getPreOrderAPI()
+
+      // 检查是否有商品数据
+      if (!result.goods || result.goods.length === 0) {
+        this.safeToast('购物车中没有选中的商品')
+        this.stackPath.pop()
+        return
+      }
+
       this.addressList = result.userAddresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
       const defaultAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.isDefault === 0)
       const previousAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.id === previousAddressId)
       this.addressId = previousAddress?.id || defaultAddress?.id || this.addressList[0]?.id || ''
-      this.summary = result.summary
-      this.goodsList = result.goods
+      this.summary = result.summary || {
+        discountPrice: 0,
+        goodsCount: 0,
+        postFee: 0,
+        totalPayPrice: 0,
+        totalPrice: 0
+      }
+      this.goodsList = result.goods || []
     } catch {
       this.safeToast('订单信息加载失败，请稍后重试')
     }
@@ -148,7 +168,7 @@ export struct CheckView {
   @Builder
   PaySheetBuilder() {
     Column() {
-      Text('¥' + this.summary.totalPayPrice?.toString())
+      Text('¥' + (this.summary.totalPayPrice || 0).toFixed(2))
         .fontSize(20)
         .fontWeight(500)
         .fontColor($r('[ui_components].color.black'))
@@ -270,7 +290,7 @@ export struct CheckView {
             Text() {
               Span('¥')
                 .fontSize(14)
-              Span(this.summary.totalPayPrice?.toFixed(2))
+              Span((this.summary.totalPayPrice || 0).toFixed(2))
                 .fontSize(20)
             }
             .fontColor($r('[ui_components].color.red'))
@@ -279,7 +299,7 @@ export struct CheckView {
             Text() {
               Span('共减')
                 .fontColor($r('[ui_components].color.gray'))
-              Span('¥00.00')
+              Span('¥' + (this.summary.discountPrice || 0).toFixed(2))
                 .fontColor($r('[ui_components].color.red'))
                 .fontWeight(500)
             }
@@ -494,7 +514,7 @@ struct PriceCell {
 
   @Builder
   PriceBuilder() {
-    Text('¥' + this.price)
+    Text('¥' + (this.price || 0).toFixed(2))
       .fontSize(this.isRed ? 16 : 14)
       .fontColor(this.isRed ? $r('[ui_components].color.red') : $r('[ui_components].color.gray'))
   }

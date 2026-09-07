@@ -9,6 +9,7 @@ import { common } from '@kit.AbilityKit'
 import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
 import { getDetailAPI, getGoodsEvaluationsAPI } from '../../data/api'
 import { isFallbackSkuId } from '../../data/api/mockData'
+import { normalizeSkuSelection } from '../../data/api/goodsPresentation'
 
 
 @Builder
@@ -36,7 +37,7 @@ export struct GoodsView {
   @State evaluationCount: number = 0
   @State evaluationLoading: boolean = false
   @State
-  sku: HDMSkuType = {} as HDMSkuType
+  sku: HDMSkuType = normalizeSkuSelection()
   scroller = new Scroller()
   loadingTitle: string = "加载中..."
   @Consume
@@ -304,12 +305,12 @@ export struct GoodsView {
         ListItem() {
           // Sku 组件
           HDMSku({
-            skus: this.goods.skus,
-            specs: this.goods.specs,
+            skus: this.goods.skus ?? [],
+            specs: this.goods.specs ?? [],
             onSkuChange: (sku) => {
-              this.sku = sku
-              if (sku.inventory > 0 && this.count > sku.inventory) {
-                this.count = sku.inventory
+              this.sku = normalizeSkuSelection(sku)
+              if (this.sku.inventory > 0 && this.count > this.sku.inventory) {
+                this.count = this.sku.inventory
               }
             }
           })

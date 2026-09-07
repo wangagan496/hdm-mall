@@ -2,6 +2,20 @@ import { HDMGoodsItem } from 'models'
 import { Goods } from '../../domain/models'
 import { HDMSkuType, HDMSpec } from 'ui_components'
 
+// 未选全规格时，@ohmos/sku 只回传 picture 和 specsText，不保证有 id 或库存。
+export function normalizeSkuSelection(sku?: HDMSkuType): HDMSkuType {
+  return {
+    id: sku?.id ?? '',
+    skuCode: sku?.skuCode ?? '',
+    price: sku?.price ?? '',
+    oldPrice: sku?.oldPrice ?? '',
+    inventory: sku?.inventory ?? 0,
+    specs: sku?.specs ?? [],
+    specsText: sku?.specsText ?? null,
+    picture: sku?.picture ?? null
+  }
+}
+
 function skuSupportsSelection(sku: HDMSkuType, selectedValues: (string | undefined)[]): boolean {
   for (let index: number = 0; index < selectedValues.length; index++) {
     const selectedValue: string | undefined = selectedValues[index]
