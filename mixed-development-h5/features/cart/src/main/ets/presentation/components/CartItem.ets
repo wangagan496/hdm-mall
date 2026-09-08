@@ -22,9 +22,8 @@ export struct CartItem {
         .select(this.cart.selected)
         .accessibilityText(this.cart.selected ? '取消选择商品' : '选择商品')
         .onClick(() => {
-          this.cart.selected = !this.cart.selected
-          // 取消勾选或者勾选
-          this.onChangeSelected(this.cart.selected)
+          // 选中状态等服务端更新成功后由父组件回写，避免接口失败时界面与服务端不一致导致结算少算
+          this.onChangeSelected(!this.cart.selected)
         })
       Image(this.cart.picture)
         .width(84)
@@ -79,16 +78,11 @@ export struct CartItem {
           }
           .height(28)
           .enableDec(this.cart.count > 1)
-          .onInc(async () => {
-
-            // await this.onChangeCount(this.cart.count) // 子传父 服务器先更新
-            // this.cart.count++ // 再更新客户端
-            this.cart.count++
-            this.onChangeCount(this.cart.count)
+          .onInc(() => {
+            this.onChangeCount(this.cart.count + 1)
           })
           .onDec(() => {
-            this.cart.count--
-            this.onChangeCount(this.cart.count) // 子传父
+            this.onChangeCount(this.cart.count - 1)
           })
         }
         .width('100%')

@@ -111,13 +111,18 @@ export class CartOperationHelper {
   static async updateCartSelection(cart: CartGoodsModel, selected: boolean): Promise<void> {
     const data: UpdateCartParams = { selected, count: cart.count }
     await updateCart(cart.skuId, data)
+    // 服务端成功后才回写本地状态，保证界面与服务端一致
     cart.selected = selected
     await authCart.updateCartCount()
   }
 
   static async updateCartCount(cart: CartGoodsModel, count: number): Promise<void> {
+    if (count < 1) {
+      return
+    }
     const data: UpdateCartParams = { selected: cart.selected, count }
     await updateCart(cart.skuId, data)
+    // 服务端成功后才回写本地数量
     cart.count = count
     await authCart.updateCartCount()
   }

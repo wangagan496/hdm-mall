@@ -34,6 +34,8 @@ export struct CheckView {
   @State payChannel: number = 1
   // 地址 id
   @State addressId: string = ''
+  // 用户是否在结算页手动选过地址：未手动选择时跟随最新默认地址，改默认后立即生效
+  @State addressManuallySelected: boolean = false
   // 是否 loading
   @State loading: boolean = false
   @Consume
@@ -150,7 +152,12 @@ export struct CheckView {
       this.addressList = result.userAddresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
       const defaultAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.isDefault === 0)
       const previousAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.id === previousAddressId)
-      this.addressId = previousAddress?.id || defaultAddress?.id || this.addressList[0]?.id || ''
+      // 手动选过地址则尊重用户选择；否则跟随最新默认地址，保证改默认后结算页即时刷新
+      if (this.addressManuallySelected && previousAddress) {
+        this.addressId = previousAddress.id
+      } else {
+        this.addressId = defaultAddress?.id || previousAddress?.id || this.addressList[0]?.id || ''
+      }
       this.summary = result.summary || {
         discountPrice: 0,
         goodsCount: 0,
@@ -160,7 +167,8 @@ export struct CheckView {
       }
       this.goodsList = result.goods || []
     } catch {
-      this.safeToast('订单信息加载失败，请稍后重试')
+      // 服务端校验失败（如选中了失效商品）或网络异常，统一给出可操作的提示
+      this.safeToast('结算信息加载失败：请返回购物袋检查是否有失效商品')
     }
   }
 
@@ -397,6 +405,7 @@ export struct CheckView {
             }
             .onClick(() => {
               this.addressId = address.id
+              this.addressManuallySelected = true
               this.showSheet = false
             })
           }, (address: AddressItem) => address.id)
@@ -413,6 +422,7 @@ export struct CheckView {
         .fontColor($r('[ui_components].color.text'))
         .onClick(() => {
           this.showSheet = false
+          this.addressManuallySelected = false
           this.stackPath.pushPathByName(PAGE_PATH.ADDRESS_PAGE, null)
         })
     }

@@ -31,9 +31,9 @@ export const delCart = (data: DeleteCartParams) => {
   return RequestAxios.delete<null>('/member/cart', data)
 }
 
-// 获取订单结算信息
+// 获取订单结算信息（静默：失效商品等业务错误由结算页统一给出更明确的提示）
 export const getPreOrderAPI = () => {
-  return RequestAxios.get<PreOrder>('/member/order/pre')
+  return RequestAxios.getSilent<PreOrder>('/member/order/pre')
 }
 
 // 创建订单

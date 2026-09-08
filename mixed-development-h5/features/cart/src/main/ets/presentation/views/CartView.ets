@@ -190,11 +190,20 @@ export struct CartView {
                   CartItem({
                     cart: cart,
                     onChangeSelected: async selected => {
-                      await CartOperations.updateCartSelection(cart, selected)
+                      try {
+                        await CartOperations.updateCartSelection(cart, selected)
+                      } catch {
+                        // 更新失败：本地状态未变，仅提示，界面与服务端保持一致
+                        this.getUIContext().getPromptAction().showToast({ message: '选中状态更新失败，请重试' })
+                      }
                       this.refreshCartSummary()
                     },
                     onChangeCount: async count => {
-                      await CartOperations.updateCartCount(cart, count)
+                      try {
+                        await CartOperations.updateCartCount(cart, count)
+                      } catch {
+                        this.getUIContext().getPromptAction().showToast({ message: '数量更新失败，请重试' })
+                      }
                       this.refreshCartSummary()
                     },
                     onDelete: () => {

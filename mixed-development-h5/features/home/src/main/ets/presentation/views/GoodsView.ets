@@ -133,6 +133,7 @@ export struct GoodsView {
       }
       this.evaluations = result.items || []
       this.evaluationCount = result.counts || this.evaluations.length
+      console.log(`[GoodsView] loadEvaluations goodsId=${goodsId} counts=${this.evaluationCount} items=${this.evaluations.length}`)
     } catch {
       if (requestId === this.evaluationRequestId) {
         this.evaluations = []
