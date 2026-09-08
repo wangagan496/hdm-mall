@@ -15,6 +15,8 @@ interface IPickerParams {
 
 const showAvatarSheet = ref(false)
 const pendingAvatarBase64 = ref('')
+// 头像接口成功后先保留地址，直到原生桥同步和资料保存都成功，支持失败重试。
+const uploadedAvatarUrl = ref('')
 const isPickingAvatar = ref(false)
 
 const openAvatarSheet = () => {
@@ -39,6 +41,7 @@ const selectAvatar = async (_action: ActionSheetAction, index: number) => {
     closeToast()
     if (base64) {
       pendingAvatarBase64.value = base64
+      uploadedAvatarUrl.value = ''
       userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
     }
   } catch (error) {
@@ -155,6 +158,49 @@ const createProfileUpdatePayload = (user: HDMUser): ProfileUpdatePayload => ({
   profession: user.profession,
 })
 
+// 页面的三段状态：加载中 / 就绪 / 加载失败（可重试）
+const pageState = ref<'loading' | 'ready' | 'error'>('loading')
+// 最近一次成功保存/加载的字段快照，用于脏检查（无修改时禁用保存按钮）
+const savedSnapshot = ref('')
+
+const applySnapshot = () => {
+  savedSnapshot.value = JSON.stringify(createProfileUpdatePayload(userInfo.value))
+}
+
+const isProfileDirty = computed(() => {
+  if (pageState.value !== 'ready') {
+    return false
+  }
+  return JSON.stringify(createProfileUpdatePayload(userInfo.value)) !== savedSnapshot.value
+})
+
+// 头像待上传同样视为有未保存改动
+const isDirty = computed(() => isProfileDirty.value || pendingAvatarBase64.value !== '')
+
+const getUserInfo = async () => {
+  pageState.value = 'loading'
+  showLoadingToast({ message: '加载中...', duration: 0, forbidClick: true })
+  try {
+    const res = await request.get('member/profile')
+    const sessionUser = window.mk?.queryUser()
+    userInfo.value = {
+      ...sessionUser,
+      ...res.data.result,
+      token: sessionUser?.token || '',
+    } as HDMUser
+    applySnapshot()
+    pageState.value = 'ready'
+  } catch {
+    pageState.value = 'error'
+  } finally {
+    closeToast()
+  }
+}
+
+onMounted(() => {
+  getUserInfo()
+})
+
 const base64ToAvatarFile = (base64: string): File => {
   const binary = window.atob(base64)
   const bytes = new Uint8Array(binary.length)
@@ -175,43 +221,30 @@ const uploadPendingAvatar = async (): Promise<string> => {
   return avatar
 }
 
-onMounted(() => {
-  getUserInfo()
-})
-
-const getUserInfo = async () => {
-  showLoadingToast({ message: '加载中...', duration: 0, forbidClick: true })
-  try {
-    const res = await request.get('member/profile')
-    const sessionUser = window.mk?.queryUser()
-    userInfo.value = {
-      ...sessionUser,
-      ...res.data.result,
-      token: sessionUser?.token || '',
-    } as HDMUser
-  } catch {
-    showToast({ message: '资料加载失败，请稍后重试' })
-  } finally {
-    closeToast()
-  }
-}
-
 const isLoading = ref(false)
 const onSubmit = async () => {
   if (!window.mk?.updateUser) {
     showToast({ message: '当前环境不支持保存资料' })
     return
   }
+  if (!isDirty.value) {
+    showToast({ message: '资料没有变化，无需保存' })
+    return
+  }
 
   isLoading.value = true
   try {
     if (pendingAvatarBase64.value) {
-      userInfo.value.avatar = await uploadPendingAvatar()
-      pendingAvatarBase64.value = ''
-      await window.mk.updateUser(userInfo.value)
+      if (!uploadedAvatarUrl.value) {
+        uploadedAvatarUrl.value = await uploadPendingAvatar()
+      }
+      userInfo.value.avatar = uploadedAvatarUrl.value
     }
     await request.put('/member/profile', createProfileUpdatePayload(userInfo.value))
     await window.mk.updateUser(userInfo.value)
+    pendingAvatarBase64.value = ''
+    uploadedAvatarUrl.value = ''
+    applySnapshot()
     showToast('修改成功')
   } catch {
     showToast({ message: '资料保存失败，请稍后重试' })
@@ -223,96 +256,126 @@ const onSubmit = async () => {
 
 <template>
   <div class="profile-edit-page">
-    <!-- 头像部分 -->
-    <div class="avatar">
-      <button
-        type="button"
-        class="avatar-button"
-        aria-label="修改头像"
-        :disabled="isPickingAvatar"
-        @click="openAvatarSheet"
-      >
-        <van-image round width="100" height="100" class="avatar-img" :src="userInfo.avatar">
-        </van-image>
-        <span>修改头像</span>
-      </button>
-    </div>
-    <!-- 头像选择弹窗 -->
-    <van-action-sheet
-      v-model:show="showAvatarSheet"
-      :actions="[{ name: '拍照' }, { name: '相册' }]"
-      cancel-text="取消"
-      close-on-click-action
-      @select="selectAvatar"
-    />
-
-    <!-- 中间表单部分 -->
-    <van-cell-group>
-      <van-field label="账号" readonly :model-value="userInfo.account"></van-field>
-      <van-field label="昵称" placeholder="请输入昵称" v-model="userInfo.nickname"></van-field>
-      <van-cell title="性别" class="gender">
-        <van-radio-group :icon-size="16" v-model="userInfo.gender">
-          <van-radio name="男">男</van-radio>
-          <van-radio name="女">女</van-radio>
-          <van-radio name="未知">未知</van-radio>
-        </van-radio-group>
-      </van-cell>
-      <van-field
-        label="生日"
-        readonly
-        placeholder="请选择日期"
-        v-model="userInfo.birthday"
-        @click="showBirthdayPopup = true"
-      ></van-field>
-      <van-popup v-model:show="showBirthdayPopup" position="bottom" :style="{ height: '40%' }">
-        <van-date-picker
-          v-model="birthdayList"
-          title="选择日期"
-          :min-date="new Date('1950-01-01')"
-          @cancel="showBirthdayPopup = false"
-          @confirm="onChangeBirthday"
-        />
-      </van-popup>
-      <van-field
-        label="所在地"
-        readonly
-        placeholder="请选择所在地"
-        @click="openAreaPopup"
-        v-model="userInfo.fullLocation"
-      ></van-field>
-      <van-popup v-model:show="showAreaPopup" position="bottom" :style="{ height: '40%' }">
-        <van-picker
-          :columns="areaColumns"
-          :columns-field-names="{ text: 'name', value: 'code', children: 'areaList' }"
-          @cancel="showAreaPopup = false"
-          @confirm="selectArea"
-        ></van-picker>
-      </van-popup>
-      <van-field
-        label="职业"
-        readonly
-        placeholder="请选择职业"
-        v-model="userInfo.profession"
-        @click="showJobPopup = true"
-      ></van-field>
-      <van-popup v-model:show="showJobPopup" position="bottom" :style="{ height: '40%' }">
-        <van-picker
-          @cancel="showJobPopup = false"
-          :columns="jobColumns"
-          @confirm="onChangejob"
-        ></van-picker>
-      </van-popup>
-    </van-cell-group>
-
-    <div class="submit">
-      <van-button round block type="primary" @click="onSubmit" :loading="isLoading">
-        保存资料
+    <!-- 加载失败：空态 + 重试，而不是只有一个 toast -->
+    <van-empty v-if="pageState === 'error'" description="资料加载失败">
+      <van-button round type="primary" size="small" @click="getUserInfo">
+        重新加载
       </van-button>
-    </div>
+    </van-empty>
+
+    <!-- 加载中：骨架屏 -->
+    <template v-else-if="pageState === 'loading'">
+      <van-skeleton title :row="8" :loading="true" class="skeleton" />
+    </template>
+
+    <template v-else>
+      <!-- 头像部分 -->
+      <div class="avatar">
+        <button
+          type="button"
+          class="avatar-button"
+          aria-label="修改头像"
+          :disabled="isPickingAvatar"
+          @click="openAvatarSheet"
+        >
+          <van-image round width="100" height="100" class="avatar-img" :src="userInfo.avatar">
+          </van-image>
+          <span>修改头像</span>
+        </button>
+      </div>
+      <!-- 头像选择弹窗 -->
+      <van-action-sheet
+        v-model:show="showAvatarSheet"
+        :actions="[{ name: '拍照' }, { name: '相册' }]"
+        cancel-text="取消"
+        close-on-click-action
+        @select="selectAvatar"
+      />
+
+      <!-- 中间表单部分 -->
+      <van-cell-group inset class="form-group">
+        <van-field label="账号" readonly :model-value="userInfo.account"></van-field>
+        <van-field label="昵称" placeholder="请输入昵称" v-model="userInfo.nickname"></van-field>
+        <van-cell title="性别" class="gender">
+          <van-radio-group :icon-size="16" v-model="userInfo.gender">
+            <van-radio name="男">男</van-radio>
+            <van-radio name="女">女</van-radio>
+            <van-radio name="未知">未知</van-radio>
+          </van-radio-group>
+        </van-cell>
+        <van-field
+          label="生日"
+          readonly
+          placeholder="请选择日期"
+          v-model="userInfo.birthday"
+          @click="showBirthdayPopup = true"
+        ></van-field>
+        <van-popup v-model:show="showBirthdayPopup" position="bottom" :style="{ height: '40%' }">
+          <van-date-picker
+            v-model="birthdayList"
+            title="选择日期"
+            :min-date="new Date('1950-01-01')"
+            @cancel="showBirthdayPopup = false"
+            @confirm="onChangeBirthday"
+          />
+        </van-popup>
+        <van-field
+          label="所在地"
+          readonly
+          placeholder="请选择所在地"
+          @click="openAreaPopup"
+          v-model="userInfo.fullLocation"
+        ></van-field>
+        <van-popup v-model:show="showAreaPopup" position="bottom" :style="{ height: '40%' }">
+          <van-picker
+            :columns="areaColumns"
+            :columns-field-names="{ text: 'name', value: 'code', children: 'areaList' }"
+            @cancel="showAreaPopup = false"
+            @confirm="selectArea"
+          ></van-picker>
+        </van-popup>
+        <van-field
+          label="职业"
+          readonly
+          placeholder="请选择职业"
+          v-model="userInfo.profession"
+          @click="showJobPopup = true"
+        ></van-field>
+        <van-popup v-model:show="showJobPopup" position="bottom" :style="{ height: '40%' }">
+          <van-picker
+            @cancel="showJobPopup = false"
+            :columns="jobColumns"
+            @confirm="onChangejob"
+          ></van-picker>
+        </van-popup>
+      </van-cell-group>
+
+      <div class="submit">
+        <van-button
+          round
+          block
+          type="primary"
+          :disabled="!isDirty"
+          :loading="isLoading"
+          @click="onSubmit"
+        >
+          保存资料
+        </van-button>
+      </div>
+    </template>
   </div>
 </template>
 
 <style lang="css" scoped>
+.profile-edit-page {
+  min-height: 100vh;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.skeleton {
+  padding: 24px 16px;
+}
+
 .avatar {
   padding: 30px;
   text-align: center;
@@ -320,7 +383,7 @@ const onSubmit = async () => {
 }
 
 .avatar-img {
-  box-shadow: 0 0 5px #ccc;
+  box-shadow: var(--mk-card-shadow);
 }
 
 .avatar-button {
@@ -351,7 +414,11 @@ const onSubmit = async () => {
   color: var(--mk-linear_end);
 }
 
-.gender ::v-deep(.van-cell__title) {
+.form-group {
+  margin-top: 12px;
+}
+
+.gender :deep(.van-cell__title) {
   width: 100px;
   flex: none;
 }

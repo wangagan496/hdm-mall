@@ -12,21 +12,23 @@ export struct GoodsInfo {
   @State displayPictures: string[] = []
   urls: string[] = [] // 要提前声明
   activeIndex: number = 0
-  previewDialog: CustomDialogController | null = null
+  @State showPreview: boolean = false
+
+  @Builder
+  PreviewBuilder() {
+    HDMPreviewImage({
+      urls: this.urls,
+      activeIndex: this.activeIndex,
+      onClose: () => {
+        this.showPreview = false
+      }
+    })
+  }
 
   openPreview(urls: string[], activeIndex: number) {
     this.urls = urls
     this.activeIndex = activeIndex
-    // 每次打开前重建，确保传入最新的 urls 和 activeIndex
-    this.previewDialog = new CustomDialogController({
-      builder: HDMPreviewImage({
-        urls: this.urls,
-        activeIndex: this.activeIndex
-      }),
-      customStyle: true,
-      autoCancel: false
-    })
-    this.previewDialog.open()
+    this.showPreview = true
   }
 
   getMainPictures(): string[] {
@@ -161,5 +163,6 @@ export struct GoodsInfo {
       .margin(8)
       .padding(8)
     }
+    .bindContentCover($$this.showPreview, this.PreviewBuilder())
   }
 }

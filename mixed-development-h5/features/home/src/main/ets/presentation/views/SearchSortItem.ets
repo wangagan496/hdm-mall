@@ -3,10 +3,9 @@ import { SortField, SortMethod } from '../../domain/models'
 @Component
 export struct SearchSortItem {
   // 筛选字段
-  field: SortField = 'publishTime'
+  @Prop field: SortField = 'publishTime'
   // 显示的文本
-  label: string = ''
-  // 状态变量，接收父组件的状态属性
+  @Prop label: string = ''
   // 父组件的筛选字段
   @Prop sortField: SortField = 'publishTime'
   // 父组件的排序方法

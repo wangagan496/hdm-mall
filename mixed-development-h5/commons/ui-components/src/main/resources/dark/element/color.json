@@ -2,27 +2,27 @@
   "color": [
     {
       "name": "black",
-      "value": "#191919"
+      "value": "#E6FFFFFF"
     },
     {
       "name": "white",
-      "value": "#FFFFFF"
+      "value": "#1D1D1D"
     },
     {
       "name": "loading_foreground",
-      "value": "#FFFFFF"
+      "value": "#E6FFFFFF"
     },
     {
       "name": "text",
-      "value": "#434343"
+      "value": "#D9FFFFFF"
     },
     {
       "name": "gray",
-      "value": "#A6A3AD"
+      "value": "#8C8C99"
     },
     {
       "name": "red",
-      "value": "#FF2737"
+      "value": "#FF5B67"
     },
     {
       "name": "linear_begin",
@@ -34,15 +34,15 @@
     },
     {
       "name": "yellow",
-      "value": "#F2E7DC"
+      "value": "#3A322A"
     },
     {
       "name": "under",
-      "value": "#F5F4F9"
+      "value": "#141414"
     },
     {
       "name": "border",
-      "value": "#e4e4e4"
+      "value": "#333333"
     }
   ]
 }

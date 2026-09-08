@@ -119,16 +119,26 @@ export struct CartView {
       })
   }
 
-  clearCartDialog: CustomDialogController = new CustomDialogController({
-    builder: HDMConfirm({
+  @State showClearCartConfirm: boolean = false
+
+  @Builder
+  ClearCartConfirmBuilder() {
+    HDMConfirm({
       message: '确定清空购物车中的全部商品吗？',
-      onConfirm: () => {
-        this.deleteCartItems(this.cartList.map((item: CartGoodsModel) => item.skuId), true)
+      onConfirm: async () => {
+        if (this.isDeleting) {
+          return
+        }
+        await this.deleteCartItems(this.cartList.map((item: CartGoodsModel) => item.skuId), true)
+        this.showClearCartConfirm = false
+      },
+      onCancel: () => {
+        if (!this.isDeleting) {
+          this.showClearCartConfirm = false
+        }
       }
-    }),
-    customStyle: true,
-    alignment: DialogAlignment.Center
-  })
+    })
+  }
 
   build() {
     NavDestination() {
@@ -142,7 +152,7 @@ export struct CartView {
         })
           .border({
             width: { bottom: 0.5 },
-            color: '#e4e4e4'
+            color: $r('[ui_components].color.border')
           })
 
         if (this.user.token && this.cartList.length) {
@@ -158,7 +168,7 @@ export struct CartView {
               .padding({ left: 12, right: 4 })
               .onClick(() => {
                 if (!this.isDeleting) {
-                  this.clearCartDialog.open()
+                  this.showClearCartConfirm = true
                 }
               })
           }
@@ -249,6 +259,7 @@ export struct CartView {
           }
         }
         .contentStartOffset(8)
+        .cachedCount(4)
         .width('100%')
         .layoutWeight(1)
         .scrollBar(BarState.Off)
@@ -312,6 +323,7 @@ export struct CartView {
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
+    .bindContentCover($$this.showClearCartConfirm, this.ClearCartConfirmBuilder())
   }
 }
 

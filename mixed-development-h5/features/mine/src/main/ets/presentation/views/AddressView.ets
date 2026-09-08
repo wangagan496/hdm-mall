@@ -97,21 +97,37 @@ export struct AddressView {
   @State selectedCityCode: string = ''
   @State selectedCountyCode: string = ''
   @State pendingDeleteId: string = ''
+  @State showDeleteConfirm: boolean = false
+  @State deleting: boolean = false
   @Consume stackPath: NavPathStack
 
   private areaLoaded: boolean = false
   // Invalidates detail responses after the user switches editor targets or closes the sheet.
   private editorRequestSequence: number = 0
-  private confirmDialog: CustomDialogController = new CustomDialogController({
-    builder: HDMConfirm({
+
+  @Builder
+  DeleteConfirmBuilder() {
+    HDMConfirm({
       message: '确定删除这个收货地址吗？',
-      onConfirm: () => {
-        this.confirmDelete()
+      onConfirm: async () => {
+        if (this.deleting) {
+          return
+        }
+        this.deleting = true
+        try {
+          await this.confirmDelete()
+          this.showDeleteConfirm = false
+        } finally {
+          this.deleting = false
+        }
+      },
+      onCancel: () => {
+        if (!this.deleting) {
+          this.showDeleteConfirm = false
+        }
       }
-    }),
-    customStyle: true,
-    alignment: DialogAlignment.Center
-  })
+    })
+  }
 
   aboutToAppear(): void {
     this.loadAddresses()
@@ -172,7 +188,7 @@ export struct AddressView {
 
   private openDelete(address: AddressItem): void {
     this.pendingDeleteId = address.id
-    this.confirmDialog.open()
+    this.showDeleteConfirm = true
   }
 
   private async confirmDelete(): Promise<void> {
@@ -581,6 +597,7 @@ export struct AddressView {
       })
     }
     .hideTitleBar(true)
+    .bindContentCover($$this.showDeleteConfirm, this.DeleteConfirmBuilder())
     .padding({ top: this.topHeight })
   }
 }

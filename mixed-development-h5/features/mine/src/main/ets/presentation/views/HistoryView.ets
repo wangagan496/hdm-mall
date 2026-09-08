@@ -15,6 +15,7 @@ export struct HistoryView {
   topHeight: number = 0
   @State
   goods: LocalGoodsItem[] = []
+  @State clearing: boolean = false
   @Consume
   stackPath: NavPathStack
 
@@ -24,21 +25,34 @@ export struct HistoryView {
     } catch {
     }
   }
-  clearDialog: CustomDialogController = new CustomDialogController({
-    builder: HDMConfirm({
+  @State showClearDialog: boolean = false
+
+  @Builder
+  ClearHistoryBuilder() {
+    HDMConfirm({
       message: '确定清空全部浏览足迹吗？',
       onConfirm: async () => {
+        if (this.clearing) {
+          return
+        }
+        this.clearing = true
         try {
           await localGoodsStore.clearHistory()
           this.loadHistory()
+          this.showClearDialog = false
         } catch {
           this.safeToast('清空失败，请稍后重试')
+        } finally {
+          this.clearing = false
+        }
+      },
+      onCancel: () => {
+        if (!this.clearing) {
+          this.showClearDialog = false
         }
       }
-    }),
-    customStyle: true,
-    alignment: DialogAlignment.Center
-  })
+    })
+  }
 
   aboutToAppear(): void {
     this.loadHistory()
@@ -89,7 +103,7 @@ export struct HistoryView {
               .fontSize(13)
               .fontColor($r('[ui_components].color.red'))
               .padding({ left: 12, top: 8, right: 4, bottom: 8 })
-              .onClick(() => this.clearDialog.open())
+              .onClick(() => this.showClearDialog = true)
           }
           .width('100%')
           .padding({ left: 12, right: 12 })
@@ -115,6 +129,7 @@ export struct HistoryView {
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
+    .bindContentCover($$this.showClearDialog, this.ClearHistoryBuilder())
     .padding({ top: this.topHeight })
   }
 }

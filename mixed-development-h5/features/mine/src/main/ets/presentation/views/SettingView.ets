@@ -17,21 +17,35 @@ export struct SettingsView {
   user: HDMUser = {} as HDMUser
   @Consume
   stackPath: NavPathStack
-  confirmDialog: CustomDialogController = new CustomDialogController({
-    builder: HDMConfirm({
+  @State showLogoutConfirm: boolean = false
+  @State loggingOut: boolean = false
+
+  @Builder
+  LogoutConfirmBuilder() {
+    HDMConfirm({
       message: '确定要退出账号吗',
       onConfirm: async () => {
+        if (this.loggingOut) {
+          return
+        }
+        this.loggingOut = true
         try {
           await userSession.logout()
+          this.showLogoutConfirm = false
           this.stackPath.pop()
         } catch {
           this.getUIContext().getPromptAction().showToast({ message: '退出失败，请稍后重试' })
+        } finally {
+          this.loggingOut = false
+        }
+      },
+      onCancel: () => {
+        if (!this.loggingOut) {
+          this.showLogoutConfirm = false
         }
       }
-    }),
-    customStyle: true,
-    alignment: DialogAlignment.Center
-  })
+    })
+  }
 
   @Builder
   ProfileBuilder() {
@@ -116,7 +130,7 @@ export struct SettingsView {
           HDMCellGroup() {
             HDMCell({
               title: '退出登录', onRightClick: () => {
-                this.confirmDialog.open()
+                this.showLogoutConfirm = true
               }
             })
 
@@ -128,6 +142,7 @@ export struct SettingsView {
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
+    .bindContentCover($$this.showLogoutConfirm, this.LogoutConfirmBuilder())
     .padding({
       top: this.topHeight
     })
