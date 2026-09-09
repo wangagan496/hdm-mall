@@ -12,7 +12,7 @@ export struct CategoryContent {
           .width('100%')
           .height(136)
           .objectFit(ImageFit.Contain)
-          .backgroundColor('#f6f6f6')
+          .backgroundColor($r('[ui_components].color.under'))
           .borderRadius(8)
           .margin({ bottom: 8 })
 

@@ -98,6 +98,16 @@ struct WebView {
     }
   }
 
+  // 菜单直达 Tab：先弹回 Tabs 根页面，再复用 CartView 空态同款 SWITCH_TAB 事件切 Tab。
+  private switchToTab(tabIndex: number): void {
+    try {
+      this.stackPath.popToIndex(-1)
+    } catch {
+    }
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    context.eventHub.emit(GlobalVariable.SWITCH_TAB, tabIndex)
+  }
+
   aboutToDisappear(): void {
     try {
       this.controller.deleteJavaScriptRegister(BRIDGE_NAME)
@@ -200,15 +210,19 @@ struct WebView {
     Menu() {
       MenuItem({ content: '首页' })
         .onClick(() => {
+          this.switchToTab(0)
         })
       MenuItem({ content: '分类' })
         .onClick(() => {
+          this.switchToTab(1)
         })
       MenuItem({ content: '购物袋' })
         .onClick(() => {
+          this.switchToTab(2)
         })
       MenuItem({ content: '我的' })
         .onClick(() => {
+          this.switchToTab(3)
         })
       MenuItem({ content: '刷新一下' })
         .onClick(() => {

@@ -64,15 +64,16 @@ export interface CartGoods {
 
 @Observed
 export class CartGoodsModel implements CartGoods {
-  count: number = 0
-  id: string = ''
-  name: string = ''
-  picture: string = ''
-  price: number = 0
-  selected: boolean = false
-  skuId: string = ''
-  stock: number = 0
-  attrsText: string = ''
+  // @Track 让 @ObjectLink 仅在实际变更的属性上触发最小化刷新
+  @Track count: number = 0
+  @Track id: string = ''
+  @Track name: string = ''
+  @Track picture: string = ''
+  @Track price: number = 0
+  @Track selected: boolean = false
+  @Track skuId: string = ''
+  @Track stock: number = 0
+  @Track attrsText: string = ''
 
   constructor(model: CartGoods) {
     this.count = model.count

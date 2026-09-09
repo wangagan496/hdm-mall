@@ -331,6 +331,7 @@ export struct HomeView {
                 }).getValue(this.breakPoint))
                 .columnsGap(10)
                 .rowsGap(10)
+                .cachedCount(4)
                 .padding({ left: 16, right: 16 })
               }
               .width('100%')

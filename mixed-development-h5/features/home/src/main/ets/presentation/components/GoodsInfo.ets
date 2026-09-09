@@ -1,4 +1,3 @@
-import { HDMPreviewImage } from 'ui_components'
 import { Goods } from "../../domain/models"
 import { excludeFailedPicture } from '../../data/api/goodsPresentation'
 
@@ -10,25 +9,11 @@ export struct GoodsInfo {
   @Link
   showSheet: boolean
   @State displayPictures: string[] = []
-  urls: string[] = [] // 要提前声明
-  activeIndex: number = 0
-  @State showPreview: boolean = false
-
-  @Builder
-  PreviewBuilder() {
-    HDMPreviewImage({
-      urls: this.urls,
-      activeIndex: this.activeIndex,
-      onClose: () => {
-        this.showPreview = false
-      }
-    })
+  onPreview: (urls: string[], activeIndex: number) => void = () => {
   }
 
-  openPreview(urls: string[], activeIndex: number) {
-    this.urls = urls
-    this.activeIndex = activeIndex
-    this.showPreview = true
+  openPreview(activeIndex: number) {
+    this.onPreview(this.displayPictures, activeIndex)
   }
 
   getMainPictures(): string[] {
@@ -84,7 +69,7 @@ export struct GoodsInfo {
                 this.removeFailedPicture(src)
               })
               .onClick(() => {
-                this.openPreview(this.displayPictures, index)
+                this.openPreview(index)
               })
           }, (src: string): string => src)
         }
@@ -163,6 +148,5 @@ export struct GoodsInfo {
       .margin(8)
       .padding(8)
     }
-    .bindContentCover($$this.showPreview, this.PreviewBuilder())
   }
 }

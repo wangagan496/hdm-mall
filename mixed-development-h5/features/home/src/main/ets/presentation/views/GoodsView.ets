@@ -1,11 +1,9 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMGoodsItem } from 'models'
 import { auth, localGoodsStore } from 'storage'
-import { HDMGuess, HDMLoading, HDMLoadingDialog, HDMNavBar, HDMSku, HDMSkuType } from 'ui_components'
+import { HDMGuess, HDMLoading, HDMLoadingDialog, HDMNavBar, HDMPreviewImage, HDMSku, HDMSkuType } from 'ui_components'
 import { authCart } from 'storage'
 import { Goods, GoodsEvaluation } from '../../domain/models'
-import { window } from '@kit.ArkUI'
-import { common } from '@kit.AbilityKit'
 import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
 import { getDetailAPI, getGoodsEvaluationsAPI } from '../../data/api'
 import { isFallbackSkuId } from '../../data/api/mockData'
@@ -40,16 +38,19 @@ export struct GoodsView {
   sku: HDMSkuType = normalizeSkuSelection()
   scroller = new Scroller()
   loadingTitle: string = "加载中..."
+  @State showLoadingDialog: boolean = false
+  @State showPreview: boolean = false
+  @State previewUrls: string[] = []
+  @State previewIndex: number = 0
   @Consume
   stackPath: NavPathStack
-  loadingDialog: CustomDialogController = new CustomDialogController({
-    builder: HDMLoadingDialog({
+
+  @Builder
+  LoadingDialogBuilder() {
+    HDMLoadingDialog({
       title: this.loadingTitle
-    }),
-    customStyle: true,
-    alignment: DialogAlignment.Center,
-    autoCancel: false
-  })
+    })
+  }
   tabs: string[] = ['商品', '评价', '详情', '推荐']
   private evaluationRequestId: number = 0
 
@@ -71,21 +72,8 @@ export struct GoodsView {
     }
   }
 
-  setStatusBar() {
-    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    window.getLastWindow(context)
-      .then((win) => {
-        try {
-          win.setWindowSystemBarProperties({ statusBarContentColor: '#000000' })
-        } catch {
-        }
-      }).catch(() => {
-      })
-  }
-
   aboutToAppear() {
     // 接收并解析数据
-    this.setStatusBar()
     this.getDetailData() // 获取详情数据
   }
 
@@ -94,28 +82,37 @@ export struct GoodsView {
 
   // 获取详情
   async getDetailData() {
-    this.loadingDialog.open() // 创建
-    const params = this.stackPath.getParamByName(PAGE_PATH.GOODS_PAGE) as Array<Goods | Array<Goods>>
-    const lastParam = params.length > 0 ? params[params.length - 1] : undefined
-    const source = Array.isArray(lastParam) ? lastParam[0] : lastParam
-    if (source && source.id) {
-      this.goods = source // 接收上一次的数据
-      this.isFavorite = localGoodsStore.isFavorite(source.id)
-    } else {
-      this.loadingDialog.close()
-      this.safeToast('商品信息加载失败，请返回重试')
-      return
-    }
-    this.goods = await getDetailAPI(this.goods)
-    this.isFavorite = localGoodsStore.isFavorite(this.goods.id)
-    this.loadEvaluations(this.goods.id)
+    this.showLoadingDialog = true
     try {
-      await localGoodsStore.recordHistory(this.goods)
+      const params = this.stackPath.getParamByName(PAGE_PATH.GOODS_PAGE) as Array<Goods | Array<Goods>>
+      const lastParam = params.length > 0 ? params[params.length - 1] : undefined
+      const source = Array.isArray(lastParam) ? lastParam[0] : lastParam
+      if (source && source.id) {
+        this.goods = source // 接收上一次的数据
+        this.isFavorite = localGoodsStore.isFavorite(source.id)
+      } else {
+        this.safeToast('商品信息加载失败，请返回重试')
+        return
+      }
+      this.goods = await getDetailAPI(this.goods)
+      this.isFavorite = localGoodsStore.isFavorite(this.goods.id)
+      this.loadEvaluations(this.goods.id)
+      try {
+        await localGoodsStore.recordHistory(this.goods)
+      } catch {
+        // 足迹写入失败不应阻断商品详情主流程。
+      }
     } catch {
-      // 足迹写入失败不应阻断商品详情主流程。
+      this.safeToast('商品信息加载失败，请返回重试')
+    } finally {
+      this.showLoadingDialog = false
     }
-    // 通过接口获取真正的详情数据
-    this.loadingDialog.close() // 销毁
+  }
+
+  private openPreview(urls: string[], activeIndex: number): void {
+    this.previewUrls = urls.slice()
+    this.previewIndex = activeIndex
+    this.showPreview = true
   }
 
   private async loadEvaluations(goodsId: string): Promise<void> {
@@ -193,7 +190,7 @@ export struct GoodsView {
     }
     this.loadingTitle = "加入中..."
     this.loading = true
-    this.loadingDialog.open()
+    this.showLoadingDialog = true
     try {
       await authCart.addCart({ skuId: this.sku.id, count: this.count })
       this.safeToast('加入购物车成功')
@@ -203,7 +200,7 @@ export struct GoodsView {
       return false
     } finally {
       this.loading = false
-      this.loadingDialog.close()
+      this.showLoadingDialog = false
     }
   }
 
@@ -349,7 +346,8 @@ export struct GoodsView {
 
   build() {
     NavDestination() {
-      Column() {
+      Stack() {
+        Column() {
         HDMNavBar({
           showRightIcon: true,
           // customTitle: () => {
@@ -366,7 +364,13 @@ export struct GoodsView {
           List({ scroller: this.scroller }) {
             ListItem() {
               // 商品信息
-              GoodsInfo({ goods: this.goods, showSheet: this.showSheet })
+              GoodsInfo({
+                goods: this.goods,
+                showSheet: this.showSheet,
+                onPreview: (urls: string[], activeIndex: number): void => {
+                  this.openPreview(urls, activeIndex)
+                }
+              })
             }
 
             ListItem() {
@@ -445,13 +449,30 @@ export struct GoodsView {
         .width('100%')
         .margin({ bottom: this.safeBottom })
       }
+        .height('100%')
+        .bindSheet($$this.showSheet, this.AddCartBuilder(),
+          {
+            height: SheetSize.FIT_CONTENT,
+            backgroundColor: $r('[ui_components].color.white'),
+            preferType: SheetType.CENTER
+          })
+        .bindContentCover($$this.showLoadingDialog, this.LoadingDialogBuilder())
+
+        if (this.showPreview) {
+          HDMPreviewImage({
+            urls: this.previewUrls,
+            activeIndex: this.previewIndex,
+            onClose: (): void => {
+              this.showPreview = false
+            }
+          })
+            .width('100%')
+            .height('100%')
+            .zIndex(10)
+        }
+      }
+      .width('100%')
       .height('100%')
-      .bindSheet($$this.showSheet, this.AddCartBuilder(),
-        {
-          height: SheetSize.FIT_CONTENT,
-          backgroundColor: $r('[ui_components].color.white'),
-          preferType: SheetType.CENTER
-        })
     }
     .hideTitleBar(true)
     .padding({

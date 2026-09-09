@@ -1,1 +1,0 @@
-export { photoPlugin } from 'device'

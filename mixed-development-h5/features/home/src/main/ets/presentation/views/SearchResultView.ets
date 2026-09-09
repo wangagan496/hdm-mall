@@ -228,6 +228,7 @@ export struct SearchResultView {
           )
           .columnsGap(1)
           .rowsGap(1)
+          .cachedCount(4)
           .layoutWeight(1)
           .onReachEnd(async () => {
             if (!this.loading && !this.isFinished) {

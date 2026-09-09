@@ -1,1 +1,0 @@
-export { cameraPlugin } from 'device'

@@ -4,6 +4,7 @@ import { HDMNavBar } from 'ui_components'
 import { webview } from '@kit.ArkWeb'
 import { common } from '@kit.AbilityKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+import { parsePaymentResultValue } from '../utils/PaymentPresentation'
 
 // H5 收银台可能跳转的非 http(s) 协议（支付宝/支付宝钱包唤起链接），交给系统处理
 const EXTERNAL_SCHEME_PATTERN = /^(alipays|alipay|aliwapa|itms-apps|tel|mailto|sms):/i
@@ -70,52 +71,14 @@ struct PayView {
   }
 
   private parsePayResult(url: string): void {
-    const queryIndex: number = url.indexOf('?')
-    if (queryIndex < 0) {
-      return
-    }
-    const queryText: string = url.substring(queryIndex + 1)
-    const params: string[] = queryText.split('&')
-    let fallbackValue: string = ''
-    let resultValue: string = ''
-    for (const item of params) {
-      const separatorIndex: number = item.indexOf('=')
-      if (separatorIndex <= 0) {
-        continue
-      }
-      const key: string = item.substring(0, separatorIndex)
-      const rawValue: string = item.substring(separatorIndex + 1)
-      if (!rawValue) {
-        continue
-      }
-      let decodedValue: string = ''
-      try {
-        decodedValue = decodeURIComponent(rawValue.replace(/\+/g, ' '))
-      } catch {
-        // Ignore malformed query values instead of breaking onPageBegin.
-        continue
-      }
-      if (!decodedValue) {
-        continue
-      }
-      if (!fallbackValue) {
-        fallbackValue = decodedValue
-      }
-      if (key === 'result' || key === 'success' || key === 'isSuccess' || key === 'payResult' || key === 'isPay') {
-        resultValue = decodedValue
-        break
-      }
-    }
-    if (!resultValue) {
-      resultValue = fallbackValue
-    }
-    if (resultValue !== 'true' && resultValue !== 'false') {
+    const payResult: boolean | undefined = parsePaymentResultValue(url)
+    if (payResult === undefined) {
       return
     }
     this.stackPath.replacePath({
       name: PAGE_PATH.PAY_RESULT_PAGE,
       param: {
-        payResult: resultValue === 'true',
+        payResult,
         orderId: this.orderId
       } as PayResultParams
     })

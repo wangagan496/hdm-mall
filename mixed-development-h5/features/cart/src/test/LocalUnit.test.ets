@@ -1,6 +1,7 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { AddressItem, CartGoodsModel } from 'models';
 import { excludeCartItems, normalizeCheckoutAddress } from '../main/ets/presentation/utils/CartPresentation';
+import { parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -90,6 +91,14 @@ export default function localUnitTest() {
       expect(remaining.length).assertEqual(1);
       expect(remaining[0].skuId).assertEqual('sku-2');
       expect(excludeCartItems([first, second], ['sku-1', 'sku-2']).length).assertEqual(0);
+    });
+    it('parsesNamedPaymentResultBeforeOtherQueryValues', 0, () => {
+      expect(parsePaymentResultValue('/pay/redirect?orderId=123&success=true')).assertEqual(true);
+      expect(parsePaymentResultValue('/pay/redirect?result=false&orderId=123')).assertEqual(false);
+    });
+    it('rejectsMalformedOrNonBooleanPaymentResult', 0, () => {
+      expect(parsePaymentResultValue('/pay/redirect?success=%')).assertUndefined();
+      expect(parsePaymentResultValue('/pay/redirect?orderId=123')).assertUndefined();
     });
   });
 }

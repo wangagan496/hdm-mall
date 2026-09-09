@@ -28,6 +28,7 @@ export struct CartItem {
       Image(this.cart.picture)
         .width(84)
         .height(84)
+        .sourceSize({ width: 252, height: 252 })
         .objectFit(ImageFit.Contain)
         .borderRadius(8)
         .backgroundColor($r('[ui_components].color.under'))

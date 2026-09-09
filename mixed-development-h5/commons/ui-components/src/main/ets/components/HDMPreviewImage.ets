@@ -1,27 +1,32 @@
-@CustomDialog
+// 图片预览层：配合 bindContentCover 使用，不再依赖 CustomDialogController。
 @Component
 export struct HDMPreviewImage {
-  controller: CustomDialogController
   // 多张图片
   urls: string[] = []
   activeIndex: number = 0
+  onClose: () => void = () => {
+  }
 
   build() {
-    Swiper() {
-      ForEach(this.urls, (item: string, index: number) => {
-        HDMImageScale({
-          url: item, onClose: () => {
-            this.controller.close()
-          }
+    Stack() {
+      Swiper() {
+        ForEach(this.urls, (item: string) => {
+          HDMImageScale({
+            url: item, onClose: () => {
+              this.onClose()
+            }
+          })
         })
-      })
+      }
+      .loop(false)
+      .index($$this.activeIndex)
+      .width("100%")
+      .height("100%")
+      .backgroundColor($r("app.color.black"))
+      .indicator(false)
     }
-    .loop(false)
-    .index($$this.activeIndex)
-    .width("100%")
-    .height("100%")
-    .backgroundColor($r("app.color.black"))
-    .indicator(false)
+    .width('100%')
+    .height('100%')
   }
 }
 
@@ -50,7 +55,7 @@ struct HDMImageScale {
         .aspectRatio(1.4)
         .onClick(() => {
           if (this.scaleValue === 1) {
-            // this.onClose()
+            this.onClose()
           } else {
             this.getUIContext().animateTo({ duration: 300 }, () => {
               this.scaleValue = 1

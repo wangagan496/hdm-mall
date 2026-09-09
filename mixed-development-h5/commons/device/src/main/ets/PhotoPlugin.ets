@@ -1,4 +1,4 @@
-import fs from '@ohos.file.fs'
+import { fileIo as fs } from '@kit.CoreFileKit'
 import { photoAccessHelper } from '@kit.MediaLibraryKit'
 import { encodeAvatarFile } from './AvatarImage'
 

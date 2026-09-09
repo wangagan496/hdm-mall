@@ -156,6 +156,7 @@ export struct OrderView {
       Image(sku.image)
         .width(72)
         .height(72)
+        .sourceSize({ width: 216, height: 216 })
         .objectFit(ImageFit.Cover)
         .borderRadius(4)
         .backgroundColor($r('[ui_components].color.under'))
@@ -301,6 +302,7 @@ export struct OrderView {
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
+          .cachedCount(4)
           .padding(8)
           .onReachEnd(() => this.loadMore())
         }

@@ -1,1 +1,0 @@
-export { locationPlugin } from 'device'

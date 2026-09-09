@@ -1,1 +1,0 @@
-export { RequestAxios } from 'network'

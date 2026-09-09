@@ -1,3 +1,6 @@
+// Vant 样式先于主题加载，确保 main.css 的令牌能覆盖 Vant 的默认变量
+import 'vant/lib/index.css'
+
 import './assets/main.css'
 
 import { createApp } from 'vue'
@@ -23,8 +26,10 @@ import {
   Checkbox,
   Popover,
   PullRefresh,
+  Empty,
+  Skeleton,
+  NoticeBar,
 } from 'vant'
-import 'vant/lib/index.css'
 
 const app = createApp(App)
 
@@ -47,5 +52,8 @@ app.use(SwipeCell)
 app.use(Checkbox)
 app.use(Popover)
 app.use(PullRefresh)
+app.use(Empty)
+app.use(Skeleton)
+app.use(NoticeBar)
 
 app.mount('#app')

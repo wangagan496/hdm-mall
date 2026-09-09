@@ -6,7 +6,7 @@ import { authCart } from 'storage'
 import { huaweiLoginAPI, loginAPI } from '../../data/api'
 import { LoginParams } from '../../domain/models'
 import { loginComponentManager, LoginWithHuaweiIDButton } from '@kit.AccountKit'
-import { BusinessError } from '@ohos.base'
+import { BusinessError } from '@kit.BasicServicesKit'
 
 @Component
 export struct LoginView {

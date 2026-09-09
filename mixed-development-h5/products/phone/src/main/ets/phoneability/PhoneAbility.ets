@@ -1,4 +1,4 @@
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, ConfigurationConstant, UIAbility, Want, bundleManager } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { auth, localGoodsStore, storeManager } from 'storage';
@@ -69,7 +69,11 @@ export default class PhoneAbility extends UIAbility {
   }
 
   // Debug-only verification hook: pass account/password through Want so the normal login API is exercised.
+  // 仅 debug 构建生效，release 包不暴露该测试入口。
   private injectDebugTestAccount(): void {
+    if (!this.isDebuggable()) {
+      return
+    }
     const parameters: Record<string, Object> = this.debugLaunchWant.parameters as Record<string, Object>
     const account = parameters['debugTestAccount']?.toString() ?? ''
     const password = parameters['debugTestPassword']?.toString() ?? ''
@@ -84,6 +88,16 @@ export default class PhoneAbility extends UIAbility {
     }).catch(() => {
       hilog.error(DOMAIN, 'DebugLogin', 'Want test account login failed')
     })
+  }
+
+  private isDebuggable(): boolean {
+    try {
+      const bundleInfo = bundleManager.getBundleInfoForSelfSync(
+        bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
+      return bundleInfo.appInfo.debug === true
+    } catch {
+      return false
+    }
   }
 
   onWindowStageDestroy(): void {

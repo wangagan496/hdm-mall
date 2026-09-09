@@ -122,7 +122,7 @@ export struct CheckView {
     .padding({ top: 10, bottom: 10 })
     .border({
       width: { bottom: 0.5 },
-      color: '#e4e4e4'
+      color: $r('[ui_components].color.border')
     })
   }
 
@@ -223,7 +223,7 @@ export struct CheckView {
         })
           .border({
             width: { bottom: 0.5 },
-            color: '#e4e4e4'
+            color: $r('[ui_components].color.border')
           })
         List() {
           ListItem() {
@@ -400,7 +400,7 @@ export struct CheckView {
               }
               .width('100%')
               .padding(12)
-              .backgroundColor(address.id === this.addressId ? '#FFF5F2' : $r('[ui_components].color.under'))
+              .backgroundColor(address.id === this.addressId ? $r('[ui_components].color.under') : $r('[ui_components].color.white'))
               .borderRadius(6)
             }
             .onClick(() => {

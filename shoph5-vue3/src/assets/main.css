@@ -1,4 +1,5 @@
 :root {
+  /* 品牌色板（与原生端 commons/ui-components color.json 对齐） */
   --mk-black: #191919;
   --mk-white: #ffffff;
   --mk-text: #434343;
@@ -8,9 +9,52 @@
   --mk-under: #f4f5f9;
   --mk-linear_begin: #fd3f8f;
   --mk-linear_end: #ff773c;
-  --van-primary-color: var(--mk-black);
+
+  /* 语义化扩展令牌 */
+  --mk-divider: #ebedf0;
+  --mk-primary: #191919;
+  --mk-on-primary: #ffffff;
+  --mk-card-shadow: 0 4px 16px rgba(25, 25, 25, 0.06);
+
+  /* Vant 主题变量注入 */
+  --van-primary-color: var(--mk-primary);
   --van-danger-color: var(--mk-red);
   --van-cell-line-height: 36px;
+  --van-background: var(--mk-under);
+  --van-background-2: var(--mk-white);
+  --van-text-color: var(--mk-black);
+  --van-text-color-2: var(--mk-text);
+  --van-text-color-3: var(--mk-gray);
+  --van-border-color: var(--mk-divider);
+  --van-cell-background: var(--mk-white);
+  --van-popup-background: var(--mk-white);
+  --van-picker-background: var(--mk-white);
+  --van-action-sheet-background: var(--mk-white);
+  --van-field-label-color: var(--mk-text);
+  --van-field-input-text-color: var(--mk-black);
+  --van-field-placeholder-text-color: var(--mk-gray);
+  --van-button-primary-background: var(--mk-primary);
+  --van-button-primary-border-color: var(--mk-primary);
+  --van-button-primary-color: var(--mk-on-primary);
+  --van-notice-bar-background: var(--mk-yellow);
+  --van-notice-bar-text-color: var(--mk-black);
+}
+
+/* 深色模式：与原生端 dark/element/color.json 同款色板 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mk-black: #f2f2f2;
+    --mk-white: #1d1d1d;
+    --mk-text: #d9d9d9;
+    --mk-gray: #8c8c99;
+    --mk-red: #ff5b67;
+    --mk-yellow: #3a322a;
+    --mk-under: #141414;
+    --mk-divider: #333333;
+    --mk-primary: #ededed;
+    --mk-on-primary: #141414;
+    --mk-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
 }
 
 *,
@@ -19,6 +63,10 @@
   box-sizing: border-box;
   margin: 0;
   font-weight: normal;
+}
+
+html {
+  color-scheme: light dark;
 }
 
 body {
@@ -43,4 +91,5 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
