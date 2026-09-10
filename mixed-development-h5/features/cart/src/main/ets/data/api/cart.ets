@@ -1,4 +1,4 @@
-import { RequestAxios } from 'network'
+import { RequestAxios, BusinessError } from 'network'
 import {
   CartGoodsModel,
   CreateOrderParams,
@@ -46,13 +46,69 @@ export const getOrderListAPI = (params: OrderListParams) => {
 }
 
 // 按订单号查询最新服务端状态，不能用支付回调替代。
+// 静默：支付结果页和订单详情页都有自己的失败态与重试入口，避免叠加一层 toast。
 export const getOrderDetailAPI = (orderId: string) => {
-  return RequestAxios.get<OrderItem>(`/member/order/${orderId}`)
+  return RequestAxios.getSilent<OrderItem>(`/member/order/${orderId}`)
 }
 
 export interface ConsignmentResult {
 }
 
+export interface OrderStateResult {
+  id: string
+}
+
+interface CancelOrderParams {
+  cancelReason: string
+}
+
+interface EmptyParams {
+}
+
+const CANCEL_REASON_UNWANTED: CancelOrderParams = { cancelReason: '不想要了' }
+const EMPTY_PARAMS: EmptyParams = {}
+
+// 模拟发货（后端真实提供）：GET /member/order/consignment/{id}
 export const consignmentOrderAPI = (orderId: string): Promise<ConsignmentResult> => {
-  return RequestAxios.get<ConsignmentResult>(`/member/order/consignment/${orderId}`)
+  return RequestAxios.getSilent<ConsignmentResult>(`/member/order/consignment/${orderId}`)
+}
+
+// 取消订单：PUT /member/order/{id}/cancel  body: { cancelReason: string }
+export const cancelOrderAPI = (orderId: string): Promise<OrderStateResult> => {
+  return RequestAxios.putSilent<OrderStateResult>(`/member/order/${orderId}/cancel`, CANCEL_REASON_UNWANTED)
+}
+
+// 旧版取消接口，仅在 PUT 版本不存在（404/405）时作为兼容路径使用。
+export const cancelOrderFallbackAPI = (orderId: string): Promise<OrderStateResult> => {
+  return RequestAxios.getSilent<OrderStateResult>(`/member/order/cancel/${orderId}`)
+}
+
+/**
+ * 只有接口本身不存在才值得走旧接口；业务失败（如"已发货不能取消"）必须原样抛出，
+ * 否则会对同一个订单打两次写请求。
+ */
+export function isFallbackWorthTrying(error: Error): boolean {
+  const status: number | undefined = (error as BusinessError).httpStatus
+  return status === 404 || status === 405
+}
+
+export async function cancelOrderWithFallback(orderId: string): Promise<void> {
+  try {
+    await cancelOrderAPI(orderId)
+  } catch (error) {
+    const reason: Error = error as Error
+    if (!isFallbackWorthTrying(reason)) {
+      throw reason
+    }
+    await cancelOrderFallbackAPI(orderId)
+  }
+}
+
+// 确认收货：PUT /member/order/{id}/receipt
+export const receiptOrderAPI = (orderId: string): Promise<OrderStateResult> => {
+  return RequestAxios.putSilent<OrderStateResult>(`/member/order/${orderId}/receipt`, EMPTY_PARAMS)
+}
+
+export const commentOrderAPI = (orderId: string): Promise<OrderStateResult> => {
+  return RequestAxios.putSilent<OrderStateResult>(`/member/order/${orderId}/evaluation`, EMPTY_PARAMS)
 }

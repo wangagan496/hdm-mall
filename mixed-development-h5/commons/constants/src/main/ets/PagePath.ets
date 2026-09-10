@@ -10,6 +10,7 @@ export class PAGE_PATH {
   static readonly PAY_PAGE: string = "PayView"
   static readonly PAY_RESULT_PAGE: string = "PayResultView"
   static readonly ORDER_PAGE: string = "OrderView"
+  static readonly ORDER_DETAIL_PAGE: string = "OrderDetailView"
   static readonly FAVORITES_PAGE: string = "FavoritesView"
   static readonly HISTORY_PAGE: string = "HistoryView"
   static readonly CUSTOMER_SERVICE_PAGE: string = "CustomerServiceView"

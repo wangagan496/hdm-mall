@@ -1,1 +1,1 @@
-export { RequestAxios } from './src/main/ets/RequestAxios'
+export { RequestAxios, BusinessError } from './src/main/ets/RequestAxios'

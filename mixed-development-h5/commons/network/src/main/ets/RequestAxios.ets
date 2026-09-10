@@ -5,7 +5,6 @@ import { common } from '@kit.AbilityKit'
 import { HDMUser } from 'models'
 
 function showToast(message: string): void {
-  // 直接从 AppStorage 读取 context，避免与 storage 模块产生循环依赖
   const ctx = AppStorage.get<common.UIAbilityContext>(GlobalVariable.ABILITY_CONTEXT_KEY)
   if (!ctx) {
     return
@@ -21,13 +20,21 @@ function showToast(message: string): void {
 
 const GET_RETRY_DELAYS: number[] = [350, 1000]
 
+/** 业务失败（接口返回 code !== SUCCESS_CODE）时携带 HTTP 状态码，供调用方区分错误类型。 */
+export class BusinessError extends Error {
+  httpStatus: number
+
+  constructor(message: string, httpStatus: number) {
+    super(message)
+    this.httpStatus = httpStatus
+  }
+}
+
 export function isRetryableStatus(status?: number): boolean {
   return status === undefined || status === 408 || status === 429 || status >= 500
 }
 
 function isRetryableError(error: AxiosError): boolean {
-  // A business error created by the response interceptor has no Axios code
-  // or response; do not replay it as if it were a transport failure.
   if (!error.code && !error.response) {
     return false
   }
@@ -84,7 +91,8 @@ instance.interceptors.response.use((response: AxiosResponse) => {
   if (!response.config.headers?.xSilentError) {
     showToast(response.data.msg)
   }
-  return Promise.reject(new Error(response.data.msg))
+  // 携带 HTTP 状态码，调用方才能区分"接口不存在"与业务失败（如订单不可取消）。
+  return Promise.reject(new BusinessError(response.data.msg, response.status))
 }, (error: AxiosError) => {
   if (!error.config?.headers?.xSilentError) {
     const res = error.response?.data as object
@@ -112,8 +120,16 @@ export class RequestAxios {
     return instance.post<null, T>(url, data)
   }
 
+  static postSilent<T>(url: string, data?: object): Promise<T> {
+    return instance.post<null, T>(url, data, { headers: { xSilentError: '1' } })
+  }
+
   static put<T>(url: string, data?: object): Promise<T> {
     return instance.put<null, T>(url, data)
+  }
+
+  static putSilent<T>(url: string, data?: object): Promise<T> {
+    return instance.put<null, T>(url, data, { headers: { xSilentError: '1' } })
   }
 
   static delete<T>(url: string, data?: object): Promise<T> {

@@ -37,9 +37,29 @@ yarn-error.log*
 **/build-profile.local.json5
 **/agconnect-services.json
 
+# HarmonyOS build intermediates
+.hvigor/
+**/.hvigor/
+
+# Test tooling caches
+hdm_uitest/__pycache__/
+**/__pycache__/
+.pytest_cache/
+
 # OS files
 .DS_Store
 Thumbs.db
+
+# UI dump / debug artifacts
+ui_dump*.json
+
+# Device acceptance dumps and screenshots (uiautomator output, regenerated locally)
+_device_acceptance/
+
+# Local interview / job-search material, not part of the source tree
+interview_*
+*_docx.ps1
+format_docx.ps1
 
 # IDE
 .vscode/

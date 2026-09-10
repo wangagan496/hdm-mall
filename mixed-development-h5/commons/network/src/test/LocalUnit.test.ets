@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@ohos/hypium'
 import { AxiosError } from '@ohos/axios'
-import { executeGetWithRetry, isRetryableStatus } from '../main/ets/RequestAxios'
+import { BusinessError, executeGetWithRetry, isRetryableStatus } from '../main/ets/RequestAxios'
 
 class TestTransportError extends Error {
   code: string = 'ETIMEDOUT'
@@ -20,6 +20,13 @@ export default function localUnitTest(): void {
       expect(isRetryableStatus(400)).assertFalse()
       expect(isRetryableStatus(401)).assertFalse()
       expect(isRetryableStatus(404)).assertFalse()
+    })
+
+    it('carriesHttpStatusOnBusinessErrors', 0, () => {
+      // 业务失败需要带回 HTTP 状态码，否则调用方无法区分"接口不存在"和"业务拒绝"。
+      expect(new BusinessError('订单已发货', 405).httpStatus).assertEqual(405)
+      expect(new BusinessError('参数错误', 400).httpStatus).assertEqual(400)
+      expect(new BusinessError('订单已发货', 405).message).assertEqual('订单已发货')
     })
 
     it('retriesOneTransientTransportFailure', 0, async (done: Function) => {

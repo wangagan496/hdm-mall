@@ -1,7 +1,12 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { AddressItem, CartGoodsModel } from 'models';
 import { excludeCartItems, normalizeCheckoutAddress } from '../main/ets/presentation/utils/CartPresentation';
-import { createDemoPaymentOrderId, isDemoPaymentOrder, parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
+import { parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
+import {
+  formatOrderCountdown,
+  getOrderStateText,
+  isPaidOrderState
+} from '../main/ets/presentation/utils/OrderPresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -100,10 +105,28 @@ export default function localUnitTest() {
       expect(parsePaymentResultValue('/pay/redirect?success=%')).assertUndefined();
       expect(parsePaymentResultValue('/pay/redirect?orderId=123')).assertUndefined();
     });
-    it('createsOnlyRecognizableDemoPaymentOrders', 0, () => {
-      const orderId = createDemoPaymentOrderId();
-      expect(isDemoPaymentOrder(orderId)).assertTrue();
-      expect(isDemoPaymentOrder('server-order-123')).assertFalse();
+    it('mapsOrderStateToSameTextAcrossPages', 0, () => {
+      expect(getOrderStateText(1)).assertEqual('待付款');
+      expect(getOrderStateText(2)).assertEqual('待发货');
+      expect(getOrderStateText(3)).assertEqual('待收货');
+      expect(getOrderStateText(4)).assertEqual('待评价');
+      expect(getOrderStateText(5)).assertEqual('已完成');
+      expect(getOrderStateText(6)).assertEqual('已取消');
+      expect(getOrderStateText(0)).assertEqual('订单处理中');
+    });
+    it('treatsOnlyStateTwoToFourAsPaid', 0, () => {
+      expect(isPaidOrderState(1)).assertFalse();
+      expect(isPaidOrderState(2)).assertTrue();
+      expect(isPaidOrderState(4)).assertTrue();
+      expect(isPaidOrderState(5)).assertFalse();
+      expect(isPaidOrderState(6)).assertFalse();
+    });
+    it('formatsOrderCountdownWithPaddedFields', 0, () => {
+      expect(formatOrderCountdown(0)).assertEqual('已超时，等待系统取消');
+      expect(formatOrderCountdown(-5)).assertEqual('已超时，等待系统取消');
+      expect(formatOrderCountdown(59)).assertEqual('剩 00:59 自动取消');
+      expect(formatOrderCountdown(330)).assertEqual('剩 05:30 自动取消');
+      expect(formatOrderCountdown(3600)).assertEqual('剩 60:00 自动取消');
     });
   });
 }

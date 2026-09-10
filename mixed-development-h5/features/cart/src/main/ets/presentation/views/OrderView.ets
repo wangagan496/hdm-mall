@@ -1,7 +1,14 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser, OrderItem, OrderSku } from 'models'
 import { HDMEmpty, HDMNavBar } from 'ui_components'
-import { consignmentOrderAPI, getOrderListAPI } from '../../data/api'
+import {
+  cancelOrderWithFallback,
+  commentOrderAPI,
+  consignmentOrderAPI,
+  getOrderListAPI,
+  receiptOrderAPI
+} from '../../data/api'
+import { formatOrderCountdown, getOrderStateText } from '../utils/OrderPresentation'
 
 interface OrderTab {
   label: string
@@ -28,9 +35,14 @@ export struct OrderView {
   @State selectedState: number = 0
   @State loading: boolean = false
   @State loadFailed: boolean = false
-  @State consignmentOrderId: string = ''
+  @State busyOrderId: string = ''
+  @State busyAction: string = ''
   @State isFinished: boolean = false
+  // 每秒自增，驱动待付款订单的倒计时走字；倒计时基数来自服务端返回值。
+  @State countdownTick: number = 0
   @Consume stackPath: NavPathStack
+  private countdownTimer: number = -1
+  private countdownBaseAt: number = 0
 
   private safeToast(message: string): void {
     try {
@@ -56,7 +68,27 @@ export struct OrderView {
     if (routeState !== undefined && this.isSupportedOrderState(routeState)) {
       this.selectedState = routeState
     }
+    this.countdownTimer = setInterval(() => {
+      this.countdownTick++
+    }, 1000)
     this.reloadOrders()
+  }
+
+  aboutToDisappear(): void {
+    clearInterval(this.countdownTimer)
+  }
+
+  /**
+   * 服务端只返回下单时刻的剩余秒数（秒，非截止时间戳），页面按加载时刻回推。
+   * 剩余量以真实时间为准，避免定时器在卡顿时累计误差导致倒计时越走越偏；
+   * countdownTick 由每秒定时器自增，作用是让这个计算重新执行。
+   */
+  private remainingCountdown(order: OrderItem): number {
+    if (this.countdownTick < 0) {
+      return order.countdown
+    }
+    const elapsed: number = Math.floor((Date.now() - this.countdownBaseAt) / 1000)
+    return order.countdown - elapsed
   }
 
   private isSupportedOrderState(orderState: number): boolean {
@@ -77,7 +109,6 @@ export struct OrderView {
     if (this.loading || this.isFinished || !this.user.token) {
       return
     }
-
     const generation: number = this.requestGeneration
     this.loading = true
     try {
@@ -90,6 +121,7 @@ export struct OrderView {
         return
       }
       const items: OrderItem[] = result.items || []
+      this.countdownBaseAt = Date.now()
       this.orders = this.orders.concat(items)
       this.page++
       this.isFinished = items.length === 0 || this.page > result.pages
@@ -112,42 +144,46 @@ export struct OrderView {
     this.reloadOrders()
   }
 
-  private async simulateConsignment(orderId: string): Promise<void> {
-    if (this.consignmentOrderId || !orderId) {
+  private async runOrderAction(orderId: string, action: string, task: () => Promise<void>, successText: string): Promise<void> {
+    if (this.busyOrderId || !orderId) {
       return
     }
-    this.consignmentOrderId = orderId
+    this.busyOrderId = orderId
+    this.busyAction = action
     try {
-      await consignmentOrderAPI(orderId)
-      this.safeToast('模拟发货成功，订单状态将刷新')
+      await task()
+      this.safeToast(successText)
       await this.reloadOrders()
     } catch {
-      this.safeToast('模拟发货失败，请稍后重试')
+      this.safeToast('操作失败，请稍后重试')
     } finally {
-      this.consignmentOrderId = ''
+      this.busyOrderId = ''
+      this.busyAction = ''
     }
   }
 
-  private getOrderStateText(orderState: number): string {
-    if (orderState === 1) {
-      return '待付款'
-    }
-    if (orderState === 2) {
-      return '待发货'
-    }
-    if (orderState === 3) {
-      return '待收货'
-    }
-    if (orderState === 4) {
-      return '待评价'
-    }
-    if (orderState === 5) {
-      return '已完成'
-    }
-    if (orderState === 6) {
-      return '已取消'
-    }
-    return '订单处理中'
+  private isBusy(orderId: string): boolean {
+    return this.busyOrderId === orderId
+  }
+
+  private goPay(orderId: string): void {
+    this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: orderId })
+  }
+
+  private openDetail(orderId: string): void {
+    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: orderId })
+  }
+
+  private async runConsignment(orderId: string): Promise<void> {
+    await consignmentOrderAPI(orderId)
+  }
+
+  private async runReceipt(orderId: string): Promise<void> {
+    await receiptOrderAPI(orderId)
+  }
+
+  private async runComment(orderId: string): Promise<void> {
+    await commentOrderAPI(orderId)
   }
 
   @Builder
@@ -200,14 +236,105 @@ export struct OrderView {
   }
 
   @Builder
+  private OrderActions(order: OrderItem) {
+    if (order.orderState === 1) {
+      Row({ space: 8 }) {
+        Blank()
+        Button(this.isBusy(order.id) && this.busyAction === 'cancel' ? '取消中...' : '取消订单')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.gray'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.border') })
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.runOrderAction(order.id, 'cancel', (): Promise<void> => cancelOrderWithFallback(order.id), '订单已取消')
+          })
+        Button('去支付')
+          .height(32)
+          .fontSize(12)
+          .backgroundColor($r('[ui_components].color.red'))
+          .onClick(() => {
+            this.goPay(order.id)
+          })
+        // 沙箱环境没有真实支付回调，这里只负责刷新并引导去支付结果页以服务端状态为准。
+        Button(this.isBusy(order.id) && this.busyAction === 'refresh' ? '刷新中...' : '查支付状态')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.red'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.red') })
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.safeToast('沙箱环境：请用"去支付"中的"我已完成支付"查单，状态以服务端为准')
+            this.reloadOrders()
+          })
+      }
+      .width('100%')
+      .padding({ bottom: 10 })
+    } else if (order.orderState === 2) {
+      Row({ space: 8 }) {
+        Blank()
+        Button(this.isBusy(order.id) ? '发货中...' : '模拟发货')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.red'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.red') })
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.runOrderAction(order.id, 'consignment', (): Promise<void> => this.runConsignment(order.id), '模拟发货成功')
+          })
+      }
+      .width('100%')
+      .padding({ bottom: 10 })
+    } else if (order.orderState === 3) {
+      Row({ space: 8 }) {
+        Blank()
+        Button(this.isBusy(order.id) ? '确认中...' : '确认收货')
+          .height(32)
+          .fontSize(12)
+          .backgroundColor($r('[ui_components].color.red'))
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.runOrderAction(order.id, 'receipt', (): Promise<void> => this.runReceipt(order.id), '已确认收货')
+          })
+      }
+      .width('100%')
+      .padding({ bottom: 10 })
+    } else if (order.orderState === 4) {
+      Row({ space: 8 }) {
+        Blank()
+        Button(this.isBusy(order.id) ? '提交中...' : '去评价')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.red'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.red') })
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.runOrderAction(order.id, 'comment', (): Promise<void> => this.runComment(order.id), '评价成功')
+          })
+      }
+      .width('100%')
+      .padding({ bottom: 10 })
+    }
+  }
+
+  @Builder
   private OrderCard(order: OrderItem) {
     Column() {
-      Row() {
+      Row({ space: 6 }) {
         Text(order.createTime)
           .fontSize(11)
           .fontColor($r('[ui_components].color.gray'))
+        if (order.orderState === 1 && this.remainingCountdown(order) > 0) {
+          Text(formatOrderCountdown(this.remainingCountdown(order)))
+            .fontSize(11)
+            .fontColor($r('[ui_components].color.red'))
+        }
         Blank()
-        Text(this.getOrderStateText(order.orderState))
+        Text(getOrderStateText(order.orderState))
           .fontSize(13)
           .fontColor(order.orderState === 6 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
       }
@@ -230,26 +357,13 @@ export struct OrderView {
       .width('100%')
       .padding({ top: 8, bottom: 12 })
 
-      if (order.orderState === 2) {
-        Row() {
-          Blank()
-          Button(this.consignmentOrderId === order.id ? '发货中...' : '模拟发货')
-            .height(32)
-            .fontSize(12)
-            .fontColor($r('[ui_components].color.red'))
-            .backgroundColor($r('[ui_components].color.white'))
-            .border({ width: 0.5, color: $r('[ui_components].color.red') })
-            .enabled(!this.consignmentOrderId)
-            .onClick(() => this.simulateConsignment(order.id))
-        }
-        .width('100%')
-        .padding({ bottom: 10 })
-      }
+      this.OrderActions(order)
     }
     .width('100%')
     .padding({ left: 12, right: 12 })
     .backgroundColor($r('[ui_components].color.white'))
     .borderRadius(8)
+    .onClick(() => this.openDetail(order.id))
   }
 
   build() {

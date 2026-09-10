@@ -53,8 +53,6 @@ export default class PhoneAbility extends UIAbility {
     storeManager.ctx = this.context
     // 将 context 存入 AppStorage，供 network 模块的 toast 使用（避免循环依赖）
     AppStorage.setOrCreate(GlobalVariable.ABILITY_CONTEXT_KEY, this.context)
-    // 仅 Debug 包启用本地支付宝演示，避免把演示支付带入 Release 包。
-    AppStorage.setOrCreate(GlobalVariable.PAYMENT_DEMO_MODE, this.isDebuggable())
     this.restoreUserSession()
     this.injectDebugTestAccount()
     // Main window is created, set main page for this ability

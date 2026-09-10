@@ -7,5 +7,10 @@ export {
   createOrderAPI,
   getOrderListAPI,
   getOrderDetailAPI,
-  consignmentOrderAPI
+  consignmentOrderAPI,
+  receiptOrderAPI,
+  commentOrderAPI,
+  cancelOrderAPI,
+  cancelOrderFallbackAPI,
+  cancelOrderWithFallback
 } from './cart'
