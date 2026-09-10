@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMGuess, HDMNavBar } from 'ui_components'
 import { getOrderDetailAPI } from '../../data/api'
-import { isDemoPaymentOrder } from '../utils/PaymentPresentation'
+import { createDemoPaymentOrderId, isDemoPaymentOrder } from '../utils/PaymentPresentation'
 import { getDemoPaymentStatusText, PaymentResultRouteParams, PaymentStatus } from '../utils/DemoPaymentGateway'
 
 @Builder
@@ -119,14 +119,18 @@ export struct PayResultView {
                     // 清除路由栈
                     this.stackPath.clear() // 清空路由栈
                   })
-                Button('查看订单')
+                Button(this.demoMode ? '再演示一次' : '查看订单')
                   .fontSize(14)
                   .height(36)
                   .backgroundColor($r('[ui_components].color.white'))
                   .fontColor($r('[ui_components].color.black'))
                   .border({ width: 0.5, color: $r('[ui_components].color.border') })
                   .onClick(() => {
-                    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
+                    if (this.demoMode) {
+                      this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: createDemoPaymentOrderId() })
+                    } else {
+                      this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
+                    }
                   })
 
               }
