@@ -1,7 +1,8 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMGuess, HDMNavBar } from 'ui_components'
-import { PayResultParams } from 'models'
 import { getOrderDetailAPI } from '../../data/api'
+import { isDemoPaymentOrder } from '../utils/PaymentPresentation'
+import { getDemoPaymentStatusText, PaymentResultRouteParams, PaymentStatus } from '../utils/DemoPaymentGateway'
 
 @Builder
 function PayResultViewBuilder() {
@@ -18,15 +19,25 @@ export struct PayResultView {
   @State checking: boolean = true
   @State checkFailed: boolean = false
   @State serverOrderState: number = 0
+  @State demoMode: boolean = false
+  @State demoStatus: PaymentStatus = PaymentStatus.FAILED
   @Consume
   stackPath: NavPathStack
 
   aboutToAppear(): void {
-    const params = this.stackPath.getParamByName(PAGE_PATH.PAY_RESULT_PAGE) as PayResultParams[]
+    const params = this.stackPath.getParamByName(PAGE_PATH.PAY_RESULT_PAGE) as PaymentResultRouteParams[]
     if (params && params.length && params[params.length - 1]) {
       this.payResult = params[params.length - 1].payResult
       this.orderId = params[params.length - 1].orderId
-      this.checkOrderStatus()
+      this.demoMode = isDemoPaymentOrder(this.orderId)
+      if (this.demoMode) {
+        this.demoStatus = params[params.length - 1].demoStatus ||
+          (this.payResult ? PaymentStatus.SUCCESS : PaymentStatus.FAILED)
+        this.checking = false
+        this.checkFailed = false
+      } else {
+        this.checkOrderStatus()
+      }
     }
   }
 
@@ -53,7 +64,7 @@ export struct PayResultView {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: this.checking ? '确认支付' : this.checkFailed ? '支付结果待确认' :
+          title: this.demoMode ? '演示支付结果' : this.checking ? '确认支付' : this.checkFailed ? '支付结果待确认' :
             (this.payResult ? '付款成功' : '付款失败')
         })
         List() {
@@ -64,6 +75,11 @@ export struct PayResultView {
                   .width(60)
                   .height(60)
                   .color($r('[ui_components].color.red'))
+              } else if (this.demoMode) {
+                Text(getDemoPaymentStatusText(this.demoStatus))
+                  .fontSize(18)
+                  .fontWeight(500)
+                  .fontColor($r('[ui_components].color.black'))
               } else {
                 Image(this.payResult ? $r('[ui_components].media.ic_public_check_filled') :
                 $r('[ui_components].media.ic_public_close_filled'))
@@ -74,6 +90,10 @@ export struct PayResultView {
               }
               if (this.checking) {
                 Text('正在向服务端确认订单状态…')
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.gray'))
+              } else if (this.demoMode) {
+                Text(`本地支付演示结果：${getDemoPaymentStatusText(this.demoStatus)}，不产生真实扣款`)
                   .fontSize(13)
                   .fontColor($r('[ui_components].color.gray'))
               } else if (this.checkFailed) {

@@ -1,7 +1,7 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { AddressItem, CartGoodsModel } from 'models';
 import { excludeCartItems, normalizeCheckoutAddress } from '../main/ets/presentation/utils/CartPresentation';
-import { parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
+import { createDemoPaymentOrderId, isDemoPaymentOrder, parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -99,6 +99,11 @@ export default function localUnitTest() {
     it('rejectsMalformedOrNonBooleanPaymentResult', 0, () => {
       expect(parsePaymentResultValue('/pay/redirect?success=%')).assertUndefined();
       expect(parsePaymentResultValue('/pay/redirect?orderId=123')).assertUndefined();
+    });
+    it('createsOnlyRecognizableDemoPaymentOrders', 0, () => {
+      const orderId = createDemoPaymentOrderId();
+      expect(isDemoPaymentOrder(orderId)).assertTrue();
+      expect(isDemoPaymentOrder('server-order-123')).assertFalse();
     });
   });
 }

@@ -4,7 +4,8 @@ import { HDMNavBar } from 'ui_components'
 import { webview } from '@kit.ArkWeb'
 import { common } from '@kit.AbilityKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { parsePaymentResultValue } from '../utils/PaymentPresentation'
+import { isDemoPaymentOrder, parsePaymentResultValue } from '../utils/PaymentPresentation'
+import { DemoPaymentGateway, PaymentGateway, PaymentResultRouteParams, PaymentStatus } from '../utils/DemoPaymentGateway'
 
 // H5 收银台可能跳转的非 http(s) 协议（支付宝/支付宝钱包唤起链接），交给系统处理
 const EXTERNAL_SCHEME_PATTERN = /^(alipays|alipay|aliwapa|itms-apps|tel|mailto|sms):/i
@@ -22,12 +23,114 @@ struct PayView {
   loadFailed: boolean = false
   @State
   errorDetail: string = ''
+  @State
+  demoMode: boolean = false
+  @State
+  demoSubmitting: boolean = false
+  private pageActive: boolean = false
   @Consume
   stackPath: NavPathStack
 
   aboutToAppear(): void {
+    this.pageActive = true
     const params = this.stackPath.getParamByName(PAGE_PATH.PAY_PAGE) as string[]
-    this.orderId = params[params.length - 1]
+    this.orderId = params && params.length ? params[params.length - 1] : ''
+    this.demoMode = isDemoPaymentOrder(this.orderId)
+    if (!this.orderId) {
+      this.showError('缺少订单信息，请返回重试')
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.pageActive = false
+  }
+
+  private async finishDemoPayment(status: PaymentStatus): Promise<void> {
+    if (this.demoSubmitting || !this.demoMode) {
+      return
+    }
+    this.demoSubmitting = true
+    this.errorDetail = ''
+    try {
+      const gateway: PaymentGateway = new DemoPaymentGateway(status)
+      const result = await gateway.requestPayment(this.orderId)
+      if (!this.pageActive) {
+        return
+      }
+      const params: PaymentResultRouteParams = {
+        payResult: result.status === PaymentStatus.SUCCESS,
+        orderId: this.orderId,
+        demoStatus: result.status
+      }
+      this.stackPath.replacePath({ name: PAGE_PATH.PAY_RESULT_PAGE, param: params })
+    } catch {
+      this.errorDetail = '演示回调失败，请重试'
+    } finally {
+      this.demoSubmitting = false
+    }
+  }
+
+  @Builder
+  DemoPaymentBuilder() {
+    Scroll() {
+    Column({ space: 18 }) {
+      Text('支付回调演示')
+        .fontSize(22)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('[ui_components].color.black'))
+      Text('本地模拟，未调用支付宝 SDK。不会创建服务端订单、打开支付宝或产生扣款。')
+        .fontSize(14)
+        .fontColor($r('[ui_components].color.gray'))
+        .textAlign(TextAlign.Center)
+        .padding({ left: 28, right: 28 })
+      Text(this.demoSubmitting ? '正在处理演示回调…' : '选择要验证的支付结果')
+        .fontSize(14)
+        .fontColor($r('[ui_components].color.text'))
+      Button('模拟支付成功')
+        .id('payment-demo-success')
+        .width('82%')
+        .height(44)
+        .backgroundColor($r('[ui_components].color.red'))
+        .enabled(!this.demoSubmitting)
+        .onClick(() => this.finishDemoPayment(PaymentStatus.SUCCESS))
+      Button('模拟支付失败')
+        .id('payment-demo-failed')
+        .width('82%')
+        .height(44)
+        .backgroundColor($r('[ui_components].color.black'))
+        .enabled(!this.demoSubmitting)
+        .onClick(() => this.finishDemoPayment(PaymentStatus.FAILED))
+      Button('模拟取消支付')
+        .id('payment-demo-cancelled')
+        .width('82%')
+        .height(44)
+        .backgroundColor($r('[ui_components].color.white'))
+        .fontColor($r('[ui_components].color.black'))
+        .border({ width: 0.5, color: $r('[ui_components].color.border') })
+        .enabled(!this.demoSubmitting)
+        .onClick(() => this.finishDemoPayment(PaymentStatus.CANCELLED))
+      Button('模拟支付待确认')
+        .id('payment-demo-pending')
+        .width('82%')
+        .height(44)
+        .backgroundColor($r('[ui_components].color.white'))
+        .fontColor($r('[ui_components].color.black'))
+        .border({ width: 0.5, color: $r('[ui_components].color.border') })
+        .enabled(!this.demoSubmitting)
+        .onClick(() => this.finishDemoPayment(PaymentStatus.PENDING))
+      if (this.errorDetail) {
+        Text(this.errorDetail)
+          .fontSize(14)
+          .fontColor($r('[ui_components].color.red'))
+      }
+    }
+    .width('100%')
+    .padding({ top: 24, bottom: 32 })
+    .justifyContent(FlexAlign.Center)
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .scrollBar(BarState.Off)
   }
 
   private getUIContextSafe(): common.UIAbilityContext | undefined {
@@ -87,10 +190,12 @@ struct PayView {
   build() {
     NavDestination() {
       HDMNavBar({
-        title: '支付',
+        title: this.demoMode ? '支付演示（不扣款）' : '支付',
         onLeftClick: () => this.stackPath.pop()
       })
-      if (this.loadFailed) {
+      if (this.demoMode) {
+        this.DemoPaymentBuilder()
+      } else if (this.loadFailed) {
         Column({ space: 12 }) {
           Text('支付页面加载失败，请检查网络后重试')
             .fontSize(14)

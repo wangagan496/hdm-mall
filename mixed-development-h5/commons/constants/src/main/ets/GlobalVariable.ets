@@ -10,6 +10,8 @@ export class GlobalVariable {
   static readonly CARD_IMAGE_DATA: string = "card_image_data"
   // UIAbility context 的 AppStorage key，供 network 模块读取（避免循环依赖）
   static readonly ABILITY_CONTEXT_KEY: string = "ability_context"
+  // Debug 包启用本地支付演示；Release 包由 PhoneAbility 写入 false。
+  static readonly PAYMENT_DEMO_MODE: string = "payment_demo_mode"
 }
 
 export class BusinessVariable {

@@ -1,4 +1,24 @@
+import { GlobalVariable } from 'constants'
+
 const PAYMENT_RESULT_KEYS: string[] = ['result', 'success', 'isSuccess', 'payResult', 'isPay']
+const DEMO_ORDER_PREFIX: string = 'demo-alipay-'
+let demoOrderSequence: number = 0
+
+/** Reads the Debug-only switch initialized by PhoneAbility. */
+export function isPaymentDemoMode(): boolean {
+  return AppStorage.get<boolean>(GlobalVariable.PAYMENT_DEMO_MODE) === true
+}
+
+/** Returns true only for locally generated demo orders. */
+export function isDemoPaymentOrder(orderId: string): boolean {
+  return orderId.startsWith(DEMO_ORDER_PREFIX)
+}
+
+/** Creates a non-server order id used only by the Debug payment demo. */
+export function createDemoPaymentOrderId(): string {
+  demoOrderSequence += 1
+  return DEMO_ORDER_PREFIX + new Date().getTime().toString() + '-' + demoOrderSequence.toString()
+}
 
 /**
  * Parses the payment callback without trusting arbitrary query values.

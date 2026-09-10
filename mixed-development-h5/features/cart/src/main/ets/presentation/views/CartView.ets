@@ -6,6 +6,7 @@ import { CartItem } from '../components'
 import { common } from '@kit.AbilityKit'
 import { excludeCartItems } from '../utils/CartPresentation'
 import { CartOperationHelper as CartOperations } from '../utils/CartOperations'
+import { createDemoPaymentOrderId, isPaymentDemoMode } from '../utils/PaymentPresentation'
 
 @Component
 export struct CartView {
@@ -154,6 +155,25 @@ export struct CartView {
             width: { bottom: 0.5 },
             color: $r('[ui_components].color.border')
           })
+
+        if (isPaymentDemoMode()) {
+          Row({ space: 12 }) {
+            Text('本地调试 · 不扣款')
+              .fontSize(12)
+              .fontColor($r('[ui_components].color.text'))
+              .layoutWeight(1)
+            Button('打开支付演示')
+              .id('payment-demo-entry')
+              .fontSize(13)
+              .height(36)
+              .backgroundColor($r('[ui_components].color.black'))
+              .onClick(() => {
+                this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: createDemoPaymentOrderId() })
+              })
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+        }
 
         if (this.user.token && this.cartList.length) {
           Row() {

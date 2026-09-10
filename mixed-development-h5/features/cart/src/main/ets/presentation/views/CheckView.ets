@@ -5,6 +5,7 @@ import { authCart } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
 import { createOrderAPI, getPreOrderAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
+import { createDemoPaymentOrderId, isPaymentDemoMode } from '../utils/PaymentPresentation'
 
 @Builder
 function CheckViewBuilder() {
@@ -53,6 +54,9 @@ export struct CheckView {
   }
 
   async submitOrder() {
+    if (this.loading) {
+      return
+    }
     if (this.payChannel !== 1) {
       this.safeToast('暂不支持该支付方式')
       return
@@ -64,19 +68,25 @@ export struct CheckView {
     this.loading = true
     try {
       // 创建订单
-      const result = await createOrderAPI({
-        payChannel: this.payChannel,
-        payType: 1,
-        buyerMessage: '',
-        addressId: this.addressId,
-        goods: this.goodsList,
-        deliveryTimeType: 1
-      })
-      authCart.updateCartCount()
+      let orderId: string = ''
+      if (isPaymentDemoMode()) {
+        orderId = createDemoPaymentOrderId()
+      } else {
+        const result = await createOrderAPI({
+          payChannel: this.payChannel,
+          payType: 1,
+          buyerMessage: '',
+          addressId: this.addressId,
+          goods: this.goodsList,
+          deliveryTimeType: 1
+        })
+        orderId = result.id
+        authCart.updateCartCount()
+      }
       this.showSheet = false
       this.stackPath.pushPath({
         name: PAGE_PATH.PAY_PAGE,
-        param: result.id
+        param: orderId
       })
     } catch {
       this.safeToast('提交订单失败，请稍后重试')
@@ -186,6 +196,12 @@ export struct CheckView {
           width: { bottom: 0.5 },
           color: $r('[ui_components].color.under')
         })
+      if (isPaymentDemoMode()) {
+        Text('支付演示 · 本地模拟回调，未调用支付宝 SDK，不扣款')
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.gray'))
+          .margin({ bottom: 8 })
+      }
       ForEach(this.payChannels, (label: string, index) => {
         CheckCell({
           label: label, checked: this.payChannel === index + 1, onClickBox: () => {
