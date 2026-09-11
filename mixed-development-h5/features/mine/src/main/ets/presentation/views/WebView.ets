@@ -194,7 +194,6 @@ struct WebView {
               this.historyCurrentIndex = entries.currentIndex
             })
             .onTitleReceive((data) => {
-              console.log('title:', data.title)
               this.title = data.title
             })
         }

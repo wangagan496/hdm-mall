@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { request } from '@/api'
 import { flattenAreaData, type Area } from '@/utils/area'
 import { closeToast, showLoadingToast, showToast, type ActionSheetAction } from 'vant'
+import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
+import { useProfileStore } from '@/stores/profile'
 
 interface IPickerParams {
   selectedValues: string[]
@@ -13,10 +14,10 @@ interface IPickerParams {
   selectedIndexes: number[]
 }
 
+const profileStore = useProfileStore()
+const { userInfo, pageState, isLoading, isDirty } = storeToRefs(profileStore)
+
 const showAvatarSheet = ref(false)
-const pendingAvatarBase64 = ref('')
-// 头像接口成功后先保留地址，直到原生桥同步和资料保存都成功，支持失败重试。
-const uploadedAvatarUrl = ref('')
 const isPickingAvatar = ref(false)
 
 const openAvatarSheet = () => {
@@ -40,9 +41,7 @@ const selectAvatar = async (_action: ActionSheetAction, index: number) => {
       : await bridge.pickerPhoto()
     closeToast()
     if (base64) {
-      pendingAvatarBase64.value = base64
-      uploadedAvatarUrl.value = ''
-      userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
+      profileStore.setAvatarPreview(base64)
     }
   } catch (error) {
     closeToast()
@@ -130,98 +129,16 @@ const onChangejob = (job: IPickerParams) => {
   userInfo.value.profession = job.selectedValues[0]!
 }
 
-const userInfo = ref<HDMUser>({} as HDMUser)
-
-interface ProfileUpdatePayload {
-  nickname: string
-  gender: HDMUser['gender']
-  birthday: string
-  provinceCode: string
-  cityCode: string
-  countyCode: string
-  profession: string
-}
-
-interface AvatarUploadResponse {
-  result: {
-    avatar: string
-  }
-}
-
-const createProfileUpdatePayload = (user: HDMUser): ProfileUpdatePayload => ({
-  nickname: user.nickname,
-  gender: user.gender,
-  birthday: user.birthday,
-  provinceCode: user.provinceCode,
-  cityCode: user.cityCode,
-  countyCode: user.countyCode,
-  profession: user.profession,
-})
-
-// 页面的三段状态：加载中 / 就绪 / 加载失败（可重试）
-const pageState = ref<'loading' | 'ready' | 'error'>('loading')
-// 最近一次成功保存/加载的字段快照，用于脏检查（无修改时禁用保存按钮）
-const savedSnapshot = ref('')
-
-const applySnapshot = () => {
-  savedSnapshot.value = JSON.stringify(createProfileUpdatePayload(userInfo.value))
-}
-
-const isProfileDirty = computed(() => {
-  if (pageState.value !== 'ready') {
-    return false
-  }
-  return JSON.stringify(createProfileUpdatePayload(userInfo.value)) !== savedSnapshot.value
-})
-
-// 头像待上传同样视为有未保存改动
-const isDirty = computed(() => isProfileDirty.value || pendingAvatarBase64.value !== '')
-
-const getUserInfo = async () => {
-  pageState.value = 'loading'
+const loadUserInfo = async () => {
   showLoadingToast({ message: '加载中...', duration: 0, forbidClick: true })
-  try {
-    const res = await request.get('member/profile')
-    const sessionUser = window.mk?.queryUser()
-    userInfo.value = {
-      ...sessionUser,
-      ...res.data.result,
-      token: sessionUser?.token || '',
-    } as HDMUser
-    applySnapshot()
-    pageState.value = 'ready'
-  } catch {
-    pageState.value = 'error'
-  } finally {
-    closeToast()
-  }
+  await profileStore.loadUserInfo()
+  closeToast()
 }
 
 onMounted(() => {
-  getUserInfo()
+  loadUserInfo()
 })
 
-const base64ToAvatarFile = (base64: string): File => {
-  const binary = window.atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index++) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return new File([bytes], 'avatar.jpg', { type: 'image/jpeg' })
-}
-
-const uploadPendingAvatar = async (): Promise<string> => {
-  const formData = new FormData()
-  formData.append('file', base64ToAvatarFile(pendingAvatarBase64.value))
-  const response = await request.post<AvatarUploadResponse>('/member/profile/avatar', formData)
-  const avatar = response.data.result.avatar
-  if (!avatar) {
-    throw new Error('头像上传接口未返回头像地址')
-  }
-  return avatar
-}
-
-const isLoading = ref(false)
 const onSubmit = async () => {
   if (!window.mk?.updateUser) {
     showToast({ message: '当前环境不支持保存资料' })
@@ -232,25 +149,8 @@ const onSubmit = async () => {
     return
   }
 
-  isLoading.value = true
-  try {
-    if (pendingAvatarBase64.value) {
-      if (!uploadedAvatarUrl.value) {
-        uploadedAvatarUrl.value = await uploadPendingAvatar()
-      }
-      userInfo.value.avatar = uploadedAvatarUrl.value
-    }
-    await request.put('/member/profile', createProfileUpdatePayload(userInfo.value))
-    await window.mk.updateUser(userInfo.value)
-    pendingAvatarBase64.value = ''
-    uploadedAvatarUrl.value = ''
-    applySnapshot()
-    showToast('修改成功')
-  } catch {
-    showToast({ message: '资料保存失败，请稍后重试' })
-  } finally {
-    isLoading.value = false
-  }
+  const ok = await profileStore.saveProfile()
+  showToast(ok ? '修改成功' : { message: '资料保存失败，请稍后重试' })
 }
 </script>
 
@@ -258,7 +158,7 @@ const onSubmit = async () => {
   <div class="profile-edit-page">
     <!-- 加载失败：空态 + 重试，而不是只有一个 toast -->
     <van-empty v-if="pageState === 'error'" description="资料加载失败">
-      <van-button round type="primary" size="small" @click="getUserInfo">
+      <van-button round type="primary" size="small" @click="loadUserInfo">
         重新加载
       </van-button>
     </van-empty>

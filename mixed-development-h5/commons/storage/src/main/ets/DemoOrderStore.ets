@@ -3,7 +3,7 @@ import { auth } from './Auth'
 import { storeManager } from './StoreManager'
 
 /**
- * 沙箱环境的演示闭环数据：明确标注为本地模拟，绝不与服务端真实订单状态混淆。
+ * 演示闭环数据：明确标注为本地模拟，绝不与服务端真实订单状态混淆。
  * 退出登录或切换账号时数据自动按 scope 隔离。
  */
 const DEMO_OVERLAY_KEY: string = 'demo_order_overlay'

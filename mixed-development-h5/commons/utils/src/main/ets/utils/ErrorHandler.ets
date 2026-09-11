@@ -1,6 +1,7 @@
 import { window } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import { GlobalVariable } from 'constants'
+import { Logger } from '../Logger'
 
 /**
  * 错误处理选项接口
@@ -42,7 +43,7 @@ export class ErrorHandler {
     try {
       ErrorHandler.showToast(message || ErrorHandler.DEFAULT_ERROR_MESSAGE)
     } catch (e) {
-      console.error('[ErrorHandler] Failed to show toast:', e)
+      Logger.error(`[ErrorHandler] Failed to show toast: ${e}`)
     }
   }
 
@@ -53,7 +54,7 @@ export class ErrorHandler {
     try {
       ErrorHandler.showToast(message)
     } catch (e) {
-      console.error('[ErrorHandler] Failed to show toast:', e)
+      Logger.error(`[ErrorHandler] Failed to show toast: ${e}`)
     }
   }
 
@@ -61,7 +62,7 @@ export class ErrorHandler {
    * 处理网络请求错误
    */
   static handleNetworkError(error: Error, customMessage?: string): void {
-    console.error('[ErrorHandler] Network error:', error)
+    Logger.error(`[ErrorHandler] Network error: ${error.message}`)
 
     if (customMessage) {
       ErrorHandler.showError(customMessage)
@@ -98,7 +99,7 @@ export class ErrorHandler {
 
       return result
     } catch (error) {
-      console.error('[ErrorHandler] Operation failed:', error)
+      Logger.error(`[ErrorHandler] Operation failed: ${error}`)
 
       if (options?.errorMessage) {
         ErrorHandler.showError(options.errorMessage)
@@ -118,20 +119,20 @@ export class ErrorHandler {
    * 记录调试日志
    */
   static logDebug(tag: string, message: string, data?: Object): void {
-    console.debug(`[${tag}] ${message}`, data ? JSON.stringify(data) : '')
+    Logger.debug(`[${tag}] ${message} ${data ? JSON.stringify(data) : ''}`)
   }
 
   /**
    * 记录信息日志
    */
   static logInfo(tag: string, message: string, data?: Object): void {
-    console.info(`[${tag}] ${message}`, data ? JSON.stringify(data) : '')
+    Logger.info(`[${tag}] ${message} ${data ? JSON.stringify(data) : ''}`)
   }
 
   /**
    * 记录错误日志
    */
   static logError(tag: string, message: string, error?: Error): void {
-    console.error(`[${tag}] ${message}`, error ? error.message : '')
+    Logger.error(`[${tag}] ${message} ${error ? error.message : ''}`)
   }
 }

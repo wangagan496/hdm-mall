@@ -77,7 +77,7 @@ export struct EvaluationView {
       try {
         await commentOrderAPI(this.order.id)
       } catch {
-        // 后端评价接口可能不支持沙箱；忽略网络层失败，把评价只写到本地演示层。
+        // 后端评价接口可能不可用；忽略网络层失败，把评价只写到本地演示层。
       }
       await demoOrderStore.saveEvaluation(this.order.id, this.score, this.content)
       this.safeToast('评价成功')

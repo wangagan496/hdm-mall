@@ -3,6 +3,7 @@ import { HDMGoodsItem } from 'models'
 import { auth, localGoodsStore } from 'storage'
 import { HDMGuess, HDMLoading, HDMLoadingDialog, HDMNavBar, HDMPreviewImage, HDMSku, HDMSkuType } from 'ui_components'
 import { authCart } from 'storage'
+import { Logger } from 'utils'
 import { Goods, GoodsEvaluation } from '../../domain/models'
 import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
 import { getDetailAPI, getGoodsEvaluationsAPI } from '../../data/api'
@@ -130,7 +131,7 @@ export struct GoodsView {
       }
       this.evaluations = result.items || []
       this.evaluationCount = result.counts || this.evaluations.length
-      console.log(`[GoodsView] loadEvaluations goodsId=${goodsId} counts=${this.evaluationCount} items=${this.evaluations.length}`)
+      Logger.info(`[GoodsView] loadEvaluations goodsId=${goodsId} counts=${this.evaluationCount} items=${this.evaluations.length}`)
     } catch {
       if (requestId === this.evaluationRequestId) {
         this.evaluations = []

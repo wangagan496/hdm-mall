@@ -83,7 +83,6 @@ struct HDMImageScale {
               .onActionEnd((event: GestureEvent) => {
                 this.positionX = this.offsetX
                 this.positionY = this.offsetY
-                console.info('Pan end')
               })
 
           )

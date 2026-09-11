@@ -1,5 +1,6 @@
 import { CartGoodsModel, UpdateCartParams } from 'models'
 import { authCart } from 'storage'
+import { Logger } from 'utils'
 import { delCart, selectOrUnSelect, updateCart } from '../../data/api'
 
 /**
@@ -44,7 +45,7 @@ export class CartOperationHelper {
       await operation()
       return true
     } catch (error) {
-      console.error(`[CartOperation] ${operationName} failed`, error)
+      Logger.error(`[CartOperation] ${operationName} failed: ${error}`)
       return false
     }
   }

@@ -214,7 +214,7 @@ export interface PayResultParams {
   orderId: string
 }
 
-/** 本地演示评价：仅用于沙箱环境下补齐"待评价"演示闭环，不会提交到后端。 */
+/** 本地演示评价：仅用于补齐「待评价」演示闭环，不会提交到后端。 */
 export interface LocalEvaluationItem {
   orderId: string
   score: number

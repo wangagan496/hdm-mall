@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, mall]
+  pull_request:
+    branches: [main, mall]
+
+jobs:
+  h5:
+    name: H5 · lint / type-check / build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shoph5-vue3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # 与 shoph5-vue3/pnpm-lock.yaml 的 lockfileVersion 9.0 匹配
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: shoph5-vue3/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Type check
+        run: pnpm run type-check
+
+      - name: Build (vite-plugin-singlefile)
+        run: pnpm run build-only
+
+  # 原生端说明：ArkTS/hvigor 构建与 hypium 单元测试依赖 DevEco command-line-tools
+  # 与签名环境，暂不在 GitHub 托管 Runner 上执行；本地验证命令：
+  #   hvigorw assembleHap --mode module -p module=features@home
+  #   hvigorw test --mode module -p module=features@home
+  # 如后续接入 self-hosted runner 或官方 CLI 镜像，可在此追加 harmony job。

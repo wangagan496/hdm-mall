@@ -1,4 +1,8 @@
 import { speechRecognizer } from "@kit.CoreSpeechKit"
+import { hilog } from '@kit.PerformanceAnalysisKit'
+
+const DOMAIN = 0x0000
+const TAG = 'HDM_SpeechToText'
 
 export class SpeechToTextManager {
   engine: speechRecognizer.SpeechRecognitionEngine | null = null
@@ -65,22 +69,22 @@ export class SpeechToTextManager {
   setListener() {
     let setListener: speechRecognizer.RecognitionListener = {
       onStart(sessionId: string, eventMessage: string) {
-        console.info(`onStart, sessionId: ${sessionId} eventMessage: ${eventMessage}`)
+        hilog.info(DOMAIN, TAG, '%{public}s', `onStart, sessionId: ${sessionId} eventMessage: ${eventMessage}`)
       },
       onEvent(sessionId: string, eventCode: number, eventMessage: string) {
-        console.info(`onEvent, sessionId: ${sessionId} eventCode: ${eventCode} eventMessage: ${eventMessage}`)
+        hilog.info(DOMAIN, TAG, '%{public}s', `onEvent, sessionId: ${sessionId} eventCode: ${eventCode} eventMessage: ${eventMessage}`)
       },
       onResult: (sessionId: string, result: speechRecognizer.SpeechRecognitionResult) => {
-        console.info('Speech recognition result: ' + result.result)
+        hilog.info(DOMAIN, TAG, '%{public}s', 'Speech recognition result: ' + result.result)
         if (this.textCallBack) {
           this.textCallBack(result.result)
         }
       },
       onComplete(sessionId: string, eventMessage: string) {
-        console.info(`onComplete, sessionId: ${sessionId} eventMessage: ${eventMessage}`)
+        hilog.info(DOMAIN, TAG, '%{public}s', `onComplete, sessionId: ${sessionId} eventMessage: ${eventMessage}`)
       },
       onError(sessionId: string, errorCode: number, errorMessage: string) {
-        console.error(`onError, sessionId: ${sessionId} errorCode: ${errorCode} errorMessage: ${errorMessage}`)
+        hilog.error(DOMAIN, TAG, '%{public}s', `onError, sessionId: ${sessionId} errorCode: ${errorCode} errorMessage: ${errorMessage}`)
       }
     }
     try {
