@@ -28,3 +28,4 @@ export {
 } from './src/main/ets/BusinessModels'
 export { ListDataSource } from './src/main/ets/ListDataSource'
 export { BreakPointEnum, BreakPointType } from './src/main/ets/BreakPoint'
+export { LocalEvaluationItem, DemoOrderOverlay } from './src/main/ets/BusinessModels'

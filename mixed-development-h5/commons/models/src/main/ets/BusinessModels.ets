@@ -213,3 +213,18 @@ export interface PayResultParams {
   payResult: boolean
   orderId: string
 }
+
+/** 本地演示评价：仅用于沙箱环境下补齐"待评价"演示闭环，不会提交到后端。 */
+export interface LocalEvaluationItem {
+  orderId: string
+  score: number
+  content: string
+  createdAt: number
+}
+
+/** 叠加在服务端订单之上的本地推进标记；不为真支付，UI 需显著标识"本地演示"。 */
+export interface DemoOrderOverlay {
+  orderId: string
+  advancedState: number
+  updatedAt: number
+}

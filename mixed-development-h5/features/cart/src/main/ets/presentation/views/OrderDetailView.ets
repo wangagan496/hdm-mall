@@ -1,14 +1,19 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { OrderItem, OrderSku, PayResultParams } from 'models'
+import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderSku } from 'models'
+import { demoOrderStore } from 'storage'
 import {
   cancelOrderWithFallback,
-  commentOrderAPI,
   consignmentOrderAPI,
   getOrderDetailAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { formatOrderCountdown, getOrderStateText } from '../utils/OrderPresentation'
+import {
+  formatOrderCountdown,
+  getOrderStateText,
+  isDemoOverlayApplied,
+  mergeOrderState
+} from '../utils/OrderPresentation'
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -20,6 +25,8 @@ export struct OrderDetailView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @State order: OrderItem | null = null
+  @State demoOverlay: DemoOrderOverlay | null = null
+  @State evaluation: LocalEvaluationItem | null = null
   @State loading: boolean = true
   @State loadFailed: boolean = false
   @State busy: string = ''
@@ -70,6 +77,7 @@ export struct OrderDetailView {
     try {
       this.order = await getOrderDetailAPI(this.orderId)
       this.countdownBaseAt = Date.now()
+      this.refreshLocalOverlay()
     } catch {
       this.loadFailed = true
       this.safeToast('订单加载失败，请稍后重试')
@@ -119,14 +127,53 @@ export struct OrderDetailView {
     if (!this.order) {
       return
     }
-    await commentOrderAPI(this.order.id)
+    this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: this.order.id })
+  }
+
+  private async advanceOneStep(): Promise<void> {
+    if (!this.order) {
+      return
+    }
+    const current = this.demoOverlay ? this.demoOverlay.advancedState : 1
+    if (current >= 5) {
+      this.safeToast('已到达演示终态')
+      return
+    }
+    const next = current + 1
+    await demoOrderStore.setOverlay(this.order.id, next)
+    this.refreshLocalOverlay()
+    this.safeToast('已推进到' + getOrderStateText(next) + '（仅本地演示）')
+  }
+
+  private refreshLocalOverlay(): void {
+    if (!this.order) {
+      this.demoOverlay = null
+      this.evaluation = null
+      return
+    }
+    this.demoOverlay = demoOrderStore.getOverlay(this.order.id)
+    this.evaluation = demoOrderStore.getEvaluation(this.order.id)
+  }
+
+  private mergedState(): number {
+    if (!this.order) {
+      return 0
+    }
+    return mergeOrderState(this.order, this.demoOverlay, this.evaluation)
+  }
+
+  private isOverlayApplied(): boolean {
+    if (!this.order) {
+      return false
+    }
+    return isDemoOverlayApplied(this.order, this.demoOverlay, this.evaluation)
   }
 
   @Builder
   private DetailActions() {
     Column() {
       if (this.order) {
-        if (this.order.orderState === 1) {
+        if (this.mergedState() === 1) {
           Row({ space: 8 }) {
             Button(this.busy === 'cancel' ? '取消中...' : '取消订单')
               .height(36)
@@ -141,23 +188,18 @@ export struct OrderDetailView {
               .fontSize(13)
               .backgroundColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: this.order!.id }))
-            // 沙箱环境没有真实支付回调，这里只引导到支付结果页，以服务端查单结果为准。
-            Button('查支付状态')
+            Button('演示推进')
               .height(36)
               .fontSize(13)
               .fontColor($r('[ui_components].color.red'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.red') })
               .enabled(!this.busy)
-              .onClick(() => {
-                this.safeToast('沙箱环境：请在支付页点"我已完成支付"后以服务端状态为准')
-                const resultParams: PayResultParams = { payResult: false, orderId: this.order!.id }
-                this.stackPath.pushPath({ name: PAGE_PATH.PAY_RESULT_PAGE, param: resultParams })
-              })
+              .onClick(() => this.advanceOneStep())
           }
           .width('100%')
-        } else if (this.order.orderState === 2) {
-          Row() {
+        } else if (this.mergedState() === 2) {
+          Row({ space: 8 }) {
             Blank()
             Button(this.busy === 'consignment' ? '发货中...' : '模拟发货')
               .height(36)
@@ -167,10 +209,18 @@ export struct OrderDetailView {
               .border({ width: 0.5, color: $r('[ui_components].color.red') })
               .enabled(!this.busy)
               .onClick(() => this.run('consignment', (): Promise<void> => this.runConsignment(), '模拟发货成功'))
+            Button('演示推进')
+              .height(36)
+              .fontSize(13)
+              .fontColor($r('[ui_components].color.red'))
+              .backgroundColor($r('[ui_components].color.white'))
+              .border({ width: 0.5, color: $r('[ui_components].color.red') })
+              .enabled(!this.busy)
+              .onClick(() => this.advanceOneStep())
           }
           .width('100%')
-        } else if (this.order.orderState === 3) {
-          Row() {
+        } else if (this.mergedState() === 3) {
+          Row({ space: 8 }) {
             Blank()
             Button(this.busy === 'receipt' ? '确认中...' : '确认收货')
               .height(36)
@@ -178,19 +228,35 @@ export struct OrderDetailView {
               .backgroundColor($r('[ui_components].color.red'))
               .enabled(!this.busy)
               .onClick(() => this.run('receipt', (): Promise<void> => this.runReceipt(), '已确认收货'))
-          }
-          .width('100%')
-        } else if (this.order.orderState === 4) {
-          Row() {
-            Blank()
-            Button(this.busy === 'comment' ? '提交中...' : '去评价')
+            Button('演示推进')
               .height(36)
               .fontSize(13)
               .fontColor($r('[ui_components].color.red'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.red') })
               .enabled(!this.busy)
-              .onClick(() => this.run('comment', (): Promise<void> => this.runComment(), '评价成功，订单已完成'))
+              .onClick(() => this.advanceOneStep())
+          }
+          .width('100%')
+        } else if (this.mergedState() === 4) {
+          Row() {
+            Blank()
+            Button('去评价')
+              .height(36)
+              .fontSize(13)
+              .fontColor($r('[ui_components].color.red'))
+              .backgroundColor($r('[ui_components].color.white'))
+              .border({ width: 0.5, color: $r('[ui_components].color.red') })
+              .enabled(!this.busy)
+              .onClick(() => this.runComment())
+          }
+          .width('100%')
+        } else if (this.mergedState() === 5) {
+          Row() {
+            Blank()
+            Text('已演示完成')
+              .fontSize(13)
+              .fontColor($r('[ui_components].color.gray'))
           }
           .width('100%')
         }
@@ -202,7 +268,7 @@ export struct OrderDetailView {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: this.order ? getOrderStateText(this.order.orderState) : '订单详情',
+          title: this.order ? getOrderStateText(this.mergedState()) : '订单详情',
           onLeftClick: () => this.stackPath.pop()
         })
         if (this.loading) {
@@ -230,20 +296,30 @@ export struct OrderDetailView {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else {
+          if (this.isOverlayApplied()) {
+            Row() {
+              Text('本地演示：状态已按 演示推进 推进，未与服务端同步')
+                .fontSize(12)
+                .fontColor($r('[ui_components].color.red'))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+            .backgroundColor('#FFF6E5')
+          }
           Scroll() {
             Column({ space: 12 }) {
               Column({ space: 6 }) {
                 Row({ space: 6 }) {
-                  Text(getOrderStateText(this.order.orderState))
+                  Text(getOrderStateText(this.mergedState()))
                     .fontSize(18)
                     .fontWeight(500)
-                  if (this.order.orderState === 1 && this.remainingCountdown() > 0) {
+                  if (this.mergedState() === 1 && this.remainingCountdown() > 0) {
                     Text(formatOrderCountdown(this.remainingCountdown()))
                       .fontSize(12)
                       .fontColor($r('[ui_components].color.red'))
                   }
                 }
-                if (this.order.orderState === 1) {
+                if (this.mergedState() === 1) {
                   Text('请在 ' + this.order.payLatestTime + ' 前完成支付，超时自动取消')
                     .fontSize(12)
                     .fontColor($r('[ui_components].color.gray'))

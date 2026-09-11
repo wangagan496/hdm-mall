@@ -1,14 +1,19 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { HDMUser, OrderItem, OrderSku } from 'models'
+import { DemoOrderOverlay, HDMUser, LocalEvaluationItem, OrderItem, OrderSku } from 'models'
 import { HDMEmpty, HDMNavBar } from 'ui_components'
+import { demoOrderStore } from 'storage'
 import {
   cancelOrderWithFallback,
-  commentOrderAPI,
   consignmentOrderAPI,
   getOrderListAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { formatOrderCountdown, getOrderStateText } from '../utils/OrderPresentation'
+import {
+  formatOrderCountdown,
+  getOrderStateText,
+  isDemoOverlayApplied,
+  mergeOrderState
+} from '../utils/OrderPresentation'
 
 interface OrderTab {
   label: string
@@ -32,6 +37,8 @@ export struct OrderView {
     account: ''
   }
   @State orders: OrderItem[] = []
+  @State overlays: Record<string, DemoOrderOverlay> = {}
+  @State evaluations: Record<string, LocalEvaluationItem> = {}
   @State selectedState: number = 0
   @State loading: boolean = false
   @State loadFailed: boolean = false
@@ -102,7 +109,23 @@ export struct OrderView {
     this.isFinished = false
     this.loadFailed = false
     this.loading = false
+    this.refreshLocalOverlay()
     await this.loadMore()
+  }
+
+  private refreshLocalOverlay(): void {
+    const overlays: DemoOrderOverlay[] = demoOrderStore.getAllOverlays()
+    const nextOverlays: Record<string, DemoOrderOverlay> = {}
+    overlays.forEach((overlay: DemoOrderOverlay) => {
+      nextOverlays[overlay.orderId] = overlay
+    })
+    const evaluations: LocalEvaluationItem[] = demoOrderStore.getAllEvaluations()
+    const nextEvaluations: Record<string, LocalEvaluationItem> = {}
+    evaluations.forEach((item: LocalEvaluationItem) => {
+      nextEvaluations[item.orderId] = item
+    })
+    this.overlays = nextOverlays
+    this.evaluations = nextEvaluations
   }
 
   private async loadMore(): Promise<void> {
@@ -134,6 +157,18 @@ export struct OrderView {
         this.loading = false
       }
     }
+  }
+
+  private mergedState(order: OrderItem): number {
+    return mergeOrderState(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
+  }
+
+  private isOverlayApplied(order: OrderItem): boolean {
+    return isDemoOverlayApplied(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
+  }
+
+  private displayStateFor(order: OrderItem): number {
+    return this.mergedState(order)
   }
 
   private selectTab(orderState: number): void {
@@ -183,7 +218,28 @@ export struct OrderView {
   }
 
   private async runComment(orderId: string): Promise<void> {
-    await commentOrderAPI(orderId)
+    this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: orderId })
+  }
+
+  /**
+   * 沙箱环境没有真实支付/物流回调，本地演示按钮按 1→2→3→4 顺序把订单状态往前推一格，
+   * 不写真实支付、不调远端任何接口，不与后端真实数据混淆。
+   */
+  private async advanceOneStep(orderId: string): Promise<void> {
+    if (!orderId) {
+      return
+    }
+    const overlay = this.overlays[orderId]
+    const current = overlay ? overlay.advancedState : 1
+    if (current >= 5) {
+      this.safeToast('已到达演示终态')
+      return
+    }
+    const next = current + 1
+    await demoOrderStore.setOverlay(orderId, next)
+    this.safeToast('已推进到' + getOrderStateText(next) + '（仅本地演示）')
+    this.refreshLocalOverlay()
+    await this.reloadOrders()
   }
 
   @Builder
@@ -237,7 +293,7 @@ export struct OrderView {
 
   @Builder
   private OrderActions(order: OrderItem) {
-    if (order.orderState === 1) {
+    if (this.displayStateFor(order) === 1) {
       Row({ space: 8 }) {
         Blank()
         Button(this.isBusy(order.id) && this.busyAction === 'cancel' ? '取消中...' : '取消订单')
@@ -257,8 +313,8 @@ export struct OrderView {
           .onClick(() => {
             this.goPay(order.id)
           })
-        // 沙箱环境没有真实支付回调，这里只负责刷新并引导去支付结果页以服务端状态为准。
-        Button(this.isBusy(order.id) && this.busyAction === 'refresh' ? '刷新中...' : '查支付状态')
+        // 沙箱环境没有真实支付回调，本地演示按钮把订单状态往前推一格。
+        Button('演示推进')
           .height(32)
           .fontSize(12)
           .fontColor($r('[ui_components].color.red'))
@@ -266,13 +322,12 @@ export struct OrderView {
           .border({ width: 0.5, color: $r('[ui_components].color.red') })
           .enabled(!this.busyOrderId)
           .onClick(() => {
-            this.safeToast('沙箱环境：请用"去支付"中的"我已完成支付"查单，状态以服务端为准')
-            this.reloadOrders()
+            this.advanceOneStep(order.id)
           })
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (order.orderState === 2) {
+    } else if (this.displayStateFor(order) === 2) {
       Row({ space: 8 }) {
         Blank()
         Button(this.isBusy(order.id) ? '发货中...' : '模拟发货')
@@ -285,10 +340,20 @@ export struct OrderView {
           .onClick(() => {
             this.runOrderAction(order.id, 'consignment', (): Promise<void> => this.runConsignment(order.id), '模拟发货成功')
           })
+        Button('演示推进')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.red'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.red') })
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.advanceOneStep(order.id)
+          })
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (order.orderState === 3) {
+    } else if (this.displayStateFor(order) === 3) {
       Row({ space: 8 }) {
         Blank()
         Button(this.isBusy(order.id) ? '确认中...' : '确认收货')
@@ -299,13 +364,7 @@ export struct OrderView {
           .onClick(() => {
             this.runOrderAction(order.id, 'receipt', (): Promise<void> => this.runReceipt(order.id), '已确认收货')
           })
-      }
-      .width('100%')
-      .padding({ bottom: 10 })
-    } else if (order.orderState === 4) {
-      Row({ space: 8 }) {
-        Blank()
-        Button(this.isBusy(order.id) ? '提交中...' : '去评价')
+        Button('演示推进')
           .height(32)
           .fontSize(12)
           .fontColor($r('[ui_components].color.red'))
@@ -313,8 +372,33 @@ export struct OrderView {
           .border({ width: 0.5, color: $r('[ui_components].color.red') })
           .enabled(!this.busyOrderId)
           .onClick(() => {
-            this.runOrderAction(order.id, 'comment', (): Promise<void> => this.runComment(order.id), '评价成功')
+            this.advanceOneStep(order.id)
           })
+      }
+      .width('100%')
+      .padding({ bottom: 10 })
+    } else if (this.displayStateFor(order) === 4) {
+      Row({ space: 8 }) {
+        Blank()
+        Button('去评价')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.red'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.red') })
+          .enabled(!this.busyOrderId)
+          .onClick(() => {
+            this.runComment(order.id)
+          })
+      }
+      .width('100%')
+      .padding({ bottom: 10 })
+    } else if (this.displayStateFor(order) === 5) {
+      Row({ space: 8 }) {
+        Blank()
+        Text('已演示完成')
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.gray'))
       }
       .width('100%')
       .padding({ bottom: 10 })
@@ -328,15 +412,24 @@ export struct OrderView {
         Text(order.createTime)
           .fontSize(11)
           .fontColor($r('[ui_components].color.gray'))
-        if (order.orderState === 1 && this.remainingCountdown(order) > 0) {
+        if (this.displayStateFor(order) === 1 && this.remainingCountdown(order) > 0) {
           Text(formatOrderCountdown(this.remainingCountdown(order)))
             .fontSize(11)
             .fontColor($r('[ui_components].color.red'))
         }
+        if (this.isOverlayApplied(order)) {
+          Blank().width(8)
+          Text('本地演示')
+            .fontSize(10)
+            .fontColor($r('[ui_components].color.gray'))
+            .border({ width: 0.5, color: $r('[ui_components].color.border') })
+            .borderRadius(2)
+            .padding({ left: 4, right: 4 })
+        }
         Blank()
-        Text(getOrderStateText(order.orderState))
+        Text(getOrderStateText(this.displayStateFor(order)))
           .fontSize(13)
-          .fontColor(order.orderState === 6 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
+          .fontColor(this.displayStateFor(order) === 6 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
       }
       .width('100%')
       .padding({ top: 12, bottom: 2 })

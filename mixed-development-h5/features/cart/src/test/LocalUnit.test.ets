@@ -1,11 +1,13 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
-import { AddressItem, CartGoodsModel } from 'models';
+import { AddressItem, CartGoodsModel, OrderItem } from 'models';
 import { excludeCartItems, normalizeCheckoutAddress } from '../main/ets/presentation/utils/CartPresentation';
 import { parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
 import {
   formatOrderCountdown,
   getOrderStateText,
-  isPaidOrderState
+  isDemoOverlayApplied,
+  isPaidOrderState,
+  mergeOrderState
 } from '../main/ets/presentation/utils/OrderPresentation';
 
 export default function localUnitTest() {
@@ -127,6 +129,37 @@ export default function localUnitTest() {
       expect(formatOrderCountdown(59)).assertEqual('剩 00:59 自动取消');
       expect(formatOrderCountdown(330)).assertEqual('剩 05:30 自动取消');
       expect(formatOrderCountdown(3600)).assertEqual('剩 60:00 自动取消');
+    });
+    it('advancesStateViaOverlayUntilEvaluationLands', 0, () => {
+      const order: OrderItem = {
+        countdown: 100,
+        createTime: '2024-01-01',
+        id: 'order-1',
+        orderState: 1,
+        payChannel: 1,
+        payLatestTime: '2024-01-02',
+        payMoney: 10,
+        payType: 1,
+        postFee: 0,
+        skus: [],
+        totalMoney: 10,
+        totalNum: 1
+      };
+      expect(mergeOrderState(order, null, null)).assertEqual(1);
+      expect(mergeOrderState(order, { orderId: 'order-1', advancedState: 2, updatedAt: 0 }, null)).assertEqual(2);
+      const cancelled: OrderItem = { ...order, orderState: 6 };
+      expect(mergeOrderState(cancelled, { orderId: 'order-1', advancedState: 4, updatedAt: 0 }, null)).assertEqual(6);
+      expect(mergeOrderState({ ...order, orderState: 3 }, { orderId: 'order-1', advancedState: 2, updatedAt: 0 }, null))
+        .assertEqual(3);
+      expect(mergeOrderState(order,
+        { orderId: 'order-1', advancedState: 4, updatedAt: 0 },
+        { orderId: 'order-1', score: 5, content: 'good', createdAt: 0 }
+      )).assertEqual(5);
+      expect(isDemoOverlayApplied(order,
+        { orderId: 'order-1', advancedState: 2, updatedAt: 0 },
+        null
+      )).assertTrue();
+      expect(isDemoOverlayApplied(order, null, null)).assertFalse();
     });
   });
 }
