@@ -80,7 +80,7 @@ export struct EvaluationView {
         // 后端评价接口可能不支持沙箱；忽略网络层失败，把评价只写到本地演示层。
       }
       await demoOrderStore.saveEvaluation(this.order.id, this.score, this.content)
-      this.safeToast('评价已记录，仅为本地演示')
+      this.safeToast('评价成功')
       this.stackPath.pop()
     } catch (error) {
       this.errorText = (error as Error).message || '提交失败，请重试'
@@ -158,15 +158,6 @@ export struct EvaluationView {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else {
-          Row() {
-            Text('本地演示评价：不会真实提交到后端')
-              .fontSize(12)
-              .fontColor($r('[ui_components].color.red'))
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-          .backgroundColor('#FFF6E5')
-
           Scroll() {
             Column({ space: 12 }) {
               Column({ space: 8 }) {

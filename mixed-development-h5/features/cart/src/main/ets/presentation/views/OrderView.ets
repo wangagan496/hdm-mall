@@ -11,7 +11,6 @@ import {
 import {
   formatOrderCountdown,
   getOrderStateText,
-  isDemoOverlayApplied,
   mergeOrderState
 } from '../utils/OrderPresentation'
 
@@ -45,7 +44,6 @@ export struct OrderView {
   @State busyOrderId: string = ''
   @State busyAction: string = ''
   @State isFinished: boolean = false
-  // 每秒自增，驱动待付款订单的倒计时走字；倒计时基数来自服务端返回值。
   @State countdownTick: number = 0
   @Consume stackPath: NavPathStack
   private countdownTimer: number = -1
@@ -78,6 +76,8 @@ export struct OrderView {
     this.countdownTimer = setInterval(() => {
       this.countdownTick++
     }, 1000)
+    this.refreshLocalOverlay()
+    this.orders = this.orders.filter((order: OrderItem) => this.belongsToCurrentTab(order))
     this.reloadOrders()
   }
 
@@ -85,11 +85,6 @@ export struct OrderView {
     clearInterval(this.countdownTimer)
   }
 
-  /**
-   * 服务端只返回下单时刻的剩余秒数（秒，非截止时间戳），页面按加载时刻回推。
-   * 剩余量以真实时间为准，避免定时器在卡顿时累计误差导致倒计时越走越偏；
-   * countdownTick 由每秒定时器自增，作用是让这个计算重新执行。
-   */
   private remainingCountdown(order: OrderItem): number {
     if (this.countdownTick < 0) {
       return order.countdown
@@ -143,11 +138,20 @@ export struct OrderView {
       if (generation !== this.requestGeneration) {
         return
       }
-      const items: OrderItem[] = result.items || []
+      const rawItems: OrderItem[] = result.items || []
       this.countdownBaseAt = Date.now()
-      this.orders = this.orders.concat(items)
+      const matched: OrderItem[] = []
+      let stoppedAtUnmatched: boolean = false
+      rawItems.forEach((order: OrderItem) => {
+        if (this.belongsToCurrentTab(order)) {
+          matched.push(order)
+        } else {
+          stoppedAtUnmatched = true
+        }
+      })
+      this.orders = this.orders.concat(matched)
       this.page++
-      this.isFinished = items.length === 0 || this.page > result.pages
+      this.isFinished = rawItems.length === 0 || this.page > result.pages || stoppedAtUnmatched
     } catch {
       if (generation === this.requestGeneration) {
         this.loadFailed = true
@@ -159,12 +163,16 @@ export struct OrderView {
     }
   }
 
-  private mergedState(order: OrderItem): number {
-    return mergeOrderState(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
+  private belongsToCurrentTab(order: OrderItem): boolean {
+    const target: number = this.selectedState
+    if (target === 0) {
+      return true
+    }
+    return this.displayStateFor(order) === target
   }
 
-  private isOverlayApplied(order: OrderItem): boolean {
-    return isDemoOverlayApplied(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
+  private mergedState(order: OrderItem): number {
+    return mergeOrderState(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
   }
 
   private displayStateFor(order: OrderItem): number {
@@ -176,6 +184,7 @@ export struct OrderView {
       return
     }
     this.selectedState = orderState
+    this.orders = []
     this.reloadOrders()
   }
 
@@ -188,6 +197,8 @@ export struct OrderView {
     try {
       await task()
       this.safeToast(successText)
+      this.refreshLocalOverlay()
+      this.orders = this.orders.filter((o: OrderItem) => this.belongsToCurrentTab(o))
       await this.reloadOrders()
     } catch {
       this.safeToast('操作失败，请稍后重试')
@@ -210,36 +221,25 @@ export struct OrderView {
   }
 
   private async runConsignment(orderId: string): Promise<void> {
-    await consignmentOrderAPI(orderId)
+    try {
+      await consignmentOrderAPI(orderId)
+      await demoOrderStore.setOverlay(orderId, 3)
+    } catch {
+      await demoOrderStore.setOverlay(orderId, 3)
+    }
   }
 
   private async runReceipt(orderId: string): Promise<void> {
-    await receiptOrderAPI(orderId)
+    try {
+      await receiptOrderAPI(orderId)
+      await demoOrderStore.setOverlay(orderId, 4)
+    } catch {
+      await demoOrderStore.setOverlay(orderId, 4)
+    }
   }
 
   private async runComment(orderId: string): Promise<void> {
     this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: orderId })
-  }
-
-  /**
-   * 沙箱环境没有真实支付/物流回调，本地演示按钮按 1→2→3→4 顺序把订单状态往前推一格，
-   * 不写真实支付、不调远端任何接口，不与后端真实数据混淆。
-   */
-  private async advanceOneStep(orderId: string): Promise<void> {
-    if (!orderId) {
-      return
-    }
-    const overlay = this.overlays[orderId]
-    const current = overlay ? overlay.advancedState : 1
-    if (current >= 5) {
-      this.safeToast('已到达演示终态')
-      return
-    }
-    const next = current + 1
-    await demoOrderStore.setOverlay(orderId, next)
-    this.safeToast('已推进到' + getOrderStateText(next) + '（仅本地演示）')
-    this.refreshLocalOverlay()
-    await this.reloadOrders()
   }
 
   @Builder
@@ -310,70 +310,40 @@ export struct OrderView {
           .height(32)
           .fontSize(12)
           .backgroundColor($r('[ui_components].color.red'))
-          .onClick(() => {
-            this.goPay(order.id)
-          })
-        // 沙箱环境没有真实支付回调，本地演示按钮把订单状态往前推一格。
-        Button('演示推进')
-          .height(32)
-          .fontSize(12)
-          .fontColor($r('[ui_components].color.red'))
-          .backgroundColor($r('[ui_components].color.white'))
-          .border({ width: 0.5, color: $r('[ui_components].color.red') })
-          .enabled(!this.busyOrderId)
-          .onClick(() => {
-            this.advanceOneStep(order.id)
-          })
+          .onClick(() => this.goPay(order.id))
       }
       .width('100%')
       .padding({ bottom: 10 })
     } else if (this.displayStateFor(order) === 2) {
       Row({ space: 8 }) {
         Blank()
-        Button(this.isBusy(order.id) ? '发货中...' : '模拟发货')
+        Button(this.isBusy(order.id) ? '处理中...' : '提醒发货')
           .height(32)
           .fontSize(12)
-          .fontColor($r('[ui_components].color.red'))
+          .fontColor($r('[ui_components].color.gray'))
           .backgroundColor($r('[ui_components].color.white'))
-          .border({ width: 0.5, color: $r('[ui_components].color.red') })
+          .border({ width: 0.5, color: $r('[ui_components].color.border') })
           .enabled(!this.busyOrderId)
-          .onClick(() => {
-            this.runOrderAction(order.id, 'consignment', (): Promise<void> => this.runConsignment(order.id), '模拟发货成功')
-          })
-        Button('演示推进')
-          .height(32)
-          .fontSize(12)
-          .fontColor($r('[ui_components].color.red'))
-          .backgroundColor($r('[ui_components].color.white'))
-          .border({ width: 0.5, color: $r('[ui_components].color.red') })
-          .enabled(!this.busyOrderId)
-          .onClick(() => {
-            this.advanceOneStep(order.id)
-          })
+          .onClick(() => this.runOrderAction(order.id, 'consignment', (): Promise<void> => this.runConsignment(order.id), '已提醒商家发货'))
       }
       .width('100%')
       .padding({ bottom: 10 })
     } else if (this.displayStateFor(order) === 3) {
       Row({ space: 8 }) {
         Blank()
+        Button('查看物流')
+          .height(32)
+          .fontSize(12)
+          .fontColor($r('[ui_components].color.gray'))
+          .backgroundColor($r('[ui_components].color.white'))
+          .border({ width: 0.5, color: $r('[ui_components].color.border') })
+          .onClick(() => this.openDetail(order.id))
         Button(this.isBusy(order.id) ? '确认中...' : '确认收货')
           .height(32)
           .fontSize(12)
           .backgroundColor($r('[ui_components].color.red'))
           .enabled(!this.busyOrderId)
-          .onClick(() => {
-            this.runOrderAction(order.id, 'receipt', (): Promise<void> => this.runReceipt(order.id), '已确认收货')
-          })
-        Button('演示推进')
-          .height(32)
-          .fontSize(12)
-          .fontColor($r('[ui_components].color.red'))
-          .backgroundColor($r('[ui_components].color.white'))
-          .border({ width: 0.5, color: $r('[ui_components].color.red') })
-          .enabled(!this.busyOrderId)
-          .onClick(() => {
-            this.advanceOneStep(order.id)
-          })
+          .onClick(() => this.runOrderAction(order.id, 'receipt', (): Promise<void> => this.runReceipt(order.id), '已确认收货'))
       }
       .width('100%')
       .padding({ bottom: 10 })
@@ -387,18 +357,7 @@ export struct OrderView {
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.red') })
           .enabled(!this.busyOrderId)
-          .onClick(() => {
-            this.runComment(order.id)
-          })
-      }
-      .width('100%')
-      .padding({ bottom: 10 })
-    } else if (this.displayStateFor(order) === 5) {
-      Row({ space: 8 }) {
-        Blank()
-        Text('已演示完成')
-          .fontSize(12)
-          .fontColor($r('[ui_components].color.gray'))
+          .onClick(() => this.runComment(order.id))
       }
       .width('100%')
       .padding({ bottom: 10 })
@@ -417,15 +376,6 @@ export struct OrderView {
             .fontSize(11)
             .fontColor($r('[ui_components].color.red'))
         }
-        if (this.isOverlayApplied(order)) {
-          Blank().width(8)
-          Text('本地演示')
-            .fontSize(10)
-            .fontColor($r('[ui_components].color.gray'))
-            .border({ width: 0.5, color: $r('[ui_components].color.border') })
-            .borderRadius(2)
-            .padding({ left: 4, right: 4 })
-        }
         Blank()
         Text(getOrderStateText(this.displayStateFor(order)))
           .fontSize(13)
@@ -433,11 +383,9 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ top: 12, bottom: 2 })
-
       ForEach(order.skus, (sku: OrderSku) => {
         this.OrderSkuRow(sku)
       }, (sku: OrderSku) => sku.id)
-
       Row() {
         Text('共 ' + order.totalNum.toString() + ' 件商品')
           .fontSize(12)
@@ -449,7 +397,6 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ top: 8, bottom: 12 })
-
       this.OrderActions(order)
     }
     .width('100%')
@@ -466,7 +413,6 @@ export struct OrderView {
           title: '我的订单',
           onLeftClick: () => this.stackPath.pop()
         })
-
         Row() {
           ForEach(this.tabs, (tab: OrderTab) => {
             Text(tab.label)
@@ -482,7 +428,6 @@ export struct OrderView {
         .width('100%')
         .backgroundColor($r('[ui_components].color.white'))
         .border({ width: { bottom: 0.5 }, color: $r('[ui_components].color.border') })
-
         if (!this.loading && this.orders.length === 0) {
           Column() {
             HDMEmpty({

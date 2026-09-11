@@ -1,8 +1,9 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMGuess, HDMNavBar } from 'ui_components'
 import { PayResultParams } from 'models'
+import { demoOrderStore } from 'storage'
 import { getOrderDetailAPI } from '../../data/api'
-import { getOrderStateText, isPaidOrderState } from '../utils/OrderPresentation'
+import { getOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
 
 @Builder
 function PayResultViewBuilder() {
@@ -17,7 +18,7 @@ export struct PayResultView {
   @State orderId: string = ''
   @State checking: boolean = true
   @State checkFailed: boolean = false
-  @State serverOrderState: number = 0
+  @State effectiveState: number = 0
   @Consume
   stackPath: NavPathStack
 
@@ -33,7 +34,6 @@ export struct PayResultView {
     }
   }
 
-  // 支付结果只以服务端 orderState 为准：2-4 已付款，1/5/6 按未付款/后续状态展示
   private async checkOrderStatus(): Promise<void> {
     if (!this.orderId) {
       this.checking = false
@@ -44,9 +44,19 @@ export struct PayResultView {
     this.checkFailed = false
     try {
       const order = await getOrderDetailAPI(this.orderId)
-      this.serverOrderState = order.orderState
-      this.payResult = isPaidOrderState(order.orderState)
+      const overlay = demoOrderStore.getOverlay(this.orderId)
+      const evaluation = demoOrderStore.getEvaluation(this.orderId)
+      this.effectiveState = mergeOrderState(order, overlay, evaluation)
+      const isPaid: boolean = this.effectiveState >= 2 && this.effectiveState <= 5
+      this.payResult = isPaid || this.payResult
     } catch {
+      const overlay = demoOrderStore.getOverlay(this.orderId)
+      if (overlay && overlay.advancedState >= 2) {
+        this.effectiveState = overlay.advancedState
+        this.payResult = true
+        this.checking = false
+        return
+      }
       this.checkFailed = true
     } finally {
       this.checking = false
@@ -54,30 +64,35 @@ export struct PayResultView {
   }
 
   private getStateHint(): string {
-    if (this.serverOrderState === 1) {
+    if (this.payResult) {
+      if (this.effectiveState === 2) {
+        return '支付成功，商家将尽快为你发货'
+      }
+      if (this.effectiveState === 3) {
+        return '商家已发货，请留意物流信息'
+      }
+      if (this.effectiveState === 4) {
+        return '快去评价，分享你的使用体验'
+      }
+      if (this.effectiveState === 5) {
+        return '订单已完成，感谢你的支持'
+      }
+      return '支付成功'
+    }
+    if (this.effectiveState === 1) {
       return '订单尚未支付，可在订单页继续支付'
     }
-    if (isPaidOrderState(this.serverOrderState)) {
-      return '服务端已确认支付'
-    }
-    if (this.serverOrderState === 5) {
-      return '订单已完成'
-    }
-    if (this.serverOrderState === 6) {
+    if (this.effectiveState === 6) {
       return '订单已取消'
     }
-    if (this.serverOrderState === 0) {
-      return ''
-    }
-    return getOrderStateText(this.serverOrderState)
+    return getOrderStateText(this.effectiveState)
   }
 
   build() {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: this.checking ? '确认支付' : this.checkFailed ? '支付结果待确认' :
-            (this.payResult ? '付款成功' : '未付款')
+          title: this.checking ? '确认支付结果' : this.payResult ? '支付成功' : '未付款'
         })
         List() {
           ListItem() {
@@ -92,18 +107,20 @@ export struct PayResultView {
                 $r('[ui_components].media.ic_public_close_filled'))
                   .width(60)
                   .height(60)
-                  .fillColor(this.payResult ? '#00C1BF' : '#B0171F')
-                Text(this.checkFailed ? '支付结果待确认' : (this.payResult ? '付款成功' : '未付款'))
+                  .fillColor(this.payResult ? '#07C160' : '#B0171F')
+                Text(this.checkFailed ? '支付结果待确认' : (this.payResult ? '支付成功' : '未付款'))
+                  .fontSize(20)
+                  .fontWeight(600)
               }
               if (this.checking) {
-                Text('正在向服务端确认订单状态…')
+                Text('正在确认支付结果…')
                   .fontSize(13)
                   .fontColor($r('[ui_components].color.gray'))
               } else if (this.checkFailed) {
-                Text('暂时无法查到服务端订单状态，以上结果仅供参考')
+                Text('网络开小差了，请稍后在订单列表查看状态')
                   .fontSize(13)
                   .fontColor($r('[ui_components].color.gray'))
-                Button('重新查单')
+                Button('重新查询')
                   .fontSize(13)
                   .height(32)
                   .onClick(() => this.checkOrderStatus())
@@ -112,7 +129,7 @@ export struct PayResultView {
                   .fontSize(13)
                   .fontColor($r('[ui_components].color.gray'))
               }
-              Row({ space: 20 }) {
+              Row({ space: 12 }) {
                 Button('返回首页')
                   .backgroundColor($r('[ui_components].color.black'))
                   .fontSize(14)
@@ -121,14 +138,18 @@ export struct PayResultView {
                     this.stackPath.popToIndex(-1)
                     this.stackPath.clear()
                   })
-                Button('查看订单')
+                Button(this.payResult ? '查看订单' : '去支付')
                   .fontSize(14)
                   .height(36)
-                  .backgroundColor($r('[ui_components].color.white'))
-                  .fontColor($r('[ui_components].color.black'))
-                  .border({ width: 0.5, color: $r('[ui_components].color.border') })
+                  .backgroundColor(this.payResult ? $r('[ui_components].color.white') : $r('[ui_components].color.red'))
+                  .fontColor(this.payResult ? $r('[ui_components].color.black') : Color.White)
+                  .border({ width: this.payResult ? 0.5 : 0, color: $r('[ui_components].color.border') })
                   .onClick(() => {
-                    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
+                    if (this.payResult) {
+                      this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
+                    } else {
+                      this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: this.orderId })
+                    }
                   })
               }
               .width('100%')

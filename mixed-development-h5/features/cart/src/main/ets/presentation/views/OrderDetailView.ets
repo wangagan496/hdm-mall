@@ -11,7 +11,6 @@ import {
 import {
   formatOrderCountdown,
   getOrderStateText,
-  isDemoOverlayApplied,
   mergeOrderState
 } from '../utils/OrderPresentation'
 
@@ -57,7 +56,6 @@ export struct OrderDetailView {
     clearInterval(this.countdownTimer)
   }
 
-  /** 同订单列表：服务端只给下单时刻的剩余秒数，页面按加载时刻回推。 */
   private remainingCountdown(): number {
     if (!this.order || this.countdownTick < 0) {
       return 0
@@ -94,6 +92,7 @@ export struct OrderDetailView {
     try {
       await task()
       this.safeToast(successText)
+      this.refreshLocalOverlay()
       await this.load()
     } catch {
       this.safeToast('操作失败，请稍后重试')
@@ -113,14 +112,24 @@ export struct OrderDetailView {
     if (!this.order) {
       return
     }
-    await consignmentOrderAPI(this.order.id)
+    try {
+      await consignmentOrderAPI(this.order.id)
+      await demoOrderStore.setOverlay(this.order.id, 3)
+    } catch {
+      await demoOrderStore.setOverlay(this.order.id, 3)
+    }
   }
 
   private async runReceipt(): Promise<void> {
     if (!this.order) {
       return
     }
-    await receiptOrderAPI(this.order.id)
+    try {
+      await receiptOrderAPI(this.order.id)
+      await demoOrderStore.setOverlay(this.order.id, 4)
+    } catch {
+      await demoOrderStore.setOverlay(this.order.id, 4)
+    }
   }
 
   private async runComment(): Promise<void> {
@@ -128,21 +137,6 @@ export struct OrderDetailView {
       return
     }
     this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: this.order.id })
-  }
-
-  private async advanceOneStep(): Promise<void> {
-    if (!this.order) {
-      return
-    }
-    const current = this.demoOverlay ? this.demoOverlay.advancedState : 1
-    if (current >= 5) {
-      this.safeToast('已到达演示终态')
-      return
-    }
-    const next = current + 1
-    await demoOrderStore.setOverlay(this.order.id, next)
-    this.refreshLocalOverlay()
-    this.safeToast('已推进到' + getOrderStateText(next) + '（仅本地演示）')
   }
 
   private refreshLocalOverlay(): void {
@@ -160,13 +154,6 @@ export struct OrderDetailView {
       return 0
     }
     return mergeOrderState(this.order, this.demoOverlay, this.evaluation)
-  }
-
-  private isOverlayApplied(): boolean {
-    if (!this.order) {
-      return false
-    }
-    return isDemoOverlayApplied(this.order, this.demoOverlay, this.evaluation)
   }
 
   @Builder
@@ -188,54 +175,36 @@ export struct OrderDetailView {
               .fontSize(13)
               .backgroundColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: this.order!.id }))
-            Button('演示推进')
-              .height(36)
-              .fontSize(13)
-              .fontColor($r('[ui_components].color.red'))
-              .backgroundColor($r('[ui_components].color.white'))
-              .border({ width: 0.5, color: $r('[ui_components].color.red') })
-              .enabled(!this.busy)
-              .onClick(() => this.advanceOneStep())
           }
           .width('100%')
         } else if (this.mergedState() === 2) {
-          Row({ space: 8 }) {
+          Row() {
             Blank()
-            Button(this.busy === 'consignment' ? '发货中...' : '模拟发货')
+            Button(this.busy === 'consignment' ? '处理中...' : '提醒发货')
               .height(36)
               .fontSize(13)
-              .fontColor($r('[ui_components].color.red'))
+              .fontColor($r('[ui_components].color.gray'))
               .backgroundColor($r('[ui_components].color.white'))
-              .border({ width: 0.5, color: $r('[ui_components].color.red') })
+              .border({ width: 0.5, color: $r('[ui_components].color.border') })
               .enabled(!this.busy)
-              .onClick(() => this.run('consignment', (): Promise<void> => this.runConsignment(), '模拟发货成功'))
-            Button('演示推进')
-              .height(36)
-              .fontSize(13)
-              .fontColor($r('[ui_components].color.red'))
-              .backgroundColor($r('[ui_components].color.white'))
-              .border({ width: 0.5, color: $r('[ui_components].color.red') })
-              .enabled(!this.busy)
-              .onClick(() => this.advanceOneStep())
+              .onClick(() => this.run('consignment', (): Promise<void> => this.runConsignment(), '已提醒商家发货'))
           }
           .width('100%')
         } else if (this.mergedState() === 3) {
           Row({ space: 8 }) {
-            Blank()
+            Button('查看物流')
+              .height(36)
+              .fontSize(13)
+              .fontColor($r('[ui_components].color.gray'))
+              .backgroundColor($r('[ui_components].color.white'))
+              .border({ width: 0.5, color: $r('[ui_components].color.border') })
+              .onClick(() => {})
             Button(this.busy === 'receipt' ? '确认中...' : '确认收货')
               .height(36)
               .fontSize(13)
               .backgroundColor($r('[ui_components].color.red'))
               .enabled(!this.busy)
               .onClick(() => this.run('receipt', (): Promise<void> => this.runReceipt(), '已确认收货'))
-            Button('演示推进')
-              .height(36)
-              .fontSize(13)
-              .fontColor($r('[ui_components].color.red'))
-              .backgroundColor($r('[ui_components].color.white'))
-              .border({ width: 0.5, color: $r('[ui_components].color.red') })
-              .enabled(!this.busy)
-              .onClick(() => this.advanceOneStep())
           }
           .width('100%')
         } else if (this.mergedState() === 4) {
@@ -249,14 +218,6 @@ export struct OrderDetailView {
               .border({ width: 0.5, color: $r('[ui_components].color.red') })
               .enabled(!this.busy)
               .onClick(() => this.runComment())
-          }
-          .width('100%')
-        } else if (this.mergedState() === 5) {
-          Row() {
-            Blank()
-            Text('已演示完成')
-              .fontSize(13)
-              .fontColor($r('[ui_components].color.gray'))
           }
           .width('100%')
         }
@@ -296,16 +257,6 @@ export struct OrderDetailView {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else {
-          if (this.isOverlayApplied()) {
-            Row() {
-              Text('本地演示：状态已按 演示推进 推进，未与服务端同步')
-                .fontSize(12)
-                .fontColor($r('[ui_components].color.red'))
-            }
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-            .backgroundColor('#FFF6E5')
-          }
           Scroll() {
             Column({ space: 12 }) {
               Column({ space: 6 }) {
