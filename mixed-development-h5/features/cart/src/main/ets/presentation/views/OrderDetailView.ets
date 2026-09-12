@@ -387,26 +387,13 @@ export struct OrderDetailView {
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)
-            .padding({ left: 12, right: 12, top: 12, bottom: 16 })
+            .padding({ left: 12, right: 12, top: 12, bottom: 16 + this.bottomHeight })
           }
           .width('100%')
           .layoutWeight(1)
           .align(Alignment.TopStart)
           .scrollBar(BarState.Off)
 
-          Column() {
-            Button('查看全部订单')
-              .width('100%')
-              .height(44)
-              .fontSize(14)
-              .backgroundColor($r('[ui_components].color.white'))
-              .fontColor($r('[ui_components].color.black'))
-              .border({ width: 0.5, color: $r('[ui_components].color.border') })
-              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 }))
-          }
-          .width('100%')
-          .padding({ left: 12, right: 12, top: 8, bottom: 8 + this.bottomHeight })
-          .backgroundColor($r('[ui_components].color.white'))
         }
       }
       .width('100%')
