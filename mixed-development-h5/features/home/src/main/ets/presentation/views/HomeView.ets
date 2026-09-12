@@ -32,9 +32,13 @@ import { HomeGoodsDeduplication, HomeGoodsResult } from '../utils/HomeGoodsDedup
 import { LaunchPerf } from 'utils'
 import { HomePrefetch, HomeCoreRequests } from '../../data/api/homePrefetch'
 
+/** 头部区块（banner、分类、促销、新品）作为瀑布流的第一个分组，只有 1 个 FlowItem、独占一行 */
+const HEADER_SECTION: SectionOptions = { itemsCount: 1, crossCount: 1 }
+const RECOMMEND_SECTION_INDEX: number = 1
+
 @Component
 export struct HomeView {
-  @StorageProp(GlobalVariable.BREAK_POINT_KEY)
+  @StorageProp(GlobalVariable.BREAK_POINT_KEY) @Watch('onBreakPointChange')
   breakPoint: string = ""
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
@@ -46,12 +50,18 @@ export struct HomeView {
   @State newGoods: HDMGoodsItem[] = []
 
   recommendDataSource: ListDataSource<HDMGoodsItem> = new ListDataSource<HDMGoodsItem>()
+  /**
+   * 首页只有一个滚动容器：头部区块和推荐流都是同一个 WaterFlow 的子节点，靠 sections 混排
+   * （官方布局指南：相比 Scroll 嵌套 WaterFlow，sections 方案不需要处理嵌套滚动的事件传递）。
+   * 约束：所有分组 itemsCount 之和必须等于实际子节点数，且要避免 itemsCount 为 0 的分组，
+   * 所以推荐分组只在拿到第一批数据后才 push，之后每次追加数据都同步 update。
+   */
+  @State sections: WaterFlowSections = new WaterFlowSections()
   @State searchOpacity: number = 0
-  @State yOffset: number = 0
   @State loading: boolean = false
-  @State isReachLoad: boolean = false
   @State isFinished: boolean = false
   @State isRefreshing: boolean = false
+  @State refreshActive: boolean = false
   @State homeLoadFailed: boolean = false
   page: number = 1
   private homeRequestId: number = 0
@@ -71,8 +81,41 @@ export struct HomeView {
     this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, routeParam)
   }
 
+  private recommendColumns(): number {
+    return new BreakPointType({ sm: 2, md: 4, lg: 6 }).getValue(this.breakPoint)
+  }
+
+  private buildRecommendSection(): SectionOptions {
+    return {
+      itemsCount: this.recommendDataSource.totalCount(),
+      crossCount: this.recommendColumns(),
+      columnsGap: 10,
+      rowsGap: 10,
+      margin: { left: 16, right: 16, top: 10, bottom: 10 }
+    }
+  }
+
+  /** 数据源变化后调用：按官方要求先改数据源、再同步分组的 itemsCount。 */
+  private syncRecommendSection(): void {
+    if (this.recommendDataSource.totalCount() === 0) {
+      return
+    }
+    const section: SectionOptions = this.buildRecommendSection()
+    if (this.sections.length() <= RECOMMEND_SECTION_INDEX) {
+      this.sections.push(section)
+    } else {
+      this.sections.update(RECOMMEND_SECTION_INDEX, section)
+    }
+  }
+
+  onBreakPointChange(): void {
+    // sections 模式下 columnsTemplate 不生效，列数变化要更新分组的 crossCount
+    this.syncRecommendSection()
+  }
+
   aboutToAppear() {
     LaunchPerf.mark('homeAboutToAppear')
+    this.sections.splice(0, 0, [HEADER_SECTION])
     // 消费 onCreate 阶段预加载的在途请求；未预加载时回退为现场发请求。
     const preloadedRequests: HomeCoreRequests | null = HomePrefetch.take()
     const recommendRequest: Promise<HDMGoodsItem[]> =
@@ -199,16 +242,23 @@ export struct HomeView {
 
     this.saleGoods = normalizedPromotions[0]
     if (this.saleGoods.length > 0) {
-      this.pushImageToCard(this.saleGoods)
+      void this.pushImageToCard(this.saleGoods).catch(() => {
+        // 服务卡片推送失败不影响首页展示
+      })
     }
     this.hotGoods = normalizedPromotions[1]
     this.oneGoods = normalizedPromotions[2]
   }
 
-  async pushImageToCard(list: HDMGoodsItem[]) {
+  async pushImageToCard(list: HDMGoodsItem[]): Promise<void> {
+    const formIdList: string[] = storeManager.getFormId()
+    if (formIdList.length === 0) {
+      // 没有添加过服务卡片时不必下载图片
+      return
+    }
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     const fileList = await downLoadManager.downLoadImages(context, list.map(item => item.picture as string))
-    pushCardManager.pushImageToCard(fileList, storeManager.getFormId())
+    await pushCardManager.pushImageToCard(fileList, formIdList)
   }
 
   async getRecommend(preloadedRequest?: Promise<HDMGoodsItem[]>) {
@@ -237,6 +287,7 @@ export struct HomeView {
           } else {
             this.recommendDataSource.addArr(normalizedItems)
           }
+          this.syncRecommendSection()
         }
         if (rawList.length < limit) {
           this.isFinished = true
@@ -254,10 +305,63 @@ export struct HomeView {
   @Builder
   getRefreshBuilder() {
     Row() {
-      HDMProgressLoading({ loadingWidth: 30 })
+      // 只在下拉/刷新期间创建 loading 环：静止时 Refresh 把 builder 收在内容上方，但环的下沿仍会露出约 25px，
+      // 而且 HDMProgressLoading 内部的 100ms 定时器和无限旋转动画会一直跑。
+      if (this.refreshActive) {
+        HDMProgressLoading({ loadingWidth: 30 })
+      }
     }
     .justifyContent(FlexAlign.Center)
     .width("100%")
+    .height(40)
+  }
+
+  @Builder
+  HomeHeader() {
+    Column() {
+      Stack({ alignContent: Alignment.Top }) {
+        HomeBannerSection({
+          banners: this.banners,
+          onBannerClick: (banner: Banner): void => this.openBannerGoods(banner)
+        })
+        Row() {
+          Row({ space: 4 }) {
+            Image($r('[ui_components].media.ic_public_search'))
+              .width(16).height(16).fillColor($r('[ui_components].color.white'))
+            Text('搜索...')
+              .fontSize(14).fontColor($r('[ui_components].color.white'))
+          }
+          .backgroundColor('#33191919')
+          .width('100%').height(40).borderRadius(20).padding({ left: 12 })
+          .focusable(true)
+          .accessibilityText('搜索商品')
+          .onClick(() => this.openSearch())
+        }
+        .padding({ left: 16, right: 16, top: this.topHeight })
+      }
+      .width('100%')
+
+      Column({ space: 10 }) {
+        HomeCategorySection({ categories: this.categories })
+        HomeSaleGoodsSection({ saleGoods: this.saleGoods })
+        Row({ space: 10 }) {
+          HomeDiscountSection({
+            params: {
+              title: '爆款推荐', subTitle: '最受欢迎', bg: '#EDF1FB', list: this.hotGoods
+            } as DiscountSectionParams
+          })
+          HomeDiscountSection({
+            params: {
+              title: '一站买全', subTitle: '精心优选', bg: '#FCF6EA', list: this.oneGoods
+            } as DiscountSectionParams
+          })
+        }
+        HomeNewGoodsSection({ newGoods: this.newGoods })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 10 })
+    }
+    .width('100%')
   }
 
   build() {
@@ -266,99 +370,49 @@ export struct HomeView {
         HDMLoadingText({ title: '惠多美商城' })
       } else {
         Refresh({ refreshing: $$this.isRefreshing, builder: this.getRefreshBuilder() }) {
-          Scroll(this.scroller) {
-            Column() {
-              Stack({ alignContent: Alignment.Top }) {
-                HomeBannerSection({
-                  banners: this.banners,
-                  onBannerClick: (banner: Banner): void => this.openBannerGoods(banner)
-                })
-                Row() {
-                  Row({ space: 4 }) {
-                    Image($r('[ui_components].media.ic_public_search'))
-                      .width(16).height(16).fillColor($r('[ui_components].color.white'))
-                    Text('搜索...')
-                      .fontSize(14).fontColor($r('[ui_components].color.white'))
-                  }
-                  .backgroundColor('#33191919')
-                  .width('100%').height(40).borderRadius(20).padding({ left: 12 })
-                  .focusable(true)
-                  .accessibilityText('搜索商品')
-                  .onClick(() => this.openSearch())
-                }
-                .padding({ left: 16, right: 16, top: this.topHeight })
-              }
-              .width('100%')
-
-              Column({ space: 10 }) {
-                HomeCategorySection({ categories: this.categories })
-                HomeSaleGoodsSection({ saleGoods: this.saleGoods })
-                Row({ space: 10 }) {
-                  HomeDiscountSection({
-                    params: {
-                      title: '爆款推荐', subTitle: '最受欢迎', bg: '#EDF1FB', list: this.hotGoods
-                    } as DiscountSectionParams
-                  })
-                  HomeDiscountSection({
-                    params: {
-                      title: '一站买全', subTitle: '精心优选', bg: '#FCF6EA', list: this.oneGoods
-                    } as DiscountSectionParams
-                  })
-                }
-                HomeNewGoodsSection({ newGoods: this.newGoods })
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 10 })
-
-              Column() {
-                WaterFlow() {
-                  LazyForEach(this.recommendDataSource, (item: HDMGoodsItem) => {
-                    FlowItem() {
-                      HDMGoods({ goods: item })
-                    }
-                    .onClick(() => {
-                      this.stackPath.pushPath({
-                        name: PAGE_PATH.GOODS_PAGE,
-                        param: item
-                      })
-                    })
-                  }, (item: HDMGoodsItem) => item.id)
-                }
-                .columnsTemplate(new BreakPointType({
-                  sm: '1fr 1fr',
-                  md: '1fr 1fr 1fr 1fr',
-                  lg: '1fr 1fr 1fr 1fr 1fr 1fr'
-                }).getValue(this.breakPoint))
-                .columnsGap(10)
-                .rowsGap(10)
-                .cachedCount(4)
-                .padding({ left: 16, right: 16 })
-              }
-              .width('100%')
-              .padding({ top: 10, bottom: 10 })
+          // 单一滚动容器：第 0 组是头部（1 个 FlowItem 独占一行），第 1 组是推荐流（按断点 2/4/6 列）。
+          // 头部和推荐商品都是这个 WaterFlow 的子节点，推荐商品由 LazyForEach 按可视区按需创建。
+          WaterFlow({ scroller: this.scroller, sections: this.sections }) {
+            FlowItem() {
+              this.HomeHeader()
             }
             .width('100%')
+
+            LazyForEach(this.recommendDataSource, (item: HDMGoodsItem) => {
+              // sections 模式下 FlowItem 必须显式给宽度，否则子组件的百分比宽度会以整个 WaterFlow 为基准而溢出列宽
+              FlowItem() {
+                HDMGoods({ goods: item })
+              }
+              .width('100%')
+            }, (item: HDMGoodsItem) => item.id)
           }
           .width('100%')
           .height('100%')
-          .align(Alignment.TopStart)
+          .cachedCount(4)
           .scrollBar(BarState.Off)
-          .onReachEnd(async () => {
-            if (this.isReachLoad || this.isFinished) {
-              return
+          .onReachEnd(() => {
+            if (!this.isFinished) {
+              void this.getRecommend()
             }
-            this.isReachLoad = true
-            await this.getRecommend()
-            this.isReachLoad = false
           })
           .onDidScroll(() => {
-            this.yOffset = this.scroller.currentOffset().yOffset
-            this.searchOpacity = this.yOffset > 80 ? 1 : this.yOffset / 80
+            // 只在透明度真正变化时写状态，避免滚动的每一帧都触发整页重绘
+            const yOffset: number = this.scroller.currentOffset().yOffset
+            const nextOpacity: number = yOffset > 80 ? 1 : yOffset / 80
+            if (nextOpacity !== this.searchOpacity) {
+              this.searchOpacity = nextOpacity
+            }
           })
         }
         .width('100%')
         .height('100%')
         .backgroundColor($r('[ui_components].color.under'))
+        .onStateChange((state: RefreshStatus) => {
+          // Done 表示"刷新结束、已回到初始位置"，之后不一定再回调 Inactive，只把下拉中/刷新中视为活跃
+          this.refreshActive = state === RefreshStatus.Drag
+            || state === RefreshStatus.OverDrag
+            || state === RefreshStatus.Refresh
+        })
         .onRefreshing(async () => {
           await this.getHomeData(true)
           this.isRefreshing = false

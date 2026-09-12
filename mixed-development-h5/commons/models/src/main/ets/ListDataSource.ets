@@ -31,10 +31,17 @@ export class ListDataSource<T> implements IDataSource {
   }
 
   addArr(data: T[]) {
-    let index = this.totalCount()
+    if (data.length === 0) {
+      return
+    }
+    const startIndex: number = this.totalCount()
     this.originArr.push(...data)
-    this.listeners.forEach(listener => {
-      listener.onDataAdd(index)
+    // 一次追加 N 条要把 N 个新位置逐个告知 LazyForEach，只通知首个 index 会让 WaterFlow/Grid 漏掉后面的行。
+    // 注：在模拟器上实测 WaterFlow 对 onDatasetChange(ADD, count>1) 只扩大了总数却不创建子节点，这里用逐条 onDataAdd。
+    this.listeners.forEach((listener: DataChangeListener) => {
+      for (let offset = 0; offset < data.length; offset++) {
+        listener.onDataAdd(startIndex + offset)
+      }
     })
   }
 
