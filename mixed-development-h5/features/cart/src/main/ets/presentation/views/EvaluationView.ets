@@ -5,6 +5,7 @@ import { OrderItem, OrderSku } from 'models'
 import { DemoOrderStore, demoOrderStore } from 'storage'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
 import { EvaluationSubmitActions, submitEvaluationFlow } from '../utils/EvaluationSubmitFlow'
+import { EvaluationNavigationActions, returnEvaluationToOrders } from '../utils/EvaluationNavigation'
 import {
   EVALUATION_CONTENT_MAX_LENGTH,
   getEvaluationQuickTags,
@@ -93,7 +94,7 @@ export struct EvaluationView {
       }
       this.order = order
       if (demoOrderStore.getEvaluation(this.orderId)) {
-        this.leaveToPrevious('该订单已评价')
+        this.leaveToOrderList('该订单已评价')
         return
       }
     } catch {
@@ -113,6 +114,23 @@ export struct EvaluationView {
     }
     this.score = value
     this.errorText = ''
+  }
+
+  private leaveToOrderList(message: string): void {
+    if (this.leaving) {
+      return
+    }
+    this.leaving = true
+    this.safeToast(message)
+    const actions: EvaluationNavigationActions = {
+      pathNames: this.stackPath.getAllPathName(),
+      popToIndex: (index: number): void => this.stackPath.popToIndex(index),
+      removeByIndexes: (indexes: number[]): void => { this.stackPath.removeByIndexes(indexes) },
+      replaceWithOrderList: (): void => {
+        this.stackPath.replacePath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
+      }
+    }
+    returnEvaluationToOrders(actions)
   }
 
   private toggleTag(tag: string): void {
@@ -141,7 +159,7 @@ export struct EvaluationView {
         submitRemote: async (): Promise<void> => { await commentOrderAPI(orderId) },
         saveLocal: async (): Promise<void> => { await demoOrderStore.saveEvaluation(orderId, score, content) },
         isActive: (): boolean => !this.leaving,
-        returnToPrevious: (): void => this.leaveToPrevious('评价成功')
+        returnToOrderList: (): void => this.leaveToOrderList('评价成功')
       }
       await submitEvaluationFlow(GlobalVariable.DEMO_ORDER_FLOW, actions)
     } catch (error) {

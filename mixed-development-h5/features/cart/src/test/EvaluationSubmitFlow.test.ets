@@ -25,7 +25,7 @@ class TestEvaluationActions implements EvaluationSubmitActions {
     return this.active
   }
 
-  returnToPrevious(): void {
+  returnToOrderList(): void {
     this.events.push('back')
     this.active = false
   }
