@@ -22,6 +22,8 @@ function OrderDetailViewBuilder() {
 export struct OrderDetailView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM)
+  bottomHeight: number = 0
   @State order: OrderItem | null = null
   @State demoOverlay: DemoOrderOverlay | null = null
   @State evaluation: LocalEvaluationItem | null = null
@@ -278,6 +280,7 @@ export struct OrderDetailView {
               .padding(12)
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(8)
+              .alignItems(HorizontalAlign.Start)
 
               Column() {
                 ForEach(this.order.skus, (sku: OrderSku) => {
@@ -289,6 +292,7 @@ export struct OrderDetailView {
                       .backgroundColor($r('[ui_components].color.under'))
                     Column({ space: 4 }) {
                       Text(sku.name)
+                        .width('100%')
                         .fontSize(13)
                         .maxLines(2)
                         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -300,6 +304,7 @@ export struct OrderDetailView {
                         .fontColor($r('[ui_components].color.black'))
                     }
                     .layoutWeight(1)
+                    .alignItems(HorizontalAlign.Start)
                   }
                   .width('100%')
                   .padding({ top: 8, bottom: 8 })
@@ -379,24 +384,34 @@ export struct OrderDetailView {
               .padding(12)
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(8)
-
-              Button('查看全部订单')
-                .width('100%')
-                .height(36)
-                .fontSize(13)
-                .backgroundColor($r('[ui_components].color.white'))
-                .fontColor($r('[ui_components].color.black'))
-                .border({ width: 0.5, color: $r('[ui_components].color.border') })
-                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 }))
             }
-            .padding(8)
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .padding({ left: 12, right: 12, top: 12, bottom: 16 })
           }
+          .width('100%')
           .layoutWeight(1)
+          .align(Alignment.TopStart)
           .scrollBar(BarState.Off)
+
+          Column() {
+            Button('查看全部订单')
+              .width('100%')
+              .height(44)
+              .fontSize(14)
+              .backgroundColor($r('[ui_components].color.white'))
+              .fontColor($r('[ui_components].color.black'))
+              .border({ width: 0.5, color: $r('[ui_components].color.border') })
+              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 }))
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 + this.bottomHeight })
+          .backgroundColor($r('[ui_components].color.white'))
         }
       }
       .width('100%')
       .height('100%')
+      .justifyContent(FlexAlign.Start)
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
