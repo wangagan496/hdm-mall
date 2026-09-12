@@ -48,7 +48,8 @@ export async function loadOrderTabPage(request: OrderTabRequest, api: OrderTabAP
   // 服务端筛选看不到本地推进的订单。首屏补查候选详情，仍让服务端取消等状态优先。
   if (page === 1 && request.state >= 2 && request.state <= 4) {
     const ids: string[] = Object.keys(request.overlays).filter((id: string) => {
-      return request.overlays[id].advancedState === request.state
+      return request.overlays[id].advancedState === request.state &&
+        (request.state !== 4 || !request.evaluations[id])
     })
     for (let index: number = 0; index < ids.length; index += 4) {
       if (!api.isCurrent()) {

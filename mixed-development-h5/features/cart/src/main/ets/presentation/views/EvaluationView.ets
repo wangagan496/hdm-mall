@@ -4,7 +4,7 @@ import { HDMNavBar } from 'ui_components'
 import { OrderItem, OrderSku } from 'models'
 import { DemoOrderStore, demoOrderStore } from 'storage'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
-import { advanceOrderState } from '../utils/DemoOrderFlow'
+import { EvaluationSubmitActions, submitEvaluationFlow } from '../utils/EvaluationSubmitFlow'
 import {
   EVALUATION_CONTENT_MAX_LENGTH,
   getEvaluationQuickTags,
@@ -135,13 +135,19 @@ export struct EvaluationView {
     this.submitting = true
     try {
       const orderId: string = this.order.id
-      await demoOrderStore.saveEvaluation(orderId, this.score, this.content)
-      await advanceOrderState(orderId, 5, async (): Promise<void> => {
-        await commentOrderAPI(orderId)
-      })
-      this.leaveToPrevious('评价成功')
+      const score: number = this.score
+      const content: string = this.content
+      const actions: EvaluationSubmitActions = {
+        submitRemote: async (): Promise<void> => { await commentOrderAPI(orderId) },
+        saveLocal: async (): Promise<void> => { await demoOrderStore.saveEvaluation(orderId, score, content) },
+        isActive: (): boolean => !this.leaving,
+        returnToPrevious: (): void => this.leaveToPrevious('评价成功')
+      }
+      await submitEvaluationFlow(GlobalVariable.DEMO_ORDER_FLOW, actions)
     } catch (error) {
-      this.errorText = (error as Error).message || '提交失败，请重试'
+      if (!this.leaving) {
+        this.errorText = (error as Error).message || '提交失败，请重试'
+      }
     } finally {
       this.submitting = false
     }

@@ -124,6 +124,7 @@ export default function orderTabLoaderTest(): void {
       api.details['reviewed'] = order('reviewed', 1)
       api.pages = [page([order('reviewed', 4), order('pending', 4)])]
       const result = await loadOrderTabPage(query, api)
+      expect(api.requestedDetails.length).assertEqual(0)
       expect(result?.items.length).assertEqual(1)
       expect(result?.items[0].id).assertEqual('pending')
       done()
