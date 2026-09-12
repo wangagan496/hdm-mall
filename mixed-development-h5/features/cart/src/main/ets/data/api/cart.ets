@@ -4,6 +4,7 @@ import {
   CreateOrderParams,
   CreateOrderResult,
   DeleteCartParams,
+  GoodsItems,
   OrderItem,
   OrderListParams,
   OrderPage,
@@ -14,6 +15,15 @@ import {
 // 获取购物车列表
 export const getCartListAPI = () => {
   return RequestAxios.get<CartGoodsModel[]>('/member/cart')
+}
+
+interface GuessLikeParams {
+  page: number
+}
+
+// 猜你喜欢分页数据，供购物袋/支付结果页的 HDMGuess 组件通过 loader 注入使用
+export const getGuessLikeAPI = (page: number) => {
+  return RequestAxios.get<GoodsItems>('/home/goods/guessLike', { page } as GuessLikeParams)
 }
 
 // 修改购物车单项（数量/选中状态）

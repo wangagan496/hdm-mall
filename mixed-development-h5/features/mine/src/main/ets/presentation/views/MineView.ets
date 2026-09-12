@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser } from 'models'
 import { HDMGuess, HDMNavCol } from 'ui_components'
-
+import { getGuessLikeAPI } from '../../data/api'
 
 @Component
 export struct MineView {
@@ -224,7 +224,7 @@ export struct MineView {
           }
           .padding({ left: 8, right: 8 })
 
-          HDMGuess()
+          HDMGuess({ loader: getGuessLikeAPI })
             .margin({
               top: 10,
               bottom: 10

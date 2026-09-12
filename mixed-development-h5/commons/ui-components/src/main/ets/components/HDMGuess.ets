@@ -1,31 +1,61 @@
 import { HDMGoodsItem, GoodsItems, ListDataSource, BreakPointType } from 'models'
 import { HDMGoods } from './HDMGoods'
 import { GlobalVariable } from 'constants'
-import { RequestAxios } from 'network'
 
-const getGuessData = (params: object) => RequestAxios.get<GoodsItems>("/home/goods/guessLike", params)
+/** 分页拉取"猜你喜欢"数据，由业务模块提供实现。 */
+export type GuessLoader = (page: number) => Promise<GoodsItems>
+
+const EMPTY_GUESS_PAGE: GoodsItems = {
+  counts: 0,
+  items: [],
+  page: 1,
+  pages: 0,
+  pageSize: 0
+}
 
 @Component
 export struct HDMGuess {
   @StorageProp(GlobalVariable.BREAK_POINT_KEY)
   breakPoint: string = ""
-  lazyDataSource: ListDataSource<HDMGoodsItem> = new ListDataSource()
-  loading: boolean = false
-  @State
-  page: number = 1
-  @State
-  allPage: number = 1
+  /**
+   * 数据源由调用方注入：公共 UI 组件只负责展示与分页节奏，不直接依赖网络层和具体接口路径，
+   * 这样 ui-components 不需要反向依赖 network，也便于在测试里替换数据。
+   */
+  loader: GuessLoader = (): Promise<GoodsItems> => Promise.resolve(EMPTY_GUESS_PAGE)
   inset: boolean = false
+  @State loadFailed: boolean = false
+  lazyDataSource: ListDataSource<HDMGoodsItem> = new ListDataSource()
+  private loading: boolean = false
+  private page: number = 1
+  private allPage: number = 1
 
   aboutToAppear(): void {
-    this.getGuess()
+    void this.getGuess()
   }
 
-  async getGuess() {
-    const result = await getGuessData({ page: this.page } as PageParams)
-    this.lazyDataSource.addArr(result.items)
-    this.allPage = result.pages
-    this.page++
+  private hasMore(): boolean {
+    return this.page <= this.allPage
+  }
+
+  async getGuess(): Promise<void> {
+    if (this.loading || !this.hasMore()) {
+      return
+    }
+    this.loading = true
+    try {
+      const result: GoodsItems = await this.loader(this.page)
+      this.lazyDataSource.addArr(result.items)
+      this.allPage = result.pages
+      // 只有成功后才推进页码，失败时下一次触底重新拉同一页
+      this.page++
+      if (this.loadFailed) {
+        this.loadFailed = false
+      }
+    } catch {
+      this.loadFailed = true
+    } finally {
+      this.loading = false
+    }
   }
 
   build() {
@@ -46,8 +76,10 @@ export struct HDMGuess {
           FlowItem() {
             HDMGoods({ goods: item })
           }
-        })
+        }, (item: HDMGoodsItem) => item.id)
       }
+      .cachedCount(4)
+      .layoutWeight(1)
       .nestedScroll({
         scrollForward: NestedScrollMode.PARENT_FIRST,
         scrollBackward: NestedScrollMode.SELF_FIRST
@@ -62,18 +94,20 @@ export struct HDMGuess {
       .columnsGap(10)
       .rowsGap(10)
       .padding({ left: this.inset ? 12 : 0, right: this.inset ? 12 : 0 })
-      .onReachEnd(async () => {
-        if (!this.loading && this.page <= this.allPage) {
-          this.loading = true
-          await this.getGuess()
-          this.loading = false
-        }
+      .onReachEnd(() => {
+        void this.getGuess()
       })
+
+      if (this.loadFailed) {
+        Text('加载失败，点击重试')
+          .fontSize(12)
+          .fontColor($r("app.color.gray"))
+          .padding(12)
+          .onClick(() => {
+            void this.getGuess()
+          })
+      }
     }
     .height("100%")
   }
-}
-
-interface PageParams {
-  page: number
 }

@@ -1,5 +1,6 @@
 export {
   getCartListAPI,
+  getGuessLikeAPI,
   updateCart,
   selectOrUnSelect,
   delCart,

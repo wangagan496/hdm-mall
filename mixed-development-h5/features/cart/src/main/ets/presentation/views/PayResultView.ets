@@ -2,7 +2,7 @@ import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMGuess, HDMNavBar } from 'ui_components'
 import { PayResultParams } from 'models'
 import { demoOrderStore } from 'storage'
-import { getOrderDetailAPI } from '../../data/api'
+import { getGuessLikeAPI, getOrderDetailAPI } from '../../data/api'
 import { getOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
 
 @Builder
@@ -160,7 +160,7 @@ export struct PayResultView {
           }
 
           ListItem() {
-            HDMGuess()
+            HDMGuess({ loader: getGuessLikeAPI })
               .height('100%')
           }
         }

@@ -9,8 +9,7 @@
   "dependencies": {
     "@ohmos/sku": "^1.0.1",
     "constants": "@module:constants",
-    "models": "@module:models",
-    "network": "@module:network"
+    "models": "@module:models"
   },
   "devDependencies": {}
 }

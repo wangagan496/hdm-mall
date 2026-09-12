@@ -1,5 +1,5 @@
 import { RequestAxios } from 'network'
-import { CategoryItem, HDMGoodsItem } from 'models'
+import { CategoryItem, GoodsItems, HDMGoodsItem } from 'models'
 import {
   Banner,
   Goods,
@@ -65,6 +65,15 @@ export const getHomeNewAPI = () => {
 
 export const getRecommendAPI = (params: RecommendParams) => {
   return RequestAxios.get<HDMGoodsItem[]>("/home/recommend", params)
+}
+
+interface GuessLikeParams {
+  page: number
+}
+
+// 猜你喜欢分页数据，供 HDMGuess 组件通过 loader 注入使用
+export const getGuessLikeAPI = (page: number) => {
+  return RequestAxios.get<GoodsItems>("/home/goods/guessLike", { page } as GuessLikeParams)
 }
 
 export function uniqueGoodsById(items: HDMGoodsItem[]): HDMGoodsItem[] {

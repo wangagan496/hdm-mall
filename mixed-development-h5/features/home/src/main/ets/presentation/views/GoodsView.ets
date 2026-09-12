@@ -6,7 +6,7 @@ import { authCart } from 'storage'
 import { Logger } from 'utils'
 import { Goods, GoodsEvaluation } from '../../domain/models'
 import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
-import { getDetailAPI, getGoodsEvaluationsAPI } from '../../data/api'
+import { getDetailAPI, getGoodsEvaluationsAPI, getGuessLikeAPI } from '../../data/api'
 import { isFallbackSkuId } from '../../data/api/mockData'
 import { normalizeSkuSelection } from '../../data/api/goodsPresentation'
 
@@ -389,7 +389,7 @@ export struct GoodsView {
 
             ListItem() {
               // 猜你喜欢
-              HDMGuess()
+              HDMGuess({ loader: getGuessLikeAPI })
             }
           }
           .onScrollIndex((index) => {
