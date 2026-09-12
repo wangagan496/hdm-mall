@@ -3,7 +3,8 @@ import { OrderItem, PayResultParams } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { demoOrderStore } from 'storage'
 import { getOrderDetailAPI } from '../../data/api'
-import { formatOrderCountdown, mergeOrderState } from '../utils/OrderPresentation'
+import { mergeOrderState } from '../utils/OrderPresentation'
+import { OrderCountdown } from '../components'
 
 @Component
 struct PayView {
@@ -14,23 +15,14 @@ struct PayView {
   @State loadFailed: boolean = false
   @State selectedChannel: number = 1
   @State paying: boolean = false
-  @State countdownTick: number = 0
   @Consume stackPath: NavPathStack
   private orderId: string = ''
-  private countdownTimer: number = -1
   private countdownBaseAt: number = 0
 
   aboutToAppear(): void {
     const params = this.stackPath.getParamByName(PAGE_PATH.PAY_PAGE) as string[]
     this.orderId = params && params.length ? params[params.length - 1] : ''
-    this.countdownTimer = setInterval(() => {
-      this.countdownTick++
-    }, 1000)
     this.load()
-  }
-
-  aboutToDisappear(): void {
-    clearInterval(this.countdownTimer)
   }
 
   private safeToast(message: string): void {
@@ -40,8 +32,9 @@ struct PayView {
     }
   }
 
+  /** 支付前校验用的即时剩余秒数；界面上的倒计时由 OrderCountdown 组件自己驱动。 */
   private remainingCountdown(): number {
-    if (!this.order || this.countdownTick < 0) {
+    if (!this.order) {
       return 0
     }
     const elapsed: number = Math.floor((Date.now() - this.countdownBaseAt) / 1000)
@@ -79,9 +72,13 @@ struct PayView {
     }
   }
 
-  // 演示支付：本地推进订单覆盖层，不产生真实扣款
+  // 演示支付：本地推进订单覆盖层，不产生真实扣款。开关与说明见 GlobalVariable.DEMO_ORDER_FLOW。
   private async handleMockPay(): Promise<void> {
     if (!this.order || this.paying) {
+      return
+    }
+    if (!GlobalVariable.DEMO_ORDER_FLOW) {
+      this.safeToast('当前环境未接入支付渠道')
       return
     }
     if (this.mergedState() !== 1) {
@@ -194,15 +191,12 @@ struct PayView {
                     .fontSize(13)
                     .fontColor($r('[ui_components].color.gray'))
                   Blank()
-                  if (this.remainingCountdown() > 0) {
-                    Text(formatOrderCountdown(this.remainingCountdown()))
-                      .fontSize(12)
-                      .fontColor($r('[ui_components].color.red'))
-                  } else if (this.order.countdown > 0) {
-                    Text('已超时')
-                      .fontSize(12)
-                      .fontColor($r('[ui_components].color.gray'))
-                  }
+                  OrderCountdown({
+                    countdown: this.order.countdown,
+                    baseAt: this.countdownBaseAt,
+                    fontSize: 12,
+                    expiredText: this.order.countdown > 0 ? '已超时' : ''
+                  })
                 }
                 .width('100%')
                 Text('¥' + this.order.payMoney.toFixed(2))

@@ -10,6 +10,14 @@ export class GlobalVariable {
   static readonly CARD_IMAGE_DATA: string = "card_image_data"
   // UIAbility context 的 AppStorage key，供 network 模块读取（避免循环依赖）
   static readonly ABILITY_CONTEXT_KEY: string = "ability_context"
+  /**
+   * 演示订单流程开关。
+   * 当前对接的是公开演示 API，没有真实的支付回调、发货与评价接口契约。
+   * 打开时：支付、提醒发货、确认收货、评价的状态推进由本地覆盖层完成（见 storage/DemoOrderStore），
+   * 服务端拒绝这些操作也按本地状态继续走通流程，这是有意的演示行为。
+   * 接入真实后端后置为 false，订单状态即完全以服务端为准。
+   */
+  static readonly DEMO_ORDER_FLOW: boolean = true
 }
 
 export class BusinessVariable {

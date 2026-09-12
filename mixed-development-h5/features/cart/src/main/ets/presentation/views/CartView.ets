@@ -1,7 +1,7 @@
 import { HDMConfirm, HDMEmpty, HDMGuess, HDMNavBar } from 'ui_components'
 import { CartGoods, CartGoodsModel, HDMUser } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { getCartListAPI } from '../../data/api'
+import { getCartListAPI, getGuessLikeAPI } from '../../data/api'
 import { CartItem } from '../components'
 import { common } from '@kit.AbilityKit'
 import { excludeCartItems } from '../utils/CartPresentation'
@@ -227,7 +227,9 @@ export struct CartView {
                 .swipeAction({
                   end: this.DeleteBuilder(cart.skuId)
                 })
-              }, (cart: CartGoods) => cart.skuId + "_" + cart.selected)
+                // key 只用 skuId：选中状态已经通过 @ObjectLink 驱动 CartItem 局部刷新，
+                // 把 selected 拼进 key 会让每次勾选都销毁重建整个 item（包括图片解码）。
+              }, (cart: CartGoodsModel) => cart.skuId)
             } else {
               ListItem() {
                 HDMEmpty({
@@ -254,7 +256,7 @@ export struct CartView {
             }
           }
           ListItem() {
-            HDMGuess({ inset: true })
+            HDMGuess({ inset: true, loader: getGuessLikeAPI })
               .margin({ top: 4, bottom: 8 })
           }
         }

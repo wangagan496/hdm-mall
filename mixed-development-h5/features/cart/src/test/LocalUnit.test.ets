@@ -145,11 +145,28 @@ export default function localUnitTest() {
         totalMoney: 10,
         totalNum: 1
       };
+      // ArkTS 不支持对象展开，这里显式复制字段来构造不同服务端状态的订单
+      const withOrderState = (source: OrderItem, orderState: 1 | 2 | 3 | 4 | 5 | 6): OrderItem => {
+        return {
+          countdown: source.countdown,
+          createTime: source.createTime,
+          id: source.id,
+          orderState: orderState,
+          payChannel: source.payChannel,
+          payLatestTime: source.payLatestTime,
+          payMoney: source.payMoney,
+          payType: source.payType,
+          postFee: source.postFee,
+          skus: source.skus,
+          totalMoney: source.totalMoney,
+          totalNum: source.totalNum
+        };
+      };
       expect(mergeOrderState(order, null, null)).assertEqual(1);
       expect(mergeOrderState(order, { orderId: 'order-1', advancedState: 2, updatedAt: 0 }, null)).assertEqual(2);
-      const cancelled: OrderItem = { ...order, orderState: 6 };
+      const cancelled: OrderItem = withOrderState(order, 6);
       expect(mergeOrderState(cancelled, { orderId: 'order-1', advancedState: 4, updatedAt: 0 }, null)).assertEqual(6);
-      expect(mergeOrderState({ ...order, orderState: 3 }, { orderId: 'order-1', advancedState: 2, updatedAt: 0 }, null))
+      expect(mergeOrderState(withOrderState(order, 3), { orderId: 'order-1', advancedState: 2, updatedAt: 0 }, null))
         .assertEqual(3);
       expect(mergeOrderState(order,
         { orderId: 'order-1', advancedState: 4, updatedAt: 0 },

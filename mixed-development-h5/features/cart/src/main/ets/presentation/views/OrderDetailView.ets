@@ -8,11 +8,9 @@ import {
   getOrderDetailAPI,
   receiptOrderAPI
 } from '../../data/api'
-import {
-  formatOrderCountdown,
-  getOrderStateText,
-  mergeOrderState
-} from '../utils/OrderPresentation'
+import { getOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
+import { advanceOrderState } from '../utils/DemoOrderFlow'
+import { OrderCountdown } from '../components'
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -29,11 +27,9 @@ export struct OrderDetailView {
   @State loading: boolean = true
   @State loadFailed: boolean = false
   @State busy: string = ''
-  @State countdownTick: number = 0
   @Consume stackPath: NavPathStack
 
   private orderId: string = ''
-  private countdownTimer: number = -1
   private countdownBaseAt: number = 0
 
   private safeToast(message: string): void {
@@ -46,22 +42,7 @@ export struct OrderDetailView {
   aboutToAppear(): void {
     const params = this.stackPath.getParamByName(PAGE_PATH.ORDER_DETAIL_PAGE) as string[]
     this.orderId = params && params.length ? params[params.length - 1] : ''
-    this.countdownTimer = setInterval(() => {
-      this.countdownTick++
-    }, 1000)
     this.load()
-  }
-
-  aboutToDisappear(): void {
-    clearInterval(this.countdownTimer)
-  }
-
-  private remainingCountdown(): number {
-    if (!this.order || this.countdownTick < 0) {
-      return 0
-    }
-    const elapsed: number = Math.floor((Date.now() - this.countdownBaseAt) / 1000)
-    return this.order.countdown - elapsed
   }
 
   private async load(): Promise<void> {
@@ -112,24 +93,20 @@ export struct OrderDetailView {
     if (!this.order) {
       return
     }
-    try {
-      await consignmentOrderAPI(this.order.id)
-      await demoOrderStore.setOverlay(this.order.id, 3)
-    } catch {
-      await demoOrderStore.setOverlay(this.order.id, 3)
-    }
+    const orderId: string = this.order.id
+    await advanceOrderState(orderId, 3, async (): Promise<void> => {
+      await consignmentOrderAPI(orderId)
+    })
   }
 
   private async runReceipt(): Promise<void> {
     if (!this.order) {
       return
     }
-    try {
-      await receiptOrderAPI(this.order.id)
-      await demoOrderStore.setOverlay(this.order.id, 4)
-    } catch {
-      await demoOrderStore.setOverlay(this.order.id, 4)
-    }
+    const orderId: string = this.order.id
+    await advanceOrderState(orderId, 4, async (): Promise<void> => {
+      await receiptOrderAPI(orderId)
+    })
   }
 
   private async runComment(): Promise<void> {
@@ -264,10 +241,8 @@ export struct OrderDetailView {
                   Text(getOrderStateText(this.mergedState()))
                     .fontSize(18)
                     .fontWeight(500)
-                  if (this.mergedState() === 1 && this.remainingCountdown() > 0) {
-                    Text(formatOrderCountdown(this.remainingCountdown()))
-                      .fontSize(12)
-                      .fontColor($r('[ui_components].color.red'))
+                  if (this.mergedState() === 1) {
+                    OrderCountdown({ countdown: this.order.countdown, baseAt: this.countdownBaseAt, fontSize: 12 })
                   }
                 }
                 if (this.mergedState() === 1) {

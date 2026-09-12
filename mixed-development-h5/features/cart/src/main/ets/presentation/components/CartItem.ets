@@ -32,7 +32,6 @@ export struct CartItem {
         .objectFit(ImageFit.Contain)
         .borderRadius(8)
         .backgroundColor($r('[ui_components].color.under'))
-        .syncLoad(true) // 解决图片闪烁
       Column({ space: 6 }) {
         Row({ space: 8 }) {
           Text(this.cart.name)

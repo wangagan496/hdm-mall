@@ -8,11 +8,9 @@ import {
   getOrderListAPI,
   receiptOrderAPI
 } from '../../data/api'
-import {
-  formatOrderCountdown,
-  getOrderStateText,
-  mergeOrderState
-} from '../utils/OrderPresentation'
+import { getOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
+import { advanceOrderState } from '../utils/DemoOrderFlow'
+import { OrderCountdown } from '../components'
 
 interface OrderTab {
   label: string
@@ -44,9 +42,7 @@ export struct OrderView {
   @State busyOrderId: string = ''
   @State busyAction: string = ''
   @State isFinished: boolean = false
-  @State countdownTick: number = 0
   @Consume stackPath: NavPathStack
-  private countdownTimer: number = -1
   private countdownBaseAt: number = 0
 
   private safeToast(message: string): void {
@@ -73,24 +69,9 @@ export struct OrderView {
     if (routeState !== undefined && this.isSupportedOrderState(routeState)) {
       this.selectedState = routeState
     }
-    this.countdownTimer = setInterval(() => {
-      this.countdownTick++
-    }, 1000)
     this.refreshLocalOverlay()
     this.orders = this.orders.filter((order: OrderItem) => this.belongsToCurrentTab(order))
     this.reloadOrders()
-  }
-
-  aboutToDisappear(): void {
-    clearInterval(this.countdownTimer)
-  }
-
-  private remainingCountdown(order: OrderItem): number {
-    if (this.countdownTick < 0) {
-      return order.countdown
-    }
-    const elapsed: number = Math.floor((Date.now() - this.countdownBaseAt) / 1000)
-    return order.countdown - elapsed
   }
 
   private isSupportedOrderState(orderState: number): boolean {
@@ -220,22 +201,16 @@ export struct OrderView {
     this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: orderId })
   }
 
-  private async runConsignment(orderId: string): Promise<void> {
-    try {
+  private runConsignment(orderId: string): Promise<void> {
+    return advanceOrderState(orderId, 3, async (): Promise<void> => {
       await consignmentOrderAPI(orderId)
-      await demoOrderStore.setOverlay(orderId, 3)
-    } catch {
-      await demoOrderStore.setOverlay(orderId, 3)
-    }
+    })
   }
 
-  private async runReceipt(orderId: string): Promise<void> {
-    try {
+  private runReceipt(orderId: string): Promise<void> {
+    return advanceOrderState(orderId, 4, async (): Promise<void> => {
       await receiptOrderAPI(orderId)
-      await demoOrderStore.setOverlay(orderId, 4)
-    } catch {
-      await demoOrderStore.setOverlay(orderId, 4)
-    }
+    })
   }
 
   private async runComment(orderId: string): Promise<void> {
@@ -371,10 +346,8 @@ export struct OrderView {
         Text(order.createTime)
           .fontSize(11)
           .fontColor($r('[ui_components].color.gray'))
-        if (this.displayStateFor(order) === 1 && this.remainingCountdown(order) > 0) {
-          Text(formatOrderCountdown(this.remainingCountdown(order)))
-            .fontSize(11)
-            .fontColor($r('[ui_components].color.red'))
+        if (this.displayStateFor(order) === 1) {
+          OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
         }
         Blank()
         Text(getOrderStateText(this.displayStateFor(order)))
