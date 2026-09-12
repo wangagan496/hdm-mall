@@ -4,11 +4,18 @@ import { excludeCartItems, normalizeCheckoutAddress } from '../main/ets/presenta
 import { parsePaymentResultValue } from '../main/ets/presentation/utils/PaymentPresentation';
 import {
   formatOrderCountdown,
+  getDisplayOrderStateText,
   getOrderStateText,
   isDemoOverlayApplied,
   isPaidOrderState,
   mergeOrderState
 } from '../main/ets/presentation/utils/OrderPresentation';
+import {
+  getEvaluationQuickTags,
+  getScoreLabel,
+  hasEvaluationTag,
+  toggleEvaluationTag
+} from '../main/ets/presentation/utils/EvaluationPresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -115,6 +122,9 @@ export default function localUnitTest() {
       expect(getOrderStateText(5)).assertEqual('已完成');
       expect(getOrderStateText(6)).assertEqual('已取消');
       expect(getOrderStateText(0)).assertEqual('订单处理中');
+      expect(getDisplayOrderStateText(5, false)).assertEqual('已完成');
+      expect(getDisplayOrderStateText(5, true)).assertEqual('已评价');
+      expect(getDisplayOrderStateText(4, true)).assertEqual('待评价');
     });
     it('treatsOnlyStateTwoToFourAsPaid', 0, () => {
       expect(isPaidOrderState(1)).assertFalse();
@@ -172,11 +182,30 @@ export default function localUnitTest() {
         { orderId: 'order-1', advancedState: 4, updatedAt: 0 },
         { orderId: 'order-1', score: 5, content: 'good', createdAt: 0 }
       )).assertEqual(5);
+      expect(getDisplayOrderStateText(mergeOrderState(withOrderState(order, 4), null,
+        { orderId: 'order-1', score: 5, content: 'good', createdAt: 0 }
+      ), true)).assertEqual('已评价');
       expect(isDemoOverlayApplied(order,
         { orderId: 'order-1', advancedState: 2, updatedAt: 0 },
         null
       )).assertTrue();
       expect(isDemoOverlayApplied(order, null, null)).assertFalse();
+    });
+    it('mapsScoreToReviewLabel', 0, () => {
+      expect(getScoreLabel(1)).assertEqual('非常差');
+      expect(getScoreLabel(2)).assertEqual('差');
+      expect(getScoreLabel(3)).assertEqual('一般');
+      expect(getScoreLabel(4)).assertEqual('好');
+      expect(getScoreLabel(5)).assertEqual('非常好');
+      expect(getScoreLabel(0)).assertEqual('');
+    });
+    it('togglesQuickEvaluationTagsWithoutExceedingLimit', 0, () => {
+      expect(getEvaluationQuickTags().length).assertEqual(6);
+      expect(toggleEvaluationTag('', '质量非常好', 200)).assertEqual('质量非常好');
+      expect(hasEvaluationTag('质量非常好', '质量非常好')).assertTrue();
+      expect(toggleEvaluationTag('质量非常好', '质量非常好', 200)).assertEqual('');
+      expect(toggleEvaluationTag('质量非常好', '物流速度很快', 200)).assertEqual('质量非常好 物流速度很快');
+      expect(toggleEvaluationTag('已有字', '质量非常好', 8)).assertEqual('已有字');
     });
   });
 }

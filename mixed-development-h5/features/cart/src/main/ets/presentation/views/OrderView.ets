@@ -5,12 +5,14 @@ import { demoOrderStore } from 'storage'
 import {
   cancelOrderWithFallback,
   consignmentOrderAPI,
+  getOrderDetailAPI,
   getOrderListAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { getOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
+import { getDisplayOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
+import { loadOrderTabPage, mergeOrdersForTab, OrderTabAPI, OrderTabRequest } from '../utils/OrderTabLoader'
 
 interface OrderTab {
   label: string
@@ -27,6 +29,7 @@ export struct OrderView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY)
+  @Watch('onUserChanged')
   user: HDMUser = {
     avatar: '',
     token: '',
@@ -55,6 +58,7 @@ export struct OrderView {
   private page: number = 1
   private readonly pageSize: number = 10
   private requestGeneration: number = 0
+  private hasShown: boolean = false
   private readonly tabs: OrderTab[] = [
     { label: '全部', state: 0 },
     { label: '待付款', state: 1 },
@@ -71,6 +75,19 @@ export struct OrderView {
     }
     this.refreshLocalOverlay()
     this.orders = this.orders.filter((order: OrderItem) => this.belongsToCurrentTab(order))
+    this.reloadOrders()
+  }
+
+  private onUserChanged(): void {
+    this.reloadOrders()
+  }
+
+  /** 返回时重新合并本地状态与服务端分页，包括从详情页推进后新进入当前标签的订单。 */
+  private refreshAfterVisible(): void {
+    if (!this.hasShown) {
+      this.hasShown = true
+      return
+    }
     this.reloadOrders()
   }
 
@@ -109,30 +126,29 @@ export struct OrderView {
       return
     }
     const generation: number = this.requestGeneration
+    const request: OrderTabRequest = {
+      page: this.page,
+      pageSize: this.pageSize,
+      state: this.selectedState,
+      overlays: this.overlays,
+      evaluations: this.evaluations
+    }
+    const api: OrderTabAPI = {
+      getPage: getOrderListAPI,
+      getDetail: getOrderDetailAPI,
+      isCurrent: (): boolean => generation === this.requestGeneration
+    }
     this.loading = true
+    this.loadFailed = false
     try {
-      const result = await getOrderListAPI({
-        page: this.page,
-        pageSize: this.pageSize,
-        orderState: this.selectedState
-      })
-      if (generation !== this.requestGeneration) {
+      const result = await loadOrderTabPage(request, api)
+      if (!result || generation !== this.requestGeneration) {
         return
       }
-      const rawItems: OrderItem[] = result.items || []
       this.countdownBaseAt = Date.now()
-      const matched: OrderItem[] = []
-      let stoppedAtUnmatched: boolean = false
-      rawItems.forEach((order: OrderItem) => {
-        if (this.belongsToCurrentTab(order)) {
-          matched.push(order)
-        } else {
-          stoppedAtUnmatched = true
-        }
-      })
-      this.orders = this.orders.concat(matched)
-      this.page++
-      this.isFinished = rawItems.length === 0 || this.page > result.pages || stoppedAtUnmatched
+      this.orders = mergeOrdersForTab(this.orders, result.items, request)
+      this.page = result.nextPage
+      this.isFinished = result.finished
     } catch {
       if (generation === this.requestGeneration) {
         this.loadFailed = true
@@ -158,6 +174,10 @@ export struct OrderView {
 
   private displayStateFor(order: OrderItem): number {
     return this.mergedState(order)
+  }
+
+  private hasEvaluation(order: OrderItem): boolean {
+    return (this.evaluations[order.id] ?? null) !== null
   }
 
   private selectTab(orderState: number): void {
@@ -342,41 +362,44 @@ export struct OrderView {
   @Builder
   private OrderCard(order: OrderItem) {
     Column() {
-      Row({ space: 6 }) {
-        Text(order.createTime)
-          .fontSize(11)
-          .fontColor($r('[ui_components].color.gray'))
-        if (this.displayStateFor(order) === 1) {
-          OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
+      Column() {
+        Row({ space: 6 }) {
+          Text(order.createTime)
+            .fontSize(11)
+            .fontColor($r('[ui_components].color.gray'))
+          if (this.displayStateFor(order) === 1) {
+            OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
+          }
+          Blank()
+          Text(getDisplayOrderStateText(this.displayStateFor(order), this.hasEvaluation(order)))
+            .fontSize(13)
+            .fontColor(this.displayStateFor(order) === 6 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
         }
-        Blank()
-        Text(getOrderStateText(this.displayStateFor(order)))
-          .fontSize(13)
-          .fontColor(this.displayStateFor(order) === 6 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
+        .width('100%')
+        .padding({ top: 12, bottom: 2 })
+        ForEach(order.skus, (sku: OrderSku) => {
+          this.OrderSkuRow(sku)
+        }, (sku: OrderSku) => sku.id)
+        Row() {
+          Text('共 ' + order.totalNum.toString() + ' 件商品')
+            .fontSize(12)
+            .fontColor($r('[ui_components].color.gray'))
+          Blank()
+          Text('实付款 ¥' + order.payMoney.toFixed(2))
+            .fontSize(14)
+            .fontColor($r('[ui_components].color.black'))
+        }
+        .width('100%')
+        .padding({ top: 8, bottom: 12 })
       }
       .width('100%')
-      .padding({ top: 12, bottom: 2 })
-      ForEach(order.skus, (sku: OrderSku) => {
-        this.OrderSkuRow(sku)
-      }, (sku: OrderSku) => sku.id)
-      Row() {
-        Text('共 ' + order.totalNum.toString() + ' 件商品')
-          .fontSize(12)
-          .fontColor($r('[ui_components].color.gray'))
-        Blank()
-        Text('实付款 ¥' + order.payMoney.toFixed(2))
-          .fontSize(14)
-          .fontColor($r('[ui_components].color.black'))
-      }
-      .width('100%')
-      .padding({ top: 8, bottom: 12 })
+      .onClick(() => this.openDetail(order.id))
       this.OrderActions(order)
     }
     .width('100%')
     .padding({ left: 12, right: 12 })
     .backgroundColor($r('[ui_components].color.white'))
     .borderRadius(8)
-    .onClick(() => this.openDetail(order.id))
   }
 
   build() {
@@ -424,6 +447,15 @@ export struct OrderView {
                 this.OrderCard(order)
               }
             }, (order: OrderItem) => order.id)
+            ListItem() {
+              if (this.loading) {
+                LoadingProgress().width(32).height(32)
+              } else if (this.loadFailed) {
+                Button('加载失败，点击重试').onClick(() => this.loadMore())
+              } else if (!this.isFinished) {
+                Button('加载更多').onClick(() => this.loadMore())
+              }
+            }
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
@@ -438,5 +470,8 @@ export struct OrderView {
     }
     .hideTitleBar(true)
     .padding({ top: this.topHeight })
+    .onShown(() => {
+      this.refreshAfterVisible()
+    })
   }
 }

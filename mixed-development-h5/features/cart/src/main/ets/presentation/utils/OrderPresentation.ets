@@ -27,6 +27,14 @@ export function getOrderStateText(orderState: number): string {
   return '订单处理中'
 }
 
+/** 列表/详情展示口径：本地已提交评价时，完成态显示「已评价」而不是笼统的「已完成」。 */
+export function getDisplayOrderStateText(orderState: number, evaluated: boolean): string {
+  if (evaluated && orderState === 5) {
+    return '已评价'
+  }
+  return getOrderStateText(orderState)
+}
+
 /** 服务端 orderState 2-4 视为已付款。 */
 export function isPaidOrderState(orderState: number): boolean {
   return orderState >= 2 && orderState <= 4
@@ -46,7 +54,7 @@ export function formatOrderCountdown(countdown: number): string {
 /**
  * 把服务端的订单状态与本地演示叠加层合并。规则：
  * 1. 服务端取消（6）永远最高优先级，不被本地演示覆盖。
- * 2. 本地演示只能在订单仍处于"待付款 → 待发货 → 待收货 → 待评价 → 已完成"这条链上单向推进，
+ * 2. 本地演示只能在订单仍处于"待付款 → 待发货 → 待收货 → 待评价 → 已评价"这条链上单向推进，
  *    不允许把状态向前回退。
  * 3. 如果服务端已经先推进到比本地演示更靠后的状态，保留服务端结果。
  */

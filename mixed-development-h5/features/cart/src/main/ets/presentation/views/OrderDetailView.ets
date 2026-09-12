@@ -8,7 +8,8 @@ import {
   getOrderDetailAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { getOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
+import { getDisplayOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
+import { getScoreLabel } from '../utils/EvaluationPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
 
@@ -133,6 +134,22 @@ export struct OrderDetailView {
     return mergeOrderState(this.order, this.demoOverlay, this.evaluation)
   }
 
+  private hasEvaluation(): boolean {
+    return this.evaluation !== null
+  }
+
+  private evaluationScore(): number {
+    return this.evaluation ? this.evaluation.score : 0
+  }
+
+  private evaluationContent(): string {
+    return this.evaluation ? this.evaluation.content : ''
+  }
+
+  private displayStateText(): string {
+    return getDisplayOrderStateText(this.mergedState(), this.hasEvaluation())
+  }
+
   @Builder
   private DetailActions() {
     Column() {
@@ -206,7 +223,7 @@ export struct OrderDetailView {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: this.order ? getOrderStateText(this.mergedState()) : '订单详情',
+          title: this.order ? this.displayStateText() : '订单详情',
           onLeftClick: () => this.stackPath.pop()
         })
         if (this.loading) {
@@ -238,7 +255,7 @@ export struct OrderDetailView {
             Column({ space: 12 }) {
               Column({ space: 6 }) {
                 Row({ space: 6 }) {
-                  Text(getOrderStateText(this.mergedState()))
+                  Text(this.displayStateText())
                     .fontSize(18)
                     .fontWeight(500)
                   if (this.mergedState() === 1) {
@@ -304,6 +321,39 @@ export struct OrderDetailView {
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(8)
 
+              if (this.hasEvaluation()) {
+                Column({ space: 10 }) {
+                  Row() {
+                    Text('我的评价')
+                      .fontSize(15)
+                      .fontWeight(500)
+                    Blank()
+                    Text(this.evaluationScore().toString() + ' 星 · ' + getScoreLabel(this.evaluationScore()))
+                      .fontSize(12)
+                      .fontColor($r('[ui_components].color.red'))
+                  }
+                  .width('100%')
+                  Row({ space: 4 }) {
+                    ForEach([1, 2, 3, 4, 5], (value: number) => {
+                      Text('★')
+                        .fontSize(18)
+                        .fontColor(value <= this.evaluationScore() ? '#F5A623' : $r('[ui_components].color.border'))
+                    }, (value: number) => 'detail-star-' + value.toString())
+                  }
+                  .width('100%')
+                  Text(this.evaluationContent())
+                    .fontSize(14)
+                    .lineHeight(22)
+                    .fontColor($r('[ui_components].color.text'))
+                    .width('100%')
+                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor($r('[ui_components].color.white'))
+                .borderRadius(8)
+                .alignItems(HorizontalAlign.Start)
+              }
+
               Column({ space: 10 }) {
                 Row() {
                   Text('支付方式')
@@ -351,5 +401,8 @@ export struct OrderDetailView {
     }
     .hideTitleBar(true)
     .padding({ top: this.topHeight })
+    .onShown(() => {
+      this.refreshLocalOverlay()
+    })
   }
 }

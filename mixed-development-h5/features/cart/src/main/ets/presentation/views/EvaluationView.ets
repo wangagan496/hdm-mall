@@ -1,9 +1,17 @@
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
 import { OrderItem, OrderSku } from 'models'
 import { DemoOrderStore, demoOrderStore } from 'storage'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
-import { getOrderStateText } from '../utils/OrderPresentation'
+import { advanceOrderState } from '../utils/DemoOrderFlow'
+import {
+  EVALUATION_CONTENT_MAX_LENGTH,
+  getEvaluationQuickTags,
+  getScoreLabel,
+  hasEvaluationTag,
+  toggleEvaluationTag
+} from '../utils/EvaluationPresentation'
 
 @Builder
 function EvaluationViewBuilder() {
@@ -14,6 +22,8 @@ function EvaluationViewBuilder() {
 export struct EvaluationView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM)
+  bottomHeight: number = 0
   @State order: OrderItem | null = null
   @State loading: boolean = true
   @State loadFailed: boolean = false
@@ -24,6 +34,9 @@ export struct EvaluationView {
   @Consume stackPath: NavPathStack
 
   private orderId: string = ''
+  private leaving: boolean = false
+  private previousKeyboardAvoidMode: KeyboardAvoidMode | undefined = undefined
+  private readonly quickTags: string[] = getEvaluationQuickTags()
 
   private safeToast(message: string): void {
     try {
@@ -33,9 +46,36 @@ export struct EvaluationView {
   }
 
   aboutToAppear(): void {
+    this.leaving = false
     const params = this.stackPath.getParamByName(PAGE_PATH.EVALUATION_PAGE) as string[]
     this.orderId = params && params.length ? params[params.length - 1] : ''
+    try {
+      this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode()
+      this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+    } catch {
+    }
     this.load()
+  }
+
+  aboutToDisappear(): void {
+    this.leaving = true
+    try {
+      if (this.previousKeyboardAvoidMode !== undefined) {
+        this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode)
+      }
+    } catch {
+    }
+  }
+
+  private leaveToPrevious(message: string): void {
+    if (this.leaving) {
+      return
+    }
+    this.leaving = true
+    if (message) {
+      this.safeToast(message)
+    }
+    this.stackPath.pop()
   }
 
   private async load(): Promise<void> {
@@ -47,24 +87,44 @@ export struct EvaluationView {
     this.loading = true
     this.loadFailed = false
     try {
-      this.order = await getOrderDetailAPI(this.orderId)
+      const order = await getOrderDetailAPI(this.orderId)
+      if (this.leaving) {
+        return
+      }
+      this.order = order
+      if (demoOrderStore.getEvaluation(this.orderId)) {
+        this.leaveToPrevious('该订单已评价')
+        return
+      }
     } catch {
-      this.loadFailed = true
+      if (!this.leaving) {
+        this.loadFailed = true
+      }
     } finally {
-      this.loading = false
+      if (!this.leaving) {
+        this.loading = false
+      }
     }
   }
 
   private setScore(value: number): void {
-    if (value < 1 || value > 5) {
+    if (this.submitting || value < 1 || value > 5) {
       return
     }
     this.score = value
     this.errorText = ''
   }
 
+  private toggleTag(tag: string): void {
+    if (this.submitting) {
+      return
+    }
+    this.content = toggleEvaluationTag(this.content, tag, EVALUATION_CONTENT_MAX_LENGTH)
+    this.errorText = ''
+  }
+
   private async submit(): Promise<void> {
-    if (this.submitting || !this.order) {
+    if (this.submitting || this.leaving || !this.order) {
       return
     }
     const validation = DemoOrderStore.validateEvaluation(this.score, this.content)
@@ -74,14 +134,12 @@ export struct EvaluationView {
     }
     this.submitting = true
     try {
-      try {
-        await commentOrderAPI(this.order.id)
-      } catch {
-        // 后端评价接口可能不可用；忽略网络层失败，把评价只写到本地演示层。
-      }
-      await demoOrderStore.saveEvaluation(this.order.id, this.score, this.content)
-      this.safeToast('评价成功')
-      this.stackPath.pop()
+      const orderId: string = this.order.id
+      await demoOrderStore.saveEvaluation(orderId, this.score, this.content)
+      await advanceOrderState(orderId, 5, async (): Promise<void> => {
+        await commentOrderAPI(orderId)
+      })
+      this.leaveToPrevious('评价成功')
     } catch (error) {
       this.errorText = (error as Error).message || '提交失败，请重试'
     } finally {
@@ -91,43 +149,97 @@ export struct EvaluationView {
 
   @Builder
   private ScorePicker() {
-    Row({ space: 12 }) {
+    Row({ space: 10 }) {
       ForEach([1, 2, 3, 4, 5], (value: number) => {
         Text('★')
-          .fontSize(28)
+          .fontSize(32)
           .fontColor(value <= this.score ? '#F5A623' : $r('[ui_components].color.border'))
-        .onClick(() => this.setScore(value))
+          .onClick(() => this.setScore(value))
+          .accessibilityText(value.toString() + '星')
       }, (value: number) => value.toString())
       Blank()
-      Text(this.score + ' 星')
+      Text(getScoreLabel(this.score))
         .fontSize(14)
-        .fontColor($r('[ui_components].color.gray'))
+        .fontWeight(500)
+        .fontColor(this.score >= 4 ? $r('[ui_components].color.red') : $r('[ui_components].color.gray'))
     }
     .width('100%')
   }
 
   @Builder
+  private TagChip(tag: string) {
+    Column() {
+      Text(tag)
+        .fontSize(12)
+        .fontColor(hasEvaluationTag(this.content, tag) ? $r('[ui_components].color.red') :
+          $r('[ui_components].color.text'))
+        .textAlign(TextAlign.Center)
+    }
+    .layoutWeight(1)
+    .height(32)
+    .justifyContent(FlexAlign.Center)
+    .borderRadius(16)
+    .backgroundColor(hasEvaluationTag(this.content, tag) ? '#FFF0F0' : $r('[ui_components].color.under'))
+    .border({
+      width: 0.5,
+      color: hasEvaluationTag(this.content, tag) ? $r('[ui_components].color.red') :
+        $r('[ui_components].color.border')
+    })
+    .onClick(() => this.toggleTag(tag))
+  }
+
+  @Builder
+  private TagRow(tags: string[]) {
+    Row({ space: 8 }) {
+      ForEach(tags, (tag: string) => {
+        this.TagChip(tag)
+      }, (tag: string) => tag)
+    }
+    .width('100%')
+  }
+
+  private currentSkus(): OrderSku[] {
+    return this.order ? this.order.skus : []
+  }
+
+  private currentTotalNum(): number {
+    return this.order ? this.order.totalNum : 0
+  }
+
+  private currentPayMoney(): number {
+    return this.order ? this.order.payMoney : 0
+  }
+
+  @Builder
   private SkuList() {
-    ForEach(this.order?.skus, (sku: OrderSku) => {
-      Row({ space: 10 }) {
+    ForEach(this.currentSkus(), (sku: OrderSku) => {
+      Row({ space: 8 }) {
         Image(sku.image)
-          .width(56)
-          .height(56)
-          .borderRadius(4)
+          .width(52)
+          .height(52)
+          .objectFit(ImageFit.Cover)
+          .borderRadius(6)
           .backgroundColor($r('[ui_components].color.under'))
-        Column({ space: 4 }) {
+        Column({ space: 2 }) {
           Text(sku.name)
             .fontSize(13)
-            .maxLines(2)
+            .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(sku.attrsText || '默认规格')
+            .fontColor($r('[ui_components].color.black'))
+          Text((sku.attrsText || '默认规格') + '  x' + sku.quantity.toString())
             .fontSize(11)
             .fontColor($r('[ui_components].color.gray'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        Text('¥' + sku.realPay.toFixed(2))
+          .fontSize(13)
+          .fontWeight(500)
       }
       .width('100%')
-      .padding({ top: 8, bottom: 8 })
+      .padding({ top: 4, bottom: 4 })
     }, (sku: OrderSku) => sku.id)
   }
 
@@ -136,7 +248,7 @@ export struct EvaluationView {
       Column() {
         HDMNavBar({
           title: '订单评价',
-          onLeftClick: () => this.stackPath.pop()
+          onLeftClick: () => this.leaveToPrevious('')
         })
         if (this.loading) {
           Column() {
@@ -160,38 +272,71 @@ export struct EvaluationView {
         } else {
           Scroll() {
             Column({ space: 12 }) {
-              Column({ space: 8 }) {
-                Text(getOrderStateText(this.order.orderState) + ' 订单')
-                  .fontSize(15)
-                  .fontWeight(500)
-                Text('订单号 ' + this.order.id)
-                  .fontSize(11)
-                  .fontColor($r('[ui_components].color.gray'))
+              Column({ space: 6 }) {
                 this.SkuList()
+                Row() {
+                  Text('共 ' + this.currentTotalNum().toString() + ' 件')
+                    .fontSize(12)
+                    .fontColor($r('[ui_components].color.gray'))
+                  Blank()
+                  Text('实付款 ¥' + this.currentPayMoney().toFixed(2))
+                    .fontSize(14)
+                    .fontWeight(500)
+                }
+                .width('100%')
               }
               .width('100%')
-              .padding(12)
+              .padding({ left: 12, right: 12, top: 10, bottom: 10 })
               .backgroundColor($r('[ui_components].color.white'))
-              .borderRadius(8)
+              .borderRadius(12)
 
               Column({ space: 12 }) {
-                Text('评分')
-                  .fontSize(14)
-                  .fontWeight(500)
+                Row() {
+                  Text('商品评分')
+                    .fontSize(15)
+                    .fontWeight(500)
+                  Blank()
+                  Text(this.score.toString() + ' 星')
+                    .fontSize(12)
+                    .fontColor($r('[ui_components].color.gray'))
+                }
+                .width('100%')
                 this.ScorePicker()
 
-                Text('评价内容')
-                  .fontSize(14)
+                Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
+
+                Text('快捷评价')
+                  .fontSize(15)
                   .fontWeight(500)
-                TextArea({ placeholder: '请输入 5-200 字评价', text: $$this.content })
+                this.TagRow(this.quickTags.slice(0, 3))
+                this.TagRow(this.quickTags.slice(3, 6))
+                Text('点选标签可快速填写，也可继续补充文字')
+                  .fontSize(11)
+                  .fontColor($r('[ui_components].color.gray'))
+
+                Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
+
+                Row() {
+                  Text('评价内容')
+                    .fontSize(15)
+                    .fontWeight(500)
+                  Blank()
+                  Text(this.content.trim().length.toString() + '/' + EVALUATION_CONTENT_MAX_LENGTH.toString())
+                    .fontSize(11)
+                    .fontColor($r('[ui_components].color.gray'))
+                }
+                .width('100%')
+                TextArea({ placeholder: '说说商品、物流或尺码感受，至少 5 个字', text: this.content })
                   .height(120)
                   .width('100%')
                   .fontSize(14)
                   .backgroundColor($r('[ui_components].color.under'))
-                  .borderRadius(4)
-                  .padding(8)
-                  .maxLength(200)
-                  .onChange(() => {
+                  .borderRadius(8)
+                  .padding(10)
+                  .maxLength(EVALUATION_CONTENT_MAX_LENGTH)
+                  .enabled(!this.submitting)
+                  .onChange((value: string) => {
+                    this.content = value
                     this.errorText = ''
                   })
 
@@ -200,25 +345,38 @@ export struct EvaluationView {
                     .fontSize(12)
                     .fontColor($r('[ui_components].color.red'))
                 }
+
+                Text('评价仅保存在本机，用于演示订单流程')
+                  .fontSize(11)
+                  .fontColor($r('[ui_components].color.gray'))
               }
               .width('100%')
-              .padding(12)
+              .padding(16)
               .backgroundColor($r('[ui_components].color.white'))
-              .borderRadius(8)
+              .borderRadius(12)
               .alignItems(HorizontalAlign.Start)
-
-              Button(this.submitting ? '提交中...' : '提交评价')
-                .width('100%')
-                .height(44)
-                .fontSize(15)
-                .backgroundColor($r('[ui_components].color.red'))
-                .enabled(!this.submitting && this.content.trim().length > 0)
-                .onClick(() => this.submit())
             }
-            .padding(8)
+            .padding({ left: 12, right: 12, top: 8, bottom: 24 })
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
+          .align(Alignment.Top)
+
+          Column() {
+            Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
+            Button(this.submitting ? '提交中...' : '提交评价')
+              .width('100%')
+              .height(44)
+              .fontSize(15)
+              .fontWeight(500)
+              .backgroundColor($r('[ui_components].color.red'))
+              .constraintSize({ minHeight: 44 })
+              .enabled(!this.submitting)
+              .onClick(() => this.submit())
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 + this.bottomHeight })
+          .backgroundColor($r('[ui_components].color.white'))
         }
       }
       .width('100%')
