@@ -43,5 +43,24 @@ export default function localUnitTest(): void {
       expect(attempts).assertEqual(2)
       done()
     })
+
+    it('keepsBusinessErrorThroughGetRetry', 0, async (done: Function) => {
+      // 业务失败不是传输层错误：不能重试，也不能被包成普通 Error 而丢掉 httpStatus。
+      let attempts: number = 0
+      let caught: Error | null = null
+      try {
+        await executeGetWithRetry<string>(() => {
+          attempts++
+          return Promise.reject(new BusinessError('订单已发货', 405))
+        })
+      } catch (error) {
+        caught = error as Error
+      }
+
+      expect(caught instanceof BusinessError).assertTrue()
+      expect((caught as BusinessError).httpStatus).assertEqual(405)
+      expect(attempts).assertEqual(1)
+      done()
+    })
   })
 }

@@ -47,20 +47,28 @@ function waitForRetry(delay: number): Promise<void> {
   })
 }
 
+/**
+ * 只对幂等 GET 做有限重试。
+ * 不可重试或重试耗尽时必须把原始错误原样抛出：响应拦截器产出的 BusinessError 携带 httpStatus，
+ * 调用方（如取消订单的兼容降级）依赖它区分"接口不存在"和"业务拒绝"，包一层 new Error 会把这个信息丢掉。
+ */
 async function getWithRetry<T>(request: () => Promise<T>): Promise<T> {
-  let lastError: AxiosError | null = null
-  for (let attempt = 0; attempt <= GET_RETRY_DELAYS.length; attempt++) {
+  let attempt: number = 0
+  while (true) {
     try {
       return await request()
     } catch (error) {
-      lastError = error as AxiosError
-      if (!isRetryableError(lastError) || attempt >= GET_RETRY_DELAYS.length) {
-        throw new Error(lastError.message || '网络请求失败')
+      const reason: Error = error as Error
+      if (reason instanceof BusinessError) {
+        throw reason
+      }
+      if (!isRetryableError(error as AxiosError) || attempt >= GET_RETRY_DELAYS.length) {
+        throw reason
       }
       await waitForRetry(GET_RETRY_DELAYS[attempt])
+      attempt++
     }
   }
-  throw new Error(lastError?.message || '网络请求失败')
 }
 
 export function executeGetWithRetry<T>(request: () => Promise<T>): Promise<T> {
