@@ -48,20 +48,30 @@ struct Index {
     .height(50)
   }
 
+  // 回调保存为成员，aboutToDisappear 时按同一引用注销，避免页面重建后叠加多份监听
+  private switchTabCb: (index: number) => void = (index: number) => {
+    this.activeIndex = index
+  }
+  private toSearchCb: () => void = () => {
+    this.stackPath.pushPath({ name: PAGE_PATH.SEARCH_PAGE })
+  }
+
   aboutToAppear(): void {
     LaunchPerf.mark('tabsAboutToAppear')
     this.registerListener()
     authCart.updateCartCount()
   }
 
+  aboutToDisappear(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    context.eventHub.off(GlobalVariable.SWITCH_TAB, this.switchTabCb)
+    emitter.off(BusinessVariable.TO_SEARCH, this.toSearchCb)
+  }
+
   registerListener() {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    context.eventHub.on(GlobalVariable.SWITCH_TAB, (index: number) => {
-      this.activeIndex = index
-    })
-    emitter.on(BusinessVariable.TO_SEARCH, () => {
-      this.stackPath.pushPath({ name: PAGE_PATH.SEARCH_PAGE })
-    })
+    context.eventHub.on(GlobalVariable.SWITCH_TAB, this.switchTabCb)
+    emitter.on(BusinessVariable.TO_SEARCH, this.toSearchCb)
   }
 
   build() {

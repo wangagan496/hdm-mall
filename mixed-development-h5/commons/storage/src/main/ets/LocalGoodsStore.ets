@@ -1,23 +1,15 @@
 import { HDMGoodsItem, LocalGoodsItem } from 'models'
 import { auth } from './Auth'
 import { storeManager } from './StoreManager'
+import { getAccountScopedKey } from './AccountScope'
 
 const FAVORITE_GOODS_KEY: string = 'favorite_goods'
 const BROWSE_HISTORY_KEY: string = 'browse_history'
-const ANONYMOUS_SCOPE: string = 'anonymous'
 const MAX_HISTORY_COUNT: number = 50
 
 export class LocalGoodsStore {
-  private getStorageScope(): string {
-    const account = auth.getUserInfo()?.account?.trim()
-    if (!account) {
-      return ANONYMOUS_SCOPE
-    }
-    return `account_${encodeURIComponent(account)}`
-  }
-
   private getScopedKey(key: string): string {
-    return `${key}_${this.getStorageScope()}`
+    return getAccountScopedKey(key)
   }
 
   private createSnapshot(goods: HDMGoodsItem): LocalGoodsItem {

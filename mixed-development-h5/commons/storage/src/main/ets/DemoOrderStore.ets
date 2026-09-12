@@ -1,28 +1,19 @@
 import { DemoOrderOverlay, LocalEvaluationItem } from 'models'
-import { auth } from './Auth'
 import { storeManager } from './StoreManager'
+import { getAccountScopedKey } from './AccountScope'
 
 /**
  * 演示闭环数据：明确标注为本地模拟，绝不与服务端真实订单状态混淆。
- * 退出登录或切换账号时数据自动按 scope 隔离。
+ * 退出登录或切换账号时数据自动按 scope 隔离（规则见 AccountScope）。
  */
 const DEMO_OVERLAY_KEY: string = 'demo_order_overlay'
 const DEMO_EVALUATION_KEY: string = 'demo_order_evaluation'
-const ANONYMOUS_SCOPE: string = 'anonymous'
 const EVALUATION_MAX_LENGTH: number = 200
 const EVALUATION_MIN_LENGTH: number = 5
 
 export class DemoOrderStore {
-  private getStorageScope(): string {
-    const account = auth.getUserInfo()?.account?.trim()
-    if (!account) {
-      return ANONYMOUS_SCOPE
-    }
-    return `account_${encodeURIComponent(account)}`
-  }
-
   private getScopedKey(key: string): string {
-    return `${key}_${this.getStorageScope()}`
+    return getAccountScopedKey(key)
   }
 
   private readMap<T>(key: string): Record<string, T> {
