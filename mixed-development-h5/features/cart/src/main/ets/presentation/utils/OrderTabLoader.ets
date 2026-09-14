@@ -1,5 +1,5 @@
 import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderListParams, OrderPage } from 'models'
-import { mergeOrderState } from './OrderPresentation'
+import { isOrderStateInTab, mergeOrderState } from './OrderPresentation'
 
 export interface OrderTabRequest {
   page: number
@@ -30,9 +30,10 @@ export function mergeOrdersForTab(
     byId[order.id] = order
   })
   return Object.values(byId).filter((order: OrderItem) => {
-    return request.state === 0 || mergeOrderState(
+    const state: number = mergeOrderState(
       order, request.overlays[order.id] ?? null, request.evaluations[order.id] ?? null
-    ) === request.state
+    )
+    return isOrderStateInTab(state, request.state)
   }).sort((left: OrderItem, right: OrderItem) => {
     if (left.createTime === right.createTime) {
       return left.id === right.id ? 0 : left.id > right.id ? -1 : 1

@@ -9,7 +9,7 @@ import {
   getOrderListAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { getDisplayOrderStateText, mergeOrderState } from '../utils/OrderPresentation'
+import { getDisplayOrderStateText, isOrderStateInTab, mergeOrderState } from '../utils/OrderPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
 import { loadOrderTabPage, mergeOrdersForTab, OrderTabAPI, OrderTabRequest } from '../utils/OrderTabLoader'
@@ -73,8 +73,6 @@ export struct OrderView {
     if (routeState !== undefined && this.isSupportedOrderState(routeState)) {
       this.selectedState = routeState
     }
-    this.refreshLocalOverlay()
-    this.orders = this.orders.filter((order: OrderItem) => this.belongsToCurrentTab(order))
     this.reloadOrders()
   }
 
@@ -161,19 +159,11 @@ export struct OrderView {
   }
 
   private belongsToCurrentTab(order: OrderItem): boolean {
-    const target: number = this.selectedState
-    if (target === 0) {
-      return true
-    }
-    return this.displayStateFor(order) === target
+    return isOrderStateInTab(this.mergedState(order), this.selectedState)
   }
 
   private mergedState(order: OrderItem): number {
     return mergeOrderState(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
-  }
-
-  private displayStateFor(order: OrderItem): number {
-    return this.mergedState(order)
   }
 
   private hasEvaluation(order: OrderItem): boolean {
@@ -288,7 +278,7 @@ export struct OrderView {
 
   @Builder
   private OrderActions(order: OrderItem) {
-    if (this.displayStateFor(order) === 1) {
+    if (this.mergedState(order) === 1) {
       Row({ space: 8 }) {
         Blank()
         Button(this.isBusy(order.id) && this.busyAction === 'cancel' ? '取消中...' : '取消订单')
@@ -309,7 +299,7 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (this.displayStateFor(order) === 2) {
+    } else if (this.mergedState(order) === 2) {
       Row({ space: 8 }) {
         Blank()
         Button(this.isBusy(order.id) ? '处理中...' : '提醒发货')
@@ -323,7 +313,7 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (this.displayStateFor(order) === 3) {
+    } else if (this.mergedState(order) === 3) {
       Row({ space: 8 }) {
         Blank()
         Button('查看物流')
@@ -342,7 +332,7 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (this.displayStateFor(order) === 4) {
+    } else if (this.mergedState(order) === 4) {
       Row({ space: 8 }) {
         Blank()
         Button('去评价')
@@ -367,13 +357,13 @@ export struct OrderView {
           Text(order.createTime)
             .fontSize(11)
             .fontColor($r('[ui_components].color.gray'))
-          if (this.displayStateFor(order) === 1) {
+          if (this.mergedState(order) === 1) {
             OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
           }
           Blank()
-          Text(getDisplayOrderStateText(this.displayStateFor(order), this.hasEvaluation(order)))
+          Text(getDisplayOrderStateText(this.mergedState(order), this.hasEvaluation(order)))
             .fontSize(13)
-            .fontColor(this.displayStateFor(order) === 6 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
+            .fontColor($r('[ui_components].color.red'))
         }
         .width('100%')
         .padding({ top: 12, bottom: 2 })

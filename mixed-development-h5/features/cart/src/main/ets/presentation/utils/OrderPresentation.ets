@@ -35,6 +35,11 @@ export function getDisplayOrderStateText(orderState: number, evaluated: boolean)
   return getOrderStateText(orderState)
 }
 
+/** 订单列表不展示已取消记录；全部标签仍保留待处理和已完成订单。 */
+export function isOrderStateInTab(orderState: number, tabState: number): boolean {
+  return orderState !== 6 && (tabState === 0 || orderState === tabState)
+}
+
 /** 服务端 orderState 2-4 视为已付款。 */
 export function isPaidOrderState(orderState: number): boolean {
   return orderState >= 2 && orderState <= 4
