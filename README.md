@@ -7,6 +7,24 @@
 > **项目背景**
 > 本项目以已有商城代码为基础，后续由本人持续完善和优化。个人实践重点包括 HarmonyOS 原生模块化整理、分类/搜索/详情商品展示一致性、SKU 交易边界、购物车与账号隔离的本地数据，以及 ArkWeb 与 Vue 3 H5 的资料和头像状态同步。
 
+### 分工说明
+
+- 初版：课程中跟随老师完成，作为首个提交 [61c3083](https://github.com/wangagan496/hdm-mall/commit/61c3083cb291bee5adba0aa41faed143c5f69515)（2026-08-09）一次性上传。初版已经包含 Navigation 路由表、相机与相册选图、axios 拦截器、语音搜索、服务卡片、瀑布流首页、Vue 3 H5 资料页、运行时权限申请，以及 5 个模块的工程结构。
+- 后续工作：此后的提交（2026-08-12 至 2026-09-14）全部由本人独立完成。
+
+### 我的工作
+
+| 内容 | 主要技术 | 提交 |
+| --- | --- | --- |
+| 工程模块化重构：把 1 个公共模块拆成 7 个 commons HSP，加上 4 个 features HSP；猜你喜欢组件改为注入数据源，解除对 network 的依赖 | HSP、依赖注入 | [b87e320](https://github.com/wangagan496/hdm-mall/commit/b87e32042e4e5102866b7dab05766c1526158a2d)、[fec097c](https://github.com/wangagan496/hdm-mall/commit/fec097c42bd32a0d04706e99cd90a7ae4e4be541) |
+| H5 桥接加固：改用 javaScriptProxy 暴露原生方法，permission 白名单只允许 rawfile 页面调用，页面销毁时注销；拦截详情接口失败时生成的兜底规格 | ArkWeb | [b87e320](https://github.com/wangagan496/hdm-mall/commit/b87e32042e4e5102866b7dab05766c1526158a2d) |
+| 头像压缩与资料同步：缩放、居中裁方、JPEG 压缩后再上传；保存顺序改为"上传头像 → 保存资料 → 同步原生"，修复资料还没保存就先刷新原生页面的问题 | ImageKit、Preferences、AppStorage | [9e101b5](https://github.com/wangagan496/hdm-mall/commit/9e101b50938cc96aa3f4a4df2d37fae91ba973e5)、[d10a1d3](https://github.com/wangagan496/hdm-mall/commit/d10a1d38932090f18bbda890d908ac2a91ac891e) |
+| H5 资料状态改由 Pinia 管理，已上传的头像地址会暂存，失败重试时不重复上传；新增 H5 的 CI | Pinia、GitHub Actions | [e64d058](https://github.com/wangagan496/hdm-mall/commit/e64d05818b0cf8c710d27deb839bba2d4afe74b8)、[ci.yml](.github/workflows/ci.yml) |
+| 订单分页加载器：过滤已取消订单后不足一页时继续取数，按服务端页数判断是否结束，按订单编号去重，切换标签时作废旧请求 | 单元测试覆盖 | [cc3552e](https://github.com/wangagan496/hdm-mall/commit/cc3552e6402065367ef16a29ff0090abbf453338)、[1c4b679](https://github.com/wangagan496/hdm-mall/commit/1c4b6792d8d2acf3090a35e0d8f17d3def4ff2ed) |
+| GET 请求按状态码重试，BusinessError 原样抛出并保留 httpStatus | @ohos/axios | [a6efa3f](https://github.com/wangagan496/hdm-mall/commit/a6efa3ff57f001cb41f5008cc0d423911239acc2)、[a81c7c5](https://github.com/wangagan496/hdm-mall/commit/a81c7c5dfe65eebd119e964428832e1712297e40) |
+| 首页改为单个 WaterFlow + sections，推荐流恢复懒加载 | WaterFlow、LazyForEach | [2ba047b](https://github.com/wangagan496/hdm-mall/commit/2ba047bda196dc0f699a60c1e20ff887f2e07648) |
+| 单元测试：初版只有模板占位用例，补充到 77 个有效用例 | Hypium、Hamock | [a6efa3f](https://github.com/wangagan496/hdm-mall/commit/a6efa3ff57f001cb41f5008cc0d423911239acc2)、[ad66d4c](https://github.com/wangagan496/hdm-mall/commit/ad66d4ce2214c3bbfe75b1c12bfd53c3c2e6ee55) 等 |
+
 项目当前用于 HarmonyOS / ArkTS / ArkWeb 混合开发学习与作品展示，尚未上架应用市场。
 
 ## 项目能力
