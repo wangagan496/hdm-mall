@@ -40,9 +40,9 @@ export function isOrderStateInTab(orderState: number, tabState: number): boolean
   return orderState !== 6 && (tabState === 0 || orderState === tabState)
 }
 
-/** 服务端 orderState 2-4 视为已付款。 */
+/** 服务端 orderState 2-5 视为已付款。 */
 export function isPaidOrderState(orderState: number): boolean {
-  return orderState >= 2 && orderState <= 4
+  return orderState >= 2 && orderState <= 5
 }
 
 export function formatOrderCountdown(countdown: number): string {
@@ -69,6 +69,9 @@ export function mergeOrderState(
   evaluation: LocalEvaluationItem | null
 ): number {
   const serverState: number = order.orderState
+  if (order.serverManaged) {
+    return serverState
+  }
   if (serverState === 6) {
     return 6
   }

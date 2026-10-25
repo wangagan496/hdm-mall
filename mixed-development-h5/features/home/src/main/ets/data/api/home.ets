@@ -12,7 +12,12 @@ import {
 import { generateFallbackGoods } from './mockData'
 import { normalizeGoodsPresentation, normalizeGoodsSummaryPicture } from './goodsPresentation'
 
-const goodsDetailCache: Map<string, Promise<Goods>> = new Map<string, Promise<Goods>>()
+interface CachedGoodsDetail {
+  request: Promise<Goods>
+  loadedAt: number
+}
+const goodsDetailCache: Map<string, CachedGoodsDetail> = new Map<string, CachedGoodsDetail>()
+const GOODS_DETAIL_CACHE_TTL: number = 60_000
 const BANNER_CATEGORY_PREFIX: string = '/category/'
 
 export function getBannerCategoryId(hrefUrl: string): string {
@@ -97,15 +102,18 @@ async function fetchGoodsDetail(goodsId: string): Promise<Goods> {
 }
 
 async function requestGoodsDetail(goodsId: string): Promise<Goods> {
-  const cachedRequest: Promise<Goods> | undefined = goodsDetailCache.get(goodsId)
-  if (cachedRequest) {
-    return cachedRequest
+  const cached = goodsDetailCache.get(goodsId)
+  if (cached && (Date.now() - cached.loadedAt < GOODS_DETAIL_CACHE_TTL || cached.loadedAt === 0)) {
+    return cached.request
   }
 
   const request: Promise<Goods> = fetchGoodsDetail(goodsId)
-  goodsDetailCache.set(goodsId, request)
+  const entry: CachedGoodsDetail = { request, loadedAt: 0 }
+  goodsDetailCache.set(goodsId, entry)
   try {
-    return await request
+    const detail: Goods = await request
+    entry.loadedAt = Date.now()
+    return detail
   } catch {
     // Failed requests remain retryable instead of poisoning this session's cache.
     goodsDetailCache.delete(goodsId)

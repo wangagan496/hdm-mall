@@ -6,6 +6,7 @@ export {
   CategoryItemChild,
   GoodsItems,
   HDMUser,
+  FamilyRelation,
   CartGoods,
   CartGoodsModel,
   AddCartParams,

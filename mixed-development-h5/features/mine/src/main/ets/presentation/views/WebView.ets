@@ -12,6 +12,7 @@ const BRIDGE_PERMISSION: string =
     '[{"scheme":"resource","host":"rawfile","port":"","path":""}],"methodList":[]}}'
 
 class HDMWebBridge {
+  getApiBaseUrl(): string { return GlobalVariable.BASE_URL }
   private getContext(): common.UIAbilityContext {
     const context = AppStorage.get<common.UIAbilityContext>(GlobalVariable.ABILITY_CONTEXT_KEY)
     if (!context) {
@@ -168,7 +169,7 @@ struct WebView {
               object: this.bridgeObject,
               name: BRIDGE_NAME,
               methodList: [
-                'queryUser', 'vibrator', 'getAreaColumns',
+                'queryUser', 'vibrator', 'getAreaColumns', 'getApiBaseUrl',
                 'updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto'
               ],
               controller: this.controller,

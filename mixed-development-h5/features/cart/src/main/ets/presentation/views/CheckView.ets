@@ -1,8 +1,9 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, OrderGoodsItem, Summary } from 'models'
+import { AddressItem, CreateOrderParamsGoods, OrderGoodsItem, Summary } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
+import { util } from '@kit.ArkTS'
 import { createOrderAPI, getPreOrderAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
 
@@ -44,6 +45,8 @@ export struct CheckView {
   private readonly addressUpdatedCb: () => void = () => {
     this.getPreOrder()
   }
+  // 网络结果不确定时保留同一请求号，重试不会再创建一笔订单。
+  private requestKey: string = util.generateRandomUUID(true)
 
   private safeToast(message: string): void {
     try {
@@ -67,17 +70,21 @@ export struct CheckView {
     this.loading = true
     try {
       const result = await createOrderAPI({
+        requestKey: this.requestKey,
         payChannel: this.payChannel,
         payType: 1,
         buyerMessage: '',
         addressId: this.addressId,
-        goods: this.goodsList,
+        goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({
+          skuId: item.skuId,
+          count: item.count
+        })),
         deliveryTimeType: 1
       })
       authCart.updateCartCount()
       this.showSheet = false
       // 携带真实订单号进收银台；支付与否最终以服务端 orderState 为准
-      this.stackPath.pushPath({
+      this.stackPath.replacePath({
         name: PAGE_PATH.PAY_PAGE,
         param: result.id
       })
@@ -129,7 +136,7 @@ export struct CheckView {
     })
   }
 
-  payChannels = ['支付宝', '微信支付', '华为支付']
+  payChannels = ['模拟支付（可邀请亲友代付）']
 
   aboutToAppear(): void {
     emitter.on(BusinessVariable.UPDATE_ADDRESS_LIST, this.addressUpdatedCb)

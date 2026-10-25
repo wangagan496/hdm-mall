@@ -1,8 +1,8 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { OrderItem, PayResultParams } from 'models'
 import { HDMNavBar } from 'ui_components'
-import { demoOrderStore } from 'storage'
-import { getOrderDetailAPI } from '../../data/api'
+import { auth, demoOrderStore } from 'storage'
+import { getOrderDetailAPI, mockPayAPI, invitePayerAPI, getFamilyRelationsAPI, FamilyRelation } from '../../data/api'
 import { mergeOrderState } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
 
@@ -13,16 +13,33 @@ struct PayView {
   @State order: OrderItem | null = null
   @State loading: boolean = true
   @State loadFailed: boolean = false
-  @State selectedChannel: number = 1
   @State paying: boolean = false
+  @State relatives: FamilyRelation[] = []
+  private active: boolean = true
   @Consume stackPath: NavPathStack
   private orderId: string = ''
   private countdownBaseAt: number = 0
 
   aboutToAppear(): void {
+    this.active = true
     const params = this.stackPath.getParamByName(PAGE_PATH.PAY_PAGE) as string[]
     this.orderId = params && params.length ? params[params.length - 1] : ''
     this.load()
+  }
+
+  aboutToDisappear(): void { this.active = false }
+
+  private async choosePayer(friendId: string | null): Promise<void> {
+    if (this.paying || !this.order) { return }
+    this.paying = true
+    try {
+      await invitePayerAPI(this.orderId, friendId)
+      if (!this.active) { return }
+      this.safeToast(friendId ? '已发送代付邀请，亲友可在亲友中心付款' : '已切换为本人付款')
+      await this.load()
+    } catch {
+      if (this.active) { this.safeToast('操作失败，请刷新后重试') }
+    } finally { this.paying = false }
   }
 
   private safeToast(message: string): void {
@@ -57,13 +74,34 @@ struct PayView {
     this.loading = true
     this.loadFailed = false
     try {
-      this.order = await getOrderDetailAPI(this.orderId)
+      const order: OrderItem = await getOrderDetailAPI(this.orderId)
+      if (!this.active) { return }
+      this.order = order
       this.countdownBaseAt = Date.now()
-      if (this.mergedState() !== 1) {
+      if (this.mergedState() >= 2 && this.mergedState() <= 5) {
         this.stackPath.replacePath({
           name: PAGE_PATH.PAY_RESULT_PAGE,
           param: { payResult: true, orderId: this.orderId } as PayResultParams
         })
+        return
+      }
+      if (order.orderState === 6) {
+        this.safeToast('订单已取消')
+        this.stackPath.pop()
+        return
+      }
+      if (order.canInvitePayer) {
+        try {
+          const relations: FamilyRelation[] = await getFamilyRelationsAPI()
+          if (this.active) {
+            this.relatives = relations.filter((item: FamilyRelation) => item.status === 'accepted' && item.ownerAccount === auth.getUserInfo()?.account)
+          }
+        } catch {
+          if (this.active) {
+            this.relatives = []
+            this.safeToast('亲友列表加载失败')
+          }
+        }
       }
     } catch {
       this.loadFailed = true
@@ -77,7 +115,7 @@ struct PayView {
     if (!this.order || this.paying) {
       return
     }
-    if (!GlobalVariable.DEMO_ORDER_FLOW) {
+    if (!this.order.serverManaged && !GlobalVariable.DEMO_ORDER_FLOW) {
       this.safeToast('当前环境未接入支付渠道')
       return
     }
@@ -95,7 +133,12 @@ struct PayView {
     }
     this.paying = true
     try {
-      await demoOrderStore.setOverlay(this.order.id, 2)
+      if (this.order.serverManaged) {
+        await mockPayAPI(this.order.id, this.order.payMoney)
+      } else {
+        await demoOrderStore.setOverlay(this.order.id, 2)
+      }
+      if (!this.active) { return }
       this.stackPath.replacePath({
         name: PAGE_PATH.PAY_RESULT_PAGE,
         param: { payResult: true, orderId: this.orderId } as PayResultParams
@@ -105,52 +148,6 @@ struct PayView {
     } finally {
       this.paying = false
     }
-  }
-
-  @Builder
-  private ChannelRow(iconText: string, iconBg: string, title: string, desc: string, channel: number, enabled: boolean = true) {
-    Row({ space: 12 }) {
-      Text(iconText)
-        .width(28)
-        .height(28)
-        .fontSize(13)
-        .fontWeight(600)
-        .fontColor(Color.White)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(iconBg)
-        .borderRadius(6)
-        .opacity(enabled ? 1 : 0.5)
-      Column({ space: 2 }) {
-        Text(title)
-          .fontSize(14)
-          .fontColor(enabled ? $r('[ui_components].color.black') : $r('[ui_components].color.gray'))
-        Text(desc)
-          .fontSize(11)
-          .fontColor($r('[ui_components].color.gray'))
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      if (this.selectedChannel === channel) {
-        Image($r('[ui_components].media.ic_public_check_filled'))
-          .width(20)
-          .height(20)
-          .fillColor($r('[ui_components].color.red'))
-      } else {
-        Stack() {}
-          .width(20)
-          .height(20)
-          .border({ width: 1.5, color: $r('[ui_components].color.border') })
-          .borderRadius(10)
-      }
-    }
-    .width('100%')
-    .padding({ top: 12, bottom: 12 })
-    .opacity(enabled ? 1 : 0.9)
-    .onClick(() => {
-      if (enabled) {
-        this.selectedChannel = channel
-      }
-    })
   }
 
   build() {
@@ -230,11 +227,19 @@ struct PayView {
                   .width('100%')
                   .padding({ bottom: 4 })
                 Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-                this.ChannelRow('支', '#1677FF', '支付宝', '演示环境不产生真实扣款', 1, true)
-                Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-                this.ChannelRow('微', '#07C160', '微信支付', '演示环境不产生真实扣款', 2, true)
-                Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-                this.ChannelRow('余', '#FF8F1F', '余额支付', '可用余额 ¥ 999.00', 3, false)
+                Text(this.order.invitedPayerAccount ? '等待亲友 ' + this.order.invitedPayerAccount + ' 代付' : '本人模拟支付')
+                  .fontSize(14).padding(12)
+                if (this.order.canInvitePayer) {
+                  Button('本人付款').enabled(!this.paying).onClick(() => this.choosePayer(null))
+                  ForEach(this.relatives, (relative: FamilyRelation) => {
+                    Button('邀请 ' + relative.friendAccount + ' 代付')
+                      .enabled(!this.paying).onClick(() => this.choosePayer(relative.friendId))
+                  }, (relative: FamilyRelation) => relative.id)
+                  if (this.relatives.length === 0) {
+                    Text('请先到「我的 → 亲友中心」绑定亲友').fontSize(12).padding(8)
+                  }
+                }
+                Button('刷新支付状态').enabled(!this.paying).onClick(() => this.load())
               }
               .width('100%')
               .padding(16)
@@ -244,7 +249,7 @@ struct PayView {
               Column({ space: 6 }) {
                 Row({ space: 6 }) {
                   Image($r('[ui_components].media.ic_public_check_filled')).width(14).height(14).fillColor('#07C160')
-                  Text('支付安全由银行级加密保障')
+                  Text('模拟支付，不产生真实扣款')
                     .fontSize(11)
                     .fontColor($r('[ui_components].color.gray'))
                 }
@@ -283,7 +288,7 @@ struct PayView {
                 .fontWeight(500)
                 .layoutWeight(1)
                 .backgroundColor($r('[ui_components].color.red'))
-                .enabled(!this.paying)
+                .enabled(!this.paying && (!this.order.serverManaged || this.order.canPay === true))
                 .onClick(() => this.handleMockPay())
             }
             .width('100%')

@@ -2,6 +2,7 @@ import { AddressItem } from 'models'
 import { RequestAxios } from 'network'
 
 export interface AddressMutationPayload {
+  fullLocation: string
   receiver: string
   contact: string
   provinceCode: string

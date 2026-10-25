@@ -3,7 +3,7 @@ import { HDMUser } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { auth, localGoodsStore, storeManager } from 'storage'
 import { authCart } from 'storage'
-import { huaweiLoginAPI, loginAPI } from '../../data/api'
+import { huaweiLoginAPI, loginAPI, registerAPI, isAuthNetworkError, isAuthRequestError } from '../../data/api'
 import { LoginParams } from '../../domain/models'
 import { loginComponentManager, LoginWithHuaweiIDButton } from '@kit.AccountKit'
 import { BusinessError } from '@kit.BasicServicesKit'
@@ -18,6 +18,7 @@ export struct LoginView {
   @State valid: boolean = false
   @State agree: boolean = false
   @State submitting: boolean = false
+  @State registering: boolean = false
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @Consume
@@ -50,14 +51,31 @@ export struct LoginView {
       this.safeToast('请先勾选协议')
       return
     }
+    if (!/^[a-zA-Z0-9_]{3,32}$/.test(this.loginForm.account)) {
+      this.safeToast('账号须为3～32位字母、数字或下划线')
+      return
+    }
+    if (this.loginForm.password.length < 8 || this.loginForm.password.length > 128) {
+      this.safeToast('密码长度须为8～128位')
+      return
+    }
     this.submitting = true
     try {
+      if (this.registering) {
+        await registerAPI(this.loginForm)
+        this.registering = false
+      }
       const user = await loginAPI(this.loginForm)
       await this.completeLogin(user)
       this.safeToast('登录成功')
       this.stackPath.pop()
-    } catch {
-      this.safeToast('登录失败，请稍后重试')
+    } catch (error) {
+      if (isAuthNetworkError(error as Error)) {
+        this.safeToast(this.registering ? '注册时网络异常，请稍后重试' : '登录时网络异常，请稍后重试')
+      } else if (!isAuthRequestError(error as Error)) {
+        // 请求已成功但本地保存登录信息失败，拦截器不会提示，这里补一句。
+        this.safeToast('登录信息保存失败，请重试')
+      }
     } finally {
       this.submitting = false
     }
@@ -158,17 +176,17 @@ export struct LoginView {
               }
             })
             Column({ space: 16 }) {
-              Text('账号密码登录')
+              Text(this.registering ? '注册账号' : '账号密码登录')
                 .fontSize(18)
                 .fontColor($r('[ui_components].color.black'))
                 .width('100%')
                 .fontWeight(500)
                 .margin({ bottom: 10 })
-              TextInput({ placeholder: '请输入账号/手机号', text: $$this.loginForm.account })
+              TextInput({ placeholder: '账号：3～32位字母、数字或下划线', text: $$this.loginForm.account })
                 .placeholderColor($r('[ui_components].color.gray'))
                 .placeholderFont({ size: 14 })
                 .form()
-              TextInput({ placeholder: '请输入密码', text: $$this.loginForm.password })
+              TextInput({ placeholder: '请输入至少8位密码', text: $$this.loginForm.password })
                 .type(InputType.Password)
                 .showPasswordIcon(false)
                 .placeholderColor($r('[ui_components].color.gray'))
@@ -199,7 +217,7 @@ export struct LoginView {
                 .fontColor($r('[ui_components].color.gray'))
               }
 
-              Button('登录')
+              Button(this.submitting ? '处理中...' : this.registering ? '注册并登录' : '登录')
                 .backgroundColor($r('[ui_components].color.black'))// .enabled(this.valid)
                 .enabled(this.onInput() && !this.submitting)
                 .fontColor($r('[ui_components].color.white'))
@@ -210,9 +228,10 @@ export struct LoginView {
 
               Row() {
                 Blank()
-                Text('忘记密码')
+                Text(this.registering ? '已有账号，去登录' : '没有账号，去注册')
                   .fontColor('#007DFB')
                   .fontSize(12)
+                  .onClick(() => { if (!this.submitting) { this.registering = !this.registering } })
               }
               .width('100%')
 
@@ -245,6 +264,7 @@ export struct LoginView {
                 .width('100%')
               }
               .margin({ top: 200 })
+              .visibility(Visibility.None)
             }
             .padding(30)
           }

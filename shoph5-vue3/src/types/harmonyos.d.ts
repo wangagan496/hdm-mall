@@ -1,4 +1,5 @@
 interface HarmonyBridge {
+  getApiBaseUrl: () => string
   queryUser: () => HDMUser | undefined
   updateUser: (user: HDMUser) => Promise<void> // 更新用户
   removeUser: () => Promise<void> // 清除用户

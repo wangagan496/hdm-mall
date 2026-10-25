@@ -2,6 +2,8 @@ import { HDMUser } from 'models'
 
 export function mergeBridgeUser(current: HDMUser | undefined, update: HDMUser): HDMUser {
   return {
+    id: current?.id,
+    role: current?.role,
     token: update.token || current?.token || '',
     nickname: update.nickname || current?.nickname || update.account || current?.account || '',
     avatar: update.avatar,

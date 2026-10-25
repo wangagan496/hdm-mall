@@ -4,6 +4,7 @@ import {
   CreateOrderParams,
   CreateOrderResult,
   DeleteCartParams,
+  FamilyRelation,
   GoodsItems,
   OrderItem,
   OrderListParams,
@@ -78,9 +79,9 @@ interface EmptyParams {
 const CANCEL_REASON_UNWANTED: CancelOrderParams = { cancelReason: '不想要了' }
 const EMPTY_PARAMS: EmptyParams = {}
 
-// 模拟发货（后端真实提供）：GET /member/order/consignment/{id}
-export const consignmentOrderAPI = (orderId: string): Promise<ConsignmentResult> => {
-  return RequestAxios.getSilent<ConsignmentResult>(`/member/order/consignment/${orderId}`)
+// 提醒发货：POST /member/order/{id}/reminder
+export const remindShipmentAPI = (orderId: string): Promise<ConsignmentResult> => {
+  return RequestAxios.postSilent<ConsignmentResult>(`/member/order/${orderId}/reminder`)
 }
 
 // 取消订单：PUT /member/order/{id}/cancel  body: { cancelReason: string }
@@ -119,6 +120,30 @@ export const receiptOrderAPI = (orderId: string): Promise<OrderStateResult> => {
   return RequestAxios.putSilent<OrderStateResult>(`/member/order/${orderId}/receipt`, EMPTY_PARAMS)
 }
 
-export const commentOrderAPI = (orderId: string): Promise<OrderStateResult> => {
-  return RequestAxios.putSilent<OrderStateResult>(`/member/order/${orderId}/evaluation`, EMPTY_PARAMS)
+export interface EvaluationPayload {
+  score: number
+  content: string
+}
+
+export const commentOrderAPI = (orderId: string, data: EvaluationPayload): Promise<OrderStateResult> => {
+  return RequestAxios.putSilent<OrderStateResult>(`/member/order/${orderId}/evaluation`, data)
+}
+
+export { FamilyRelation } from 'models'
+
+interface PaymentPayload { amountCents: number }
+interface PayerPayload { friendId: string | null }
+
+export function mockPayAPI(orderId: string, amount: number): Promise<OrderStateResult> {
+  const data: PaymentPayload = { amountCents: Math.round(amount * 100) }
+  return RequestAxios.post<OrderStateResult>(`/member/order/${orderId}/mock-pay`, data)
+}
+
+export function invitePayerAPI(orderId: string, friendId: string | null): Promise<OrderStateResult> {
+  const data: PayerPayload = { friendId }
+  return RequestAxios.put<OrderStateResult>(`/member/order/${orderId}/payer`, data)
+}
+
+export function getFamilyRelationsAPI(): Promise<FamilyRelation[]> {
+  return RequestAxios.get<FamilyRelation[]>('/member/relations')
 }

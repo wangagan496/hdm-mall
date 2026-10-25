@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios'
 import { showToast } from 'vant'
 
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://meikou-api.itheima.net/',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3000',
   timeout: Number(import.meta.env.VITE_API_TIMEOUT || 10000),
 })
 
@@ -10,6 +10,9 @@ const request = axios.create({
 request.interceptors.request.use(
   (config) => {
     try {
+      if (!import.meta.env.VITE_API_BASE_URL && window.mk?.getApiBaseUrl) {
+        config.baseURL = window.mk.getApiBaseUrl()
+      }
       const user = window.mk?.queryUser()
       if (user?.token) {
         config.headers.Authorization = `Bearer ${user.token}`

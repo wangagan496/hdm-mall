@@ -2,7 +2,8 @@ export class GlobalVariable {
   static readonly BREAK_POINT_KEY: string = "break_point"
   static readonly SAFE_AREA_TOP: string = "safe_area_top"
   static readonly SAFE_AREA_BOTTOM: string = "safe_area_bottom"
-  static readonly BASE_URL: string = "https://meikou-api.itheima.net"
+  // 本机服务通过 hdc rport tcp:3000 tcp:3000 映射到设备；真机局域网部署时改为服务器地址。
+  static readonly BASE_URL: string = "http://127.0.0.1:3000"
   static readonly SUCCESS_CODE: string = "1"
   static readonly USER_INFO_KEY: string = "user_info_key"
   static readonly SWITCH_TAB: string = "switch_tab"
@@ -17,7 +18,7 @@ export class GlobalVariable {
    * 服务端拒绝这些操作也按本地状态继续走通流程，这是有意的演示行为。
    * 接入真实后端后置为 false，订单状态即完全以服务端为准。
    */
-  static readonly DEMO_ORDER_FLOW: boolean = true
+  static readonly DEMO_ORDER_FLOW: boolean = false
 }
 
 export class BusinessVariable {

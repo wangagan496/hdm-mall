@@ -141,11 +141,11 @@ export default function localUnitTest() {
       expect(isOrderStateInTab(5, 4)).assertFalse();
       expect(isOrderStateInTab(6, 4)).assertFalse();
     });
-    it('treatsOnlyStateTwoToFourAsPaid', 0, () => {
+    it('treatsStateTwoToFiveAsPaid', 0, () => {
       expect(isPaidOrderState(1)).assertFalse();
       expect(isPaidOrderState(2)).assertTrue();
       expect(isPaidOrderState(4)).assertTrue();
-      expect(isPaidOrderState(5)).assertFalse();
+      expect(isPaidOrderState(5)).assertTrue();
       expect(isPaidOrderState(6)).assertFalse();
     });
     it('formatsOrderCountdownWithPaddedFields', 0, () => {

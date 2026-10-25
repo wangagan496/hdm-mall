@@ -48,16 +48,17 @@ export struct PayResultView {
       const evaluation = demoOrderStore.getEvaluation(this.orderId)
       this.effectiveState = mergeOrderState(order, overlay, evaluation)
       const isPaid: boolean = this.effectiveState >= 2 && this.effectiveState <= 5
-      this.payResult = isPaid || this.payResult
+      this.payResult = order.serverManaged ? isPaid : isPaid || this.payResult
     } catch {
       const overlay = demoOrderStore.getOverlay(this.orderId)
-      if (overlay && overlay.advancedState >= 2) {
+      if (GlobalVariable.DEMO_ORDER_FLOW && overlay && overlay.advancedState >= 2) {
         this.effectiveState = overlay.advancedState
         this.payResult = true
         this.checking = false
         return
       }
       this.checkFailed = true
+      this.payResult = false
     } finally {
       this.checking = false
     }
@@ -92,7 +93,7 @@ export struct PayResultView {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: this.checking ? '确认支付结果' : this.payResult ? '支付成功' : '未付款'
+          title: this.checking || this.checkFailed ? '确认支付结果' : this.payResult ? '支付成功' : '未付款'
         })
         List() {
           ListItem() {

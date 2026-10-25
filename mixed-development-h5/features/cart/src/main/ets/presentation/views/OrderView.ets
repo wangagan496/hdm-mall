@@ -4,7 +4,7 @@ import { HDMEmpty, HDMNavBar } from 'ui_components'
 import { demoOrderStore } from 'storage'
 import {
   cancelOrderWithFallback,
-  consignmentOrderAPI,
+  remindShipmentAPI,
   getOrderDetailAPI,
   getOrderListAPI,
   receiptOrderAPI
@@ -105,6 +105,11 @@ export struct OrderView {
   }
 
   private refreshLocalOverlay(): void {
+    if (!GlobalVariable.DEMO_ORDER_FLOW) {
+      this.overlays = {}
+      this.evaluations = {}
+      return
+    }
     const overlays: DemoOrderOverlay[] = demoOrderStore.getAllOverlays()
     const nextOverlays: Record<string, DemoOrderOverlay> = {}
     overlays.forEach((overlay: DemoOrderOverlay) => {
@@ -167,6 +172,9 @@ export struct OrderView {
   }
 
   private hasEvaluation(order: OrderItem): boolean {
+    if (order.serverManaged) {
+      return !!order.evaluation
+    }
     return (this.evaluations[order.id] ?? null) !== null
   }
 
@@ -213,7 +221,7 @@ export struct OrderView {
 
   private runConsignment(orderId: string): Promise<void> {
     return advanceOrderState(orderId, 3, async (): Promise<void> => {
-      await consignmentOrderAPI(orderId)
+      await remindShipmentAPI(orderId)
     })
   }
 

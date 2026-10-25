@@ -244,6 +244,7 @@ export struct AddressView {
 
   private createPayload(): AddressMutationPayload {
     return {
+      fullLocation: this.form.fullLocation,
       receiver: this.form.receiver.trim(),
       contact: this.form.contact.trim(),
       provinceCode: this.form.provinceCode.toString(),

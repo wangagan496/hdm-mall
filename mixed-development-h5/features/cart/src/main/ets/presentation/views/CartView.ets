@@ -24,7 +24,7 @@ export struct CartView {
   @State
   allPrice: number = 0
   @State
-  isDeleting: boolean = false
+  deleting: boolean = false
   @State
   loading: boolean = false
   @State
@@ -82,10 +82,10 @@ export struct CartView {
   }
 
   async deleteCartItems(skuIds: string[], clearAll: boolean = false): Promise<void> {
-    if (this.isDeleting || skuIds.length === 0) {
+    if (this.deleting || skuIds.length === 0) {
       return
     }
-    this.isDeleting = true
+    this.deleting = true
     try {
       await CartOperations.deleteCartItems(skuIds)
       this.cartList = excludeCartItems(this.cartList, skuIds)
@@ -101,7 +101,7 @@ export struct CartView {
       } catch {
       }
     } finally {
-      this.isDeleting = false
+      this.deleting = false
     }
   }
 
@@ -126,14 +126,14 @@ export struct CartView {
     HDMConfirm({
       message: '确定清空购物车中的全部商品吗？',
       onConfirm: async () => {
-        if (this.isDeleting) {
+        if (this.deleting) {
           return
         }
         await this.deleteCartItems(this.cartList.map((item: CartGoodsModel) => item.skuId), true)
         this.showClearCartConfirm = false
       },
       onCancel: () => {
-        if (!this.isDeleting) {
+        if (!this.deleting) {
           this.showClearCartConfirm = false
         }
       }
@@ -161,13 +161,13 @@ export struct CartView {
               .fontSize(13)
               .fontColor($r('[ui_components].color.gray'))
             Blank()
-            Text(this.isDeleting ? '处理中…' : '清空购物车')
+            Text(this.deleting ? '处理中…' : '清空购物车')
               .fontSize(13)
-              .fontColor(this.isDeleting ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
+              .fontColor(this.deleting ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
               .height(36)
               .padding({ left: 12, right: 4 })
               .onClick(() => {
-                if (!this.isDeleting) {
+                if (!this.deleting) {
                   this.showClearCartConfirm = true
                 }
               })

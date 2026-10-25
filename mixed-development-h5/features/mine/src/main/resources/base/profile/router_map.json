@@ -1,6 +1,11 @@
 {
   "routerMap": [
     {
+      "name": "FamilyView",
+      "buildFunction": "FamilyViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/FamilyView.ets"
+    },
+    {
       "name": "LoginView",
       "buildFunction": "LoginViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/LoginView.ets"

@@ -44,10 +44,21 @@ export interface GoodsItems {
 }
 
 export interface HDMUser {
+  id?: string
+  role?: string
   token: string
   nickname: string
   avatar: string
   account: string
+}
+
+export interface FamilyRelation {
+  id: string
+  status: string
+  ownerId: string
+  friendId: string
+  ownerAccount: string
+  friendAccount: string
 }
 
 export interface CartGoods {
@@ -151,6 +162,7 @@ export interface CreateOrderParamsGoods {
 }
 
 export interface CreateOrderParams {
+  requestKey?: string
   deliveryTimeType: number
   payType: number
   buyerMessage: string
@@ -164,6 +176,18 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  address?: AddressItem
+  serverManaged?: boolean
+  ownerAccount?: string
+  payerAccount?: string
+  invitedPayerAccount?: string
+  receivedByAccount?: string
+  paymentMode?: string
+  canPay?: boolean
+  canReceive?: boolean
+  canEvaluate?: boolean
+  canInvitePayer?: boolean
+  evaluation?: LocalEvaluationItem | null
   countdown: number
   createTime: string
   id: string

@@ -93,7 +93,7 @@ export struct EvaluationView {
         return
       }
       this.order = order
-      if (demoOrderStore.getEvaluation(this.orderId)) {
+      if (order.serverManaged ? !!order.evaluation : !!demoOrderStore.getEvaluation(this.orderId)) {
         this.leaveToOrderList('该订单已评价')
         return
       }
@@ -155,8 +155,13 @@ export struct EvaluationView {
       const orderId: string = this.order.id
       const score: number = this.score
       const content: string = this.content
+      if (this.order.serverManaged) {
+        await commentOrderAPI(orderId, { score, content })
+        this.leaveToOrderList('评价成功')
+        return
+      }
       const actions: EvaluationSubmitActions = {
-        submitRemote: async (): Promise<void> => { await commentOrderAPI(orderId) },
+        submitRemote: async (): Promise<void> => { await commentOrderAPI(orderId, { score, content }) },
         saveLocal: async (): Promise<void> => { await demoOrderStore.saveEvaluation(orderId, score, content) },
         isActive: (): boolean => !this.leaving,
         returnToOrderList: (): void => this.leaveToOrderList('评价成功')
@@ -370,7 +375,7 @@ export struct EvaluationView {
                     .fontColor($r('[ui_components].color.red'))
                 }
 
-                Text('评价仅保存在本机，用于演示订单流程')
+                Text('评价提交后保存到账号，可在订单详情中查看')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
               }

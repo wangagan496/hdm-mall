@@ -125,6 +125,11 @@ export struct MineView {
             colors: [['#FFF1E5', 0], [$r('[ui_components].color.under'), 1]]
           })
 
+          Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
+            .margin({ top: 12, bottom: 12 })
+            .onClick(() => {
+              this.stackPath.pushPath({ name: this.user.token ? PAGE_PATH.FAMILY_PAGE : PAGE_PATH.LOGIN_PAGE })
+            })
           // nav
           Column({ space: 8 }) {
             GridRow({ columns: 3 }) {

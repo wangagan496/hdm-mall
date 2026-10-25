@@ -4,7 +4,7 @@ import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderSku } from 'mode
 import { demoOrderStore } from 'storage'
 import {
   cancelOrderWithFallback,
-  consignmentOrderAPI,
+  remindShipmentAPI,
   getOrderDetailAPI,
   receiptOrderAPI
 } from '../../data/api'
@@ -98,7 +98,7 @@ export struct OrderDetailView {
     }
     const orderId: string = this.order.id
     await advanceOrderState(orderId, 3, async (): Promise<void> => {
-      await consignmentOrderAPI(orderId)
+      await remindShipmentAPI(orderId)
     })
   }
 
@@ -125,8 +125,8 @@ export struct OrderDetailView {
       this.evaluation = null
       return
     }
-    this.demoOverlay = demoOrderStore.getOverlay(this.order.id)
-    this.evaluation = demoOrderStore.getEvaluation(this.order.id)
+    this.demoOverlay = this.order.serverManaged ? null : demoOrderStore.getOverlay(this.order.id)
+    this.evaluation = this.order.serverManaged ? this.order.evaluation ?? null : demoOrderStore.getEvaluation(this.order.id)
   }
 
   private mergedState(): number {
@@ -360,12 +360,18 @@ export struct OrderDetailView {
               }
 
               Column({ space: 10 }) {
+                if (this.order.serverManaged) {
+                  Text(this.order.payerAccount ? '实际付款人：' + this.order.payerAccount : '尚未付款').fontSize(13)
+                  if (this.order.receivedByAccount) {
+                    Text('收货确认人：' + this.order.receivedByAccount).fontSize(13)
+                  }
+                }
                 Row() {
                   Text('支付方式')
                     .fontSize(13)
                     .fontColor($r('[ui_components].color.gray'))
                   Blank()
-                  Text(this.order.payChannel === 1 ? '支付宝' : '在线支付')
+                  Text(this.order.serverManaged ? (this.order.paymentMode === 'family' ? '亲友模拟代付' : '本人模拟支付') : '在线支付')
                     .fontSize(13)
                 }
                 .width('100%')
@@ -404,7 +410,9 @@ export struct OrderDetailView {
     .hideTitleBar(true)
     .padding({ top: this.topHeight })
     .onShown(() => {
-      this.refreshLocalOverlay()
+      if (this.orderId && !this.loading) {
+        this.load()
+      }
     })
   }
 }
