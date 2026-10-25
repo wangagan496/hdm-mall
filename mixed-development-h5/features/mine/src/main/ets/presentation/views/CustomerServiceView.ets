@@ -1,5 +1,6 @@
 import { GlobalVariable } from 'constants'
 import { HDMNavBar } from 'ui_components'
+import { DecisionService } from 'network'
 
 interface ServiceQuestion {
   question: string
@@ -17,6 +18,12 @@ export struct CustomerServiceView {
   topHeight: number = 0
   @State
   expandedIndex: number = -1
+  @State
+  feedbackText: string = ''
+  @State
+  routingHint: string = ''
+  @State
+  routingLoading: boolean = false
   @Consume
   stackPath: NavPathStack
   questions: ServiceQuestion[] = [
@@ -35,6 +42,43 @@ export struct CustomerServiceView {
 
   private contactService(): void {
     this.safeToast('当前演示版未接入客服服务端')
+  }
+
+  private async routeOrderMessage(): Promise<void> {
+    const message: string = this.feedbackText.trim()
+    if (!message) {
+      this.safeToast('请先描述订单或售后问题')
+      return
+    }
+    this.routingLoading = true
+    this.routingHint = ''
+    try {
+      const result = await DecisionService.routeOrderMessage(message)
+      if (result.fallback || !result.result) {
+        this.routingHint = '暂时无法自动判断，建议联系人工客服。'
+        return
+      }
+      this.routingHint = `建议处理方向：${this.routeLabel(String(result.result))}`
+    } catch {
+      this.routingHint = '智能分流暂时不可用，建议联系人工客服。'
+    } finally {
+      this.routingLoading = false
+    }
+  }
+
+  private routeLabel(result: string): string {
+    switch (result) {
+      case 'logistics':
+        return '物流配送'
+      case 'refund':
+        return '退款售后'
+      case 'payment':
+        return '支付账单'
+      case 'product':
+        return '商品咨询'
+      default:
+        return '其他问题'
+    }
   }
 
   build() {
@@ -105,6 +149,40 @@ export struct CustomerServiceView {
             .backgroundColor($r('[ui_components].color.white'))
             .borderRadius(10)
 
+            Column({ space: 8 }) {
+              Text('订单问题智能分流')
+                .fontSize(15)
+                .fontWeight(500)
+                .fontColor($r('[ui_components].color.black'))
+                .width('100%')
+              TextInput({ placeholder: '例如：订单一直没有发货，应该怎么办？', text: this.feedbackText })
+                .width('100%')
+                .height(44)
+                .onChange((value: string) => {
+                  this.feedbackText = value
+                })
+              Button(this.routingLoading ? '判断中...' : '智能分流')
+                .width('100%')
+                .height(42)
+                .fontSize(14)
+                .backgroundColor($r('[ui_components].color.red'))
+                .enabled(!this.routingLoading)
+                .onClick(() => {
+                  void this.routeOrderMessage()
+                })
+              if (this.routingHint) {
+                Text(this.routingHint)
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.gray'))
+                  .lineHeight(20)
+                  .width('100%')
+              }
+            }
+            .width('100%')
+            .padding(14)
+            .backgroundColor($r('[ui_components].color.white'))
+            .borderRadius(10)
+
             Button('联系人工客服')
               .width('100%')
               .height(44)
@@ -112,7 +190,7 @@ export struct CustomerServiceView {
               .backgroundColor($r('[ui_components].color.black'))
               .onClick(() => this.contactService())
 
-            Text('说明：当前版本未接入在线客服消息服务，不会模拟虚假的客服会话。')
+            Text('说明：智能分流只提供处理建议，不会直接修改订单或执行退款。')
               .fontSize(11)
               .fontColor($r('[ui_components].color.gray'))
               .lineHeight(18)

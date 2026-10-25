@@ -200,6 +200,36 @@ Windows 命令行示例：
 
 > **签名安全：**证书、Profile、密钥库路径及密码只应保存在本机配置中，不应提交到公开仓库。公开提交前请再次检查 `build-profile.json5`。
 
+### 4. 接入 Jev 判断服务（订单咨询分流）
+
+HDM Mall 的“帮助与客服”页已经接入一个低风险的判断入口：用户输入订单或售后描述后，客户端调用统一 `decision-service` 的 `hdm-mall/order-routing` 模板。返回结果只用于显示建议，不会修改订单、支付或退款状态。
+
+先启动通用判断服务：
+
+```powershell
+cd <decision-service-project-root>
+$env:TYPESAFE_MOCK = "true"
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
+```
+
+然后根据运行环境设置 `mixed-development-h5/commons/constants/src/main/ets/GlobalVariable.ets` 中的 `DECISION_SERVICE_URL`：
+
+- 模拟器访问宿主机：先尝试 `http://10.0.2.2:8765`；
+- 真机调试：改成电脑和手机可互通的局域网地址，例如 `http://192.168.1.20:8765`；
+- 正式环境：改成自己的 HTTPS 服务地址，不要把 TypeSafe API Key 放进客户端。
+
+启动应用后进入“个人中心 → 帮助与客服”，输入“订单一直没有发货，应该怎么办？”并点击“智能分流”。Jev 服务不可用或置信度不足时，页面会提示联系人工，原有客服入口仍然可用。
+
+验证服务端模板：
+
+```powershell
+$body = @{ project = "hdm-mall"; module = "order-routing"; state = "订单一直没有发货" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/decision/template `
+  -ContentType "application/json" -Body $body
+```
+
+确认链路稳定后，再把 `TYPESAFE_MOCK` 改为 `false` 并配置服务端的 `TYPESAFE_API_KEY`，客户端代码不需要改动。
+
 ## 测试与验证
 
 原生业务模块包含本地单元测试，覆盖部分关键数据与边界逻辑，例如：
