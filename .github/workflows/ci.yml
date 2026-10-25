@@ -39,8 +39,7 @@ jobs:
       - name: Build (vite-plugin-singlefile)
         run: pnpm run build-only
 
-  # 原生端说明：ArkTS/hvigor 构建与 hypium 单元测试依赖 DevEco command-line-tools
-  # 与签名环境，暂不在 GitHub 托管 Runner 上执行；本地验证命令：
-  #   hvigorw assembleHap --mode module -p module=features@home
-  #   hvigorw test --mode module -p module=features@home
-  # 如后续接入 self-hosted runner 或官方 CLI 镜像，可在此追加 harmony job。
+  # 原生端说明：ArkTS/hvigor 构建与 Hypium/设备测试依赖本机 DevEco
+  # command-line-tools、签名环境和目标设备。当前仓库通过
+  # scripts/verify-project.ps1 固化可复现的本机构建检查；GitHub 托管 Runner
+  # 没有这些环境，因此不在 CI 中伪装执行原生测试。

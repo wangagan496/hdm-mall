@@ -200,6 +200,23 @@ Windows 命令行示例：
 
 > **签名安全：**证书、Profile、密钥库路径及密码只应保存在本机配置中，不应提交到公开仓库。公开提交前请再次检查 `build-profile.json5`。
 
+### 3. 一键验证工程交付
+
+仓库提供 `scripts/verify-project.ps1`，用于在本机复现 H5 检查、原生工程构建和签名 `.app` 产物检查。默认会执行完整的 H5 检查和原生非增量构建：
+
+```powershell
+.\scripts\verify-project.ps1
+```
+
+如果本次已经完成 H5 构建并需要把 `dist/index.html` 同步到原生 rawfile，再显式加上 `-SyncH5`。调试迭代时可以用 `-Incremental`，或用 `-SkipH5` / `-SkipNative` 缩小验证范围：
+
+```powershell
+.\scripts\verify-project.ps1 -SyncH5
+.\scripts\verify-project.ps1 -SkipNative
+```
+
+脚本会检查 `DEVECO_SDK_HOME`、Hvigor 路径和 `build/outputs` 下最新的 `*-all-signed.app`。它不执行设备安装，也不把签名材料写入仓库。
+
 ### 4. 接入 Jev 判断服务（订单咨询分流）
 
 HDM Mall 的“帮助与客服”页已经接入一个低风险的判断入口：用户输入订单或售后描述后，客户端调用统一 `decision-service` 的 `hdm-mall/order-routing` 模板。返回结果只用于显示建议，不会修改订单、支付或退款状态。
@@ -242,6 +259,8 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/decision/template 
 - 本地收藏和浏览足迹。
 
 构建成功只表示源码和打包流程通过。安装、页面导航、接口数据、设备能力与视觉效果需要在目标 HarmonyOS 设备或模拟器上分别验证。
+
+原生工程的可复现构建检查统一使用 `scripts/verify-project.ps1`。当前工程根节点没有 `hvigorw test` 任务，Hypium 用例需要在 DevEco Studio 的测试配置或目标设备环境中单独执行；仓库不会把不存在的命令写成 CI 通过条件。
 
 ### 工程加固与稳定性验证
 

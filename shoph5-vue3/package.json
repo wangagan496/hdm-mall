@@ -12,8 +12,8 @@
     "sync:rawfile": "node scripts/sync-rawfile.mjs",
     "type-check": "vue-tsc --build",
     "lint": "run-s lint:*",
-    "lint:oxlint": "oxlint . --fix",
-    "lint:eslint": "eslint . --fix --cache",
+    "lint:oxlint": "oxlint .",
+    "lint:eslint": "eslint . --cache",
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
