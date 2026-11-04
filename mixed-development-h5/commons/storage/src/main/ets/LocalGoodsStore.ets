@@ -8,11 +8,18 @@ const BROWSE_HISTORY_KEY: string = 'browse_history'
 const MAX_HISTORY_COUNT: number = 50
 
 export class LocalGoodsStore {
-  private getScopedKey(key: string): string {
+  private pendingWrite: Promise<void> = Promise.resolve()
+
+  private enqueue(action: () => Promise<void>): Promise<void> {
+    const task: Promise<void> = this.pendingWrite.then(action)
+    this.pendingWrite = task.catch(() => {})
+    return task
+  }
+  private getAccountStorageKey(key: string): string {
     return getAccountScopedKey(key)
   }
 
-  private createSnapshot(goods: HDMGoodsItem): LocalGoodsItem {
+  private copyGoodsForLocalStorage(goods: HDMGoodsItem): LocalGoodsItem {
     let picture: string = ''
     if (typeof goods.picture === 'string') {
       picture = goods.picture
@@ -29,54 +36,53 @@ export class LocalGoodsStore {
     }
   }
 
-  private getGoodsList(key: string): LocalGoodsItem[] {
-    try {
-      const value = storeManager.getStore().getSync(this.getScopedKey(key), [])
-      return value as LocalGoodsItem[]
-    } catch {
-      return []
-    }
+  private readLocalGoods(key: string): LocalGoodsItem[] {
+    const value = storeManager.getStore().getSync(this.getAccountStorageKey(key), [])
+    return (value as LocalGoodsItem[]).slice()
   }
 
-  private async saveGoodsList(key: string, goods: LocalGoodsItem[]): Promise<void> {
-    try {
+  private updateLocalGoods(key: string, update: (goods: LocalGoodsItem[]) => LocalGoodsItem[]): Promise<void> {
+    // 入队时固定账号；轮到本次操作时再读取上一笔已确认的数据。
+    const storageKey: string = this.getAccountStorageKey(key)
+    return this.enqueue(async (): Promise<void> => {
       const store = storeManager.getStore()
-      store.putSync(this.getScopedKey(key), goods)
-      await store.flush()
-    } catch {
-      throw new Error('本地商品数据保存失败')
-    }
-  }
-
-  private mergeGoods(current: LocalGoodsItem[], legacy: LocalGoodsItem[], maxCount?: number): LocalGoodsItem[] {
-    const merged: LocalGoodsItem[] = current.slice()
-    legacy.forEach((legacyItem: LocalGoodsItem) => {
-      if (!merged.some((item: LocalGoodsItem) => item.id === legacyItem.id)) {
-        merged.push(legacyItem)
+      const before: LocalGoodsItem[] = store.getSync(storageKey, []) as LocalGoodsItem[]
+      const goods: LocalGoodsItem[] = update(before.slice())
+      try {
+        store.putSync(storageKey, goods)
+        await store.flush()
+      } catch {
+        try { store.putSync(storageKey, before); await store.flush() } catch {}
+        throw new Error('本地商品数据保存失败')
       }
     })
-    merged.sort((left: LocalGoodsItem, right: LocalGoodsItem) => right.updatedAt - left.updatedAt)
-    if (maxCount && merged.length > maxCount) {
-      merged.splice(maxCount, merged.length - maxCount)
-    }
-    return merged
   }
 
-  private migrateLegacyList(key: string, maxCount?: number): boolean {
-    try {
-      const store = storeManager.getStore()
-      const legacy = store.getSync(key, []) as LocalGoodsItem[]
-      if (legacy.length === 0) {
-        return false
+  private mergeLegacyGoods(accountGoods: LocalGoodsItem[], legacyGoods: LocalGoodsItem[], maxCount?: number): LocalGoodsItem[] {
+    const mergedGoods: LocalGoodsItem[] = accountGoods.slice()
+    legacyGoods.forEach((legacyItem: LocalGoodsItem) => {
+      if (!mergedGoods.some((item: LocalGoodsItem) => item.id === legacyItem.id)) {
+        mergedGoods.push(legacyItem)
       }
-      const scopedKey = this.getScopedKey(key)
-      const current = store.getSync(scopedKey, []) as LocalGoodsItem[]
-      store.putSync(scopedKey, this.mergeGoods(current, legacy, maxCount))
-      store.deleteSync(key)
-      return true
-    } catch {
+    })
+    mergedGoods.sort((left: LocalGoodsItem, right: LocalGoodsItem) => right.updatedAt - left.updatedAt)
+    if (maxCount && mergedGoods.length > maxCount) {
+      mergedGoods.splice(maxCount, mergedGoods.length - maxCount)
+    }
+    return mergedGoods
+  }
+
+  // 兼容旧版未区分账号的记录：合入当前账号后删除旧存储键。
+  private migrateLegacyList(key: string, accountStorageKey: string, maxCount?: number): boolean {
+    const store = storeManager.getStore()
+    const legacyGoods = store.getSync(key, []) as LocalGoodsItem[]
+    if (legacyGoods.length === 0) {
       return false
     }
+    const accountGoods = store.getSync(accountStorageKey, []) as LocalGoodsItem[]
+    store.putSync(accountStorageKey, this.mergeLegacyGoods(accountGoods, legacyGoods, maxCount))
+    store.deleteSync(key)
+    return true
   }
 
   async migrateLegacyData(): Promise<void> {
@@ -84,63 +90,79 @@ export class LocalGoodsStore {
     if (!account) {
       return
     }
-    const favoritesChanged = this.migrateLegacyList(FAVORITE_GOODS_KEY)
-    const historyChanged = this.migrateLegacyList(BROWSE_HISTORY_KEY, MAX_HISTORY_COUNT)
-    if (favoritesChanged || historyChanged) {
+    const favoriteKey: string = this.getAccountStorageKey(FAVORITE_GOODS_KEY)
+    const historyKey: string = this.getAccountStorageKey(BROWSE_HISTORY_KEY)
+    await this.enqueue(async (): Promise<void> => {
+      const store = storeManager.getStore()
+      const favorites: LocalGoodsItem[] = store.getSync(favoriteKey, []) as LocalGoodsItem[]
+      const history: LocalGoodsItem[] = store.getSync(historyKey, []) as LocalGoodsItem[]
+      const oldFavorites: LocalGoodsItem[] = store.getSync(FAVORITE_GOODS_KEY, []) as LocalGoodsItem[]
+      const oldHistory: LocalGoodsItem[] = store.getSync(BROWSE_HISTORY_KEY, []) as LocalGoodsItem[]
       try {
-        await storeManager.getStore().flush()
+        const favoritesChanged: boolean = this.migrateLegacyList(FAVORITE_GOODS_KEY, favoriteKey)
+        const historyChanged: boolean = this.migrateLegacyList(BROWSE_HISTORY_KEY, historyKey, MAX_HISTORY_COUNT)
+        if (favoritesChanged || historyChanged) await store.flush()
       } catch {
+        try {
+          store.putSync(favoriteKey, favorites); store.putSync(historyKey, history)
+          store.putSync(FAVORITE_GOODS_KEY, oldFavorites); store.putSync(BROWSE_HISTORY_KEY, oldHistory)
+          await store.flush()
+        } catch {}
         throw new Error('本地商品数据迁移失败')
       }
-    }
+    })
   }
 
   getFavorites(): LocalGoodsItem[] {
-    return this.getGoodsList(FAVORITE_GOODS_KEY)
+    return this.readLocalGoods(FAVORITE_GOODS_KEY)
   }
 
   isFavorite(goodsId: string): boolean {
-    return this.getFavorites().some((item: LocalGoodsItem) => item.id === goodsId)
+    // 收藏探测失败不能阻断商品详情；列表页面则需要接收读取错误以便重试。
+    try { return this.getFavorites().some((item: LocalGoodsItem) => item.id === goodsId) }
+    catch { return false }
   }
 
   async toggleFavorite(goods: HDMGoodsItem): Promise<boolean> {
-    const favorites = this.getFavorites()
-    const index = favorites.findIndex((item: LocalGoodsItem) => item.id === goods.id)
-    if (index >= 0) {
-      favorites.splice(index, 1)
-      await this.saveGoodsList(FAVORITE_GOODS_KEY, favorites)
-      return false
-    }
-    favorites.unshift(this.createSnapshot(goods))
-    await this.saveGoodsList(FAVORITE_GOODS_KEY, favorites)
-    return true
+    const snapshot: LocalGoodsItem = this.copyGoodsForLocalStorage(goods)
+    let favorite: boolean = false
+    await this.updateLocalGoods(FAVORITE_GOODS_KEY, (favorites: LocalGoodsItem[]): LocalGoodsItem[] => {
+      const index: number = favorites.findIndex((item: LocalGoodsItem) => item.id === snapshot.id)
+      favorite = index < 0
+      if (favorite) favorites.unshift(snapshot)
+      else favorites.splice(index, 1)
+      return favorites
+    })
+    return favorite
   }
 
   async removeFavorite(goodsId: string): Promise<void> {
-    const favorites = this.getFavorites().filter((item: LocalGoodsItem) => item.id !== goodsId)
-    await this.saveGoodsList(FAVORITE_GOODS_KEY, favorites)
+    await this.updateLocalGoods(FAVORITE_GOODS_KEY, (favorites: LocalGoodsItem[]): LocalGoodsItem[] =>
+      favorites.filter((item: LocalGoodsItem) => item.id !== goodsId))
   }
 
   getHistory(): LocalGoodsItem[] {
-    return this.getGoodsList(BROWSE_HISTORY_KEY)
+    return this.readLocalGoods(BROWSE_HISTORY_KEY)
   }
 
   async recordHistory(goods: HDMGoodsItem): Promise<void> {
-    const history = this.getHistory().filter((item: LocalGoodsItem) => item.id !== goods.id)
-    history.unshift(this.createSnapshot(goods))
-    if (history.length > MAX_HISTORY_COUNT) {
-      history.splice(MAX_HISTORY_COUNT, history.length - MAX_HISTORY_COUNT)
-    }
-    await this.saveGoodsList(BROWSE_HISTORY_KEY, history)
+    // 同一商品只保留最近一次浏览：去掉旧记录，再把新记录放到最前面。
+    const snapshot: LocalGoodsItem = this.copyGoodsForLocalStorage(goods)
+    await this.updateLocalGoods(BROWSE_HISTORY_KEY, (history: LocalGoodsItem[]): LocalGoodsItem[] => {
+      const remainingHistory: LocalGoodsItem[] = history.filter((item: LocalGoodsItem) => item.id !== snapshot.id)
+      remainingHistory.unshift(snapshot)
+      if (remainingHistory.length > MAX_HISTORY_COUNT) remainingHistory.splice(MAX_HISTORY_COUNT, remainingHistory.length - MAX_HISTORY_COUNT)
+      return remainingHistory
+    })
   }
 
   async removeHistory(goodsId: string): Promise<void> {
-    const history = this.getHistory().filter((item: LocalGoodsItem) => item.id !== goodsId)
-    await this.saveGoodsList(BROWSE_HISTORY_KEY, history)
+    await this.updateLocalGoods(BROWSE_HISTORY_KEY, (history: LocalGoodsItem[]): LocalGoodsItem[] =>
+      history.filter((item: LocalGoodsItem) => item.id !== goodsId))
   }
 
   async clearHistory(): Promise<void> {
-    await this.saveGoodsList(BROWSE_HISTORY_KEY, [])
+    await this.updateLocalGoods(BROWSE_HISTORY_KEY, (): LocalGoodsItem[] => [])
   }
 }
 

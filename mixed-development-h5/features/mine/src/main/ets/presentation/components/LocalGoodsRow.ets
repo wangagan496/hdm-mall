@@ -5,12 +5,15 @@ import { HDMGoodsItem, LocalGoodsItem } from 'models'
 export struct LocalGoodsRow {
   item: LocalGoodsItem = {} as LocalGoodsItem
   actionText: string = '移除'
+  @Prop interactive: boolean = true
+  canOpen: () => boolean = (): boolean => true
   onAction: (goodsId: string) => void = () => {
   }
   @Consume
   stackPath: NavPathStack
 
   private openGoods(): void {
+    if (!this.interactive || !this.canOpen()) return
     const goods: HDMGoodsItem = {
       id: this.item.id,
       name: this.item.name,
@@ -68,10 +71,12 @@ export struct LocalGoodsRow {
         .padding({ left: 12, right: 12 })
         .backgroundColor($r('[ui_components].color.white'))
         .border({ width: 0.5, color: $r('[ui_components].color.border') })
+        .enabled(this.interactive)
         .onClick(() => this.onAction(this.item.id))
     }
     .width('100%')
     .padding(12)
     .backgroundColor($r('[ui_components].color.white'))
+    .enabled(this.interactive)
   }
 }
