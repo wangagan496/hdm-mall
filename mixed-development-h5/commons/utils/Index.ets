@@ -4,3 +4,4 @@ export { ScreenManagerByMedia, screenManagerByMedia } from './src/main/ets/Break
 export { DownLoadManager, downLoadManager } from './src/main/ets/DownLoadManager'
 export { PushCardManager, pushCardManager } from './src/main/ets/PushCardManager'
 export { LaunchPerf } from './src/main/ets/utils/LaunchPerf'
+export { preloadImages } from './src/main/ets/ImagePreload'

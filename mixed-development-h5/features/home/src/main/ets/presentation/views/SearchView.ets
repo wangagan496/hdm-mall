@@ -12,11 +12,13 @@ struct SearchView {
   stackPath: NavPathStack
 
   private searchGoods(value: string): void {
+    // 去掉首尾空格，空关键词不跳转；键盘搜索和语音搜索共用这个入口。
     const keyword: string = value.trim()
     if (!keyword) {
       return
     }
     this.keyword = keyword
+    // keyword 是两页约定的数据名，SearchResultView 按同名字段接收后才查询商品。
     this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, {
       keyword: keyword
     } as SearchRouterParam)

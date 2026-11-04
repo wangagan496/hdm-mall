@@ -14,7 +14,7 @@ interface StorageBagSearchParams {
 }
 
 export const getCategoryTopAPI = async (): Promise<CategoryItem[]> => {
-  const categories = await RequestAxios.get<CategoryItem[]>('/category/top')
+  const categories = await RequestAxios.get<CategoryItem[]>('/category/summary')
   categories.forEach((category: CategoryItem) => {
     category.children = (category.children || []).filter((child) => {
       return child.goods === undefined || child.goods.length > 0

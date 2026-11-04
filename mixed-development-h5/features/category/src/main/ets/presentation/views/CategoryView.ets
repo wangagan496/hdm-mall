@@ -1,14 +1,8 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { CategoryItem, CategoryItemChild } from 'models'
-import { HDMNavBar } from 'ui_components'
-import { getCategoryTopAPI, getStorageBagPictureAPI } from '../../data/api'
-import {
-  addStorageBagCategory,
-  findCategoryIndexById,
-  isStorageBagKeywordCategory,
-  renameSunHatCategory,
-  updateStorageBagCategoryPicture
-} from '../../data/api/categoryPresentation'
+import { HDMNavBar, HDMEmpty } from 'ui_components'
+import { getCategoryTopAPI } from '../../data/api'
+import { findCategoryIndexById } from '../../data/api/categoryPresentation'
 import { CategorySideBar, CategoryContent } from '../components'
 import { SearchRouterParam } from '../../domain/models'
 
@@ -18,11 +12,11 @@ export struct CategoryView {
   @Prop @Watch('onActiveChange') isActive: boolean = false
   @StorageLink(BusinessVariable.CATEGORY_TARGET_ID) requestedCategoryId: string = ''
   @State categories: CategoryItem[] = []
-  @State activeIndex: number = 0
+  // 左栏选中的是列表位置；分类的业务编号保存在 category.id。
+  @State selectedCategoryIndex: number = 0
   @State loading: boolean = false
+  @State loadFailed: boolean = false
   @Consume stackPath: NavPathStack
-  private storageBagPictureLoading: boolean = false
-  private storageBagPictureLoaded: boolean = false
 
   aboutToAppear(): void {
     this.loadCategories()
@@ -30,57 +24,38 @@ export struct CategoryView {
 
   onActiveChange(): void {
     if (this.isActive) {
-      this.applyRequestedCategory()
-      this.loadStorageBagPicture()
+      this.selectRequestedCategory()
     }
   }
 
-  applyRequestedCategory(): void {
+  selectRequestedCategory(): void {
     if (!this.requestedCategoryId || this.categories.length === 0) {
       return
     }
-    const targetIndex: number = findCategoryIndexById(this.categories, this.requestedCategoryId)
-    if (targetIndex >= 0) {
-      this.activeIndex = targetIndex
+    const requestedCategoryIndex: number = findCategoryIndexById(this.categories, this.requestedCategoryId)
+    if (requestedCategoryIndex >= 0) {
+      this.selectedCategoryIndex = requestedCategoryIndex
     }
     this.requestedCategoryId = ''
   }
 
-  async loadCategories() {
+  async loadCategories(): Promise<void> {
     this.loading = true
+    this.loadFailed = false
     try {
       const categories: CategoryItem[] = await getCategoryTopAPI()
-      this.categories = addStorageBagCategory(
-        renameSunHatCategory(categories),
-        $r('app.media.category_storage_bag')
-      )
-      this.applyRequestedCategory()
-      if (this.isActive) {
-        this.loadStorageBagPicture()
-      }
+      this.categories = categories
+      this.selectRequestedCategory()
+    } catch {
+      this.loadFailed = true
     } finally {
       this.loading = false
     }
   }
 
-  async loadStorageBagPicture() {
-    if (this.categories.length === 0 ||
-      this.storageBagPictureLoading ||
-      this.storageBagPictureLoaded) {
-      return
-    }
-    this.storageBagPictureLoading = true
-    try {
-      const picture: ResourceStr = await getStorageBagPictureAPI()
-      if (picture) {
-        this.categories = updateStorageBagCategoryPicture(this.categories, picture)
-        this.storageBagPictureLoaded = true
-      }
-    } catch {
-      // 分类与点击查询仍可用；下次进入分类页时重新尝试加载真实商品封面。
-    } finally {
-      this.storageBagPictureLoading = false
-    }
+  private openCategoryGoods(subcategory: CategoryItemChild): void {
+    const searchCriteria: SearchRouterParam = { keyword: '', categoryId: subcategory.id }
+    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, searchCriteria)
   }
 
   build() {
@@ -99,25 +74,21 @@ export struct CategoryView {
           .width(48)
           .color($r('[ui_components].color.red'))
           .layoutWeight(1)
+      } else if (this.loadFailed) {
+        HDMEmpty({ tip: '分类加载失败', buttonText: '重新加载', onBtnClick: (): void => { this.loadCategories() } })
+          .layoutWeight(1)
       } else {
         Row() {
           CategorySideBar({
             categories: this.categories,
-            activeIndex: $activeIndex,
-            onSelect: (i: number) => { this.activeIndex = i }
+            activeIndex: $selectedCategoryIndex,
+            onSelect: (categoryIndex: number) => {
+              this.selectedCategoryIndex = categoryIndex
+            }
           })
           CategoryContent({
-            category: this.categories[this.activeIndex] || {} as CategoryItem,
-            onSubClick: (sub: CategoryItemChild) => {
-              const routeParam: SearchRouterParam = { keyword: sub.name }
-              if (!isStorageBagKeywordCategory(sub.id)) {
-                routeParam.categoryId = sub.id
-              }
-              this.stackPath.pushPathByName(
-                PAGE_PATH.SEARCH_RESULT_PAGE,
-                routeParam
-              )
-            }
+            category: this.categories[this.selectedCategoryIndex] || {} as CategoryItem,
+            onSubClick: (subcategory: CategoryItemChild) => this.openCategoryGoods(subcategory)
           })
         }
         .layoutWeight(1)

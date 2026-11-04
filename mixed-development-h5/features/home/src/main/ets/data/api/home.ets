@@ -48,7 +48,7 @@ export const getBannerAPI = () => {
 }
 
 export const getCategoryAPI = () => {
-  return RequestAxios.get<CategoryItem[]>("/home/category/head")
+  return RequestAxios.get<CategoryItem[]>("/category/summary")
 }
 
 export const getHotResultAPI = () => {
@@ -63,8 +63,13 @@ export const getOneStopAPI = () => {
   return RequestAxios.get<HotResult>("/hot/oneStop")
 }
 
-export const getHomeNewAPI = () => {
-  return RequestAxios.get<HDMGoodsItem[]>("/home/new")
+export const getHomeNewAPI = async (): Promise<HDMGoodsItem[]> => {
+  const result = await RequestAxios.get<GoodsItems>("/home/new/page?page=1&pageSize=8")
+  return result.items
+}
+
+export const getRecommendPageAPI = (page: number): Promise<GoodsItems> => {
+  return RequestAxios.get<GoodsItems>('/home/recommend/page?page=' + page + '&pageSize=8')
 }
 
 export const getRecommendAPI = (params: RecommendParams) => {
@@ -121,7 +126,7 @@ async function requestGoodsDetail(goodsId: string): Promise<Goods> {
 }
 
 export const searchGoodsAPI = (data: object) => {
-  return RequestAxios.post<SearchResult>('/search/all', data)
+  return RequestAxios.postSilent<SearchResult>('/search/all', data)
 }
 
 export const getGoodsEvaluationsAPI = (

@@ -1,7 +1,7 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { BreakPointEnum, BreakPointType, CategoryItem, HDMGoodsItem, ListDataSource } from 'models'
+import { BreakPointEnum, BreakPointType, CategoryItem, GoodsItems, HDMGoodsItem, ListDataSource } from 'models'
 import { HDMEmpty, HDMGoods, HDMLoadingText, HDMProgressLoading } from 'ui_components'
-import { downLoadManager, pushCardManager } from 'utils'
+import { downLoadManager, preloadImages, pushCardManager } from 'utils'
 import {
   getBannerAPI,
   getCategoryAPI,
@@ -9,7 +9,7 @@ import {
   getHotResultAPI,
   getInVogueAPI,
   getOneStopAPI,
-  getRecommendAPI,
+  getRecommendPageAPI,
   normalizeGoodsSummaryPicturesAPI,
   fillPromotionGoods,
   getDistinctGoods,
@@ -24,7 +24,7 @@ import {
   HomeDiscountSection,
   DiscountSectionParams
 } from '../components'
-import { Banner, HotResult, RecommendParams, SearchRouterParam } from '../../domain/models'
+import { Banner, HotResult, SearchRouterParam } from '../../domain/models'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 import { storeManager } from 'storage'
@@ -66,6 +66,8 @@ export struct HomeView {
   page: number = 1
   private homeRequestId: number = 0
   private recommendRequesting: boolean = false
+  private recommendGeneration: number = 0
+  private active: boolean = true
   scroller: Scroller = new Scroller()
   @Consume stackPath: NavPathStack
 
@@ -98,6 +100,9 @@ export struct HomeView {
   /** 数据源变化后调用：按官方要求先改数据源、再同步分组的 itemsCount。 */
   private syncRecommendSection(): void {
     if (this.recommendDataSource.totalCount() === 0) {
+      if (this.sections.length() > RECOMMEND_SECTION_INDEX) {
+        this.sections.splice(RECOMMEND_SECTION_INDEX, 1)
+      }
       return
     }
     const section: SectionOptions = this.buildRecommendSection()
@@ -114,15 +119,25 @@ export struct HomeView {
   }
 
   aboutToAppear() {
+    this.active = true
+    this.recommendGeneration++
+    this.recommendRequesting = false
+    this.page = 1
+    this.isFinished = false
     LaunchPerf.mark('homeAboutToAppear')
-    this.sections.splice(0, 0, [HEADER_SECTION])
+    this.sections.splice(0, this.sections.length(), [HEADER_SECTION])
+    this.syncRecommendSection()
     // 消费 onCreate 阶段预加载的在途请求；未预加载时回退为现场发请求。
     const preloadedRequests: HomeCoreRequests | null = HomePrefetch.take()
-    const recommendRequest: Promise<HDMGoodsItem[]> =
+    const recommendRequest: Promise<GoodsItems> =
       preloadedRequests ? preloadedRequests.recommendRequest :
-        getRecommendAPI({ limit: 8 } as RecommendParams)
+        getRecommendPageAPI(1)
+    recommendRequest.catch((): void => {})
+    const generation: number = this.recommendGeneration
     this.getHomeData(false, preloadedRequests).then((): void => {
-      this.getRecommend(recommendRequest)
+      if (this.active && generation === this.recommendGeneration) {
+        this.getRecommend(recommendRequest)
+      }
     })
     this.registerEvent()
   }
@@ -136,12 +151,17 @@ export struct HomeView {
   }
 
   aboutToDisappear(): void {
+    this.active = false
+    this.homeRequestId++
+    this.recommendGeneration++
+    this.recommendRequesting = false
     emitter.off(BusinessVariable.UPDATE_HOME_DATA, this.homeDataCb)
   }
 
-  async getHomeData(again?: boolean, preloadedRequests?: HomeCoreRequests | null) {
+  // 首次进入显示整页加载；下拉刷新时保留当前内容，只显示下拉刷新提示。
+  async getHomeData(keepCurrentContent: boolean = false, preloadedRequests?: HomeCoreRequests | null): Promise<void> {
     const requestId: number = ++this.homeRequestId
-    if (!again) {
+    if (!keepCurrentContent) {
       this.loading = true
     }
 
@@ -171,12 +191,18 @@ export struct HomeView {
     }
     bannerRequest.then((value: Banner[]): void => {
       if (requestId === this.homeRequestId) {
+        if (!preloadedRequests) {
+          preloadImages(value.map((banner: Banner): string => banner.imgUrl))
+        }
         this.banners = value
         showCoreContent()
       }
     }, (): void => {})
     categoryRequest.then((value: CategoryItem[]): void => {
       if (requestId === this.homeRequestId) {
+        if (!preloadedRequests) {
+          preloadImages(value.map((category: CategoryItem): ResourceStr => category.picture))
+        }
         this.categories = value
         AppStorage.setOrCreate(BusinessVariable.CATEGORY_DATA, value)
         showCoreContent()
@@ -193,21 +219,29 @@ export struct HomeView {
     }
 
     this.homeLoadFailed = result.every((item: PromiseSettledResult<Banner[] | CategoryItem[] | HotResult | HDMGoodsItem[]>): boolean => item.status === 'rejected')
-
-    if (result[0].status === "fulfilled") {
-      this.banners = result[0].value
+    if (keepCurrentContent && this.homeLoadFailed) {
+      this.loading = false
+      return
     }
-    if (result[1].status === "fulfilled") {
-      this.categories = result[1].value
+
+    // 与上方请求一一对应，用业务名称读取结果，避免靠记忆猜 result[2] 是哪个区块。
+    const bannerResult = result[0]
+    const categoryResult = result[1]
+    const saleGoodsResult = result[2]
+    const hotGoodsResult = result[3]
+    const oneStopResult = result[4]
+    const newGoodsResult = result[5]
+    if (bannerResult.status === "fulfilled") {
+      this.banners = bannerResult.value
+    }
+    if (categoryResult.status === "fulfilled") {
+      this.categories = categoryResult.value
       AppStorage.setOrCreate(BusinessVariable.CATEGORY_DATA, this.categories)
     }
-    const saleGoodsRaw: HDMGoodsItem[] = result[2].status === "fulfilled" ?
-      result[2].value?.subTypes?.[0]?.goodsItems?.items || [] : []
-    const hotGoodsRaw: HDMGoodsItem[] = result[3].status === "fulfilled" ?
-      result[3].value?.subTypes?.[0]?.goodsItems?.items || [] : []
-    const oneGoodsRaw: HDMGoodsItem[] = result[4].status === "fulfilled" ?
-      result[4].value?.subTypes?.[0]?.goodsItems?.items || [] : []
-    const newGoodsRaw: HDMGoodsItem[] = result[5].status === "fulfilled" ? result[5].value : []
+    const saleGoodsRaw: HDMGoodsItem[] = this.getPromotionGoodsOrEmpty(saleGoodsResult)
+    const hotGoodsRaw: HDMGoodsItem[] = this.getPromotionGoodsOrEmpty(hotGoodsResult)
+    const oneGoodsRaw: HDMGoodsItem[] = this.getPromotionGoodsOrEmpty(oneStopResult)
+    const newGoodsRaw: HDMGoodsItem[] = newGoodsResult.status === "fulfilled" ? newGoodsResult.value : []
 
     const deduplicatedGoods = HomeGoodsDeduplication.processHomeGoods(
       saleGoodsRaw,
@@ -218,8 +252,8 @@ export struct HomeView {
       fillPromotionGoods
     )
 
-    // The aggregate APIs already contain everything needed to paint the home
-    // screen. Detail-image correction is progressive and must not block it.
+    // 先显示已取到的商品，再后台校正图片，避免用户一直等在加载画面。
+    preloadImages(deduplicatedGoods.newGoods.map((item: HDMGoodsItem): ResourceStr => item.picture))
     this.saleGoods = deduplicatedGoods.saleGoods
     this.hotGoods = deduplicatedGoods.hotGoods
     this.oneGoods = deduplicatedGoods.oneGoods
@@ -227,6 +261,14 @@ export struct HomeView {
     this.loading = false
     void this.normalizePromotionPictures(deduplicatedGoods, requestId).catch(() => {
     })
+  }
+
+  // 促销接口把商品放在第一个子分类下；请求失败或没有该分类时按空列表处理。
+  private getPromotionGoodsOrEmpty(result: PromiseSettledResult<HotResult>): HDMGoodsItem[] {
+    if (result.status === 'rejected') {
+      return []
+    }
+    return result.value?.subTypes?.[0]?.goodsItems?.items || []
   }
 
   private async normalizePromotionPictures(goods: HomeGoodsResult, requestId: number): Promise<void> {
@@ -240,6 +282,10 @@ export struct HomeView {
       return
     }
 
+    // 只预加载校正后的图片网址，避免为即将被替换的旧网址额外下载。
+    for (const promotionGoods of normalizedPromotions) {
+      preloadImages(promotionGoods.map((item: HDMGoodsItem): ResourceStr => item.picture))
+    }
     this.saleGoods = normalizedPromotions[0]
     if (this.saleGoods.length > 0) {
       void this.pushImageToCard(this.saleGoods).catch(() => {
@@ -250,7 +296,10 @@ export struct HomeView {
     this.oneGoods = normalizedPromotions[2]
   }
 
+  private cardImageSequence: number = 0
+
   async pushImageToCard(list: HDMGoodsItem[]): Promise<void> {
+    const sequence: number = ++this.cardImageSequence
     const formIdList: string[] = storeManager.getFormId()
     if (formIdList.length === 0) {
       // 没有添加过服务卡片时不必下载图片
@@ -258,38 +307,57 @@ export struct HomeView {
     }
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     const fileList = await downLoadManager.downLoadImages(context, list.map(item => item.picture as string))
-    await pushCardManager.pushImageToCard(fileList, formIdList)
+    try {
+      if (sequence !== this.cardImageSequence) {
+        return
+      }
+      await pushCardManager.pushImageToCard(fileList, formIdList)
+    } finally {
+      downLoadManager.releaseImages(fileList)
+    }
   }
 
-  async getRecommend(preloadedRequest?: Promise<HDMGoodsItem[]>) {
-    if (this.recommendRequesting || this.isFinished) {
+  private async refreshRecommendations(): Promise<void> {
+    this.recommendGeneration++
+    this.recommendRequesting = false
+    this.page = 1
+    this.isFinished = false
+    await this.getRecommend()
+  }
+
+  async getRecommend(preloadedRequest?: Promise<GoodsItems>) {
+    if (!this.active || this.recommendRequesting || this.isFinished) {
       return
     }
+    const generation: number = this.recommendGeneration
     this.recommendRequesting = true
     try {
       let newItems: HDMGoodsItem[] = []
       do {
-        const limit: number = this.page * 8
-        const rawList: HDMGoodsItem[] = await (
-          preloadedRequest || getRecommendAPI({ limit } as RecommendParams)
+        const requestedPage: number = this.page
+        const result: GoodsItems = await (
+          preloadedRequest || getRecommendPageAPI(requestedPage)
         )
         preloadedRequest = undefined
-        const list: HDMGoodsItem[] = uniqueGoodsById(rawList)
+        if (!this.active || generation !== this.recommendGeneration) { return }
+        const list: HDMGoodsItem[] = uniqueGoodsById(result.items)
         const displayedGoods: HDMGoodsItem[] = this.newGoods.concat(this.saleGoods, this.hotGoods, this.oneGoods)
-        for (let index = 0; index < this.recommendDataSource.totalCount(); index++) {
+        for (let index = 0; requestedPage > 1 && index < this.recommendDataSource.totalCount(); index++) {
           displayedGoods.push(this.recommendDataSource.getData(index))
         }
         newItems = getDistinctGoods(list, displayedGoods, [], list.length)
-        if (newItems.length > 0) {
-          const normalizedItems: HDMGoodsItem[] = await normalizeGoodsSummaryPicturesAPI(newItems)
-          if (this.recommendDataSource.totalCount() === 0) {
-            this.recommendDataSource.loadData(normalizedItems)
-          } else {
-            this.recommendDataSource.addArr(normalizedItems)
-          }
-          this.syncRecommendSection()
+        const normalizedItems: HDMGoodsItem[] = await normalizeGoodsSummaryPicturesAPI(newItems)
+        if (!this.active || generation !== this.recommendGeneration) { return }
+        if (requestedPage === 1) {
+          this.recommendDataSource.loadData(normalizedItems)
+        } else if (normalizedItems.length > 0) {
+          this.recommendDataSource.addArr(normalizedItems)
         }
-        if (rawList.length < limit) {
+        if (normalizedItems.length > 0) {
+          preloadImages(normalizedItems.map((item: HDMGoodsItem): ResourceStr => item.picture))
+        }
+        this.syncRecommendSection()
+        if (requestedPage >= result.pages) {
           this.isFinished = true
           break
         }
@@ -298,7 +366,7 @@ export struct HomeView {
     } catch (_) {
       // 推荐区不是首屏阻塞内容，请求失败后保留重试能力。
     } finally {
-      this.recommendRequesting = false
+      if (generation === this.recommendGeneration) { this.recommendRequesting = false }
     }
   }
 
@@ -415,6 +483,7 @@ export struct HomeView {
         })
         .onRefreshing(async () => {
           await this.getHomeData(true)
+          if (this.active) { await this.refreshRecommendations() }
           this.isRefreshing = false
         })
       }

@@ -1,5 +1,6 @@
-import { CategoryItem, HDMGoodsItem } from 'models'
-import { Banner, HotResult, RecommendParams } from '../../domain/models'
+import { CategoryItem, GoodsItems, HDMGoodsItem } from 'models'
+import { preloadImages } from 'utils'
+import { Banner, HotResult } from '../../domain/models'
 import {
   getBannerAPI,
   getCategoryAPI,
@@ -7,7 +8,7 @@ import {
   getHotResultAPI,
   getInVogueAPI,
   getOneStopAPI,
-  getRecommendAPI
+  getRecommendPageAPI
 } from './home'
 
 export interface HomeCoreRequests {
@@ -17,7 +18,7 @@ export interface HomeCoreRequests {
   inVogueRequest: Promise<HotResult>
   oneStopRequest: Promise<HotResult>
   newGoodsRequest: Promise<HDMGoodsItem[]>
-  recommendRequest: Promise<HDMGoodsItem[]>
+  recommendRequest: Promise<GoodsItems>
 }
 
 /**
@@ -39,12 +40,15 @@ export class HomePrefetch {
     const inVogueRequest: Promise<HotResult> = getInVogueAPI()
     const oneStopRequest: Promise<HotResult> = getOneStopAPI()
     const newGoodsRequest: Promise<HDMGoodsItem[]> = getHomeNewAPI()
-    const recommendRequest: Promise<HDMGoodsItem[]> =
-      getRecommendAPI({ limit: 8 } as RecommendParams)
-    // 预挂空 catch：HomeView 挂载前请求失败不产生未处理的 Promise 拒绝，
-    // 消费方后续仍能按原逻辑拿到 rejected 状态并走兜底。
-    bannerRequest.catch((): void => {})
-    categoryRequest.catch((): void => {})
+    const recommendRequest: Promise<GoodsItems> = getRecommendPageAPI(1)
+    // 接口一返回就预加载首批图片，与页面创建并行；不等待图片下载完成。
+    // 这里处理失败不改变原请求，页面仍能拿到原始成功／失败结果。
+    bannerRequest.then((banners: Banner[]): void => {
+      preloadImages(banners.map((banner: Banner): string => banner.imgUrl))
+    }).catch((): void => {})
+    categoryRequest.then((categories: CategoryItem[]): void => {
+      preloadImages(categories.map((category: CategoryItem): ResourceStr => category.picture))
+    }).catch((): void => {})
     hotRequest.catch((): void => {})
     inVogueRequest.catch((): void => {})
     oneStopRequest.catch((): void => {})
