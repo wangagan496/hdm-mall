@@ -1,4 +1,4 @@
-export { AccessManager, accessManager } from './src/main/ets/AccessManager'
+export { AccessManager, PermissionOutcome, accessManager } from './src/main/ets/AccessManager'
 export { cameraPlugin } from './src/main/ets/CameraPlugin'
 export { photoPlugin } from './src/main/ets/PhotoPlugin'
 export { sensorPlugin } from './src/main/ets/SensorPlugin'

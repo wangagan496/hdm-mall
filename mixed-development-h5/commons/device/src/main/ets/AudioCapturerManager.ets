@@ -3,8 +3,9 @@ import { audio } from "@kit.AudioKit"
 export class AudioCapturerManager {
   capturer: audio.AudioCapturer | null = null
   private readDataCallback: ((bf: ArrayBuffer) => void) | null = null
+  private generation: number = 0
 
-  async createCapturer() {
+  async createCapturer(): Promise<audio.AudioCapturer> {
     let audioStreamInfo: audio.AudioStreamInfo = {
       samplingRate: audio.AudioSamplingRate.SAMPLE_RATE_16000,
       channels: audio.AudioChannel.CHANNEL_1,
@@ -19,14 +20,18 @@ export class AudioCapturerManager {
       streamInfo: audioStreamInfo,
       capturerInfo: audioCapturerInfo
     }
-    this.capturer = await audio.createAudioCapturer(audioCapturerOptions)
+    return await audio.createAudioCapturer(audioCapturerOptions)
   }
 
   async start(callback: (bf: ArrayBuffer) => void): Promise<void> {
+    const generation: number = ++this.generation
     try {
-      if (!this.capturer) {
-        await this.createCapturer()
+      const capturer = await this.createCapturer()
+      if (generation !== this.generation) {
+        await capturer.release()
+        return
       }
+      this.capturer = capturer
       const readDataCallback = (bf: ArrayBuffer): void => {
         callback(bf)
       }
@@ -34,13 +39,13 @@ export class AudioCapturerManager {
       this.capturer?.on('readData', readDataCallback)
       await this.capturer?.start()
     } catch {
-      this.readDataCallback = null
-      this.capturer = null
+      if (generation === this.generation) await this.stop()
       throw new Error('录音启动失败')
     }
   }
 
   async stop(): Promise<void> {
+    this.generation++
     const currentCapturer = this.capturer
     const currentCallback = this.readDataCallback
     this.capturer = null
