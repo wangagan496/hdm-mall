@@ -1,13 +1,15 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import { Database } from './database.ts'
 import { AppError, ensure } from './errors.ts'
+import { localAvatarPath } from './avatar.ts'
 
 export interface User { id: string; account: string; nickname: string; role: 'buyer' | 'merchant'; profile: string }
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')
 
 export class Accounts {
   db: Database
-  constructor(db: Database) { this.db = db }
+  publicUrl: string
+  constructor(db: Database, publicUrl: string) { this.db = db; this.publicUrl = publicUrl.replace(/\/$/, '') }
   register(account: string, password: string, role: User['role'] = 'buyer') {
     const salt = randomBytes(16).toString('hex')
     const hash = scryptSync(password, salt, 64).toString('hex')
@@ -37,16 +39,32 @@ export class Accounts {
   }
   logout(authorization: string) { this.db.run('DELETE FROM sessions WHERE digest=?', digest(authorization.slice(7))) }
   profile(user: User) {
+    const stored = JSON.parse(user.profile)
+    const path = localAvatarPath(stored.avatar)
     return { avatar: '', birthday: '', cityCode: '', provinceCode: '', countyCode: '', gender: '未知', profession: '', fullLocation: '', mobile: '',
-      ...JSON.parse(user.profile), id: user.id, account: user.account, nickname: user.nickname, role: user.role }
+      ...stored, ...(path ? { avatar: this.publicUrl + path } : {}), id: user.id, account: user.account, nickname: user.nickname, role: user.role }
   }
   updateProfile(user: User, data: Record<string, string>) {
-    const profile = { ...JSON.parse(user.profile), ...data }
-    this.db.run('UPDATE users SET nickname=?, profile=? WHERE id=?', data.nickname ?? user.nickname, JSON.stringify(profile), user.id)
-    return profile
+    const latest = this.db.one<User>('SELECT * FROM users WHERE id=?', user.id)!
+    const profile = { ...JSON.parse(latest.profile), ...data }
+    const path = localAvatarPath(profile.avatar)
+    if (path) profile.avatar = path
+    this.db.run('UPDATE users SET nickname=?, profile=? WHERE id=?', data.nickname ?? latest.nickname, JSON.stringify(profile), user.id)
+    return this.profile({ ...latest, nickname: data.nickname ?? latest.nickname, profile: JSON.stringify(profile) })
   }
   relations(user: User) {
     return this.db.all('SELECT r.id,r.status,r.owner_id AS ownerId,r.friend_id AS friendId,u.account AS ownerAccount,f.account AS friendAccount FROM relations r JOIN users u ON u.id=r.owner_id JOIN users f ON f.id=r.friend_id WHERE (r.owner_id=? OR r.friend_id=?) AND r.status<>?', user.id, user.id, 'revoked')
+  }
+  relationsPage(user: User, page: number, pageSize: number, scope: 'all' | 'payer') {
+    const where = scope === 'payer' ? "r.owner_id=? AND r.status='accepted'" : "(r.owner_id=? OR r.friend_id=?) AND r.status<>'revoked'"
+    const params = scope === 'payer' ? [user.id] : [user.id, user.id]
+    const counts = this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM relations r WHERE ${where}`, ...params)!.count
+    const offset = (page - 1) * pageSize
+    const items = offset >= counts ? [] : this.db.all(`SELECT r.id,r.status,r.owner_id AS ownerId,r.friend_id AS friendId,
+      u.account AS ownerAccount,f.account AS friendAccount FROM relations r
+      JOIN users u ON u.id=r.owner_id JOIN users f ON f.id=r.friend_id WHERE ${where}
+      ORDER BY r.created DESC,r.id COLLATE BINARY ASC LIMIT ? OFFSET ?`, ...params, pageSize, offset)
+    return { items, counts, pages: Math.ceil(counts / pageSize), page, pageSize }
   }
   invite(user: User, account: string) {
     const friend = this.db.one<User>('SELECT * FROM users WHERE account=?', account)
@@ -76,19 +94,35 @@ export class Accounts {
   addresses(user: User) {
     return this.db.all<{ id: string; data: string }>('SELECT * FROM addresses WHERE user_id=?', user.id).map(row => ({ ...JSON.parse(row.data), id: row.id }))
   }
-  saveAddress(user: User, data: Record<string, unknown>, id?: string) {
+  saveAddress(user: User, data: Record<string, unknown>, id?: string, requestKey?: string, revision?: number) {
     return this.db.transaction(() => {
-      const previous = id ? this.db.one<{ data: string }>('SELECT data FROM addresses WHERE id=? AND user_id=?', id, user.id) : undefined
+      ensure(requestKey ? Number.isSafeInteger(revision) && revision! > 0 : revision === undefined, 400, '自动保存需要编辑标识和正整数版本')
+      const session = requestKey ? this.db.one<{ address_id: string; revision: number }>(
+        'SELECT address_id,revision FROM address_save_sessions WHERE user_id=? AND request_key=?', user.id, requestKey) : undefined
+      ensure(!id || !session || session.address_id === id, 409, '编辑标识已用于其他地址')
+      const key = id ?? session?.address_id ?? (requestKey ? digest(`address:${user.id}:${requestKey}`) : randomUUID())
+      ensure(!this.db.one('SELECT id FROM address_tombstones WHERE id=? AND user_id=?', key, user.id), 410, '地址已删除')
+      const previous = this.db.one<{ data: string }>('SELECT data FROM addresses WHERE id=? AND user_id=?', key, user.id)
       ensure(!id || previous, 404, '地址不存在')
+      // 先比较版本，再修改地址和默认标记；迟到或重复请求不产生写入。
+      if (session && revision! <= session.revision) return { id: key }
       const merged = { fullLocation: '', provinceCode: 0, cityCode: 0, countyCode: 0, isDefault: 1, ...JSON.parse(previous?.data ?? '{}'), ...data }
       if (merged.isDefault === 0) {
         for (const address of this.addresses(user)) {
           this.db.run('UPDATE addresses SET data=? WHERE id=?', JSON.stringify({ ...address, isDefault: 1 }), address.id)
         }
       }
-      const key = id ?? randomUUID()
       this.db.run('INSERT INTO addresses VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data', key, user.id, JSON.stringify(merged))
+      if (requestKey) this.db.run(`INSERT INTO address_save_sessions VALUES(?,?,?,?)
+        ON CONFLICT(user_id,request_key) DO UPDATE SET revision=excluded.revision`, user.id, requestKey, key, revision!)
       return { id: key }
+    })
+  }
+  deleteAddress(user: User, id: string) {
+    return this.db.transaction(() => {
+      this.db.run('INSERT OR IGNORE INTO address_tombstones SELECT id,user_id FROM addresses WHERE id=? AND user_id=?', id, user.id)
+      this.db.run('DELETE FROM addresses WHERE id=? AND user_id=?', id, user.id)
+      return { id }
     })
   }
 }

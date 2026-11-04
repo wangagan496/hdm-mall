@@ -14,7 +14,7 @@ pwsh -File scripts/start-trade-server.ps1
 
 应用的登录页面可注册买家账号。账号为 3～32 位字母、数字、下划线，密码 8～128 位。新后端不沿用旧演示接口的账号和订单；已有安装请退出旧账号后重新注册登录。
 
-商家：复制 `.env.example` 为本地 `.env`，设置 `MERCHANT_ACCOUNT` 与至少 12 位的 `MERCHANT_PASSWORD`，重启服务。该配置只创建首次商家账号，不覆盖已有账号，不允许把已有买家提升为商家。商家登录同一应用后，在「我的 → 亲友中心 / 商家发货」处理订单。
+商家：复制 `.env.example` 为本地 `.env`，设置 `MERCHANT_ACCOUNT` 与至少 12 位的 `MERCHANT_PASSWORD`，重启服务。该配置只创建首次商家账号，不覆盖已有账号，不允许把已有买家提升为商家。商家登录同一应用后，在「我的 → 亲友中心 / 商家发货」处理订单，在「我的 → 库存管理」调整可售库存并填写原因。
 
 模拟器通过 `hdc rport tcp:3000 tcp:3000` 访问电脑服务。仓库脚本可在构建后完成映射、安装与启动：
 
@@ -27,6 +27,8 @@ pwsh -File scripts/device-trade.ps1 -Action install
 `CORS_ORIGINS` 是所有环境（包括 production）的显式来源白名单，使用逗号分隔；打包后的 ArkWeb 从 rawfile 加载 H5 时发送 `Origin: null`，需要支持时必须显式加入 `null`，未加入即返回 403。未设置该变量的内置默认值只包含本地 H5 开发来源，不包含 `null`；`.env.example` 为内嵌 H5 演示显式配置了 `null`。生产环境允许 `null` 时启动日志会警告：该来源也包括其他不透明来源，并不专属于 ArkWeb。接口仍使用 Bearer token 鉴权、不使用 cookie，CORS 放行不代替接口鉴权。
 
 ## 亲友规则
+
+现有状态转换、重复请求与权限以 [交易规则与权限矩阵](../docs/交易规则与权限矩阵.md) 为验收基准。
 
 绑定有方向：A 添加 B，B 确认后，B 成为 A 的代付和代收亲友；不会自动反向授权。邀请页明确说明两种权限。任意一方可以解除绑定。
 
@@ -42,7 +44,7 @@ pwsh -File scripts/device-trade.ps1 -Action install
 - 金额按后端规格价格计算，以整数分存储；客户端不能指定成交价。
 - 创建订单使用 `requestKey` 幂等：同一用户、同一请求号、相同参数只创建一笔订单；同号不同参数拒绝。
 - 下单和占用库存处于同一数据库事务。规格库存耗尽标为售罄，全部规格耗尽后从商品列表隐藏；已打开页面提交时仍校验库存。
-- 未付款 15 分钟过期，释放库存。定时任务和查询触发过期检查，重复取消不会重复释放。
+- 未付款 15 分钟过期，释放库存。定时任务和写操作即时检查；商品、购物车、订单详情及列表等读请求在 1 秒窗口内合并过期探测，重复取消不会重复释放。
 - 保存商品、价格和地址快照。付款人、收货确认人使用独立字段，订单归属不变。
 - 订单状态：1 待付款、2 待发货、3 待收货、4 待评价、5 已评价、6 已取消。
 - 提醒发货不会推进订单；只有商家接口可以发货。
@@ -56,19 +58,33 @@ pwsh -File scripts/device-trade.ps1 -Action install
 | POST `/register`、`/login`、`/logout` | 账号与会话 |
 | GET/PUT `/member/profile` | H5 资料 |
 | POST `/member/profile/avatar` | JPEG 头像上传，上限 512 KiB |
-| GET `/goods?id=...`、POST `/search/all` | 商品与搜索 |
-| `/member/cart`、`/member/address` | 购物车与地址 |
+| GET `/goods?id=...` | 商品详情，展示有货规格最低价；全部售罄时库存为 0 |
+| POST `/search/all` | 商品搜索，数据库筛选、排序及分页，返回 result.pageData |
+| GET `/home/goods/guessLike`、`/hot/:type` | 猜你喜欢及热门商品，数据库计数及分页，保留原响应结构 |
+| GET `/home/new/page`、`/home/recommend/page` | 新品与推荐分页，新版原生每次请求 8 件；旧数组路径保留兼容 |
+| GET `/category/summary` | 分类及可售子类的名称、编号、封面，不携带商品正文；新版首页和分类页使用此入口 |
+| `/member/cart`、`/member/address` | 购物车与地址；购物车读取一次 JOIN 返回当前用户商品资料，避免按 SKU 逐条查询 |
+| GET `/member/cart/count` | 按当前用户在数据库汇总购物车件数，空车返回 0；包含未勾选与售罄条目，不读取商品明细 |
 | GET/POST `/member/relations` | 绑定列表、邀请 |
+| GET `/member/relations/page` | 本人未撤销关系分页，page/pageSize 同订单；scope=payer 仅返回本人发起且已确认的可代付关系，筛选后计数 |
 | PUT `/member/relations/:id` | `{ action: "accept" / "revoke" }` |
 | POST `/member/order` | `{ requestKey, addressId, goods: [{ skuId, count }] }` |
 | GET `/member/order`、`/member/order/:id` | 自己的订单与有权限查看的详情 |
 | PUT `/member/order/:id/payer` | `{ friendId }`；传 null 切回本人付款 |
 | POST `/member/order/:id/mock-pay` | `{ amountCents }`，服务端校验实际付款身份 |
-| GET `/member/family-orders` | 可代付、可代收以及本人参与记录 |
-| GET `/merchant/orders` | 商家待发货列表 |
+| GET `/member/family-orders/page` | 亲友可读订单分页，`page` 默认 1、`pageSize` 默认 10 且不超过 100；先按权限筛选，再返回 items/counts/pages/page/pageSize |
+| GET `/merchant/orders/page` | 商家待发货订单分页，同上分页参数，按最早下单顺序返回履约地址 |
+| GET `/member/family-orders` | 旧版数组兼容接口：可代付、可代收以及本人参与记录；新版原生使用分页接口 |
+| GET `/merchant/orders` | 旧版商家待发货数组兼容接口；新版原生使用分页接口 |
+| GET `/merchant/inventory` | 商家库存核对，支持 page/pageSize 与 skuId 筛选 |
+| GET `/merchant/inventory/:id/movements` | 商家按规格分页查询库存流水 |
+| PUT `/merchant/inventory/:id/adjustments` | 商家调整指定规格库存，提交 `{ requestKey, delta, expectedStock, reason }` |
+| GET `/merchant/inventory/adjustments/:id` | 当前商家按 requestKey 查询自己的原调整凭据 |
 | POST `/merchant/orders/:id/ship` | 商家发货 |
 | PUT `/member/order/:id/receipt` | 本人或具备资格的亲友确认收货 |
 | PUT `/member/order/:id/evaluation` | `{ score: 1..5, content }`，5～500 字 |
+
+商品分页请求使用 `page` 与 `pageSize`，分页前完成关键词及父子分类筛选。价格相同时按商品编号升序，编号按固定 Unicode 码点次序排列，与原生临时排序一致；销量目前仍为 0，`publishTime` 仍沿用编号排序。关键词区分大小写，百分号及下划线不作为通配符。首页及分类的旧完整数组契约保留，新版原生已经使用新品、推荐分页和分类摘要；规模检查及边界见 [商品分页与价格验收](../docs/商品分页与价格验收.md) 和 [首页分类与亲友分页验收](../docs/首页分类与亲友分页验收.md)。
 
 ## 验证
 
@@ -82,3 +98,19 @@ pwsh -File scripts/verify-trade.ps1 -NativeOnly
 测试使用独立数据库和测试账号，覆盖本人五步交易、所有绑定亲友代收、未绑定拒绝、解绑即时生效、代付授权、并发最后一件、重复订单、事务回滚、超时释放、账号隔离、商家权限、退出撤销、数据重启恢复与真实 HTTP 监听。测试不会修改开发数据库。
 
 第一版不包含真实支付渠道、物流查询、退款售后、亲情卡额度扣款及运营后台。商品图目前为本地占位图，商品通过初始化脚本提供。SQLite 采用单服务事务管理，适合当前学习和本地验证规模。
+
+当前数据库版本为 5，首次启动会对旧库事务性升级并保留原库存流水；版本 3 的实际库存基线机制见 [库存流水与迁移验收](../docs/库存流水与迁移验收.md)，版本 4 新增带操作人和原因的人工调整，见 [商家库存调整验收](../docs/商家库存调整验收.md)，版本 5 将本服务生成的历史头像地址迁移为相对路径，见 [头像地址迁移验收](../docs/头像地址迁移验收.md)。备份兼容版本 2、3、4、5；升级实际数据前先保留并验证备份，不能用旧程序直接打开新库。
+
+头像在数据库中保存 `/uploads/<UUID>.jpg`，上传、登录及资料读写接口仍返回完整地址，由当前 `PUBLIC_URL` 拼接，忽略请求中的 Host 和转发域名；更换服务域名后重新读取资料即可取得新地址。历史外部图片和不符合本服务文件规则的地址不会被猜测迁移，备份会继续拒绝这些引用，须另行核查。此机制不自动配置 CDN 或迁移图片文件，数据库和 uploads 必须一起恢复，客户端缓存的旧完整地址仍需刷新资料或重新登录。
+
+调整数量 delta 为非零整数，单次绝对值不超过 1000000，调整后可售库存必须在 0～2147483647；reason 去除首尾空白后为 5～200 字。expectedStock 必须等于当前库存，且当前库存与流水合计一致，否则返回 409，要求刷新后核查。requestKey 使用 UUID；同一商家以同编号、同内容重试只返回原凭据，变更内容会拒绝。原生端先持久保存请求快照，再提交；结果未知时保留快照，重新进入后可查询并用原编号重试，不能另开一笔覆盖未确认请求。
+
+## 生产配置检查
+
+数据库与头像备份、校验、恢复命令见 [备份恢复操作与验收](../docs/备份恢复操作与验收.md)；使用 SQLite 一致性快照，恢复只写新目录并清空旧会话；尚未执行生产切换或配置自动备份。
+
+`src/config.ts` 在打开数据库前校验配置，直接调用 `buildApp` 也执行同一运行配置检查；生产要求 PUBLIC_URL 使用非本机、非模拟器的 HTTPS 来源地址，CORS_ORIGINS 必须显式配置且只接受 HTTPS 来源或 `null`，禁止模拟支付；来源地址不带路径、查询、凭据或片段，CORS 项不带末尾斜线，PUBLIC_URL 可有末尾斜线并由启动入口去掉。
+
+`TRUSTED_PROXIES` 默认为空，即不信任转发头；只在反向代理部署时填写实际代理 IP 或 CIDR，逗号分隔，不支持 `true`、跳数、`*` 或 `/0`；可信代理后的登录限流按真实客户端 IP 分开，直连不可信地址不能靠伪造 X-Forwarded-For 绕过限制，代理必须覆盖或正确追加转发链，生产网络也应限制服务入口只允许实际代理访问。
+
+`UPLOADS_PATH` 默认 `./data/uploads`，可显式设置；数据库和上传目录相对服务进程工作目录解析，部署时应使用明确的持久化绝对路径；这些校验不安装 TLS 证书、不部署代理，也不代表备份、监控或生产环境已验收。

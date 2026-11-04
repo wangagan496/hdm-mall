@@ -51,7 +51,7 @@ async function fixture(databasePath = ':memory:') {
   return { ...ctx, call, users, bind, create, paidOrder, login, addressId: address.body.result.id as string }
 }
 
-test('并发注册同一账号恰好一次成功，唯一约束冲突返回 409', async () => {
+test('重复请求幂等：重复注册同一账号恰好一次成功，唯一约束冲突返回 409', async () => {
   const f = await buildApp({ databasePath: ':memory:', publicUrl: 'http://127.0.0.1:3000', mockPayments: true, uploadsPath: './data/test-uploads' })
   try {
     const register = () => f.app.inject({ method: 'POST', url: '/register', payload: { account: 'concurrent_user', password: 'test-password-123' } })
@@ -144,7 +144,7 @@ test('仅指定且仍绑定的亲友能代付，购买人可以切回本人付�
   } finally { await f.app.close() }
 })
 
-test('并发购买最后一件只有一次成功，全部售罄下架，取消仅释放一次', async () => {
+test('重复请求幂等：连续购买最后一件只有一次成功，全部售罄下架，取消仅释放一次', async () => {
   const f = await fixture()
   try {
     f.db.run('UPDATE skus SET stock=0 WHERE product_id=?', 'hdm-1')
@@ -153,7 +153,7 @@ test('并发购买最后一件只有一次成功，全部售罄下架，取消�
     assert.deepEqual(results.map(r => r.status).sort(), [200,409])
     const id = results.find(r => r.status === 200)!.body.result.id
     assert.equal((await f.call('GET', '/home/new')).body.result.some((p: { id: string }) => p.id === 'hdm-1'), false)
-    assert.equal((await f.call('GET', '/goods?id=hdm-1')).body.result.inventory, 0)
+    assert.equal((await f.call('GET', '/goods?id=hdm-1')).body.inventory, 0)
     for (let i = 0; i < 2; i++) assert.equal((await f.call('PUT', `/member/order/${id}/cancel`, f.users.buyer!.token)).status, 200)
     assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 1)
   } finally { await f.app.close() }

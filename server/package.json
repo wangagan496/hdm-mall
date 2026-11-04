@@ -9,7 +9,10 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/main.ts",
     "check": "tsc --noEmit",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "backup": "node src/backup-cli.ts create",
+    "backup:verify": "node src/backup-cli.ts verify",
+    "restore": "node src/backup-cli.ts restore"
   },
   "dependencies": {
     "@fastify/multipart": "^10.1.6",
