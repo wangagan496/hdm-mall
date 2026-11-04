@@ -4,6 +4,8 @@
 
 > **当前改造版**：新增 TypeScript + Node.js 自营后端，默认连接 `http://127.0.0.1:3000`。订单、库存、模拟支付、发货、收货和评价由后端持久化；支持确认绑定的亲友代付，以及代付订单中所有已绑定亲友代收。启动、接口和验收步骤见 [server/README.md](server/README.md)。下文涉及公开演示 API 和本地订单覆盖层的章节保留为旧版实践记录，不代表当前默认交易模式。
 
+2026-10-28 当前验收入口：`pwsh -File scripts/verify-enterprise-baseline.ps1` 执行服务端类型检查、交易与生产配置测试、客户端逻辑回归；原生构建、Hypium 与设备验收分别执行，不由该命令代替；当前交易规则见 [交易规则与权限矩阵](docs/交易规则与权限矩阵.md)，生产化阶段进展见 [建设目标](docs/企业级项目建设目标.md)。
+
 > **项目背景**
 > 本项目以已有商城代码为基础，后续由本人持续完善和优化。个人实践重点包括 HarmonyOS 原生模块化整理、分类/搜索/详情商品展示一致性、SKU 交易边界、购物车与账号隔离的本地数据，以及 ArkWeb 与 Vue 3 H5 的资料和头像状态同步。
 
@@ -35,9 +37,9 @@
 | 原生界面 | ArkTS + ArkUI，使用 `Navigation`、`NavPathStack`、`Tabs` 与状态装饰器组织页面 |
 | 网络与状态 | Axios 请求封装、Token 注入、加载/空数据/异常状态处理、部分请求静默降级 |
 | 本地数据 | Preferences 持久化用户信息、收藏与浏览足迹；收藏和足迹按登录账号隔离 |
-| 混合开发 | ArkWeb 加载随应用交付的 Vue 3 H5，通过 `window.mk` 完成原生与 H5 双向通信 |
+| 混合开发 | ArkWeb 加载随应用交付的 Vue 3 H5，通过 `window.nativeApp` 完成原生与 H5 双向通信 |
 | 设备能力 | H5 可调用原生相机、相册、震动和地区数据能力 |
-| 支付演示 | 原生收银台，确认支付后本地推进订单状态（不产生真实扣款） |
+| 支付演示 | 原生收银台调用自营后端模拟付款，由后端推进并持久化订单状态，不产生真实扣款 |
 | 工程结构 | 原生端按 `commons`、`features`、`products` 拆分，H5 独立开发后构建进原生 `rawfile` |
 
 ## 技术栈
@@ -76,7 +78,7 @@ flowchart LR
   F --> H[ArkWeb WebView]
   H --> I[rawfile/index.html]
   I --> J[Vue 3 个人资料页]
-  J <-->|window.mk| K[HDMWebBridge]
+  J <-->|window.nativeApp| K[HDMWebBridge]
   K --> L[用户状态 / 相机 / 相册 / 震动 / 地区数据]
 ```
 
@@ -103,7 +105,7 @@ hdm-mall/
 │     └─ mine/                    # 登录、个人中心、本地数据页与 ArkWeb
 └─ shoph5-vue3/                   # Vue 3 H5 个人资料页
    ├─ src/
-   └─ scripts/sync-rawfile.mjs    # 将 dist/index.html 同步到原生 rawfile
+   └─ scripts/sync-rawfile.mjs    # 兼容旧命令，重新执行移动端构建
 ```
 
 ## 个人实践重点
@@ -158,11 +160,11 @@ browse_history_account_<account>
 
 ### 5. ArkWeb 与 Vue 3 H5 通信
 
-原生端通过 `javaScriptProxy` 注册 `window.mk`，向 H5 提供：
+原生端通过 `javaScriptProxy` 注册 `window.nativeApp`，向 H5 提供：
 
 | Bridge 方法 | 作用 |
 | --- | --- |
-| `queryUser` | 查询原生端当前用户 |
+| `getUser` | 读取 App 已保存的当前登录用户 |
 | `updateUser` | 持久化资料并同步 AppStorage 状态 |
 | `removeUser` | 统一退出登录 |
 | `pickerCamera` | 调用原生相机 |
@@ -172,9 +174,9 @@ browse_history_account_<account>
 
 Vue 3 个人资料页通过类型声明约束 Bridge 接口。头像可以由相机或相册选择，在 H5 页面预览并上传，保存后再由 `updateUser` 同步回原生端。
 
-### 6. 支付收银台与订单状态
+### 6. 历史方案：本地支付收银台与订单覆盖层
 
-支付页为原生收银台：
+以下仅说明旧版演示 API 配合本地覆盖层的方案，当前默认 `DEMO_ORDER_FLOW=false`，由自营后端处理交易：
 
 - 确认支付后写入按登录账号隔离的本地覆盖层，订单进入待发货，不产生真实扣款；
 - 演示环境没有真实支付回调与评价接口契约，支付、发货、签收、评价状态推进由本地覆盖层完成，列表、详情、支付结果页统一按「服务端状态 + 本地覆盖层 + 本地评价」合并展示；本地已提交评价时完成态显示「已评价」，详情页可回看星级和内容；
@@ -192,7 +194,7 @@ pnpm install --frozen-lockfile
 pnpm run build:mobile
 ```
 
-`build:mobile` 会依次执行类型检查、生产构建，并将生成的 `dist/index.html` 复制到：
+`build:mobile` 会依次执行桥接契约检查、类型检查和移动端生产构建，直接生成到以下目录，不再从 `dist` 复制：
 
 ```text
 mixed-development-h5/features/mine/src/main/resources/rawfile/index.html
@@ -211,7 +213,7 @@ pnpm run dev
 Windows 命令行示例：
 
 ```powershell
-& "<DevEco Studio>\tools\hvigor\bin\hvigorw.bat" assembleApp --mode project --no-incremental
+& "<DevEco Studio>\tools\hvigor\bin\hvigorw.bat" assembleApp --mode project -p buildMode=debug --no-daemon --no-incremental
 ```
 
 这是多模块工程，命令行构建使用 project 模式；设备安装时使用项目产出的已签名 `.app` 包，而不是只安装单个 feature HAP。
@@ -220,13 +222,13 @@ Windows 命令行示例：
 
 ### 3. 一键验证工程交付
 
-仓库提供 `scripts/verify-project.ps1`，用于在本机复现 H5 检查、原生工程构建和签名 `.app` 产物检查。默认会执行完整的 H5 检查和原生非增量构建：
+仓库提供 `scripts/verify-project.ps1`，用于在本机复现 H5 检查、原生工程构建和签名 `.app` 产物检查。默认会执行完整的 H5 检查和原生 debug 非增量构建：
 
 ```powershell
 .\scripts\verify-project.ps1
 ```
 
-如果本次已经完成 H5 构建并需要把 `dist/index.html` 同步到原生 rawfile，再显式加上 `-SyncH5`。调试迭代时可以用 `-Incremental`，或用 `-SkipH5` / `-SkipNative` 缩小验证范围：
+默认原生验证会先重新构建移动端网页；`-SyncH5` 也使用同一入口。独立网页构建仍输出 `dist`，旧 `sync:rawfile` 命令改为重新执行移动端构建，避免旧文件覆盖。调试迭代时可以用 `-Incremental`，或用 `-SkipH5` / `-SkipNative` 缩小验证范围；跳过 H5 不属于完整发布验证：
 
 ```powershell
 .\scripts\verify-project.ps1 -SyncH5
@@ -234,6 +236,10 @@ Windows 命令行示例：
 ```
 
 脚本会检查 `DEVECO_SDK_HOME`、Hvigor 路径和 `build/outputs` 下最新的 `*-all-signed.app`。它不执行设备安装，也不把签名材料写入仓库。
+
+服务地址由构建环境注入，开发默认仍可使用本机服务；release 要求实际 HTTPS 服务地址并禁止演示订单，发布验证不能跳过网页或原生构建，详见 [客户端环境配置与发布校验](docs/客户端环境配置与发布校验.md)。移动端网页不设置 `VITE_API_BASE_URL`，统一读取原生地址；独立网页正式构建则必须显式提供该变量。
+
+CI 和 `verify-project.ps1 -SkipNative` 使用 `pnpm run build-only --mode mobile --outDir dist` 检查移动端 H5，依赖原生桥且不设置 `VITE_API_BASE_URL`；输出到 `dist`，不覆盖原生 rawfile，也不能作为独立网页部署。正式独立构建仍使用 `pnpm run build-only` 并提供实际公网 HTTPS API 地址，Vite 的校验保持启用；`-SyncH5` 和默认完整验证继续构建 mobile 模式并输出到原生 rawfile。
 
 ### 4. 接入 Jev 判断服务（订单咨询分流）
 
@@ -247,11 +253,11 @@ $env:TYPESAFE_MOCK = "true"
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
 ```
 
-然后根据运行环境设置 `mixed-development-h5/commons/constants/src/main/ets/GlobalVariable.ets` 中的 `DECISION_SERVICE_URL`：
+然后通过构建进程环境变量 `HDM_DECISION_SERVICE_URL` 设置地址，无需修改 `GlobalVariable.ets`：
 
 - 模拟器访问宿主机：先尝试 `http://10.0.2.2:8765`；
 - 真机调试：改成电脑和手机可互通的局域网地址，例如 `http://192.168.1.20:8765`；
-- 正式环境：改成自己的 HTTPS 服务地址，不要把 TypeSafe API Key 放进客户端。
+- 正式环境：配置自己的 HTTPS 服务原点；未配置时关闭智能分流请求，不要把 TypeSafe API Key 放进客户端。
 
 启动应用后进入“个人中心 → 帮助与客服”，输入“订单一直没有发货，应该怎么办？”并点击“智能分流”。Jev 服务不可用或置信度不足时，页面会提示联系人工，原有客服入口仍然可用。
 
@@ -290,7 +296,7 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/decision/template 
 - 订单状态支持本地覆盖层：演示环境没有真实支付回调或评价接口契约，支付、发货、签收、评价等推进写入按登录账号 scope 隔离的 Preferences 覆盖层；列表、详情、支付结果页统一按「服务端状态 + 本地覆盖层 + 本地评价」合并评估，并把无法与后端匹配的本地状态显式标记出来，不把本地演示状态伪装成真实订单状态。评价页的星级文案和快捷标签在 `EvaluationPresentation`，长度校验仍走 `DemoOrderStore.validateEvaluation`。
 - 正式发布签名证书、Profile 与密钥库只保存在本机 DevEco Studio 配置中，不随仓库分发，安全注意事项见上文“签名安全”说明。
 
-### 本地演示订单的筛选与评价
+### 历史方案：本地演示订单的筛选与评价
 
 - “待发货 / 待收货 / 待评价”首屏会补查本地覆盖层候选订单的最新详情，再与服务端分页合并、按订单 ID 去重和创建时间排序，服务端取消状态仍优先。
 - 分页结束以服务端页数或空页为准，不会因一条订单被本地状态过滤就截断；失败保留重试入口，切换标签或账号后旧响应不写回。
@@ -300,10 +306,10 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/decision/template 
 ## 当前边界
 
 - 项目尚未正式上架应用市场；
-- 商品和购物车等远程数据依赖演示 API 的可用性；
+- 当前商品、购物车和订单使用自营后端，初始化商品用于测试，尚无完整商品运营入口；
 - 收藏、浏览足迹是本地 Preferences 数据，不代表后端已同步；
 - 兜底 SKU 仅用于详情展示，不会提交到交易接口；
-- 支付闭环为本地模拟演示，不产生真实扣款，未接入正式商用支付；
+- 支付由自营后端模拟推进，不产生真实扣款，未接入正式商用支付；
 - 项目演示视频可随求职材料提供。
 
 ## 仓库地址
