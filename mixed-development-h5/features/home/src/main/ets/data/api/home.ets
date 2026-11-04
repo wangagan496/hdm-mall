@@ -9,7 +9,6 @@ import {
   RecommendParams,
   SearchRouterParam
 } from '../../domain/models'
-import { generateFallbackGoods } from './mockData'
 import { normalizeGoodsPresentation, normalizeGoodsSummaryPicture } from './goodsPresentation'
 
 interface CachedGoodsDetail {
@@ -94,7 +93,7 @@ export function uniqueGoodsById(items: HDMGoodsItem[]): HDMGoodsItem[] {
 
 async function fetchGoodsDetail(goodsId: string): Promise<Goods> {
   const params: GoodsDetailParams = { id: goodsId }
-  const detail: Goods = await RequestAxios.getSilent<Goods>('/goods', params)
+  const detail: Goods = await RequestAxios.getWithoutToast<Goods>('/goods', params)
   if (!detail || detail.id !== goodsId) {
     throw new Error('商品详情与入口商品不匹配')
   }
@@ -131,7 +130,7 @@ export const getGoodsEvaluationsAPI = (
   pageSize: number = 2
 ) => {
   const params: GoodsEvaluationParams = { page, pageSize }
-  return RequestAxios.get<GoodsEvaluationPage>(`/goods/${goodsId}/evaluate/page`, params)
+  return RequestAxios.getWithoutToast<GoodsEvaluationPage>(`/goods/${goodsId}/evaluate/page`, params)
 }
 
 export function normalizeGoodsSummaryPictures(
@@ -207,10 +206,7 @@ export const getRealSearchGoodsAPI = (
 }
 
 export const getDetailAPI = async (source: HDMGoodsItem): Promise<Goods> => {
-  try {
-    const detail: Goods = await requestGoodsDetail(source.id)
-    return normalizeGoodsPresentation(source, detail)
-  } catch {
-    return generateFallbackGoods(source)
-  }
+  // 请求失败交给页面处理，不能把备用商品当作查询成功返回。
+  const detail: Goods = await requestGoodsDetail(source.id)
+  return normalizeGoodsPresentation(source, detail)
 }

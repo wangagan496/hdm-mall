@@ -1,48 +1,75 @@
-import { DemoOrderOverlay, LocalEvaluationItem, OrderItem } from 'models'
+import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderState } from 'models'
+import { systemDateTime } from '@kit.BasicServicesKit'
 
 /**
  * 订单状态码与倒计时的展示口径。
  * 列表页、详情页和支付结果页共用同一套映射，避免各页面各写一份导致状态文案不一致。
  */
 
+// 保留原导出位置，现有订单页面继续使用同一套状态名称。
+export { OrderState } from 'models'
+
 export function getOrderStateText(orderState: number): string {
-  if (orderState === 1) {
+  if (orderState === OrderState.AWAITING_PAYMENT) {
     return '待付款'
   }
-  if (orderState === 2) {
+  if (orderState === OrderState.AWAITING_SHIPMENT) {
     return '待发货'
   }
-  if (orderState === 3) {
+  if (orderState === OrderState.AWAITING_RECEIPT) {
     return '待收货'
   }
-  if (orderState === 4) {
+  if (orderState === OrderState.AWAITING_REVIEW) {
     return '待评价'
   }
-  if (orderState === 5) {
+  if (orderState === OrderState.COMPLETED) {
     return '已完成'
   }
-  if (orderState === 6) {
+  if (orderState === OrderState.CANCELLED) {
     return '已取消'
   }
   return '订单处理中'
 }
 
-/** 列表/详情展示口径：本地已提交评价时，完成态显示「已评价」而不是笼统的「已完成」。 */
+/** 列表/详情展示口径：已提交评价时，完成态显示「已评价」而不是笼统的「已完成」。 */
 export function getDisplayOrderStateText(orderState: number, evaluated: boolean): string {
-  if (evaluated && orderState === 5) {
+  if (evaluated && orderState === OrderState.COMPLETED) {
     return '已评价'
   }
   return getOrderStateText(orderState)
 }
 
-/** 订单列表不展示已取消记录；全部标签仍保留待处理和已完成订单。 */
+/**
+ * 这笔订单该不该出现在当前栏目里。
+ * 规则 1：已取消的订单任何栏目都不显示。
+ * 规则 2：“全部”栏目显示其余所有订单；其他栏目只显示状态相同的订单。
+ */
 export function isOrderStateInTab(orderState: number, tabState: number): boolean {
-  return orderState !== 6 && (tabState === 0 || orderState === tabState)
+  if (orderState === OrderState.CANCELLED) {
+    return false
+  }
+  return tabState === OrderState.ALL_TAB || orderState === tabState
 }
 
-/** 服务端 orderState 2-5 视为已付款。 */
+/** 待发货、待收货、待评价、已完成都说明已经付过款。 */
 export function isPaidOrderState(orderState: number): boolean {
-  return orderState >= 2 && orderState <= 5
+  return orderState >= OrderState.AWAITING_SHIPMENT && orderState <= OrderState.COMPLETED
+}
+
+/**
+ * 系统启动后经过的毫秒数，包含睡眠时间，不受用户修改日期影响。
+ */
+export function readPhoneClockMillis(): number {
+  return systemDateTime.getUptime(systemDateTime.TimeType.STARTUP, false)
+}
+
+/**
+ * 待付款还剩几秒 = 服务端给的剩余秒数 − 拿到订单后过去的秒数，最少是 0。
+ * receivedAt 是拿到订单那一刻读的手机时钟。
+ */
+export function secondsLeftToPay(serverCountdown: number, receivedAt: number): number {
+  const elapsedSeconds: number = Math.max(0, Math.floor((readPhoneClockMillis() - receivedAt) / 1000))
+  return Math.max(serverCountdown - elapsedSeconds, 0)
 }
 
 export function formatOrderCountdown(countdown: number): string {
@@ -51,9 +78,9 @@ export function formatOrderCountdown(countdown: number): string {
   }
   const minutes: number = Math.floor(countdown / 60)
   const seconds: number = countdown % 60
-  const mm: string = minutes < 10 ? '0' + minutes.toString() : minutes.toString()
-  const ss: string = seconds < 10 ? '0' + seconds.toString() : seconds.toString()
-  return '剩 ' + mm + ':' + ss + ' 自动取消'
+  const minuteText: string = minutes < 10 ? '0' + minutes.toString() : minutes.toString()
+  const secondText: string = seconds < 10 ? '0' + seconds.toString() : seconds.toString()
+  return '剩 ' + minuteText + ':' + secondText + ' 自动取消'
 }
 
 /**
@@ -72,15 +99,15 @@ export function mergeOrderState(
   if (order.serverManaged) {
     return serverState
   }
-  if (serverState === 6) {
-    return 6
+  if (serverState === OrderState.CANCELLED) {
+    return OrderState.CANCELLED
   }
   let merged: number = serverState
-  if (overlay && overlay.advancedState > merged && overlay.advancedState >= 2 && overlay.advancedState <= 5) {
+  if (overlay && overlay.advancedState > merged && isPaidOrderState(overlay.advancedState)) {
     merged = overlay.advancedState
   }
-  if (evaluation && merged >= 4) {
-    merged = 5
+  if (evaluation && merged >= OrderState.AWAITING_REVIEW) {
+    merged = OrderState.COMPLETED
   }
   return merged
 }

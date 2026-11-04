@@ -1,8 +1,10 @@
 interface HarmonyBridge {
   getApiBaseUrl: () => string
-  queryUser: () => HDMUser | undefined
+  getUser: () => HDMUser | undefined // 读取 App 已保存的当前登录用户
   updateUser: (user: HDMUser) => Promise<void> // 更新用户
   removeUser: () => Promise<void> // 清除用户
+  expireSession: (token: string) => Promise<boolean>
+  setProfileDirty: (dirty: boolean, token: string, reason?: string) => void
   pickerCamera: () => Promise<string> // 调用相机拍照，返回base64字符串
   pickerPhoto: () => Promise<string> // 调用相册选择图片，返回base64字符串
   vibrator: () => void // 调用传感器
@@ -10,7 +12,7 @@ interface HarmonyBridge {
 }
 
 interface Window {
-  mk?: HarmonyBridge
+  nativeApp?: HarmonyBridge // App 提供给网页的能力；普通浏览器中不存在
 }
 
 

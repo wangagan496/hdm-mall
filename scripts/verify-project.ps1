@@ -3,10 +3,15 @@ param(
   [switch]$SkipNative,
   [switch]$SyncH5,
   [switch]$Incremental,
+  [ValidateSet('debug', 'release')][string]$BuildMode = 'debug',
   [string]$HvigorPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($BuildMode -eq 'release' -and ($SkipH5 -or $SkipNative)) {
+  throw 'Release verification requires both H5 rebuild and native packaging; skip switches are not allowed.'
+}
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $h5Root = Join-Path $projectRoot 'shoph5-vue3'
@@ -37,11 +42,12 @@ if (-not $SkipH5) {
     throw "H5 project was not found: $h5Root"
   }
 
-  Invoke-Checked 'H5 type-check' 'pnpm.cmd' @('run', 'type-check') $h5Root
-  Invoke-Checked 'H5 production build' 'pnpm.cmd' @('run', 'build-only') $h5Root
-
-  if ($SyncH5) {
-    Invoke-Checked 'Sync H5 rawfile' 'pnpm.cmd' @('run', 'sync:rawfile') $h5Root
+  if ($SyncH5 -or -not $SkipNative) {
+    Invoke-Checked 'Build H5 into native rawfile' 'pnpm.cmd' @('run', 'build:mobile') $h5Root
+  } else {
+    Invoke-Checked 'Bridge contract' 'pnpm.cmd' @('run', 'check:bridge') $h5Root
+    Invoke-Checked 'H5 type-check' 'pnpm.cmd' @('run', 'type-check') $h5Root
+    Invoke-Checked 'H5 mobile build check' 'pnpm.cmd' @('run', 'build-only', '--mode', 'mobile', '--outDir', 'dist') $h5Root
   }
 }
 
@@ -68,7 +74,7 @@ if (-not $SkipNative) {
     throw "Hvigor wrapper was not found: $HvigorPath"
   }
 
-  $nativeArguments = @('assembleApp', '--mode', 'project')
+  $nativeArguments = @('assembleApp', '--mode', 'project', '-p', "buildMode=$BuildMode", '--no-daemon')
   if (-not $Incremental) {
     $nativeArguments += '--no-incremental'
   }
@@ -84,6 +90,7 @@ if (-not $SkipNative) {
   Write-Host ("Path: {0}" -f $package.FullName)
   Write-Host ("Size: {0:N0} bytes" -f $package.Length)
   Write-Host ("Updated: {0:yyyy-MM-dd HH:mm:ss}" -f $package.LastWriteTime)
+  & (Join-Path $PSScriptRoot 'verify-package-web.ps1') -AppPath $package.FullName
 }
 
 Write-Host 'Project verification completed.'

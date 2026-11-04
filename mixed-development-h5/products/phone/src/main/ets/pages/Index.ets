@@ -18,6 +18,7 @@ struct Index {
   @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) bottomHeight: number = 0
   @StorageProp(BusinessVariable.CART_COUNT) cartCount: number = 0
 
+  // activeIndex 决定底部选中哪个栏目；stackPath 记录详情、搜索等子页面的前进与返回。
   @StorageLink('currentTabIndex') activeIndex: number = TabIndex.HOME
   @Provide stackPath: NavPathStack = new NavPathStack()
 
@@ -49,29 +50,29 @@ struct Index {
   }
 
   // 回调保存为成员，aboutToDisappear 时按同一引用注销，避免页面重建后叠加多份监听
-  private switchTabCb: (index: number) => void = (index: number) => {
+  private switchToRequestedTab: (index: number) => void = (index: number) => {
     this.activeIndex = index
   }
-  private toSearchCb: () => void = () => {
+  private openSearchPage: () => void = () => {
     this.stackPath.pushPath({ name: PAGE_PATH.SEARCH_PAGE })
   }
 
   aboutToAppear(): void {
     LaunchPerf.mark('tabsAboutToAppear')
-    this.registerListener()
+    this.listenForNavigationEvents()
     authCart.updateCartCount()
   }
 
   aboutToDisappear(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    context.eventHub.off(GlobalVariable.SWITCH_TAB, this.switchTabCb)
-    emitter.off(BusinessVariable.TO_SEARCH, this.toSearchCb)
+    context.eventHub.off(GlobalVariable.SWITCH_TAB, this.switchToRequestedTab)
+    emitter.off(BusinessVariable.TO_SEARCH, this.openSearchPage)
   }
 
-  registerListener() {
+  private listenForNavigationEvents(): void {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    context.eventHub.on(GlobalVariable.SWITCH_TAB, this.switchTabCb)
-    emitter.on(BusinessVariable.TO_SEARCH, this.toSearchCb)
+    context.eventHub.on(GlobalVariable.SWITCH_TAB, this.switchToRequestedTab)
+    emitter.on(BusinessVariable.TO_SEARCH, this.openSearchPage)
   }
 
   build() {

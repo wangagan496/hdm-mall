@@ -1,23 +1,25 @@
-import { FamilyRelation, OrderItem } from 'models'
+import { FamilyRelation, FamilyRelationPage, OrderItem, OrderPage } from 'models'
 import { RequestAxios } from 'network'
 
 interface InvitePayload { account: string }
 interface RelationPayload { action: string }
 interface PaymentPayload { amountCents: number }
 interface FamilyActionResult { id: string }
+interface EmptyPayload {}
+const EMPTY_PAYLOAD: EmptyPayload = {}
 
 export const getFamilyRelationsAPI = (): Promise<FamilyRelation[]> => {
   return RequestAxios.get<FamilyRelation[]>('/member/relations')
 }
 
-export const inviteRelationAPI = (account: string): Promise<FamilyActionResult> => {
+export const inviteRelationAPI = (account: string, token: string): Promise<FamilyActionResult> => {
   const data: InvitePayload = { account }
-  return RequestAxios.post<FamilyActionResult>('/member/relations', data)
+  return RequestAxios.postWithSession<FamilyActionResult>('/member/relations', data, token)
 }
 
-export const updateRelationAPI = (id: string, action: string): Promise<FamilyActionResult> => {
+export const updateRelationAPI = (id: string, action: string, token: string): Promise<FamilyActionResult> => {
   const data: RelationPayload = { action }
-  return RequestAxios.put<FamilyActionResult>(`/member/relations/${id}`, data)
+  return RequestAxios.putForSession<FamilyActionResult>(`/member/relations/${id}`, data, token)
 }
 
 export const getFamilyOrdersAPI = (): Promise<OrderItem[]> => {
@@ -28,15 +30,31 @@ export const getMerchantOrdersAPI = (): Promise<OrderItem[]> => {
   return RequestAxios.get<OrderItem[]>('/merchant/orders')
 }
 
-export const receiveOrderAPI = (id: string): Promise<FamilyActionResult> => {
-  return RequestAxios.put<FamilyActionResult>(`/member/order/${id}/receipt`)
+export const getFamilyRelationsForSessionAPI = (token: string): Promise<FamilyRelation[]> => {
+  return RequestAxios.getForSession<FamilyRelation[]>('/member/relations', token)
 }
 
-export const familyPayAPI = (id: string, amount: number): Promise<FamilyActionResult> => {
+export const getFamilyRelationsPageAPI = (page: number, token: string): Promise<FamilyRelationPage> => {
+  return RequestAxios.getForSession<FamilyRelationPage>('/member/relations/page?page=' + page + '&pageSize=10', token)
+}
+
+export const getFamilyOrdersPageAPI = (page: number, token: string): Promise<OrderPage> => {
+  return RequestAxios.getForSession<OrderPage>('/member/family-orders/page?page=' + page + '&pageSize=10', token)
+}
+
+export const getMerchantOrdersPageAPI = (page: number, token: string): Promise<OrderPage> => {
+  return RequestAxios.getForSession<OrderPage>('/merchant/orders/page?page=' + page + '&pageSize=10', token)
+}
+
+export const receiveOrderAPI = (id: string, token: string): Promise<FamilyActionResult> => {
+  return RequestAxios.putForSession<FamilyActionResult>(`/member/order/${id}/receipt`, EMPTY_PAYLOAD, token)
+}
+
+export const familyPayAPI = (id: string, amount: number, token: string): Promise<FamilyActionResult> => {
   const data: PaymentPayload = { amountCents: Math.round(amount * 100) }
-  return RequestAxios.post<FamilyActionResult>(`/member/order/${id}/mock-pay`, data)
+  return RequestAxios.postWithSession<FamilyActionResult>(`/member/order/${id}/mock-pay`, data, token)
 }
 
-export const shipOrderAPI = (id: string): Promise<FamilyActionResult> => {
-  return RequestAxios.post<FamilyActionResult>(`/merchant/orders/${id}/ship`)
+export const shipOrderAPI = (id: string, token: string): Promise<FamilyActionResult> => {
+  return RequestAxios.postWithSession<FamilyActionResult>(`/merchant/orders/${id}/ship`, EMPTY_PAYLOAD, token)
 }

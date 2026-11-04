@@ -5,6 +5,7 @@ import { HDMUser } from "models"
 
 export class StoreManager {
   ctx?: common.UIAbilityContext
+  private userFlush: Promise<void> = Promise.resolve()
 
   getStore() {
     try {
@@ -19,14 +20,25 @@ export class StoreManager {
     }
   }
 
-  async setUserInfo(user: HDMUser): Promise<void> {
+  async saveUserInfo(user: HDMUser): Promise<void> {
     try {
       const store = this.getStore()
       store.putSync(GlobalVariable.USER_INFO_KEY, user)
-      await store.flush()
+      // 内存写入立即生效，磁盘 flush 按调用顺序完成，避免旧资料最后落盘。
+      const pending = this.userFlush.then(() => store.flush())
+      this.userFlush = pending.catch(() => {})
+      await pending
     } catch {
       throw new Error('用户信息保存失败')
     }
+  }
+
+  async saveProfileForSession(user: HDMUser, expectedToken: string): Promise<void> {
+    // 登录可能已写入新账号但仍在等待落盘，不能只核对 AppStorage 的旧账号。
+    if (!expectedToken || this.getUserInfo()?.token !== expectedToken) {
+      throw new Error('登录状态已变化，请重新打开资料页')
+    }
+    await this.saveUserInfo(user)
   }
 
   getUserInfo(): HDMUser | null {

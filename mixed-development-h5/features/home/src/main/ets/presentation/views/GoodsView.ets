@@ -1,5 +1,5 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { HDMGoodsItem } from 'models'
+import { HDMGoodsItem, HDMUser } from 'models'
 import { auth, localGoodsStore } from 'storage'
 import { HDMGuess, HDMLoading, HDMLoadingDialog, HDMNavBar, HDMPreviewImage, HDMSku, HDMSkuType } from 'ui_components'
 import { authCart } from 'storage'
@@ -7,8 +7,9 @@ import { Logger } from 'utils'
 import { Goods, GoodsEvaluation } from '../../domain/models'
 import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
 import { getDetailAPI, getGoodsEvaluationsAPI, getGuessLikeAPI } from '../../data/api'
-import { isFallbackSkuId } from '../../data/api/mockData'
+import { generateFallbackGoods, isFallbackSkuId } from '../../data/api/mockData'
 import { normalizeSkuSelection } from '../../data/api/goodsPresentation'
+import { canPreserveLoginSelection, PendingLoginSelection, restoreLoginSelection } from '../../data/api/loginSkuSelection'
 
 
 @Builder
@@ -26,12 +27,24 @@ export struct GoodsView {
   @StorageProp
   (GlobalVariable.SAFE_AREA_TOP)
   safeTop: number = 0
+  @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount')
+  user: HDMUser = { token: '', account: '', nickname: '', avatar: '' }
+  @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @State goods: Goods = {} as Goods
   @State activeIndex: number = 0
   @State showSheet: boolean = false
   @State count: number = 1
   @State loading: boolean = false
+  @State detailReady: boolean = false
+  @State detailFailed: boolean = false
+  private detailSequence: number = 0
   @State isFavorite: boolean = false
+  @State favoriteSaving: boolean = false
+  private isPageActive: boolean = false
+  private pageGeneration: number = 0
+  private sessionToken: string = ''
+  private sessionAccount: string = ''
+  private loginSelection: PendingLoginSelection | undefined = undefined
   @State evaluations: GoodsEvaluation[] = []
   @State evaluationCount: number = 0
   @State evaluationLoading: boolean = false
@@ -74,28 +87,99 @@ export struct GoodsView {
   }
 
   aboutToAppear() {
+    this.isPageActive = true
     // 接收并解析数据
     this.getDetailData() // 获取详情数据
   }
 
-  // 生命周期- 父组件 aboutToAppear(同步已经完成/异步) => 父组件的build => 子组件的aboutToAppear（已经有了之前同步设置的数据了-第一次渲染） => 子组件的build =>
-  // 同步代码和异步代码 先把异步代码挂起来-先把所有同步的代码执行完毕- 再去执行异步
+  private showGoods(): void { if (!this.isPageActive) this.aboutToAppear() }
+  private refreshAfterForeground(): void {
+    if (this.isPageActive && !this.loading && !this.favoriteSaving) this.getDetailData()
+  }
+  private reloadForCurrentAccount(): void {
+    if (this.synchronizeSession() && this.isPageActive) this.getDetailData()
+  }
+  private synchronizeSession(): boolean {
+    const token: string = this.user.token || '', account: string = this.user.account || ''
+    if (token === this.sessionToken && account === this.sessionAccount) return false
+    if (this.loginSelection && canPreserveLoginSelection(this.sessionToken, token)) {
+      this.loginSelection.token = token
+    } else {
+      this.loginSelection = undefined
+    }
+    this.sessionToken = token; this.sessionAccount = account
+    this.pageGeneration++; this.detailSequence++; this.evaluationRequestId++
+    this.resetInteractions()
+    this.goods = {} as Goods
+    this.isFavorite = false; this.evaluations = []; this.evaluationCount = 0; this.evaluationLoading = false
+    return true
+  }
+  private resetInteractions(): void {
+    this.loading = false; this.favoriteSaving = false; this.detailReady = false; this.detailFailed = false
+    this.showSheet = false; this.showLoadingDialog = false; this.showPreview = false
+    this.previewUrls = []; this.previewIndex = 0; this.count = 1; this.sku = normalizeSkuSelection()
+  }
+  private isCurrentSession(generation: number, token: string): boolean {
+    const current: HDMUser | undefined = auth.getUserInfo()
+    return this.isPageActive && generation === this.pageGeneration && token === this.sessionToken &&
+      token === (this.user.token || '') && token === (current?.token || '') &&
+      this.sessionAccount === (this.user.account || '') && this.sessionAccount === (current?.account || '')
+  }
+  private isCurrentGoods(generation: number, token: string, sequence: number, goodsId: string): boolean {
+    return this.isCurrentSession(generation, token) && sequence === this.detailSequence &&
+      goodsId === this.goods.id && goodsId === this.getGoodsFromNavigation()?.id
+  }
 
-  // 获取详情
-  async getDetailData() {
+  // 接收上一页商品 → 重新取最新详情 → 加载评价并记录足迹。
+  // async 方法会先执行到 await；等待接口期间，页面仍可构建并显示加载提示。
+  async getDetailData(): Promise<void> {
+    this.synchronizeSession()
+    const generation: number = this.pageGeneration, token: string = this.sessionToken
+    if (!this.isCurrentSession(generation, token) || this.loading || this.favoriteSaving) return
+    const sequence: number = ++this.detailSequence
+    const loginSelection: PendingLoginSelection | undefined = this.loginSelection
+    if (!token) this.loginSelection = undefined
+    this.evaluationRequestId++
+    this.evaluations = []; this.evaluationCount = 0; this.evaluationLoading = false
+    this.detailReady = false
+    this.detailFailed = false
+    this.showSheet = false
+    this.showPreview = false
+    this.count = 1
+    this.sku = normalizeSkuSelection()
+    this.loadingTitle = '加载中...'
     this.showLoadingDialog = true
+    let goodsId: string = ''
     try {
-      const params = this.stackPath.getParamByName(PAGE_PATH.GOODS_PAGE) as Array<Goods | Array<Goods>>
-      const lastParam = params.length > 0 ? params[params.length - 1] : undefined
-      const source = Array.isArray(lastParam) ? lastParam[0] : lastParam
-      if (source && source.id) {
-        this.goods = source // 接收上一次的数据
-        this.isFavorite = localGoodsStore.isFavorite(source.id)
+      const navigationGoods = this.getGoodsFromNavigation()
+      if (navigationGoods && navigationGoods.id) {
+        goodsId = navigationGoods.id
+        this.goods = navigationGoods // 上一页只提供入口信息，下面还要重新查询详情。
+        this.isFavorite = localGoodsStore.isFavorite(navigationGoods.id)
       } else {
+        this.goods = {} as Goods
+        this.isFavorite = false
+        this.detailFailed = true
         this.safeToast('商品信息加载失败，请返回重试')
         return
       }
-      this.goods = await getDetailAPI(this.goods)
+      const detail = await getDetailAPI(navigationGoods)
+      if (!this.isCurrentGoods(generation, token, sequence, goodsId)) {
+        return
+      }
+      if (detail.id !== goodsId) throw new Error('商品详情与入口商品不匹配')
+      this.goods = detail
+      this.detailReady = !!detail.skus?.some(item => !isFallbackSkuId(item.id))
+      this.detailFailed = !this.detailReady
+      if (loginSelection && token && loginSelection.token === token) {
+        const restored = restoreLoginSelection(loginSelection, detail)
+        this.loginSelection = undefined
+        this.sku = restored.sku
+        this.count = restored.count
+        this.goods.specs = restored.specs
+        this.showSheet = this.detailReady
+        if (restored.invalid) this.safeToast('原选规格或数量已失效，请重新选择')
+      }
       this.isFavorite = localGoodsStore.isFavorite(this.goods.id)
       this.loadEvaluations(this.goods.id)
       try {
@@ -104,10 +188,46 @@ export struct GoodsView {
         // 足迹写入失败不应阻断商品详情主流程。
       }
     } catch {
-      this.safeToast('商品信息加载失败，请返回重试')
+      if (!this.isCurrentGoods(generation, token, sequence, goodsId)) {
+        return
+      }
+      this.detailFailed = true
+      this.loginSelection = undefined
+      if (this.goods.id) {
+        // 失败时保留入口商品的备用展示，同时明确提示失败；备用规格仍禁止购买。
+        this.goods = generateFallbackGoods(this.goods)
+        this.safeToast('商品详情加载失败，当前仅展示备用信息，请返回重试')
+      } else {
+        this.safeToast('商品信息加载失败，请返回重试')
+      }
     } finally {
-      this.showLoadingDialog = false
+      if (this.isCurrentSession(generation, token) && sequence === this.detailSequence) {
+        this.showLoadingDialog = false
+      }
     }
+  }
+
+  aboutToDisappear(): void {
+    this.loginSelection = undefined
+    this.isPageActive = false
+    this.pageGeneration++
+    this.detailSequence++
+    this.evaluationRequestId++
+    this.resetInteractions()
+    this.evaluationLoading = false
+  }
+
+  private hideGoods(): void {
+    const selection: PendingLoginSelection | undefined = this.loginSelection
+    this.aboutToDisappear()
+    this.loginSelection = selection
+  }
+
+  // 取最近一次进入详情页的参数；兼容旧入口传“商品数组”和新入口传“单件商品”。
+  private getGoodsFromNavigation(): Goods | undefined {
+    const navigationEntries = this.stackPath.getParamByName(PAGE_PATH.GOODS_PAGE) as Array<Goods | Array<Goods>>
+    const latestEntry = navigationEntries.length > 0 ? navigationEntries[navigationEntries.length - 1] : undefined
+    return Array.isArray(latestEntry) ? latestEntry[0] : latestEntry
   }
 
   private openPreview(urls: string[], activeIndex: number): void {
@@ -117,7 +237,8 @@ export struct GoodsView {
   }
 
   private async loadEvaluations(goodsId: string): Promise<void> {
-    if (!goodsId) {
+    const generation: number = this.pageGeneration, token: string = this.sessionToken, sequence: number = this.detailSequence
+    if (!goodsId || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
       return
     }
     const requestId: number = ++this.evaluationRequestId
@@ -126,19 +247,20 @@ export struct GoodsView {
     this.evaluationCount = 0
     try {
       const result = await getGoodsEvaluationsAPI(goodsId)
-      if (requestId !== this.evaluationRequestId || goodsId !== this.goods.id) {
+      if (requestId !== this.evaluationRequestId || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
         return
       }
       this.evaluations = result.items || []
       this.evaluationCount = result.counts || this.evaluations.length
       Logger.info(`[GoodsView] loadEvaluations goodsId=${goodsId} counts=${this.evaluationCount} items=${this.evaluations.length}`)
     } catch {
-      if (requestId === this.evaluationRequestId) {
+      if (requestId === this.evaluationRequestId && this.isCurrentGoods(generation, token, sequence, goodsId)) {
         this.evaluations = []
         this.evaluationCount = 0
+        this.safeToast('商品评价加载失败，请稍后重试')
       }
     } finally {
-      if (requestId === this.evaluationRequestId) {
+      if (requestId === this.evaluationRequestId && this.isCurrentGoods(generation, token, sequence, goodsId)) {
         this.evaluationLoading = false
       }
     }
@@ -170,45 +292,77 @@ export struct GoodsView {
     })
   }
 
-  // 加入购物车
-  async addToCart(): Promise<boolean> {
+  // 交易前校验只负责确认当前操作具备真实交易条件。
+  private validateCartSelection(): string | undefined {
+    if (!this.isCurrentGoods(this.pageGeneration, this.sessionToken, this.detailSequence, this.goods.id)) return undefined
+    if (!this.detailReady || this.loading) {
+      this.safeToast(this.detailFailed ? '详情或规格未更新，请重试后再购买' : '正在更新商品资料，请稍候')
+      return undefined
+    }
     const user = auth.getUserInfo()
     if (!user || !user.token) {
+      this.loginSelection = { goodsId: this.goods.id, sku: normalizeSkuSelection(this.sku), count: this.count, token: '' }
       this.safeToast('您还未登录')
       this.showSheet = false // 关闭半模态弹窗
-      // 到底跳转不跳转登录 取决于产品的运营逻辑
       this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
-      return false
+      return undefined
     }
-    // 此时说明用户是有的
     if (!this.sku.id) {
       this.safeToast('请选择对应的产品规格')
-      return false
+      return undefined
     }
     if (isFallbackSkuId(this.sku.id)) {
       this.safeToast('商品规格加载失败，请返回重试')
-      return false
+      return undefined
     }
+    const current: HDMSkuType | undefined = this.goods.skus?.find(item => item.id === this.sku.id)
+    if (!current || current.inventory <= 0 || !Number.isInteger(this.count) || this.count < 1 ||
+      this.count > 999 || this.count > current.inventory) {
+      this.safeToast('请选择有库存的规格和有效购买数量')
+      return undefined
+    }
+    return this.sku.id
+  }
+
+  // 只有加入购物车成功，调用方才可以继续结算或立即购买。
+  private async submitCartSelection(skuId: string): Promise<boolean> {
+    if (this.validateCartSelection() !== skuId) return false
+    const generation: number = this.pageGeneration, token: string = this.sessionToken
+    const sequence: number = this.detailSequence, goodsId: string = this.goods.id, count: number = this.count
     this.loadingTitle = "加入中..."
     this.loading = true
     this.showLoadingDialog = true
     try {
-      await authCart.addCart({ skuId: this.sku.id, count: this.count })
+      await authCart.addCart({ skuId, count }, token)
+      if (!this.isCurrentGoods(generation, token, sequence, goodsId)) return false
       this.safeToast('加入购物车成功')
       return true
     } catch {
-      this.safeToast('加入购物车失败，请稍后重试')
+      if (this.isCurrentGoods(generation, token, sequence, goodsId)) this.safeToast('加入购物车失败，请稍后重试')
       return false
     } finally {
-      this.loading = false
-      this.showLoadingDialog = false
+      if (this.isCurrentGoods(generation, token, sequence, goodsId)) {
+        this.loading = false
+        this.showLoadingDialog = false
+      }
     }
+  }
+
+  // 加入购物车
+  async addToCart(): Promise<boolean> {
+    const skuId: string | undefined = this.validateCartSelection()
+    if (!skuId) {
+      return false
+    }
+    return this.submitCartSelection(skuId)
   }
 
   // 快速购买
   async buyQuickly() {
+    const generation: number = this.pageGeneration, token: string = this.sessionToken
+    const sequence: number = this.detailSequence, goodsId: string = this.goods.id
     const added: boolean = await this.addToCart()
-    if (!added) {
+    if (!added || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
       return
     }
     this.showSheet = false // 关闭半模态
@@ -218,14 +372,21 @@ export struct GoodsView {
   }
 
   async toggleFavorite(): Promise<void> {
-    if (!this.goods.id) {
+    const generation: number = this.pageGeneration, token: string = this.sessionToken
+    const sequence: number = this.detailSequence, goodsId: string = this.goods.id
+    if (!goodsId || !this.detailReady || this.favoriteSaving || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
       return
     }
+    this.favoriteSaving = true
     try {
-      this.isFavorite = await localGoodsStore.toggleFavorite(this.goods)
+      const favorite: boolean = await localGoodsStore.toggleFavorite(this.goods)
+      if (!this.isCurrentGoods(generation, token, sequence, goodsId)) return
+      this.isFavorite = favorite
       this.safeToast(this.isFavorite ? '收藏成功' : '已取消收藏')
     } catch {
-      this.safeToast('收藏操作失败，请稍后重试')
+      if (this.isCurrentGoods(generation, token, sequence, goodsId)) this.safeToast('收藏操作失败，请稍后重试')
+    } finally {
+      if (this.isCurrentGoods(generation, token, sequence, goodsId)) this.favoriteSaving = false
     }
   }
 
@@ -274,8 +435,8 @@ export struct GoodsView {
             Counter() {
               Text(this.count.toString())
             }
-            .enableDec(this.count > 1) // 小于1不能减
-            .enableInc(this.sku.id.length > 0 && this.count < this.getSelectedInventory())
+            .enableDec(!this.loading && this.count > 1) // 小于1不能减
+            .enableInc(!this.loading && this.sku.id.length > 0 && this.count < Math.min(999, this.getSelectedInventory()))
             .onInc(() => {
               this.count++
             })
@@ -307,6 +468,7 @@ export struct GoodsView {
             skus: this.goods.skus ?? [],
             specs: this.goods.specs ?? [],
             onSkuChange: (sku) => {
+              if (this.loading || !this.detailReady) return
               this.sku = normalizeSkuSelection(sku)
               if (this.sku.inventory > 0 && this.count > this.sku.inventory) {
                 this.count = this.sku.inventory
@@ -321,14 +483,14 @@ export struct GoodsView {
       Row() {
         Button(this.loading ? '加入中...' : '加入购物袋')
           .buyButton($r('[ui_components].color.black'), true)
-          .enabled(!this.loading)
+          .enabled(!this.loading && this.detailReady)
           .onClick(async () => {
             // 实现加入购物车逻辑
             await this.addToCart()
           })
         Button('立即购买')
           .buyButton($r('[ui_components].color.red'), false)
-          .enabled(!this.loading)
+          .enabled(!this.loading && this.detailReady)
           .onClick(async () => {
             await this.buyQuickly() // 立刻购买
           })
@@ -359,6 +521,17 @@ export struct GoodsView {
           }
         }) {
           this.CustomTitleBuilder()
+        }
+        if (!this.detailReady) {
+          Text(this.detailFailed ? '详情更新失败，当前仅供浏览；点击重试' : '正在更新商品详情与规格')
+            .fontSize(12)
+            .fontColor($r('[ui_components].color.red'))
+            .padding(10)
+            .onClick(() => {
+              if (this.detailFailed) {
+                this.getDetailData()
+              }
+            })
         }
 
         Column() {
@@ -407,6 +580,7 @@ export struct GoodsView {
             .iconButton()
             .fillColor(this.isFavorite ? $r('[ui_components].color.red') : $r('[ui_components].color.black'))
             .accessibilityText(this.isFavorite ? '取消收藏' : '收藏商品')
+            .enabled(this.detailReady && !this.favoriteSaving)
             .onClick(() => this.toggleFavorite())
           Image($r('[ui_components].media.ic_public_comment'))
             .iconButton()
@@ -432,9 +606,11 @@ export struct GoodsView {
           Row() {
             Button('加入购物袋')
               .buyButton($r('[ui_components].color.black'), true)
+              .enabled(this.detailReady && !this.loading)
               .onClick(() => this.showSheet = true)
             Button('立即购买')
               .buyButton($r('[ui_components].color.red'), false)
+              .enabled(this.detailReady && !this.loading)
               .onClick(async () => {
                 if (this.sku.id) {
                   await this.buyQuickly()
@@ -476,6 +652,8 @@ export struct GoodsView {
       .height('100%')
     }
     .hideTitleBar(true)
+    .onShown(() => this.showGoods())
+    .onHidden(() => this.hideGoods())
     .padding({
       top: this.safeTop,
     })

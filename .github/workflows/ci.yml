@@ -36,8 +36,8 @@ jobs:
       - name: Type check
         run: pnpm run type-check
 
-      - name: Build (vite-plugin-singlefile)
-        run: pnpm run build-only
+      - name: Build mobile H5 (vite-plugin-singlefile)
+        run: pnpm run build-only --mode mobile --outDir dist
 
   # 原生端说明：ArkTS/hvigor 构建与 Hypium/设备测试依赖本机 DevEco
   # command-line-tools、签名环境和目标设备。当前仓库通过

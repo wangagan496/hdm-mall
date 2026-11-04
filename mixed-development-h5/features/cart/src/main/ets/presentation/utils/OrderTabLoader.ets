@@ -1,81 +1,79 @@
-import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderListParams, OrderPage } from 'models'
-import { isOrderStateInTab, mergeOrderState } from './OrderPresentation'
+import { OrderItem, OrderListParams, OrderPage } from 'models'
+import { isOrderStateInTab } from './OrderPresentation'
+
+/**
+ * 订单列表分页流程：向服务端取一页 → 合并去重 → 去掉不属于当前栏目的订单 → 按下单时间排序。
+ * 已取消的订单会被筛掉，一页可能剩不下几笔，所以不满一屏时会接着取下一页，直到凑满或服务端没有更多。
+ */
 
 export interface OrderTabRequest {
+  /** 从第几页开始取 */
   page: number
+  /** 一屏要显示几笔订单 */
   pageSize: number
+  /** 当前栏目，对应 OrderState，0 表示“全部” */
   state: number
-  overlays: Record<string, DemoOrderOverlay>
-  evaluations: Record<string, LocalEvaluationItem>
 }
 
 export interface OrderTabAPI {
   getPage: (params: OrderListParams) => Promise<OrderPage>
-  getDetail: (orderId: string) => Promise<OrderItem>
+  /** 用户还停在发起这次加载的栏目和账号上吗；切走后返回 false，结果作废 */
   isCurrent: () => boolean
 }
 
 export interface OrderTabResult {
+  /** 筛选后可以显示的订单 */
   items: OrderItem[]
+  /** 下次“加载更多”从第几页开始 */
   nextPage: number
+  /** 服务端是否已经没有更多订单 */
   finished: boolean
 }
 
-/** 保留最新服务端对象，按合并后的状态筛选；补查与分页返回同一订单时只展示一次。 */
+/** 合并已有订单和新取回的订单，同一订单号只留最新那份，再筛选当前栏目并排序。 */
 export function mergeOrdersForTab(
   existing: OrderItem[], incoming: OrderItem[], request: OrderTabRequest
 ): OrderItem[] {
-  const byId: Record<string, OrderItem> = {}
+  const latestById: Record<string, OrderItem> = {}
+  // 先放已有的，再放新取回的：同一订单号后放的会盖掉先放的，留下服务端最新状态。
   existing.concat(incoming).forEach((order: OrderItem) => {
-    byId[order.id] = order
+    latestById[order.id] = order
   })
-  return Object.values(byId).filter((order: OrderItem) => {
-    const state: number = mergeOrderState(
-      order, request.overlays[order.id] ?? null, request.evaluations[order.id] ?? null
-    )
-    return isOrderStateInTab(state, request.state)
-  }).sort((left: OrderItem, right: OrderItem) => {
-    if (left.createTime === right.createTime) {
-      return left.id === right.id ? 0 : left.id > right.id ? -1 : 1
-    }
-    return left.createTime > right.createTime ? -1 : 1
-  })
+  return Object.values(latestById)
+    .filter((order: OrderItem) => isOrderStateInTab(order.orderState, request.state))
+    .sort(newestFirst)
 }
 
+/** 下单时间晚的排前面；时间相同再比订单号，保证每次刷新顺序都一样，列表不会上下跳。 */
+function newestFirst(left: OrderItem, right: OrderItem): number {
+  if (left.createTime !== right.createTime) {
+    return left.createTime > right.createTime ? -1 : 1
+  }
+  if (left.id === right.id) {
+    return 0
+  }
+  return left.id > right.id ? -1 : 1
+}
+
+/** 取够一屏订单；用户中途切走栏目或账号时返回 null，调用方不要使用结果。 */
 export async function loadOrderTabPage(request: OrderTabRequest, api: OrderTabAPI): Promise<OrderTabResult | null> {
-  let items: OrderItem[] = []
+  let visibleOrders: OrderItem[] = []
   let page: number = request.page
   let finished: boolean = false
-  // 服务端筛选看不到本地推进的订单。首屏补查候选详情，仍让服务端取消等状态优先。
-  if (page === 1 && request.state >= 2 && request.state <= 4) {
-    const ids: string[] = Object.keys(request.overlays).filter((id: string) => {
-      return request.overlays[id].advancedState === request.state &&
-        (request.state !== 4 || !request.evaluations[id])
-    })
-    for (let index: number = 0; index < ids.length; index += 4) {
-      if (!api.isCurrent()) {
-        return null
-      }
-      const details: OrderItem[] = await Promise.all(ids.slice(index, index + 4).map((id: string) => api.getDetail(id)))
-      if (!api.isCurrent()) {
-        return null
-      }
-      items = mergeOrdersForTab(items, details, request)
-    }
-  }
-  // 过滤后不足一屏时继续取下一页，不能用“不匹配”作为服务端分页结束条件。
   do {
     if (!api.isCurrent()) {
       return null
     }
-    const result: OrderPage = await api.getPage({ page, pageSize: request.pageSize, orderState: request.state })
+    const serverPage: OrderPage = await api.getPage({ page, pageSize: request.pageSize, orderState: request.state })
     if (!api.isCurrent()) {
       return null
     }
-    const rawItems: OrderItem[] = result.items || []
-    items = mergeOrdersForTab(items, rawItems, request)
+    const serverOrders: OrderItem[] = serverPage.items || []
+    visibleOrders = mergeOrdersForTab(visibleOrders, serverOrders, request)
     page++
-    finished = rawItems.length === 0 || page > result.pages
-  } while (!finished && items.length < request.pageSize)
-  return { items, nextPage: page, finished }
+    // 是否取完只看服务端：这页是空的，或页码已超过总页数。
+    // 不能看筛选后的数量，一页全是已取消订单不代表后面没有订单。
+    finished = serverOrders.length === 0 || page > serverPage.pages
+  } while (!finished && visibleOrders.length < request.pageSize)
+  return { items: visibleOrders, nextPage: page, finished }
 }

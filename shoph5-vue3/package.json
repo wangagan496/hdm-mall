@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "run-p type-check \"build-only {@}\" --",
-    "build:mobile": "run-s build sync:rawfile",
+    "build:mobile": "run-s check:bridge type-check \"build-only --mode mobile\"",
+    "check:bridge": "node scripts/check-bridge.mjs",
     "preview": "vite preview",
     "build-only": "vite build",
     "sync:rawfile": "node scripts/sync-rawfile.mjs",

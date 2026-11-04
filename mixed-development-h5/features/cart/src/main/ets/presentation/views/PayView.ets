@@ -1,13 +1,23 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { OrderItem, PayResultParams } from 'models'
+import { FamilyRelationPage, HDMUser, OrderItem, PayResultParams } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { auth, demoOrderStore } from 'storage'
-import { getOrderDetailAPI, mockPayAPI, invitePayerAPI, getFamilyRelationsAPI, FamilyRelation } from '../../data/api'
-import { mergeOrderState } from '../utils/OrderPresentation'
+import { getOrderDetailAPI, mockPayAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
+import { mergeOrderState, readPhoneClockMillis, secondsLeftToPay } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
 
 @Component
 struct PayView {
+  @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount')
+  user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
+  @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
+  private querySequence: number = 0
+
+  private refreshAfterForeground(): void {
+    if (this.active && !this.paying) {
+      this.load()
+    }
+  }
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @State order: OrderItem | null = null
@@ -15,7 +25,14 @@ struct PayView {
   @State loadFailed: boolean = false
   @State paying: boolean = false
   @State relatives: FamilyRelation[] = []
+  @State relativePage: number = 1
+  @State relativePages: number = 0
+  @State relativesLoadFailed: boolean = false
   private active: boolean = true
+  private pageGeneration: number = 0
+  private sessionToken: string = ''
+  private sessionOrderId: string = ''
+  private loadedToken: string = ''
   @Consume stackPath: NavPathStack
   private orderId: string = ''
   private countdownBaseAt: number = 0
@@ -27,19 +44,90 @@ struct PayView {
     this.load()
   }
 
-  aboutToDisappear(): void { this.active = false }
+  aboutToDisappear(): void {
+    this.active = false
+    this.pageGeneration++
+    this.querySequence++
+    this.loading = false
+    this.paying = false
+  }
+
+  private showCashier(): void {
+    if (!this.active) this.aboutToAppear()
+  }
+
+  private reloadForCurrentAccount(): void {
+    if ((auth.getUserInfo()?.token || '') === this.sessionToken) return
+    this.synchronizeCashierContext()
+    if (this.active) this.load()
+  }
+
+  private synchronizeCashierContext(): void {
+    const token: string = auth.getUserInfo()?.token || ''
+    if (token === this.sessionToken && this.orderId === this.sessionOrderId) return
+    this.sessionToken = token
+    this.sessionOrderId = this.orderId
+    this.pageGeneration++
+    this.querySequence++
+    this.loadedToken = ''
+    this.order = null
+    this.relatives = []
+    this.relativePage = 1
+    this.relativePages = 0
+    this.loading = false
+    this.loadFailed = true
+    this.relativesLoadFailed = false
+    this.paying = false
+    this.countdownBaseAt = 0
+  }
+
+  private isCurrentCashier(generation: number, token: string, orderId: string): boolean {
+    return this.active && generation === this.pageGeneration && token.length > 0 &&
+      token === this.sessionToken && token === auth.getUserInfo()?.token && orderId.length > 0 &&
+      orderId === this.orderId && orderId === this.sessionOrderId
+  }
+
+  private isCurrentQuery(sequence: number, generation: number, token: string, orderId: string): boolean {
+    return sequence === this.querySequence && this.isCurrentCashier(generation, token, orderId)
+  }
+
+  private canManagePayment(): boolean {
+    return this.isCurrentCashier(this.pageGeneration, this.sessionToken, this.orderId) &&
+      this.loadedToken === this.sessionToken && !!this.order && this.order.id === this.orderId &&
+      !this.loading && !this.loadFailed && !this.paying && this.mergedState() === 1
+  }
+
+  private openPaymentResult(orderId: string): void {
+    this.aboutToDisappear()
+    this.stackPath.replacePath({
+      name: PAGE_PATH.PAY_RESULT_PAGE,
+      param: { payResult: true, orderId } as PayResultParams
+    })
+  }
 
   private async choosePayer(friendId: string | null): Promise<void> {
-    if (this.paying || !this.order) { return }
+    if (!this.canManagePayment() || !this.order?.canInvitePayer) return
+    if (friendId !== null && (this.relativesLoadFailed ||
+      !this.relatives.some((relative: FamilyRelation) => relative.friendId === friendId))) return
     this.paying = true
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.orderId
     try {
-      await invitePayerAPI(this.orderId, friendId)
-      if (!this.active) { return }
+      await invitePayerAPI(orderId, friendId, token)
+      if (!this.isCurrentCashier(generation, token, orderId)) return
       this.safeToast(friendId ? '已发送代付邀请，亲友可在亲友中心付款' : '已切换为本人付款')
       await this.load()
     } catch {
-      if (this.active) { this.safeToast('操作失败，请刷新后重试') }
-    } finally { this.paying = false }
+      if (this.isCurrentCashier(generation, token, orderId)) {
+        this.querySequence++
+        this.loading = false
+        this.loadFailed = true
+        this.safeToast('操作结果未确认，请刷新订单后重试')
+      }
+    } finally {
+      if (this.isCurrentCashier(generation, token, orderId)) this.paying = false
+    }
   }
 
   private safeToast(message: string): void {
@@ -54,8 +142,7 @@ struct PayView {
     if (!this.order) {
       return 0
     }
-    const elapsed: number = Math.floor((Date.now() - this.countdownBaseAt) / 1000)
-    return this.order.countdown - elapsed
+    return secondsLeftToPay(this.order.countdown, this.countdownBaseAt)
   }
 
   private mergedState(): number {
@@ -65,8 +152,16 @@ struct PayView {
     return mergeOrderState(this.order, demoOrderStore.getOverlay(this.order.id), demoOrderStore.getEvaluation(this.order.id))
   }
 
-  private async load(): Promise<void> {
-    if (!this.orderId) {
+  private async load(relativePage: number = this.relativePage): Promise<void> {
+    const previousToken: string = this.sessionToken
+    const previousOrderId: string = this.sessionOrderId
+    this.synchronizeCashierContext()
+    if (previousToken !== this.sessionToken || previousOrderId !== this.sessionOrderId) relativePage = 1
+    const sequence: number = ++this.querySequence
+    const token: string = this.sessionToken
+    const generation: number = this.pageGeneration
+    const orderId: string = this.orderId
+    if (!this.isCurrentCashier(generation, token, orderId)) {
       this.loading = false
       this.loadFailed = true
       return
@@ -74,57 +169,63 @@ struct PayView {
     this.loading = true
     this.loadFailed = false
     try {
-      const order: OrderItem = await getOrderDetailAPI(this.orderId)
-      if (!this.active) { return }
+      const order: OrderItem = await getOrderDetailAPI(orderId, token)
+      if (!this.isCurrentQuery(sequence, generation, token, orderId)) return
+      if (order.id !== orderId) throw new Error('订单结果不匹配')
       this.order = order
-      this.countdownBaseAt = Date.now()
+      this.loadedToken = token
+      this.countdownBaseAt = readPhoneClockMillis()
       if (this.mergedState() >= 2 && this.mergedState() <= 5) {
-        this.stackPath.replacePath({
-          name: PAGE_PATH.PAY_RESULT_PAGE,
-          param: { payResult: true, orderId: this.orderId } as PayResultParams
-        })
+        this.openPaymentResult(orderId)
         return
       }
       if (order.orderState === 6) {
         this.safeToast('订单已取消')
+        this.aboutToDisappear()
         this.stackPath.pop()
         return
       }
       if (order.canInvitePayer) {
         try {
-          const relations: FamilyRelation[] = await getFamilyRelationsAPI()
-          if (this.active) {
-            this.relatives = relations.filter((item: FamilyRelation) => item.status === 'accepted' && item.ownerAccount === auth.getUserInfo()?.account)
+          let relations: FamilyRelationPage = await getPayerRelationsPageAPI(relativePage, token)
+          if (!this.isCurrentQuery(sequence, generation, token, orderId)) return
+          if (relations.page > Math.max(1, relations.pages)) {
+            relations = await getPayerRelationsPageAPI(Math.max(1, relations.pages), token)
           }
+          if (!this.isCurrentQuery(sequence, generation, token, orderId)) return
+          this.relatives = relations.items
+          this.relativePage = relations.page
+          this.relativePages = relations.pages
+          this.relativesLoadFailed = false
         } catch {
-          if (this.active) {
-            this.relatives = []
-            this.safeToast('亲友列表加载失败')
+          if (this.isCurrentQuery(sequence, generation, token, orderId)) {
+            this.relativesLoadFailed = true
           }
         }
+      } else {
+        this.relatives = []
+        this.relativePage = 1
+        this.relativePages = 0
+        this.relativesLoadFailed = false
       }
     } catch {
-      this.loadFailed = true
+      if (this.isCurrentQuery(sequence, generation, token, orderId)) {
+        this.loadFailed = true
+      }
     } finally {
-      this.loading = false
+      if (this.isCurrentQuery(sequence, generation, token, orderId)) {
+        this.loading = false
+      }
     }
   }
 
   // 演示支付：本地推进订单覆盖层，不产生真实扣款。开关与说明见 GlobalVariable.DEMO_ORDER_FLOW。
   private async handleMockPay(): Promise<void> {
-    if (!this.order || this.paying) {
+    if (!this.order || !this.canManagePayment() || (this.order.serverManaged && !this.order.canPay)) {
       return
     }
     if (!this.order.serverManaged && !GlobalVariable.DEMO_ORDER_FLOW) {
       this.safeToast('当前环境未接入支付渠道')
-      return
-    }
-    if (this.mergedState() !== 1) {
-      this.safeToast('订单已支付')
-      this.stackPath.replacePath({
-        name: PAGE_PATH.PAY_RESULT_PAGE,
-        param: { payResult: true, orderId: this.orderId } as PayResultParams
-      })
       return
     }
     if (this.remainingCountdown() <= 0 && this.order.countdown > 0) {
@@ -132,21 +233,28 @@ struct PayView {
       return
     }
     this.paying = true
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.order.id
+    const serverManaged: boolean = this.order.serverManaged === true
+    const amount: number = this.order.payMoney
     try {
-      if (this.order.serverManaged) {
-        await mockPayAPI(this.order.id, this.order.payMoney)
+      if (serverManaged) {
+        await mockPayAPI(orderId, amount, token)
       } else {
-        await demoOrderStore.setOverlay(this.order.id, 2)
+        await demoOrderStore.setOverlay(orderId, 2)
       }
-      if (!this.active) { return }
-      this.stackPath.replacePath({
-        name: PAGE_PATH.PAY_RESULT_PAGE,
-        param: { payResult: true, orderId: this.orderId } as PayResultParams
-      })
+      if (!this.isCurrentCashier(generation, token, orderId)) return
+      this.openPaymentResult(orderId)
     } catch {
-      this.safeToast('支付失败，请重试')
+      if (this.isCurrentCashier(generation, token, orderId)) {
+        this.querySequence++
+        this.loading = false
+        this.loadFailed = true
+        this.safeToast(serverManaged ? '支付结果未确认，请刷新订单后重试' : '演示支付保存失败，请刷新后重试')
+      }
     } finally {
-      this.paying = false
+      if (this.isCurrentCashier(generation, token, orderId)) this.paying = false
     }
   }
 
@@ -168,8 +276,8 @@ struct PayView {
           .justifyContent(FlexAlign.Center)
         } else if (this.loadFailed || !this.order) {
           Column({ space: 12 }) {
-            Text('订单加载失败').fontSize(14).fontColor($r('[ui_components].color.black'))
-            Text('请检查网络后重试').fontSize(12).fontColor($r('[ui_components].color.gray'))
+            Text('订单状态待确认').fontSize(14).fontColor($r('[ui_components].color.black'))
+            Text('请重新加载，确认最新状态后再操作').fontSize(12).fontColor($r('[ui_components].color.gray'))
             Button('重新加载').onClick(() => this.load())
             Button('返回订单')
               .backgroundColor($r('[ui_components].color.white'))
@@ -230,12 +338,23 @@ struct PayView {
                 Text(this.order.invitedPayerAccount ? '等待亲友 ' + this.order.invitedPayerAccount + ' 代付' : '本人模拟支付')
                   .fontSize(14).padding(12)
                 if (this.order.canInvitePayer) {
-                  Button('本人付款').enabled(!this.paying).onClick(() => this.choosePayer(null))
+                  Button('本人付款').enabled(this.canManagePayment()).onClick(() => this.choosePayer(null))
+                  Row({ space: 8 }) {
+                    Button('代付上一页').enabled(!this.paying && this.relativePage > 1)
+                      .onClick(() => this.load(this.relativePage - 1))
+                    Text(this.relativePage + ' / ' + Math.max(1, this.relativePages))
+                    Button('代付下一页').enabled(!this.paying && this.relativePage < this.relativePages)
+                      .onClick(() => this.load(this.relativePage + 1))
+                  }
+                  if (this.relativesLoadFailed) {
+                    Text('亲友列表加载失败，请重试').fontSize(12).fontColor('#B34D36')
+                    Button('重试亲友列表').enabled(!this.paying).onClick(() => this.load())
+                  }
                   ForEach(this.relatives, (relative: FamilyRelation) => {
                     Button('邀请 ' + relative.friendAccount + ' 代付')
-                      .enabled(!this.paying).onClick(() => this.choosePayer(relative.friendId))
+                      .enabled(this.canManagePayment() && !this.relativesLoadFailed).onClick(() => this.choosePayer(relative.friendId))
                   }, (relative: FamilyRelation) => relative.id)
-                  if (this.relatives.length === 0) {
+                  if (!this.relativesLoadFailed && this.relatives.length === 0) {
                     Text('请先到「我的 → 亲友中心」绑定亲友').fontSize(12).padding(8)
                   }
                 }
@@ -288,7 +407,7 @@ struct PayView {
                 .fontWeight(500)
                 .layoutWeight(1)
                 .backgroundColor($r('[ui_components].color.red'))
-                .enabled(!this.paying && (!this.order.serverManaged || this.order.canPay === true))
+                .enabled(this.canManagePayment() && (!this.order.serverManaged || this.order.canPay === true))
                 .onClick(() => this.handleMockPay())
             }
             .width('100%')
@@ -303,6 +422,8 @@ struct PayView {
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
+    .onShown(() => this.showCashier())
+    .onHidden(() => this.aboutToDisappear())
     .padding({ top: this.topHeight })
   }
 }

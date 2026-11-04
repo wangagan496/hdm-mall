@@ -11,7 +11,8 @@ import { demoOrderStore } from 'storage'
 export async function advanceOrderState(
   orderId: string,
   nextState: number,
-  serverTask: () => Promise<void>
+  serverTask: () => Promise<void>,
+  isCurrent: () => boolean
 ): Promise<void> {
   try {
     await serverTask()
@@ -21,7 +22,7 @@ export async function advanceOrderState(
       throw reason
     }
   }
-  if (GlobalVariable.DEMO_ORDER_FLOW) {
+  if (GlobalVariable.DEMO_ORDER_FLOW && isCurrent()) {
     await demoOrderStore.setOverlay(orderId, nextState)
   }
 }

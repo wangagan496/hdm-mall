@@ -24,27 +24,36 @@ export struct SettingsView {
   LogoutConfirmBuilder() {
     HDMConfirm({
       message: '确定要退出账号吗',
-      onConfirm: async () => {
-        if (this.loggingOut) {
-          return
-        }
-        this.loggingOut = true
-        try {
-          await userSession.logout()
-          this.showLogoutConfirm = false
-          this.stackPath.pop()
-        } catch {
-          this.getUIContext().getPromptAction().showToast({ message: '退出失败，请稍后重试' })
-        } finally {
-          this.loggingOut = false
-        }
-      },
+      onConfirm: () => this.logoutAndCloseSettings(),
       onCancel: () => {
         if (!this.loggingOut) {
           this.showLogoutConfirm = false
         }
       }
     })
+  }
+
+  private async logoutAndCloseSettings(): Promise<void> {
+    if (this.loggingOut) {
+      return
+    }
+    this.loggingOut = true
+    try {
+      await userSession.logout()
+      if (!userSession.serverLogoutConfirmed) {
+        this.getUIContext().getPromptAction().showToast({ message: '本机已退出，服务端尚未确认注销' })
+      }
+      this.showLogoutConfirm = false
+      this.stackPath.pop()
+    } catch {
+      this.getUIContext().getPromptAction().showToast({ message: '本机已退出，但登录资料清理失败，请重试' })
+    } finally {
+      this.loggingOut = false
+    }
+  }
+
+  private openProfileEditor(): void {
+    this.stackPath.pushPathByName('WebView', null)
   }
 
   @Builder
@@ -95,9 +104,7 @@ export struct SettingsView {
     .width("100%")
     .height(80)
     .padding({ top: 16, bottom: 16 })
-    .onClick(() => {
-        this.stackPath.pushPathByName('WebView',null)
-     })
+    .onClick(() => this.openProfileEditor())
   }
 
   build() {
@@ -112,7 +119,7 @@ export struct SettingsView {
         })
         Column({ space: 8 }) {
           HDMCellGroup() {
-            // 尾随闭包
+            // 个人资料入口：头像、昵称和账号
             this.ProfileBuilder()
           }
 
@@ -121,10 +128,11 @@ export struct SettingsView {
               title: '收货地址管理',
               onRightClick: () => this.stackPath.pushPathByName(PAGE_PATH.ADDRESS_PAGE, null)
             })
-            HDMCell({ title: '账号安全' })
-            HDMCell({ title: '消息设置' })
-            HDMCell({ title: '隐私设置' })
-            HDMCell({ title: '通用设置' })
+            // 以下设置目前只有展示入口，尚未配置操作。
+            Text('账号安全、消息、隐私与通用设置暂未开放')
+              .fontSize(12)
+              .fontColor($r('[ui_components].color.gray'))
+              .padding(16)
           }
 
           HDMCellGroup() {

@@ -1,18 +1,15 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { DemoOrderOverlay, HDMUser, LocalEvaluationItem, OrderItem, OrderSku } from 'models'
+import { HDMUser, OrderItem, OrderListParams, OrderPage, OrderSku } from 'models'
 import { HDMEmpty, HDMNavBar } from 'ui_components'
-import { demoOrderStore } from 'storage'
 import {
-  cancelOrderWithFallback,
   remindShipmentAPI,
-  getOrderDetailAPI,
   getOrderListAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { getDisplayOrderStateText, isOrderStateInTab, mergeOrderState } from '../utils/OrderPresentation'
-import { advanceOrderState } from '../utils/DemoOrderFlow'
+import { getDisplayOrderStateText, OrderState, readPhoneClockMillis, isOrderStateInTab, secondsLeftToPay } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
 import { loadOrderTabPage, mergeOrdersForTab, OrderTabAPI, OrderTabRequest } from '../utils/OrderTabLoader'
+import { orderCancellation } from '../utils/OrderCancellation'
 
 interface OrderTab {
   label: string
@@ -26,6 +23,7 @@ function OrderViewBuilder() {
 
 @Component
 export struct OrderView {
+  @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY)
@@ -36,16 +34,21 @@ export struct OrderView {
     nickname: '',
     account: ''
   }
+  // 订单列表流程：进入页面／切换栏目／返回本页／操作订单后 → reloadOrders 从第 1 页重新取；
+  // 滑到底部或点“加载更多” → loadMore 接着取下一页。分页、筛选和排序在 OrderTabLoader.ets。
   @State orders: OrderItem[] = []
-  @State overlays: Record<string, DemoOrderOverlay> = {}
-  @State evaluations: Record<string, LocalEvaluationItem> = {}
-  @State selectedState: number = 0
+  /** 当前选中的栏目，对应 OrderState，0 表示“全部” */
+  @State selectedState: number = OrderState.ALL_TAB
+  /** 正在加载；一次只允许一个加载请求在跑 */
   @State loading: boolean = false
   @State loadFailed: boolean = false
   @State busyOrderId: string = ''
   @State busyAction: string = ''
+  @State pendingCancellations: string[] = []
+  /** 服务端已经没有更多订单；为 true 时滑到底也不再请求 */
   @State isFinished: boolean = false
   @Consume stackPath: NavPathStack
+  /** 拿到订单那一刻的时间，倒计时按它算已经过了多久 */
   private countdownBaseAt: number = 0
 
   private safeToast(message: string): void {
@@ -55,19 +58,29 @@ export struct OrderView {
     }
   }
 
+  /** 下次“加载更多”从第几页开始 */
   private page: number = 1
   private readonly pageSize: number = 10
+  /** 每次重新加载加一；请求返回时编号对不上，说明用户已切走，结果作废 */
   private requestGeneration: number = 0
+  private pageGeneration: number = 0
+  private pageActive: boolean = true
+  private sessionToken: string = ''
+  private recoverySequence: number = 0
+  private loadedToken: string = ''
+  private loadedState: number = OrderState.ALL_TAB
+  private replaceOnNextLoad: boolean = false
   private hasShown: boolean = false
   private readonly tabs: OrderTab[] = [
-    { label: '全部', state: 0 },
-    { label: '待付款', state: 1 },
-    { label: '待发货', state: 2 },
-    { label: '待收货', state: 3 },
-    { label: '待评价', state: 4 }
+    { label: '全部', state: OrderState.ALL_TAB },
+    { label: '待付款', state: OrderState.AWAITING_PAYMENT },
+    { label: '待发货', state: OrderState.AWAITING_SHIPMENT },
+    { label: '待收货', state: OrderState.AWAITING_RECEIPT },
+    { label: '待评价', state: OrderState.AWAITING_REVIEW }
   ]
 
   aboutToAppear(): void {
+    this.pageActive = true
     const routeStates: number[] = this.stackPath.getParamByName(PAGE_PATH.ORDER_PAGE) as number[]
     const routeState: number | undefined = routeStates[routeStates.length - 1]
     if (routeState !== undefined && this.isSupportedOrderState(routeState)) {
@@ -77,105 +90,169 @@ export struct OrderView {
   }
 
   private onUserChanged(): void {
-    this.reloadOrders()
+    if ((this.user.token || '') !== this.sessionToken) {
+      this.reloadOrders()
+    }
   }
 
-  /** 返回时重新合并本地状态与服务端分页，包括从详情页推进后新进入当前标签的订单。 */
-  private refreshAfterVisible(): void {
-    if (!this.hasShown) {
+  private refreshAfterForeground(): void {
+    if (this.pageActive) this.reloadOrders()
+  }
+
+  aboutToDisappear(): void {
+    this.hideOrders()
+  }
+
+  private hideOrders(): void {
+    this.pageActive = false
+    this.pageGeneration++
+    this.requestGeneration++
+    this.recoverySequence++
+    this.loading = false
+    this.busyOrderId = ''
+    this.busyAction = ''
+  }
+
+  private synchronizeOrderSession(): void {
+    const token: string = this.user.token || ''
+    if (token === this.sessionToken) return
+    this.sessionToken = token
+    this.pageGeneration++
+    this.requestGeneration++
+    this.recoverySequence++
+    this.orders = []
+    this.pendingCancellations = []
+    this.busyOrderId = ''
+    this.busyAction = ''
+    this.loadedToken = ''
+  }
+
+  private isCurrentSession(generation: number, token: string): boolean {
+    return this.pageActive && generation === this.pageGeneration && token.length > 0 &&
+      token === this.sessionToken && token === (this.user.token || '')
+  }
+
+  private isOrderListReady(): boolean {
+    return this.isCurrentSession(this.pageGeneration, this.sessionToken) && !this.replaceOnNextLoad &&
+      !this.loadFailed && this.loadedToken === this.sessionToken && this.loadedState === this.selectedState
+  }
+
+  private canUseOrder(orderId: string, allowPending: boolean = false): boolean {
+    return this.isOrderListReady() && (this.orders.some((order: OrderItem) => order.id === orderId) ||
+      (allowPending && this.pendingCancellations.includes(orderId)))
+  }
+
+  /** 从详情、支付或评价页返回时，重新取一遍，显示服务端最新状态。首次显示已在 aboutToAppear 加载过。 */
+  private refreshOnReturn(): void {
+    const wasHidden: boolean = !this.pageActive
+    this.pageActive = true
+    if (!this.hasShown && !wasHidden) {
       this.hasShown = true
       return
     }
+    this.hasShown = true
     this.reloadOrders()
   }
 
   private isSupportedOrderState(orderState: number): boolean {
-    return orderState >= 0 && orderState <= 4
+    return this.tabs.some((tab: OrderTab) => tab.state === orderState)
   }
 
+  private async recoverCancellations(): Promise<void> {
+    if (!this.isOrderListReady() || this.busyOrderId) return
+    const recovery: number = ++this.recoverySequence
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    this.pendingCancellations = orderCancellation.pendingIds()
+    for (const orderId of this.pendingCancellations.slice()) {
+      if (recovery !== this.recoverySequence || !this.isCurrentSession(generation, token) ||
+        !this.isOrderListReady() || this.busyOrderId) return
+      await this.runOrderAction(orderId, 'cancel', () => orderCancellation.confirm(orderId, true), '订单已取消', true)
+    }
+  }
+
+  /** 从第 1 页刷新；只保留同账号、同栏目已显示的订单，成功后替换。 */
   private async reloadOrders(): Promise<void> {
+    this.synchronizeOrderSession()
+    const token: string = this.sessionToken
+    const generation: number = this.pageGeneration
+    const accountChanged: boolean = token !== this.loadedToken
+    const tabChanged: boolean = this.selectedState !== this.loadedState
     this.requestGeneration++
     this.page = 1
-    this.orders = []
+    // 换账号或栏目时清掉旧列表，避免在新栏目下展示其他状态的订单。
+    if (accountChanged || tabChanged) {
+      this.orders = []
+    }
+    this.replaceOnNextLoad = true
     this.isFinished = false
     this.loadFailed = false
     this.loading = false
-    this.refreshLocalOverlay()
+    if (!this.isCurrentSession(generation, token)) return
     await this.loadMore()
   }
 
-  private refreshLocalOverlay(): void {
-    if (!GlobalVariable.DEMO_ORDER_FLOW) {
-      this.overlays = {}
-      this.evaluations = {}
-      return
-    }
-    const overlays: DemoOrderOverlay[] = demoOrderStore.getAllOverlays()
-    const nextOverlays: Record<string, DemoOrderOverlay> = {}
-    overlays.forEach((overlay: DemoOrderOverlay) => {
-      nextOverlays[overlay.orderId] = overlay
-    })
-    const evaluations: LocalEvaluationItem[] = demoOrderStore.getAllEvaluations()
-    const nextEvaluations: Record<string, LocalEvaluationItem> = {}
-    evaluations.forEach((item: LocalEvaluationItem) => {
-      nextEvaluations[item.orderId] = item
-    })
-    this.overlays = nextOverlays
-    this.evaluations = nextEvaluations
-  }
-
+  /** 接着取下一屏订单，追加到列表后面。 */
   private async loadMore(): Promise<void> {
-    if (this.loading || this.isFinished || !this.user.token) {
+    const token: string = this.sessionToken
+    const pageGeneration: number = this.pageGeneration
+    const shouldSkip: boolean = this.loading || this.isFinished || !this.isCurrentSession(pageGeneration, token)
+    if (shouldSkip) {
       return
     }
     const generation: number = this.requestGeneration
+    const isLatestLoad = (): boolean => generation === this.requestGeneration &&
+      this.isCurrentSession(pageGeneration, token)
+    const replaceResult: boolean = this.replaceOnNextLoad
     const request: OrderTabRequest = {
       page: this.page,
       pageSize: this.pageSize,
-      state: this.selectedState,
-      overlays: this.overlays,
-      evaluations: this.evaluations
+      state: this.selectedState
     }
     const api: OrderTabAPI = {
-      getPage: getOrderListAPI,
-      getDetail: getOrderDetailAPI,
-      isCurrent: (): boolean => generation === this.requestGeneration
+      getPage: (params: OrderListParams): Promise<OrderPage> => getOrderListAPI(params, token),
+      isCurrent: isLatestLoad
     }
     this.loading = true
     this.loadFailed = false
     try {
       const result = await loadOrderTabPage(request, api)
-      if (!result || generation !== this.requestGeneration) {
+      if (!result || !isLatestLoad()) {
         return
       }
-      this.countdownBaseAt = Date.now()
-      this.orders = mergeOrdersForTab(this.orders, result.items, request)
+      this.rebaseCountdowns()
+      this.orders = replaceResult ? result.items : mergeOrdersForTab(this.orders, result.items, request)
+      this.loadedToken = token
+      this.loadedState = request.state
+      if (replaceResult) {
+        this.replaceOnNextLoad = false
+      }
       this.page = result.nextPage
       this.isFinished = result.finished
     } catch {
-      if (generation === this.requestGeneration) {
+      if (isLatestLoad()) {
         this.loadFailed = true
       }
     } finally {
-      if (generation === this.requestGeneration) {
+      // 旧请求结束时不能关掉新请求的加载状态。
+      if (isLatestLoad()) {
         this.loading = false
       }
     }
-  }
-
-  private belongsToCurrentTab(order: OrderItem): boolean {
-    return isOrderStateInTab(this.mergedState(order), this.selectedState)
-  }
-
-  private mergedState(order: OrderItem): number {
-    return mergeOrderState(order, this.overlays[order.id] ?? null, this.evaluations[order.id] ?? null)
+    // 包括失败后的“加载更多”重试；只在最新列表确认后恢复已有取消意图。
+    if (isLatestLoad() && this.isOrderListReady() && !this.busyOrderId) this.recoverCancellations()
   }
 
   private hasEvaluation(order: OrderItem): boolean {
-    if (order.serverManaged) {
-      return !!order.evaluation
-    }
-    return (this.evaluations[order.id] ?? null) !== null
+    return !!order.evaluation
+  }
+
+  private rebaseCountdowns(): void {
+    this.orders = this.orders.map((order: OrderItem) => {
+      order.countdown = secondsLeftToPay(order.countdown, this.countdownBaseAt)
+      return order
+    })
+    this.countdownBaseAt = readPhoneClockMillis()
   }
 
   private selectTab(orderState: number): void {
@@ -183,27 +260,50 @@ export struct OrderView {
       return
     }
     this.selectedState = orderState
-    this.orders = []
     this.reloadOrders()
   }
 
-  private async runOrderAction(orderId: string, action: string, task: () => Promise<void>, successText: string): Promise<void> {
-    if (this.busyOrderId || !orderId) {
+  private async runOrderAction(orderId: string, action: string, task: () => Promise<OrderItem>, successText: string,
+    allowPending: boolean = false): Promise<void> {
+    if (this.busyOrderId || !orderId || !this.canUseOrder(orderId, allowPending)) {
       return
     }
     this.busyOrderId = orderId
     this.busyAction = action
+    const generation: number = this.requestGeneration
+    const pageGeneration: number = this.pageGeneration
+    const token: string = this.sessionToken
     try {
-      await task()
+      const updated = await task()
+      if (!this.isCurrentSession(pageGeneration, token)) {
+        return
+      }
       this.safeToast(successText)
-      this.refreshLocalOverlay()
-      this.orders = this.orders.filter((o: OrderItem) => this.belongsToCurrentTab(o))
-      await this.reloadOrders()
-    } catch {
-      this.safeToast('操作失败，请稍后重试')
+      // 期间刷新或换栏目时重读当前列表；不能把旧快照当作当前栏目的完整结果。
+      if (generation !== this.requestGeneration || !this.isOrderListReady() ||
+        !updated || updated.id !== orderId || !updated.orderState || !updated.skus) {
+        await this.reloadOrders()
+        return
+      }
+      this.requestGeneration++
+      this.loading = false
+      const previousCount: number = this.orders.length
+      this.rebaseCountdowns()
+      this.orders = this.orders.map((order: OrderItem) => order.id === orderId ? updated : order)
+        .filter((order: OrderItem) => isOrderStateInTab(order.orderState, this.selectedState))
+      // 移出栏目后重复读取边界页并去重，避免 OFFSET 左移漏单。
+      if (this.orders.length < previousCount) {
+        this.page = Math.max(1, this.page - 1)
+        this.isFinished = false
+      }
+    } catch (error) {
+      if (this.isCurrentSession(pageGeneration, token)) this.safeToast((error as Error).message || '操作失败，请稍后重试')
     } finally {
-      this.busyOrderId = ''
-      this.busyAction = ''
+      if (this.isCurrentSession(pageGeneration, token)) {
+        this.pendingCancellations = orderCancellation.pendingIds()
+        this.busyOrderId = ''
+        this.busyAction = ''
+      }
     }
   }
 
@@ -212,26 +312,29 @@ export struct OrderView {
   }
 
   private goPay(orderId: string): void {
+    if (this.busyOrderId || !this.canUseOrder(orderId)) return
     this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: orderId })
   }
 
-  private openDetail(orderId: string): void {
-    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: orderId })
-  }
-
-  private runConsignment(orderId: string): Promise<void> {
-    return advanceOrderState(orderId, 3, async (): Promise<void> => {
-      await remindShipmentAPI(orderId)
+  // 打开订单详情页，并把用户点击的订单号带过去；这里只跳转，不查询详情。
+  private openOrderDetail(selectedOrderId: string): void {
+    if (this.busyOrderId || !this.canUseOrder(selectedOrderId)) return
+    this.stackPath.pushPath({
+      name: PAGE_PATH.ORDER_DETAIL_PAGE, // name 是框架字段：要打开哪个页面。
+      param: selectedOrderId // param 是框架字段：带给详情页的订单号。
     })
   }
 
-  private runReceipt(orderId: string): Promise<void> {
-    return advanceOrderState(orderId, 4, async (): Promise<void> => {
-      await receiptOrderAPI(orderId)
-    })
+  private async runConsignment(orderId: string): Promise<OrderItem> {
+    return await remindShipmentAPI(orderId, this.sessionToken)
+  }
+
+  private async runReceipt(orderId: string): Promise<OrderItem> {
+    return await receiptOrderAPI(orderId, this.sessionToken)
   }
 
   private async runComment(orderId: string): Promise<void> {
+    if (this.busyOrderId || !this.canUseOrder(orderId)) return
     this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: orderId })
   }
 
@@ -286,20 +389,21 @@ export struct OrderView {
 
   @Builder
   private OrderActions(order: OrderItem) {
-    if (this.mergedState(order) === 1) {
+    if (order.orderState === OrderState.AWAITING_PAYMENT) {
       Row({ space: 8 }) {
         Blank()
-        Button(this.isBusy(order.id) && this.busyAction === 'cancel' ? '取消中...' : '取消订单')
+        Button(this.isBusy(order.id) && this.busyAction === 'cancel' ? '正在确认取消结果' : '取消订单')
           .height(32)
           .fontSize(12)
           .fontColor($r('[ui_components].color.gray'))
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.border') })
-          .enabled(!this.busyOrderId)
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
           .onClick(() => {
-            this.runOrderAction(order.id, 'cancel', (): Promise<void> => cancelOrderWithFallback(order.id), '订单已取消')
+            this.runOrderAction(order.id, 'cancel', (): Promise<OrderItem> => orderCancellation.confirm(order.id), '订单已取消')
           })
         Button('去支付')
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
           .height(32)
           .fontSize(12)
           .backgroundColor($r('[ui_components].color.red'))
@@ -307,7 +411,7 @@ export struct OrderView {
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (this.mergedState(order) === 2) {
+    } else if (order.orderState === OrderState.AWAITING_SHIPMENT) {
       Row({ space: 8 }) {
         Blank()
         Button(this.isBusy(order.id) ? '处理中...' : '提醒发货')
@@ -316,12 +420,12 @@ export struct OrderView {
           .fontColor($r('[ui_components].color.gray'))
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.border') })
-          .enabled(!this.busyOrderId)
-          .onClick(() => this.runOrderAction(order.id, 'consignment', (): Promise<void> => this.runConsignment(order.id), '已提醒商家发货'))
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
+          .onClick(() => this.runOrderAction(order.id, 'consignment', (): Promise<OrderItem> => this.runConsignment(order.id), '已提醒商家发货'))
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (this.mergedState(order) === 3) {
+    } else if (order.orderState === OrderState.AWAITING_RECEIPT) {
       Row({ space: 8 }) {
         Blank()
         Button('查看物流')
@@ -330,17 +434,17 @@ export struct OrderView {
           .fontColor($r('[ui_components].color.gray'))
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.border') })
-          .onClick(() => this.openDetail(order.id))
+          .onClick(() => this.openOrderDetail(order.id))
         Button(this.isBusy(order.id) ? '确认中...' : '确认收货')
           .height(32)
           .fontSize(12)
           .backgroundColor($r('[ui_components].color.red'))
-          .enabled(!this.busyOrderId)
-          .onClick(() => this.runOrderAction(order.id, 'receipt', (): Promise<void> => this.runReceipt(order.id), '已确认收货'))
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
+          .onClick(() => this.runOrderAction(order.id, 'receipt', (): Promise<OrderItem> => this.runReceipt(order.id), '已确认收货'))
       }
       .width('100%')
       .padding({ bottom: 10 })
-    } else if (this.mergedState(order) === 4) {
+    } else if (order.orderState === OrderState.AWAITING_REVIEW) {
       Row({ space: 8 }) {
         Blank()
         Button('去评价')
@@ -349,7 +453,7 @@ export struct OrderView {
           .fontColor($r('[ui_components].color.red'))
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.red') })
-          .enabled(!this.busyOrderId)
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
           .onClick(() => this.runComment(order.id))
       }
       .width('100%')
@@ -365,11 +469,11 @@ export struct OrderView {
           Text(order.createTime)
             .fontSize(11)
             .fontColor($r('[ui_components].color.gray'))
-          if (this.mergedState(order) === 1) {
+          if (order.orderState === OrderState.AWAITING_PAYMENT) {
             OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
           }
           Blank()
-          Text(getDisplayOrderStateText(this.mergedState(order), this.hasEvaluation(order)))
+          Text(getDisplayOrderStateText(order.orderState, this.hasEvaluation(order)))
             .fontSize(13)
             .fontColor($r('[ui_components].color.red'))
         }
@@ -391,7 +495,7 @@ export struct OrderView {
         .padding({ top: 8, bottom: 12 })
       }
       .width('100%')
-      .onClick(() => this.openDetail(order.id))
+      .onClick(() => this.openOrderDetail(order.id))
       this.OrderActions(order)
     }
     .width('100%')
@@ -407,6 +511,12 @@ export struct OrderView {
           title: '我的订单',
           onLeftClick: () => this.stackPath.pop()
         })
+        if (this.pendingCancellations.length > 0) {
+          Text('取消结果待确认，请稍后查询').fontSize(12).padding(6)
+          Button(this.busyAction === 'cancel' ? '正在确认取消结果' : '重新查询')
+            .enabled(!this.busyOrderId && this.isOrderListReady())
+            .onClick(() => this.recoverCancellations())
+        }
         Row() {
           ForEach(this.tabs, (tab: OrderTab) => {
             Text(tab.label)
@@ -444,7 +554,7 @@ export struct OrderView {
               ListItem() {
                 this.OrderCard(order)
               }
-            }, (order: OrderItem) => order.id)
+            }, (order: OrderItem) => `${order.id}:${order.orderState}:${JSON.stringify(order)}:${this.countdownBaseAt}`)
             ListItem() {
               if (this.loading) {
                 LoadingProgress().width(32).height(32)
@@ -469,7 +579,10 @@ export struct OrderView {
     .hideTitleBar(true)
     .padding({ top: this.topHeight })
     .onShown(() => {
-      this.refreshAfterVisible()
+      this.refreshOnReturn()
+    })
+    .onHidden(() => {
+      this.hideOrders()
     })
   }
 }

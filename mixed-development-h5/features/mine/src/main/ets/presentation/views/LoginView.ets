@@ -15,10 +15,9 @@ export struct LoginView {
     account: '',
     password: ''
   }
-  @State valid: boolean = false
-  @State agree: boolean = false
+  @State hasAcceptedTerms: boolean = false
   @State submitting: boolean = false
-  @State registering: boolean = false
+  @State isRegistrationMode: boolean = false
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @Consume
@@ -39,15 +38,15 @@ export struct LoginView {
     }
   }
 
-  onInput() {
-    return this.loginForm.account && this.loginForm.password ? true : false
+  hasAccountAndPassword(): boolean {
+    return this.loginForm.account.length > 0 && this.loginForm.password.length > 0
   }
 
-  async onSubmit() {
+  async submitAccountLogin() {
     if (this.submitting) {
       return
     }
-    if (!this.agree) {
+    if (!this.hasAcceptedTerms) {
       this.safeToast('请先勾选协议')
       return
     }
@@ -61,17 +60,18 @@ export struct LoginView {
     }
     this.submitting = true
     try {
-      if (this.registering) {
+      // 注册入口先创建账号，再用同一份账号密码登录。
+      if (this.isRegistrationMode) {
         await registerAPI(this.loginForm)
-        this.registering = false
+        this.isRegistrationMode = false
       }
       const user = await loginAPI(this.loginForm)
-      await this.completeLogin(user)
+      await this.saveLoginAndRefreshCart(user)
       this.safeToast('登录成功')
       this.stackPath.pop()
     } catch (error) {
       if (isAuthNetworkError(error as Error)) {
-        this.safeToast(this.registering ? '注册时网络异常，请稍后重试' : '登录时网络异常，请稍后重试')
+        this.safeToast(this.isRegistrationMode ? '注册时网络异常，请稍后重试' : '登录时网络异常，请稍后重试')
       } else if (!isAuthRequestError(error as Error)) {
         // 请求已成功但本地保存登录信息失败，拦截器不会提示，这里补一句。
         this.safeToast('登录信息保存失败，请重试')
@@ -81,9 +81,13 @@ export struct LoginView {
     }
   }
 
-  private async completeLogin(user: HDMUser): Promise<void> {
-    await storeManager.setUserInfo(user)
-    auth.setUserInfo(user)
+  private async saveLoginAndRefreshCart(user: HDMUser): Promise<void> {
+    // 先保存供下次启动恢复的资料，再更新当前页面使用的登录状态。
+    await storeManager.saveUserInfo(user)
+    if (storeManager.getUserInfo()?.token !== user.token) {
+      throw new Error('登录状态已变化，请重新登录')
+    }
+    auth.updateCurrentUser(user)
     try {
       await localGoodsStore.migrateLegacyData()
     } catch {
@@ -106,8 +110,8 @@ export struct LoginView {
       }
       return
     }
-    const code: string = response?.authorizationCode || ''
-    if (!code) {
+    const authorizationCode: string = response?.authorizationCode || ''
+    if (!authorizationCode) {
       this.safeToast('未获取到华为授权码，请重试')
       return
     }
@@ -116,8 +120,8 @@ export struct LoginView {
     }
     this.submitting = true
     try {
-      const user = await huaweiLoginAPI({ code })
-      await this.completeLogin(user)
+      const user = await huaweiLoginAPI({ code: authorizationCode })
+      await this.saveLoginAndRefreshCart(user)
       this.safeToast('华为登录成功')
       this.stackPath.pop()
     } catch {
@@ -130,9 +134,9 @@ export struct LoginView {
   private updateHuaweiAgreementStatus(): void {
     this.huaweiController
       .setAgreementStatus(
-        this.agree ? loginComponentManager.AgreementStatus.ACCEPTED : loginComponentManager.AgreementStatus.NOT_ACCEPTED
+        this.hasAcceptedTerms ? loginComponentManager.AgreementStatus.ACCEPTED : loginComponentManager.AgreementStatus.NOT_ACCEPTED
       )
-      .setEnabled(this.agree)
+      .setEnabled(this.hasAcceptedTerms)
   }
 
   @Styles
@@ -176,7 +180,7 @@ export struct LoginView {
               }
             })
             Column({ space: 16 }) {
-              Text(this.registering ? '注册账号' : '账号密码登录')
+              Text(this.isRegistrationMode ? '注册账号' : '账号密码登录')
                 .fontSize(18)
                 .fontColor($r('[ui_components].color.black'))
                 .width('100%')
@@ -195,13 +199,13 @@ export struct LoginView {
 
               Row({ space: 4 }) {
                 Checkbox()
-                  .select(this.agree)
+                  .select(this.hasAcceptedTerms)
                   .width(12)
                   .aspectRatio(1)
                   .selectedColor($r('[ui_components].color.black'))
                   .mark({ size: 10, strokeWidth: 1 })
                   .onClick(() => {
-                    this.agree = !this.agree
+                    this.hasAcceptedTerms = !this.hasAcceptedTerms
                     this.updateHuaweiAgreementStatus()
                   })
                 Text() {
@@ -217,21 +221,25 @@ export struct LoginView {
                 .fontColor($r('[ui_components].color.gray'))
               }
 
-              Button(this.submitting ? '处理中...' : this.registering ? '注册并登录' : '登录')
-                .backgroundColor($r('[ui_components].color.black'))// .enabled(this.valid)
-                .enabled(this.onInput() && !this.submitting)
+              Button(this.submitting ? '处理中...' : this.isRegistrationMode ? '注册并登录' : '登录')
+                .backgroundColor($r('[ui_components].color.black'))
+                .enabled(this.hasAccountAndPassword() && !this.submitting)
                 .fontColor($r('[ui_components].color.white'))
                 .form()
                 .onClick(() => {
-                  this.onSubmit()
+                  this.submitAccountLogin()
                 })
 
               Row() {
                 Blank()
-                Text(this.registering ? '已有账号，去登录' : '没有账号，去注册')
+                Text(this.isRegistrationMode ? '已有账号，去登录' : '没有账号，去注册')
                   .fontColor('#007DFB')
                   .fontSize(12)
-                  .onClick(() => { if (!this.submitting) { this.registering = !this.registering } })
+                  .onClick(() => {
+                    if (!this.submitting) {
+                      this.isRegistrationMode = !this.isRegistrationMode
+                    }
+                  })
               }
               .width('100%')
 

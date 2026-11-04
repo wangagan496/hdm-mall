@@ -2,6 +2,8 @@ import { AddressItem } from 'models'
 import { RequestAxios } from 'network'
 
 export interface AddressMutationPayload {
+  requestKey?: string
+  revision?: number
   fullLocation: string
   receiver: string
   contact: string
@@ -14,6 +16,10 @@ export interface AddressMutationPayload {
 
 export interface AddressMutationResult {
   id?: string
+}
+
+interface AddressCreatePayload extends AddressMutationPayload {
+  requestKey?: string
 }
 
 export interface AddressDefaultPayload {
@@ -39,27 +45,41 @@ function normalizeAddress(address: AddressItem): AddressItem {
   }
 }
 
-export async function getAddressListAPI(): Promise<AddressItem[]> {
-  const result: AddressItem[] = await RequestAxios.get<AddressItem[]>('/member/address')
+export async function getAddressListAPI(token: string): Promise<AddressItem[]> {
+  const result: AddressItem[] = await RequestAxios.getForSession<AddressItem[]>('/member/address', token)
   return (result || []).map((address: AddressItem) => normalizeAddress(address))
 }
 
-export async function getAddressDetailAPI(id: string): Promise<AddressItem> {
-  const result: AddressItem = await RequestAxios.get<AddressItem>(`/member/address/${id}`)
+export async function getAddressDetailAPI(id: string, token: string): Promise<AddressItem> {
+  const result: AddressItem = await RequestAxios.getForSession<AddressItem>(`/member/address/${id}`, token)
   return normalizeAddress(result)
 }
 
-export function createAddressAPI(data: AddressMutationPayload): Promise<AddressMutationResult> {
-  return RequestAxios.post<AddressMutationResult>('/member/address', data)
+export function createAddressAPI(data: AddressMutationPayload, requestKey: string, token: string, revision: number): Promise<AddressMutationResult> {
+  const requestData: AddressCreatePayload = {
+    fullLocation: data.fullLocation,
+    receiver: data.receiver,
+    contact: data.contact,
+    provinceCode: data.provinceCode,
+    cityCode: data.cityCode,
+    countyCode: data.countyCode,
+    address: data.address,
+    isDefault: data.isDefault,
+    requestKey: requestKey,
+    revision: revision
+  }
+  // 自动保存的失败由编辑框显示，避免输入过程中反复弹提示。
+  return RequestAxios.postWithSession<AddressMutationResult>('/member/address', requestData, token)
 }
 
 export function updateAddressAPI(
   id: string,
-  data: AddressMutationPayload | AddressDefaultPayload
+  data: AddressMutationPayload | AddressDefaultPayload,
+  token: string
 ): Promise<AddressMutationResult> {
-  return RequestAxios.put<AddressMutationResult>(`/member/address/${id}`, data)
+  return RequestAxios.putForSession<AddressMutationResult>(`/member/address/${id}`, data, token)
 }
 
-export function deleteAddressAPI(id: string): Promise<AddressMutationResult> {
-  return RequestAxios.delete<AddressMutationResult>(`/member/address/${id}`)
+export function deleteAddressAPI(id: string, token: string): Promise<AddressMutationResult> {
+  return RequestAxios.deleteForSession<AddressMutationResult>(`/member/address/${id}`, token)
 }

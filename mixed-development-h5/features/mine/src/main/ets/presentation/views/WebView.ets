@@ -6,13 +6,34 @@ import { common } from '@kit.AbilityKit'
 import { webview } from '@kit.ArkWeb'
 import { mergeBridgeUser } from './userBridgePresentation'
 
-const BRIDGE_NAME: string = 'mk'
-const BRIDGE_PERMISSION: string =
+// 网页通过 window.nativeApp 调用这里提供的 App 能力。
+const BRIDGE_NAME: string = 'nativeApp'
+// 只允许 App 自带的本地网页调用这些鸿蒙方法。
+const LOCAL_PAGES_ONLY: string =
   '{"javascriptProxyPermission":{"urlPermissionList":' +
     '[{"scheme":"resource","host":"rawfile","port":"","path":""}],"methodList":[]}}'
 
 class HDMWebBridge {
-  getApiBaseUrl(): string { return GlobalVariable.BASE_URL }
+  hasUnsavedProfile: boolean = false
+  unsavedProfileReason: string = ''
+
+  setProfileDirty(dirty: boolean, token: string, reason?: string): void {
+    if (token && auth.getUserInfo()?.token === token) {
+      this.hasUnsavedProfile = dirty
+      this.unsavedProfileReason = dirty ? (reason || '') : ''
+    }
+  }
+
+  async expireSession(token: string): Promise<boolean> {
+    const expired: boolean = await userSession.expireSession(token)
+    if (expired) {
+      this.hasUnsavedProfile = false
+    }
+    return expired
+  }
+  getApiBaseUrl(): string {
+    return GlobalVariable.BASE_URL
+  }
   private getContext(): common.UIAbilityContext {
     const context = AppStorage.get<common.UIAbilityContext>(GlobalVariable.ABILITY_CONTEXT_KEY)
     if (!context) {
@@ -21,14 +42,25 @@ class HDMWebBridge {
     return context
   }
 
-  queryUser(): HDMUser | undefined {
-    return auth.getUserInfo()
+  // 网页通过 window.nativeApp.getUser() 调用此方法。
+  getUser(): HDMUser | undefined {
+    // 读取 App 保存的当前登录用户。
+    const appUser: HDMUser | undefined = auth.getUserInfo()
+    // 将读取结果返回给调用此方法的网页。
+    return appUser
   }
 
-  async updateUser(user: HDMUser): Promise<void> {
-    const mergedUser: HDMUser = mergeBridgeUser(auth.getUserInfo(), user)
-    await storeManager.setUserInfo(mergedUser)
-    auth.setUserInfo(mergedUser)
+  async updateUser(webUser: HDMUser): Promise<void> {
+    const currentAppUser: HDMUser | undefined = auth.getUserInfo()
+    const updatedAppUser: HDMUser = mergeBridgeUser(currentAppUser, webUser)
+    // 保存到手机本地，下次启动 App 时还能恢复这份用户资料。
+    await storeManager.saveProfileForSession(updatedAppUser, currentAppUser?.token || '')
+    if (auth.getUserInfo()?.token !== currentAppUser?.token ||
+      storeManager.getUserInfo()?.token !== currentAppUser?.token) {
+      throw new Error('登录状态已变化，请重新打开资料页')
+    }
+    // 更新 App 当前运行中的用户资料，让已打开的页面也能读到新值。
+    auth.updateCurrentUser(updatedAppUser)
   }
 
   async removeUser(): Promise<void> {
@@ -59,15 +91,10 @@ function WebViewBuilder() {
 
 @Component
 struct WebView {
-  // 1、创建loading控制进度条显隐
-  // 2、progress控制进度条进度
-  // 3、onProgressChange函数中获取进度，当进度达到100时loading = false
-  // 4、在刷新一下中调用this.controller.refresh() 刷新
-  // 5、在onPageBegin中充值进度以及loading = true
-  // 加载中
-  @State loading: boolean = true
+  // 网页开始加载时显示进度条，进度达到 100 后隐藏。
+  @State isPageLoading: boolean = true
   // 进度
-  @State progress: number = 0
+  @State pageLoadProgress: number = 0
   @Consume
   stackPath: NavPathStack
   // 当前网页的标题
@@ -80,15 +107,33 @@ struct WebView {
   // 页面视图控制器
   controller = new webview.WebviewController()
   private readonly bridgeObject: HDMWebBridge = new HDMWebBridge()
-  // 目标：点击返回箭头，判断网页是否有二级页面或更多页面，如果有则返回上一级，没有则返回
-  // 1、onRefreshAccessedHistory获取历史页面信息
-  // 2、将历史信息存到一个index中
-  @State historyCurrentIndex: number = 0
+  // 大于 0 表示网页内部还有上一页；否则返回鸿蒙页面。
+  @State webHistoryIndex: number = 0
 
-  // 3、通过判断index是否大于0，来确定是否有二级页面
+  goBackOrCloseWebPage() {
+    this.confirmLeave(() => this.goBackNow())
+  }
 
-  onWebBack() {
-    if (this.historyCurrentIndex > 0) {
+  private confirmLeave(action: () => void): void {
+    if (!this.bridgeObject.hasUnsavedProfile) {
+      action()
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: '还有未保存的资料',
+      message: this.bridgeObject.unsavedProfileReason
+        ? `${this.bridgeObject.unsavedProfileReason}，资料尚未全部保存或同步，是否放弃这些修改？`
+        : '资料尚未全部保存或同步，是否放弃这些修改？',
+      primaryButton: { value: '继续编辑', action: () => {} },
+      secondaryButton: { value: '放弃并离开', action: () => {
+        this.bridgeObject.hasUnsavedProfile = false
+        action()
+      } }
+    })
+  }
+
+  private goBackNow(): void {
+    if (this.webHistoryIndex > 0) {
       try {
         this.controller.backward()
       } catch {
@@ -101,6 +146,10 @@ struct WebView {
 
   // 菜单直达 Tab：先弹回 Tabs 根页面，再复用 CartView 空态同款 SWITCH_TAB 事件切 Tab。
   private switchToTab(tabIndex: number): void {
+    this.confirmLeave(() => this.switchToTabNow(tabIndex))
+  }
+
+  private switchToTabNow(tabIndex: number): void {
     try {
       this.stackPath.popToIndex(-1)
     } catch {
@@ -126,12 +175,12 @@ struct WebView {
             Image($r("[ui_components].media.ic_public_left"))
               .iconStyle()
               .onClick(() => {
-                this.onWebBack()
+                this.goBackOrCloseWebPage()
               })
             Image($r('[ui_components].media.ic_public_close'))
               .iconStyle()
               .onClick(() => {
-                this.stackPath.pop()
+                this.confirmLeave(() => this.stackPath.pop())
               })
 
           }
@@ -158,8 +207,8 @@ struct WebView {
         .padding({ top: this.safeTop })
 
         Stack({ alignContent: Alignment.Top }) {
-          if (this.loading) {
-            Progress({ type: ProgressType.Linear, value: this.progress, total: 100 })
+          if (this.isPageLoading) {
+            Progress({ type: ProgressType.Linear, value: this.pageLoadProgress, total: 100 })
               .style({ strokeWidth: 2, enableSmoothEffect: true })
               .color($r('[ui_components].color.red'))
               .zIndex(1)
@@ -169,30 +218,31 @@ struct WebView {
               object: this.bridgeObject,
               name: BRIDGE_NAME,
               methodList: [
-                'queryUser', 'vibrator', 'getAreaColumns', 'getApiBaseUrl',
-                'updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto'
+                'getUser', 'vibrator', 'getAreaColumns', 'getApiBaseUrl',
+                'updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto', 'expireSession', 'setProfileDirty'
               ],
               controller: this.controller,
               asyncMethodList: [],
-              permission: BRIDGE_PERMISSION
+              // permission 是鸿蒙固定字段，右侧指定允许调用的网页范围。
+              permission: LOCAL_PAGES_ONLY
             })
             .onProgressChange((data) => {
-              //  加载进度变化时记录progress
-              this.progress = data.newProgress
+              //  加载进度变化时记录pageLoadProgress
+              this.pageLoadProgress = data.newProgress
               //  加载完成 newProgress ===100
               if (data.newProgress === 100) {
-                this.loading = false
+                this.isPageLoading = false
               }
             })
             // onPageBegin  网页开始加载
             .onPageBegin(() => {
-              this.loading = true
-              this.progress = 0
+              this.isPageLoading = true
+              this.pageLoadProgress = 0
             })
             // 导航完成时触发该回调，用于应用更新其访问的历史链接。
             .onRefreshAccessedHistory(() => {
               const entries = this.controller.getBackForwardEntries()
-              this.historyCurrentIndex = entries.currentIndex
+              this.webHistoryIndex = entries.currentIndex
             })
             .onTitleReceive((data) => {
               this.title = data.title
@@ -203,6 +253,10 @@ struct WebView {
       }
     }
     .hideTitleBar(true)
+    .onBackPressed(() => {
+      this.goBackOrCloseWebPage()
+      return true
+    })
   }
 
   @Builder
@@ -226,7 +280,7 @@ struct WebView {
         })
       MenuItem({ content: '刷新一下' })
         .onClick(() => {
-          this.controller.refresh()
+          this.confirmLeave(() => this.controller.refresh())
         })
     }
     .width(100)

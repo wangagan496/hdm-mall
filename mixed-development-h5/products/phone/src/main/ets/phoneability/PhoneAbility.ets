@@ -11,11 +11,13 @@ const DOMAIN = 0x0000;
 
 export default class PhoneAbility extends UIAbility {
   private debugLaunchWant: Want = {} as Want
+
+  // 从本地恢复上次保存的登录资料；这一步没有向服务器验证登录是否仍有效。
   private restoreUserSession(): void {
     try {
       const userInfo = storeManager.getUserInfo()
       if (userInfo?.token) {
-        auth.setUserInfo(userInfo)
+        auth.updateCurrentUser(userInfo)
         localGoodsStore.migrateLegacyData().catch((error: Error) => {
           hilog.error(DOMAIN, 'LocalGoodsStore', 'Failed to migrate legacy local goods. Cause: %{public}s',
             JSON.stringify(error) ?? '')
@@ -49,13 +51,14 @@ export default class PhoneAbility extends UIAbility {
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     LaunchPerf.mark('onWindowStageCreate')
+    // 先准备窗口和本地存储环境，再恢复登录资料，最后打开首页。
     screenManager.full(this.context)
     storeManager.ctx = this.context
     // 将 context 存入 AppStorage，供 network 模块的 toast 使用（避免循环依赖）
     AppStorage.setOrCreate(GlobalVariable.ABILITY_CONTEXT_KEY, this.context)
     this.restoreUserSession()
     this.injectDebugTestAccount()
-    // Main window is created, set main page for this ability
+    // 首页打开后才注册屏幕变化监听；窗口销毁时用对应方法注销。
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
@@ -82,8 +85,8 @@ export default class PhoneAbility extends UIAbility {
     }
     const loginParams: LoginParams = { account, password }
     loginAPI(loginParams).then(async (user) => {
-      await storeManager.setUserInfo(user)
-      auth.setUserInfo(user)
+      await storeManager.saveUserInfo(user)
+      auth.updateCurrentUser(user)
       hilog.info(DOMAIN, 'DebugLogin', 'Want test account login succeeded')
     }).catch(() => {
       hilog.error(DOMAIN, 'DebugLogin', 'Want test account login failed')
@@ -107,6 +110,8 @@ export default class PhoneAbility extends UIAbility {
   }
 
   onForeground(): void {
+    const sequence: number = AppStorage.get<number>(GlobalVariable.APP_FOREGROUND_SEQUENCE) || 0
+    AppStorage.setOrCreate<number>(GlobalVariable.APP_FOREGROUND_SEQUENCE, sequence + 1)
     // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
   }

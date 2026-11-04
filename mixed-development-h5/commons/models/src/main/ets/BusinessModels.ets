@@ -46,6 +46,14 @@ export interface GoodsItems {
 export interface HDMUser {
   id?: string
   role?: string
+  birthday?: string
+  cityCode?: string
+  gender?: string
+  mobile?: string
+  profession?: string
+  provinceCode?: string
+  countyCode?: string
+  fullLocation?: string
   token: string
   nickname: string
   avatar: string
@@ -59,6 +67,14 @@ export interface FamilyRelation {
   friendId: string
   ownerAccount: string
   friendAccount: string
+}
+
+export interface FamilyRelationPage {
+  items: FamilyRelation[]
+  counts: number
+  page: number
+  pages: number
+  pageSize: number
 }
 
 export interface CartGoods {
@@ -109,8 +125,8 @@ export interface CartCount {
 }
 
 export interface UpdateCartParams {
-  selected: boolean
-  count: number
+  selected?: boolean
+  count?: number
 }
 
 export interface DeleteCartParams {

@@ -31,18 +31,22 @@ export default function localUnitTest() {
       expect(a).assertContain(b);
       expect(a).assertEqual(a);
     });
-    it('preservesSessionTokenWhenProfileUpdateOmitsIt', 0, () => {
+    it('mergesProfileOnlyForCurrentSessionAndUser', 0, () => {
       const current: HDMUser = {
+        id: 'current-user',
+        role: 'buyer',
         token: 'session-token',
         nickname: '旧昵称',
         avatar: 'old-avatar.jpg',
         account: 'zhousg'
       };
       const profileUpdate: HDMUser = {
-        token: '',
+        id: 'current-user',
+        role: 'merchant',
+        token: 'session-token',
         nickname: '新昵称',
         avatar: 'new-avatar.jpg',
-        account: 'zhousg'
+        account: 'untrusted-account'
       };
 
       const merged: HDMUser = mergeBridgeUser(current, profileUpdate);
@@ -51,6 +55,24 @@ export default function localUnitTest() {
       expect(merged.nickname).assertEqual('新昵称');
       expect(merged.avatar).assertEqual('new-avatar.jpg');
       expect(merged.account).assertEqual('zhousg');
+      expect(merged.id).assertEqual('current-user');
+      expect(merged.role).assertEqual('buyer');
+    });
+    it('rejectsMissingOrMismatchedSessionToken', 0, () => {
+      const current: HDMUser = { id: 'current-user', token: 'session-token', nickname: '旧昵称', avatar: '', account: 'zhousg' };
+      ['', 'other-token'].forEach((token: string) => {
+        const update: HDMUser = { id: 'current-user', token, nickname: '新昵称', avatar: '', account: 'zhousg' };
+        let rejected: boolean = false;
+        try { mergeBridgeUser(current, update); } catch { rejected = true; }
+        expect(rejected).assertTrue();
+      });
+    });
+    it('rejectsMismatchedUserId', 0, () => {
+      const current: HDMUser = { id: 'current-user', token: 'session-token', nickname: '旧昵称', avatar: '', account: 'zhousg' };
+      const update: HDMUser = { id: 'other-user', token: 'session-token', nickname: '新昵称', avatar: '', account: 'zhousg' };
+      let rejected: boolean = false;
+      try { mergeBridgeUser(current, update); } catch { rejected = true; }
+      expect(rejected).assertTrue();
     });
   });
 }

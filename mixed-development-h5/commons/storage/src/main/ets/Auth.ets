@@ -13,7 +13,7 @@ export class Auth {
     }
   }
 
-  setUserInfo(user: HDMUser): void {
+  updateCurrentUser(user: HDMUser): void {
     AppStorage.setOrCreate<HDMUser>(this.key, user)
   }
 
@@ -25,7 +25,7 @@ export class Auth {
     // USER_INFO_KEY is observed by multiple @StorageProp fields. Deleting an
     // observed key is not a reliable state transition, so publish an explicit
     // anonymous user and let every subscriber update in the same process.
-    this.setUserInfo(this.createEmptyUser())
+    this.updateCurrentUser(this.createEmptyUser())
   }
 }
 

@@ -14,6 +14,7 @@ export {
   mockPayAPI,
   invitePayerAPI,
   getFamilyRelationsAPI,
+  getPayerRelationsPageAPI,
   FamilyRelation,
   cancelOrderAPI,
   cancelOrderFallbackAPI,

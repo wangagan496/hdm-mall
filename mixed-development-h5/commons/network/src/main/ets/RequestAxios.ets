@@ -81,18 +81,24 @@ const instance = axios.create({
 })
 
 const rawInstance = axios.create({ timeout: 10000 })
+let sessionExpiredHandler: ((token: string) => Promise<boolean>) | undefined = undefined
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const user = AppStorage.get<HDMUser>(GlobalVariable.USER_INFO_KEY)
-  if (user && user.token) {
+  if (user && user.token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${user.token}`
   }
   return config
 }, (error: AxiosError) => {
-  return Promise.reject(error)
+  // 抛出请求错误，让等待请求的代码进入失败处理。
+  const requestError: Error = error as Error
+  throw requestError
 })
 
 instance.interceptors.response.use((response: AxiosResponse) => {
+  if (response.config.url === '/goods' && response.status === 200 && response.data.id) {
+    return response.data
+  }
   if (response.data.code === GlobalVariable.SUCCESS_CODE) {
     return response.data.result
   }
@@ -100,23 +106,68 @@ instance.interceptors.response.use((response: AxiosResponse) => {
     showToast(response.data.msg)
   }
   // 携带 HTTP 状态码，调用方才能区分"接口不存在"与业务失败（如订单不可取消）。
-  return Promise.reject(new BusinessError(response.data.msg, response.status))
-}, (error: AxiosError) => {
+  throw new BusinessError(response.data.msg, response.status)
+}, async (error: AxiosError) => {
+  if (error.response?.status === 401 && sessionExpiredHandler) {
+    const authorization: string = String(error.config?.headers?.Authorization || '')
+    const token: string = authorization.startsWith('Bearer ') ? authorization.substring(7) : ''
+    if (token) {
+      try {
+        if (await sessionExpiredHandler(token)) {
+          showToast('登录已过期，请重新登录')
+        }
+      } catch {
+        showToast('登录已过期，本地资料清理失败，请重新登录')
+      }
+      throw error as Error
+    }
+  }
   if (!error.config?.headers?.xSilentError) {
     const res = error.response?.data as object
     if (res) {
       showToast(res["msg"])
     }
   }
-  return Promise.reject(error)
+  // 是否弹提示不影响失败传递，调用方仍需处理这个错误。
+  const requestError: Error = error as Error
+  throw requestError
 })
 
 export class RequestAxios {
+  // 重试期间始终使用发起请求的会话，不借用后来登录的账号。
+  static getForSession<T>(url: string, token: string): Promise<T> {
+    return executeGetWithRetry<T>(() => instance.get<null, T>(url, {
+      headers: { Authorization: `Bearer ${token}`, xSilentError: '1' }
+    }))
+  }
+
+  static putForSession<T>(url: string, data: object, token: string): Promise<T> {
+    return instance.put<null, T>(url, data, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+  }
+
+  static postWithSession<T>(url: string, data: object, token: string): Promise<T> {
+    return instance.post<null, T>(url, data, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+  }
+
+  static deleteForSession<T>(url: string, token: string): Promise<T> {
+    return instance.delete<null, T>(url, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+  }
+
+  static setSessionExpiredHandler(handler: (token: string) => Promise<boolean>): void {
+    sessionExpiredHandler = handler
+  }
+
+  static postForSession<T>(url: string, token: string): Promise<T> {
+    return instance.post<null, T>(url, {}, {
+      timeout: 3000, headers: { Authorization: `Bearer ${token}`, xSilentError: '1' }
+    })
+  }
   static get<T>(url: string, params?: object): Promise<T> {
     return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params }))
   }
 
-  static getSilent<T>(url: string, params?: object): Promise<T> {
+  // 请求失败时不自动弹提示；错误仍交给调用方处理。
+  static getWithoutToast<T>(url: string, params?: object): Promise<T> {
     return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params, headers: { xSilentError: '1' } }))
   }
 
@@ -125,19 +176,20 @@ export class RequestAxios {
   }
 
   static post<T>(url: string, data?: object): Promise<T> {
-    return instance.post<null, T>(url, data)
+    // 无业务参数也发送空 JSON，避免 Axios 默认的表单类型被 JSON 接口拒绝。
+    return instance.post<null, T>(url, data ?? {})
   }
 
   static postSilent<T>(url: string, data?: object): Promise<T> {
-    return instance.post<null, T>(url, data, { headers: { xSilentError: '1' } })
+    return instance.post<null, T>(url, data ?? {}, { headers: { xSilentError: '1' } })
   }
 
   static put<T>(url: string, data?: object): Promise<T> {
-    return instance.put<null, T>(url, data)
+    return instance.put<null, T>(url, data ?? {})
   }
 
   static putSilent<T>(url: string, data?: object): Promise<T> {
-    return instance.put<null, T>(url, data, { headers: { xSilentError: '1' } })
+    return instance.put<null, T>(url, data ?? {}, { headers: { xSilentError: '1' } })
   }
 
   static delete<T>(url: string, data?: object): Promise<T> {

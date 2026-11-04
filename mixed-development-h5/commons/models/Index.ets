@@ -7,6 +7,7 @@ export {
   GoodsItems,
   HDMUser,
   FamilyRelation,
+  FamilyRelationPage,
   CartGoods,
   CartGoodsModel,
   AddCartParams,
@@ -30,3 +31,4 @@ export {
 export { ListDataSource } from './src/main/ets/ListDataSource'
 export { BreakPointEnum, BreakPointType } from './src/main/ets/BreakPoint'
 export { LocalEvaluationItem, DemoOrderOverlay } from './src/main/ets/BusinessModels'
+export { OrderState } from './src/main/ets/OrderState'

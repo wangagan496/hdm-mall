@@ -17,13 +17,13 @@ export struct CustomerServiceView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @State
-  expandedIndex: number = -1
+  expandedQuestionIndex: number = -1
   @State
-  feedbackText: string = ''
+  problemDescription: string = ''
   @State
-  routingHint: string = ''
+  suggestedHandling: string = ''
   @State
-  routingLoading: boolean = false
+  isClassifyingProblem: boolean = false
   @Consume
   stackPath: NavPathStack
   questions: ServiceQuestion[] = [
@@ -40,34 +40,35 @@ export struct CustomerServiceView {
     }
   }
 
-  private contactService(): void {
+  private showHumanServiceUnavailable(): void {
     this.safeToast('当前演示版未接入客服服务端')
   }
 
-  private async routeOrderMessage(): Promise<void> {
-    const message: string = this.feedbackText.trim()
+  private async suggestProblemHandling(): Promise<void> {
+    const message: string = this.problemDescription.trim()
     if (!message) {
       this.safeToast('请先描述订单或售后问题')
       return
     }
-    this.routingLoading = true
-    this.routingHint = ''
+    this.isClassifyingProblem = true
+    this.suggestedHandling = ''
     try {
-      const result = await DecisionService.routeOrderMessage(message)
-      if (result.fallback || !result.result) {
-        this.routingHint = '暂时无法自动判断，建议联系人工客服。'
+      // 只判断问题属于哪一类，不创建客服会话，也不办理退款。
+      const classification = await DecisionService.routeOrderMessage(message)
+      if (classification.fallback || !classification.result) {
+        this.suggestedHandling = '暂时无法自动判断，建议联系人工客服。'
         return
       }
-      this.routingHint = `建议处理方向：${this.routeLabel(String(result.result))}`
+      this.suggestedHandling = `建议处理方向：${this.getProblemTypeLabel(String(classification.result))}`
     } catch {
-      this.routingHint = '智能分流暂时不可用，建议联系人工客服。'
+      this.suggestedHandling = '智能分流暂时不可用，建议联系人工客服。'
     } finally {
-      this.routingLoading = false
+      this.isClassifyingProblem = false
     }
   }
 
-  private routeLabel(result: string): string {
-    switch (result) {
+  private getProblemTypeLabel(problemType: string): string {
+    switch (problemType) {
       case 'logistics':
         return '物流配送'
       case 'refund':
@@ -121,16 +122,16 @@ export struct CustomerServiceView {
                       .fontSize(14)
                       .fontColor($r('[ui_components].color.text'))
                     Blank()
-                    Text(this.expandedIndex === index ? '收起' : '查看')
+                    Text(this.expandedQuestionIndex === index ? '收起' : '查看')
                       .fontSize(12)
                       .fontColor($r('[ui_components].color.red'))
                   }
                   .width('100%')
                   .padding(14)
                   .onClick(() => {
-                    this.expandedIndex = this.expandedIndex === index ? -1 : index
+                    this.expandedQuestionIndex = this.expandedQuestionIndex === index ? -1 : index
                   })
-                  if (this.expandedIndex === index) {
+                  if (this.expandedQuestionIndex === index) {
                     Text(item.answer)
                       .fontSize(13)
                       .fontColor($r('[ui_components].color.gray'))
@@ -155,23 +156,23 @@ export struct CustomerServiceView {
                 .fontWeight(500)
                 .fontColor($r('[ui_components].color.black'))
                 .width('100%')
-              TextInput({ placeholder: '例如：订单一直没有发货，应该怎么办？', text: this.feedbackText })
+              TextInput({ placeholder: '例如：订单一直没有发货，应该怎么办？', text: this.problemDescription })
                 .width('100%')
                 .height(44)
                 .onChange((value: string) => {
-                  this.feedbackText = value
+                  this.problemDescription = value
                 })
-              Button(this.routingLoading ? '判断中...' : '智能分流')
+              Button(this.isClassifyingProblem ? '判断中...' : '智能分流')
                 .width('100%')
                 .height(42)
                 .fontSize(14)
                 .backgroundColor($r('[ui_components].color.red'))
-                .enabled(!this.routingLoading)
+                .enabled(!this.isClassifyingProblem)
                 .onClick(() => {
-                  void this.routeOrderMessage()
+                  void this.suggestProblemHandling()
                 })
-              if (this.routingHint) {
-                Text(this.routingHint)
+              if (this.suggestedHandling) {
+                Text(this.suggestedHandling)
                   .fontSize(13)
                   .fontColor($r('[ui_components].color.gray'))
                   .lineHeight(20)
@@ -188,7 +189,7 @@ export struct CustomerServiceView {
               .height(44)
               .fontSize(14)
               .backgroundColor($r('[ui_components].color.black'))
-              .onClick(() => this.contactService())
+              .onClick(() => this.showHumanServiceUnavailable())
 
             Text('说明：智能分流只提供处理建议，不会直接修改订单或执行退款。')
               .fontSize(11)

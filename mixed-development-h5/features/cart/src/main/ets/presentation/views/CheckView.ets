@@ -1,11 +1,18 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, CreateOrderParamsGoods, OrderGoodsItem, Summary } from 'models'
+import { AddressItem, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
 import { util } from '@kit.ArkTS'
 import { createOrderAPI, getPreOrderAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
+
+// 用业务名称区分弹层，避免读者猜测 1、2 各代表什么。
+enum CheckoutSheet {
+  None = 0,
+  Payment = 1,
+  Address = 2
+}
 
 @Builder
 function CheckViewBuilder() {
@@ -14,13 +21,17 @@ function CheckViewBuilder() {
 
 @Component
 export struct CheckView {
+  // 结算流程：读取商品／地址／金额 → 用户确认 → 创建订单 → 带订单号进入收银台。
+  // loadCheckoutPreview 只读取结算信息；createOrderAndOpenCashier 才真正下单。
+  // 创建成功不代表支付成功，支付结果由收银台后续查询服务端确认。
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) safeTop: number = 0
   @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
-  // 商品列表
+  @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
+  // 本次要购买的商品：由服务端根据购物袋中已勾选的商品返回。
   @State goodsList: OrderGoodsItem[] = []
-  // 地址
+  // 用户可选的收货地址。
   @State addressList: AddressItem[] = []
-  // 摘要
+  // 服务端返回的结算金额，购物袋的本地合计不直接用于下单。
   @State summary: Summary = {
     discountPrice: 0,
     goodsCount: 0,
@@ -30,23 +41,80 @@ export struct CheckView {
   }
   // 结算页弹层
   @State showSheet: boolean = false
-  @State sheetMode: number = 0
+  @State activeSheet: CheckoutSheet = CheckoutSheet.None
   // 支付渠道
   @State payChannel: number = 1
   // 地址 id
   @State addressId: string = ''
   // 用户是否在结算页手动选过地址：未手动选择时跟随最新默认地址，改默认后立即生效
   @State addressManuallySelected: boolean = false
-  // 是否 loading
-  @State loading: boolean = false
+  // 只表示“正在创建订单”，不是结算信息加载中，也不是支付中。
+  @State isSubmittingOrder: boolean = false
   @Consume
   stackPath: NavPathStack
 
-  private readonly addressUpdatedCb: () => void = () => {
-    this.getPreOrder()
+  private readonly reloadCheckoutAfterAddressChange: () => void = () => {
+    this.loadCheckoutPreview()
   }
-  // 网络结果不确定时保留同一请求号，重试不会再创建一笔订单。
-  private requestKey: string = util.generateRandomUUID(true)
+  // 同账号、同一个结算页实例的下单重试沿用此编号，切换会话才重新生成。
+  // 服务端按“用户 + 编号”找回原订单，并核对商品和地址是否与首次提交一致。
+  private orderRequestKey: string = util.generateRandomUUID(true)
+  private checkoutQuerySequence: number = 0
+  private checkoutToken: string = ''
+  private pageGeneration: number = 0
+  private pageActive: boolean = true
+  @State checkoutLoading: boolean = true
+  @State checkoutRefreshFailed: boolean = false
+
+  payChannels = ['模拟支付（可邀请亲友代付）']
+
+  aboutToAppear(): void {
+    this.pageActive = true
+    emitter.on(BusinessVariable.UPDATE_ADDRESS_LIST, this.reloadCheckoutAfterAddressChange)
+    this.loadCheckoutPreview()
+  }
+
+  aboutToDisappear(): void {
+    this.pageActive = false
+    this.pageGeneration++
+    this.isSubmittingOrder = false
+    this.checkoutQuerySequence++
+    this.checkoutLoading = true
+    this.showSheet = false
+    emitter.off(BusinessVariable.UPDATE_ADDRESS_LIST, this.reloadCheckoutAfterAddressChange)
+  }
+
+  private reloadForCurrentAccount(): void {
+    if ((this.user.token || '') !== this.checkoutToken) {
+      this.loadCheckoutPreview()
+    }
+  }
+
+  private synchronizeCheckoutAccount(): void {
+    const token: string = this.user.token || ''
+    if (token === this.checkoutToken) {
+      return
+    }
+    this.checkoutToken = token
+    this.pageGeneration++
+    this.checkoutQuerySequence++
+    this.goodsList = []
+    this.addressList = []
+    this.addressId = ''
+    this.addressManuallySelected = false
+    this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
+    this.showSheet = false
+    this.activeSheet = CheckoutSheet.None
+    this.isSubmittingOrder = false
+    this.checkoutRefreshFailed = false
+    this.checkoutLoading = false
+    this.orderRequestKey = util.generateRandomUUID(true)
+  }
+
+  private isCurrentCheckout(generation: number, token: string): boolean {
+    return this.pageActive && generation === this.pageGeneration && token === this.checkoutToken &&
+      token === (this.user.token || '') && token.length > 0
+  }
 
   private safeToast(message: string): void {
     try {
@@ -55,46 +123,159 @@ export struct CheckView {
     }
   }
 
-  async submitOrder() {
-    if (this.loading) {
+  // 第一步：获取结算预览，让用户核对商品、地址和金额；此时没有创建订单。
+  private async loadCheckoutPreview(): Promise<void> {
+    this.synchronizeCheckoutAccount()
+    const token: string = this.checkoutToken
+    const generation: number = this.pageGeneration
+    if (!this.isCurrentCheckout(generation, token)) {
+      this.checkoutLoading = false
       return
     }
-    if (this.payChannel !== 1) {
-      this.safeToast('暂不支持该支付方式')
-      return
-    }
-    if (!this.addressId) {
-      this.safeToast('未选择收货地址')
-      return
-    }
-    this.loading = true
-    try {
-      const result = await createOrderAPI({
-        requestKey: this.requestKey,
-        payChannel: this.payChannel,
-        payType: 1,
-        buyerMessage: '',
-        addressId: this.addressId,
-        goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({
-          skuId: item.skuId,
-          count: item.count
-        })),
-        deliveryTimeType: 1
-      })
-      authCart.updateCartCount()
+    const sequence: number = ++this.checkoutQuerySequence
+    this.checkoutLoading = true
+    this.checkoutRefreshFailed = false
+    // 金额或商品可能变化，关闭旧支付确认；地址选择仍允许保留。
+    if (this.activeSheet === CheckoutSheet.Payment) {
       this.showSheet = false
-      // 携带真实订单号进收银台；支付与否最终以服务端 orderState 为准
-      this.stackPath.replacePath({
-        name: PAGE_PATH.PAY_PAGE,
-        param: result.id
-      })
+    }
+    try {
+      const checkoutPreview = await getPreOrderAPI(token)
+      if (sequence !== this.checkoutQuerySequence || !this.isCurrentCheckout(generation, token)) {
+        return
+      }
+      this.checkoutRefreshFailed = false
+      if (!checkoutPreview.goods || checkoutPreview.goods.length === 0) {
+        this.goodsList = []
+        this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
+        this.showSheet = false
+        this.safeToast('购物车中没有选中的商品')
+        this.stackPath.pop()
+        return
+      }
+
+      this.updateCheckoutAddress(checkoutPreview.userAddresses, this.addressId)
+      this.summary = checkoutPreview.summary || {
+        discountPrice: 0,
+        goodsCount: 0,
+        postFee: 0,
+        totalPayPrice: 0,
+        totalPrice: 0
+      }
+      this.goodsList = checkoutPreview.goods || []
     } catch {
-      this.safeToast('提交订单失败，请稍后重试')
+      if (sequence === this.checkoutQuerySequence && this.isCurrentCheckout(generation, token)) {
+        this.checkoutRefreshFailed = true
+        this.safeToast('结算资料刷新失败，已保存的地址不受影响，请重新加载')
+      }
     } finally {
-      this.loading = false
+      // 旧请求结束不能让仍在刷新的结算页恢复下单。
+      if (sequence === this.checkoutQuerySequence && this.isCurrentCheckout(generation, token)) {
+        this.checkoutLoading = false
+      }
     }
   }
 
+  // 手动选过且仍存在的地址优先；否则依次使用默认地址、原地址、列表首个地址。
+  private updateCheckoutAddress(addresses: AddressItem[], previousAddressId: string): void {
+    this.addressList = addresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
+    // 当前接口约定 isDefault === 0 表示默认地址。
+    const defaultAddress = this.addressList.find((address: AddressItem) => address.isDefault === 0)
+    const previousAddress = this.addressList.find((address: AddressItem) => address.id === previousAddressId)
+    if (this.addressManuallySelected && previousAddress) {
+      this.addressId = previousAddress.id
+    } else {
+      this.addressId = defaultAddress?.id || previousAddress?.id || this.addressList[0]?.id || ''
+    }
+  }
+
+  // 第二步：用户在支付方式弹层确认购买，才校验并提交订单。
+  private async createOrderAndOpenCashier(): Promise<void> {
+    if (!this.canSubmitOrder()) {
+      return
+    }
+    this.isSubmittingOrder = true
+    const token: string = this.checkoutToken
+    const generation: number = this.pageGeneration
+    try {
+      const createdOrder = await createOrderAPI(this.buildOrderRequest(), token)
+      if (!this.isCurrentCheckout(generation, token)) {
+        return
+      }
+      // 下单后服务端会移除对应购物袋商品；角标刷新不阻塞进入收银台。
+      void authCart.updateCartCount()
+      this.openCashier(createdOrder.id)
+    } catch {
+      // 没收到成功回应时仍保留 orderRequestKey，原样重试可找回已创建的订单。
+      if (this.isCurrentCheckout(generation, token)) {
+        this.safeToast('提交订单失败，请稍后重试')
+      }
+    } finally {
+      if (this.isCurrentCheckout(generation, token)) {
+        this.isSubmittingOrder = false
+      }
+    }
+  }
+
+  private canSubmitOrder(): boolean {
+    if (!this.isCurrentCheckout(this.pageGeneration, this.checkoutToken)) {
+      return false
+    }
+    if (this.isSubmittingOrder) {
+      return false
+    }
+    if (!this.isCheckoutReady()) {
+      this.safeToast(this.checkoutLoading ? '结算资料加载中，请稍候' :
+        this.checkoutRefreshFailed ? '请重新加载结算资料后再提交' : '购物车中没有选中的商品')
+      return false
+    }
+    if (this.payChannel !== 1) {
+      this.safeToast('暂不支持该支付方式')
+      return false
+    }
+    if (!this.addressList.some((address: AddressItem) => address.id === this.addressId)) {
+      this.safeToast('未选择收货地址')
+      return false
+    }
+    return true
+  }
+
+  private isCheckoutReady(): boolean {
+    return this.isCurrentCheckout(this.pageGeneration, this.checkoutToken) &&
+      !this.checkoutLoading && !this.checkoutRefreshFailed && this.goodsList.length > 0
+  }
+
+  private openPaymentSheet(): void {
+    if (!this.canSubmitOrder()) {
+      return
+    }
+    this.activeSheet = CheckoutSheet.Payment
+    this.showSheet = true
+  }
+
+  // 只提交商品规格、数量和地址等下单信息；金额由服务端核算。
+  private buildOrderRequest(): CreateOrderParams {
+    return {
+      requestKey: this.orderRequestKey,
+      payChannel: this.payChannel,
+      payType: 1,
+      buyerMessage: '',
+      addressId: this.addressId,
+      goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({
+        skuId: item.skuId,
+        count: item.count
+      })),
+      deliveryTimeType: 1
+    }
+  }
+
+  // 第三步：关闭弹层，用服务端返回的真实订单号打开收银台。
+  private openCashier(orderId: string): void {
+    this.showSheet = false
+    this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: orderId })
+  }
+
+  // 以下只负责页面展示和把用户操作交给上述业务方法。
   @Builder
   GoodsItemBuilder(goods: OrderGoodsItem) {
     Row({ space: 10 }) {
@@ -136,53 +317,7 @@ export struct CheckView {
     })
   }
 
-  payChannels = ['模拟支付（可邀请亲友代付）']
-
-  aboutToAppear(): void {
-    emitter.on(BusinessVariable.UPDATE_ADDRESS_LIST, this.addressUpdatedCb)
-    this.getPreOrder()
-  }
-
-  aboutToDisappear(): void {
-    emitter.off(BusinessVariable.UPDATE_ADDRESS_LIST, this.addressUpdatedCb)
-  }
-
-  async getPreOrder() {
-    try {
-      const previousAddressId: string = this.addressId
-      const result = await getPreOrderAPI()
-
-      // 检查是否有商品数据
-      if (!result.goods || result.goods.length === 0) {
-        this.safeToast('购物车中没有选中的商品')
-        this.stackPath.pop()
-        return
-      }
-
-      this.addressList = result.userAddresses.map((address: AddressItem) => normalizeCheckoutAddress(address))
-      const defaultAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.isDefault === 0)
-      const previousAddress: AddressItem | undefined = this.addressList.find((address: AddressItem) => address.id === previousAddressId)
-      // 手动选过地址则尊重用户选择；否则跟随最新默认地址，保证改默认后结算页即时刷新
-      if (this.addressManuallySelected && previousAddress) {
-        this.addressId = previousAddress.id
-      } else {
-        this.addressId = defaultAddress?.id || previousAddress?.id || this.addressList[0]?.id || ''
-      }
-      this.summary = result.summary || {
-        discountPrice: 0,
-        goodsCount: 0,
-        postFee: 0,
-        totalPayPrice: 0,
-        totalPrice: 0
-      }
-      this.goodsList = result.goods || []
-    } catch {
-      // 服务端校验失败（如选中了失效商品）或网络异常，统一给出可操作的提示
-      this.safeToast('结算信息加载失败：请返回购物袋检查是否有失效商品')
-    }
-  }
-
-  // 半模态
+  // 支付方式弹层：“立即支付”先创建订单，随后进入收银台。
   @Builder
   PaySheetBuilder() {
     Column() {
@@ -207,14 +342,14 @@ export struct CheckView {
           })
       })
       Row() {
-        Button(this.loading ? '提交中...' : '立即支付')
+        Button(this.isSubmittingOrder ? '提交中...' : '立即支付')
           .width('100%')
           .height(36)
           .fontSize(14)
           .backgroundColor($r('[ui_components].color.red'))
-          .enabled(!this.loading)
+          .enabled(!this.isSubmittingOrder && this.isCheckoutReady())
           .onClick(() => {
-            this.submitOrder()
+            this.createOrderAndOpenCashier()
           })
       }
       .height(50)
@@ -235,13 +370,24 @@ export struct CheckView {
             width: { bottom: 0.5 },
             color: $r('[ui_components].color.border')
           })
+        if (this.checkoutLoading) {
+          Text('正在加载结算资料…')
+            .fontSize(13)
+            .padding(12)
+        } else if (this.checkoutRefreshFailed) {
+          Text('结算资料刷新失败，点击重新加载')
+            .fontColor($r('[ui_components].color.red'))
+            .fontSize(13)
+            .padding(12)
+            .onClick(() => this.loadCheckoutPreview())
+        }
         List() {
           ListItem() {
             ChangeAddressComp({
               addressList: this.addressList,
               selectedAddressId: this.addressId,
               onAddressClick: () => {
-                this.sheetMode = 2
+                this.activeSheet = CheckoutSheet.Address
                 this.showSheet = true
               }
             })
@@ -327,12 +473,13 @@ export struct CheckView {
 
           Blank()
           Button('提交订单')
+            .enabled(!this.isSubmittingOrder && this.isCheckoutReady())
             .fontSize(14)
             .height(36)
             .backgroundColor($r('[ui_components].color.red'))
             .onClick(() => {
-              this.sheetMode = 1
-              this.showSheet = true
+              // 先展示支付方式；用户在弹层确认后才请求创建订单。
+              this.openPaymentSheet()
             })
         }
         .height(50 + this.safeBottom)
@@ -347,8 +494,8 @@ export struct CheckView {
       .backgroundColor($r('[ui_components].color.under'))
       .bindSheet($$this.showSheet, this.SheetBuilder(), {
         title: {
-          title: this.sheetMode === 1 ? '支付方式' : '选择收货地址',
-          subtitle: this.sheetMode === 1 ? '请选择一种支付方式进行付款' : ''
+          title: this.activeSheet === CheckoutSheet.Payment ? '支付方式' : '选择收货地址',
+          subtitle: this.activeSheet === CheckoutSheet.Payment ? '请选择一种支付方式进行付款' : ''
         }, height: SheetSize.FIT_CONTENT, backgroundColor: $r('[ui_components].color.white')
       })
       .padding({
@@ -360,7 +507,7 @@ export struct CheckView {
 
   @Builder
   SheetBuilder() {
-    if (this.sheetMode === 1) {
+    if (this.activeSheet === CheckoutSheet.Payment) {
       this.PaySheetBuilder()
     } else {
       this.AddressSelectBuilder()

@@ -14,16 +14,13 @@ function page(items: OrderItem[], pageNumber: number = 1, pages: number = 1): Or
 }
 
 function request(state: number): OrderTabRequest {
-  return { page: 1, pageSize: 10, state, overlays: {}, evaluations: {} }
+  return { page: 1, pageSize: 10, state }
 }
 
 class TestOrderAPI implements OrderTabAPI {
   pages: OrderPage[] = []
-  details: Record<string, OrderItem> = {}
   requestedPages: number[] = []
-  requestedDetails: string[] = []
   current: boolean = true
-  failDetail: boolean = false
   failPage: boolean = false
   cancelAfterPage: boolean = false
 
@@ -38,14 +35,6 @@ class TestOrderAPI implements OrderTabAPI {
     return Promise.resolve(this.pages[params.page - 1] || page([]))
   }
 
-  getDetail(id: string): Promise<OrderItem> {
-    this.requestedDetails.push(id)
-    if (this.failDetail || !this.details[id]) {
-      return Promise.reject(new Error('detail unavailable'))
-    }
-    return Promise.resolve(this.details[id])
-  }
-
   isCurrent(): boolean {
     return this.current
   }
@@ -54,29 +43,14 @@ class TestOrderAPI implements OrderTabAPI {
 export default function orderTabLoaderTest(): void {
   describe('orderTabLoader', () => {
     it('hidesCancelledOrdersFromAllTabAndPreservesOtherStates', 0, () => {
-      const query = request(0)
-      query.overlays['cancelled'] = { orderId: 'cancelled', advancedState: 4, updatedAt: 1 }
-      query.evaluations['cancelled'] = { orderId: 'cancelled', score: 5, content: 'review', createdAt: 1 }
       const result = mergeOrdersForTab([], [
         order('unpaid', 1), order('paid', 2), order('shipped', 3),
         order('pending', 4), order('completed', 5), order('cancelled', 6)
-      ], query)
+      ], request(0))
       expect(result.length).assertEqual(5)
       expect(result.some((item: OrderItem) => item.id === 'cancelled')).assertFalse()
       expect(result.some((item: OrderItem) => item.id === 'completed')).assertTrue()
       expect(result.some((item: OrderItem) => item.id === 'unpaid')).assertTrue()
-    })
-
-    it('keepsLocallyAdvancedAndEvaluatedOrdersInAllTab', 0, () => {
-      const query = request(0)
-      query.overlays['local'] = { orderId: 'local', advancedState: 2, updatedAt: 1 }
-      query.evaluations['reviewed'] = { orderId: 'reviewed', score: 5, content: 'ok', createdAt: 1 }
-      const result = mergeOrdersForTab([], [
-        order('local', 1), order('reviewed', 4), order('cancelled', 6)
-      ], query)
-      expect(result.length).assertEqual(2)
-      expect(result.some((item: OrderItem) => item.id === 'local')).assertTrue()
-      expect(result.some((item: OrderItem) => item.id === 'reviewed')).assertTrue()
     })
 
     it('hidesCancelledOrdersFromUnpaidTab', 0, () => {
@@ -94,6 +68,13 @@ export default function orderTabLoaderTest(): void {
       expect(result[0].id).assertEqual('kept')
     })
 
+    it('movesOrderOutOfTabWhenLatestResponseChangesState', 0, () => {
+      const result = mergeOrdersForTab([order('paid', 1), order('unpaid', 1)],
+        [order('paid', 2)], request(1))
+      expect(result.length).assertEqual(1)
+      expect(result[0].id).assertEqual('unpaid')
+    })
+
     it('dropsStaleCancelledRowDuringLoadMoreMerge', 0, () => {
       const result = mergeOrdersForTab(
         [order('cancelled', 6), order('kept', 2)],
@@ -104,6 +85,19 @@ export default function orderTabLoaderTest(): void {
       expect(result.some((item: OrderItem) => item.id === 'cancelled')).assertFalse()
       expect(result[0].id).assertEqual('newer')
       expect(result[1].id).assertEqual('kept')
+    })
+
+    it('mergesAcrossPagesWithoutDuplicateRows', 0, () => {
+      const result = mergeOrdersForTab([order('same', 1)], [order('same', 2), order('other', 3)], request(0))
+      expect(result.length).assertEqual(2)
+      expect(result.find((item: OrderItem) => item.id === 'same')?.orderState).assertEqual(2)
+    })
+
+    it('keepsSameOrderEveryTimeWhenCreationTimeIsEqual', 0, () => {
+      const first = mergeOrdersForTab([], [order('a', 1), order('b', 1)], request(0))
+      const second = mergeOrdersForTab([], [order('b', 1), order('a', 1)], request(0))
+      expect(first.map((item: OrderItem) => item.id).join(',')).assertEqual('b,a')
+      expect(second.map((item: OrderItem) => item.id).join(',')).assertEqual('b,a')
     })
 
     it('continuesAllTabPaginationPastCancelledOnlyPages', 0, async (done: Function) => {
@@ -120,11 +114,11 @@ export default function orderTabLoaderTest(): void {
       done()
     })
 
-    it('continuesUnpaidTabPaginationPastCancelledOnlyPages', 0, async (done: Function) => {
+    it('continuesUnpaidTabPaginationPastFilteredPages', 0, async (done: Function) => {
       const query = request(1)
       query.pageSize = 1
       const api = new TestOrderAPI()
-      api.pages = [page([order('cancelled', 6)], 1, 2), page([order('unpaid', 1)], 2, 2)]
+      api.pages = [page([order('paid', 2)], 1, 2), page([order('unpaid', 1)], 2, 2)]
       const result = await loadOrderTabPage(query, api)
       expect(api.requestedPages.length).assertEqual(2)
       expect(result?.items.length).assertEqual(1)
@@ -133,100 +127,25 @@ export default function orderTabLoaderTest(): void {
       done()
     })
 
-    it('finishesWithEmptyListWhenAllOrdersAreCancelled', 0, async (done: Function) => {
-      const api = new TestOrderAPI()
-      api.pages = [page([order('cancelled', 6)])]
-      const result = await loadOrderTabPage(request(0), api)
-      expect(result?.items.length).assertEqual(0)
-      expect(result?.finished).assertTrue()
-      done()
-    })
-
-    it('addsLocallyPaidOrderMissingFromServerShippingTab', 0, async (done: Function) => {
-      const query = request(2)
-      query.overlays['local'] = { orderId: 'local', advancedState: 2, updatedAt: 1 }
-      const api = new TestOrderAPI()
-      api.details['local'] = order('local', 1)
-      const result = await loadOrderTabPage(query, api)
-      expect(result?.items.length).assertEqual(1)
-      expect(result?.items[0].id).assertEqual('local')
-      expect(result?.finished).assertTrue()
-      done()
-    })
-
-    it('supportsLocalReceiptAndEvaluationTabs', 0, async (done: Function) => {
-      for (let state: number = 3; state <= 4; state++) {
-        const query = request(state)
-        query.overlays['local'] = { orderId: 'local', advancedState: state, updatedAt: 1 }
-        const api = new TestOrderAPI()
-        api.details['local'] = order('local', 1)
-        const result = await loadOrderTabPage(query, api)
-        expect(result?.items[0].id).assertEqual('local')
-      }
-      done()
-    })
-
-    it('doesNotReviveServerCancelledOrAlreadyAdvancedOrders', 0, async (done: Function) => {
-      const query = request(2)
-      query.overlays['cancelled'] = { orderId: 'cancelled', advancedState: 2, updatedAt: 1 }
-      query.overlays['shipped'] = { orderId: 'shipped', advancedState: 2, updatedAt: 1 }
-      const api = new TestOrderAPI()
-      api.details['cancelled'] = order('cancelled', 6)
-      api.details['shipped'] = order('shipped', 3)
-      const result = await loadOrderTabPage(query, api)
-      expect(result?.items.length).assertEqual(0)
-      done()
-    })
-
-    it('deduplicatesSupplementAndPagesAndSortsByCreationTime', 0, async (done: Function) => {
-      const query = request(2)
-      query.overlays['local'] = { orderId: 'local', advancedState: 2, updatedAt: 1 }
-      const api = new TestOrderAPI()
-      api.details['local'] = order('local', 1)
-      api.pages = [page([order('older', 2, '2026-01-01 00:00:00'), order('local', 2)])]
-      const result = await loadOrderTabPage(query, api)
-      expect(result?.items.length).assertEqual(2)
-      expect(result?.items[0].id).assertEqual('local')
-      expect(result?.items[0].orderState).assertEqual(2)
-      done()
-    })
-
-    it('continuesAfterFilteredPageInsteadOfEndingPagination', 0, async (done: Function) => {
-      const query = request(1)
-      query.overlays['paid'] = { orderId: 'paid', advancedState: 2, updatedAt: 1 }
-      const api = new TestOrderAPI()
-      api.pages = [page([order('paid', 1)], 1, 2), page([order('unpaid', 1)], 2, 2)]
-      const result = await loadOrderTabPage(query, api)
-      expect(api.requestedPages.length).assertEqual(2)
-      expect(result?.items.length).assertEqual(1)
-      expect(result?.items[0].id).assertEqual('unpaid')
-      expect(result?.nextPage).assertEqual(3)
-      expect(result?.finished).assertTrue()
-      done()
-    })
-
-    it('removesLocalEvaluationFromPendingTab', 0, async (done: Function) => {
-      const query = request(4)
-      query.overlays['reviewed'] = { orderId: 'reviewed', advancedState: 4, updatedAt: 1 }
-      query.evaluations['reviewed'] = { orderId: 'reviewed', score: 5, content: 'local review', createdAt: 1 }
-      const api = new TestOrderAPI()
-      api.details['reviewed'] = order('reviewed', 1)
-      api.pages = [page([order('reviewed', 4), order('pending', 4)])]
-      const result = await loadOrderTabPage(query, api)
-      expect(api.requestedDetails.length).assertEqual(0)
-      expect(result?.items.length).assertEqual(1)
-      expect(result?.items[0].id).assertEqual('pending')
-      done()
-    })
-
-    it('keepsAllTabServerPaginationWithoutDetailFanout', 0, async (done: Function) => {
+    it('finishesWithEmptyListWhenAllPagesAreCancelled', 0, async (done: Function) => {
       const query = request(0)
       query.pageSize = 1
-      query.overlays['local'] = { orderId: 'local', advancedState: 2, updatedAt: 1 }
       const api = new TestOrderAPI()
-      api.pages = [page([order('local', 1)], 1, 2)]
+      api.pages = [page([order('c1', 6)], 1, 3), page([order('c2', 6)], 2, 3), page([order('c3', 6)], 3, 3)]
       const result = await loadOrderTabPage(query, api)
-      expect(api.requestedDetails.length).assertEqual(0)
+      expect(api.requestedPages.join(',')).assertEqual('1,2,3')
+      expect(result?.items.length).assertEqual(0)
+      expect(result?.nextPage).assertEqual(4)
+      expect(result?.finished).assertTrue()
+      done()
+    })
+
+    it('stopsOnceScreenIsFullAndKeepsNextPage', 0, async (done: Function) => {
+      const query = request(0)
+      query.pageSize = 1
+      const api = new TestOrderAPI()
+      api.pages = [page([order('first', 1)], 1, 2), page([order('second', 1)], 2, 2)]
+      const result = await loadOrderTabPage(query, api)
       expect(api.requestedPages.length).assertEqual(1)
       expect(result?.nextPage).assertEqual(2)
       expect(result?.finished).assertFalse()
@@ -234,11 +153,10 @@ export default function orderTabLoaderTest(): void {
     })
 
     it('propagatesFailureAndRetriesSamePage', 0, async (done: Function) => {
-      const query = request(2)
-      query.overlays['local'] = { orderId: 'local', advancedState: 2, updatedAt: 1 }
+      const query = request(1)
       const api = new TestOrderAPI()
-      api.details['local'] = order('local', 1)
-      api.failDetail = true
+      api.pages = [page([order('unpaid', 1)])]
+      api.failPage = true
       let failed: boolean = false
       try {
         await loadOrderTabPage(query, api)
@@ -247,11 +165,10 @@ export default function orderTabLoaderTest(): void {
       }
       expect(failed).assertTrue()
       expect(query.page).assertEqual(1)
-      expect(api.requestedPages.length).assertEqual(0)
-      api.failDetail = false
+      api.failPage = false
       const result = await loadOrderTabPage(query, api)
-      expect(result?.items[0].id).assertEqual('local')
-      expect(api.requestedPages[0]).assertEqual(1)
+      expect(result?.items[0].id).assertEqual('unpaid')
+      expect(api.requestedPages.join(',')).assertEqual('1,1')
       done()
     })
 
@@ -263,13 +180,6 @@ export default function orderTabLoaderTest(): void {
       expect(result).assertNull()
       expect(api.requestedPages.length).assertEqual(1)
       done()
-    })
-
-    it('mergesAcrossPagesWithoutDuplicateRows', 0, () => {
-      const query = request(0)
-      const result = mergeOrdersForTab([order('same', 1)], [order('same', 2), order('other', 3)], query)
-      expect(result.length).assertEqual(2)
-      expect(result.find((item: OrderItem) => item.id === 'same')?.orderState).assertEqual(2)
     })
   })
 }

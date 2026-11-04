@@ -1,9 +1,8 @@
-import { request } from '@/api'
+import { request, requestErrorMessage } from '@/api'
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 export type ProfilePageState = 'loading' | 'ready' | 'error'
-
 export interface ProfileUpdatePayload {
   nickname: string
   gender: HDMUser['gender']
@@ -12,139 +11,151 @@ export interface ProfileUpdatePayload {
   cityCode: string
   countyCode: string
   profession: string
+  fullLocation: string
 }
-
-interface AvatarUploadResponse {
-  result: {
-    avatar: string
-  }
-}
-
-// 资料保存只提交可编辑字段，账号、token 等由原生端持有
-const createProfileUpdatePayload = (user: HDMUser): ProfileUpdatePayload => ({
-  nickname: user.nickname,
-  gender: user.gender,
-  birthday: user.birthday,
-  provinceCode: user.provinceCode,
-  cityCode: user.cityCode,
-  countyCode: user.countyCode,
-  profession: user.profession,
+const buildProfileUpdate = (user: HDMUser): ProfileUpdatePayload => ({
+  nickname: user.nickname, gender: user.gender, birthday: user.birthday,
+  provinceCode: user.provinceCode, cityCode: user.cityCode, countyCode: user.countyCode,
+  profession: user.profession, fullLocation: user.fullLocation,
 })
-
 const base64ToAvatarFile = (base64: string): File => {
   const binary = window.atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index++) {
-    bytes[index] = binary.charCodeAt(index)
-  }
+  const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
   return new File([bytes], 'avatar.jpg', { type: 'image/jpeg' })
 }
 
-/**
- * 个人资料页状态：页面三段状态、资料字段与待上传头像都收在这里，
- * 保存流程按「头像上传 → 资料 PUT → 原生桥同步」三步执行。
- */
+// 输入是草稿；保存基准和原生同步只采用服务器已确认的资料。
 export const useProfileStore = defineStore('profile', () => {
-  const userInfo = ref<HDMUser>({} as HDMUser)
+  const profileDraft = ref<HDMUser>({} as HDMUser)
   const pageState = ref<ProfilePageState>('loading')
-  // 最近一次成功保存/加载的字段快照，用于脏检查（无修改时禁用保存按钮）
-  const savedSnapshot = ref('')
-  // 头像接口成功后先保留地址，直到原生桥同步和资料保存都成功，支持失败重试
+  const savedProfileJson = ref('')
   const pendingAvatarBase64 = ref('')
-  const uploadedAvatarUrl = ref('')
-  const isLoading = ref(false)
+  const isSaving = ref(false)
+  const saveError = ref('')
+  const pendingNativeProfile = ref<HDMUser>()
+  let confirmedProfile: HDMUser | undefined
+  let loadSequence = 0
+  let pendingSave: Promise<boolean> | undefined
+  const nicknameError = computed(() => pageState.value === 'ready' && !profileDraft.value.nickname?.trim()
+    ? '昵称不能为空' : '')
 
-  const isProfileDirty = computed(() => {
-    if (pageState.value !== 'ready') {
-      return false
+  const hasProfileChanges = computed(() => pageState.value === 'ready' &&
+    JSON.stringify(buildProfileUpdate(profileDraft.value)) !== savedProfileJson.value)
+  const hasUnsavedChanges = computed(() => hasProfileChanges.value ||
+    pendingAvatarBase64.value !== '' || !!pendingNativeProfile.value)
+  const recordSavedProfile = (savedProfile: HDMUser) => {
+    confirmedProfile = { ...savedProfile }
+    savedProfileJson.value = JSON.stringify(buildProfileUpdate(savedProfile))
+  }
+  const assertCurrentSession = (token: string, sequence: number) => {
+    if (!token || sequence !== loadSequence || window.nativeApp?.getUser()?.token !== token) {
+      throw new Error('登录状态已变化，请重新打开资料页')
     }
-    return JSON.stringify(createProfileUpdatePayload(userInfo.value)) !== savedSnapshot.value
-  })
-
-  // 头像待上传同样视为有未保存改动
-  const isDirty = computed(() => isProfileDirty.value || pendingAvatarBase64.value !== '')
-
-  const applySnapshot = () => {
-    savedSnapshot.value = JSON.stringify(createProfileUpdatePayload(userInfo.value))
   }
-
-  // 相机/相册返回 base64 后先进入本地预览态
   const setAvatarPreview = (base64: string) => {
+    if (pageState.value !== 'ready') return
     pendingAvatarBase64.value = base64
-    uploadedAvatarUrl.value = ''
-    userInfo.value.avatar = `data:image/jpeg;base64,${base64}`
+    profileDraft.value.avatar = 'data:image/jpeg;base64,' + base64
   }
-
-  const clearPendingAvatar = () => {
-    pendingAvatarBase64.value = ''
-    uploadedAvatarUrl.value = ''
-  }
-
-  const loadUserInfo = async () => {
+  const loadProfile = async () => {
+    const sequence = ++loadSequence
     pageState.value = 'loading'
+    pendingAvatarBase64.value = ''
+    pendingNativeProfile.value = undefined
+    profileDraft.value = {} as HDMUser
+    const token = window.nativeApp?.getUser()?.token || ''
     try {
-      const res = await request.get('member/profile')
-      const sessionUser = window.mk?.queryUser()
-      userInfo.value = {
-        ...sessionUser,
-        ...res.data.result,
-        token: sessionUser?.token || '',
-      } as HDMUser
-      applySnapshot()
+      assertCurrentSession(token, sequence)
+      const response = await request.get<{ result: HDMUser }>('/member/profile', {
+        headers: { Authorization: 'Bearer ' + token },
+      })
+      assertCurrentSession(token, sequence)
+      const loaded = response.data.result
+      if (loaded.token !== token || loaded.id !== window.nativeApp?.getUser()?.id) {
+        throw new Error('资料与当前登录账号不一致')
+      }
+      profileDraft.value = { ...loaded }
+      recordSavedProfile(loaded)
+      saveError.value = ''
       pageState.value = 'ready'
     } catch {
-      pageState.value = 'error'
+      if (sequence === loadSequence) pageState.value = 'error'
     }
   }
-
-  const uploadPendingAvatar = async (): Promise<string> => {
-    const formData = new FormData()
-    formData.append('file', base64ToAvatarFile(pendingAvatarBase64.value))
-    const response = await request.post<AvatarUploadResponse>('/member/profile/avatar', formData)
-    const avatar = response.data.result.avatar
-    if (!avatar) {
-      throw new Error('头像上传接口未返回头像地址')
-    }
-    return avatar
+  const syncConfirmedProfile = async (token: string, sequence: number) => {
+    const profile = pendingNativeProfile.value
+    if (!profile) return
+    assertCurrentSession(token, sequence)
+    if (!window.nativeApp?.updateUser) throw new Error('当前环境不支持同步资料')
+    await window.nativeApp.updateUser({ ...profile })
+    assertCurrentSession(token, sequence)
+    if (pendingNativeProfile.value === profile) pendingNativeProfile.value = undefined
   }
-
-  /**
-   * 保存资料。成功返回 true，失败返回 false（提示由调用方负责）。
-   * 中间步骤失败时保留待上传地址，允许重试。
-   */
-  const saveProfile = async (): Promise<boolean> => {
-    isLoading.value = true
+  const persistProfile = async (): Promise<boolean> => {
+    const sequence = loadSequence
+    const submitted = { ...profileDraft.value }
+    const token = submitted.token
+    const avatarBase64 = pendingAvatarBase64.value
+    const headers = { Authorization: 'Bearer ' + token }
+    isSaving.value = true
+    saveError.value = ''
     try {
-      if (pendingAvatarBase64.value) {
-        if (!uploadedAvatarUrl.value) {
-          uploadedAvatarUrl.value = await uploadPendingAvatar()
+      assertCurrentSession(token, sequence)
+      if (avatarBase64) {
+        const form = new FormData()
+        form.append('file', base64ToAvatarFile(avatarBase64))
+        const response = await request.post<{ result: { avatar: string } }>('/member/profile/avatar', form, { headers })
+        assertCurrentSession(token, sequence)
+        const avatar = response.data.result.avatar
+        if (!avatar) throw new Error('头像上传接口未返回头像地址')
+        // 上传接口已经保存头像；后续资料失败也不能假装头像未保存。
+        submitted.avatar = avatar
+        if (confirmedProfile) confirmedProfile = { ...confirmedProfile, avatar }
+        pendingNativeProfile.value = confirmedProfile ? { ...confirmedProfile } : undefined
+        if (pendingAvatarBase64.value === avatarBase64) {
+          pendingAvatarBase64.value = ''
+          profileDraft.value.avatar = avatar
         }
-        userInfo.value.avatar = uploadedAvatarUrl.value
+        await syncConfirmedProfile(token, sequence)
       }
-      await request.put('/member/profile', createProfileUpdatePayload(userInfo.value))
-      await window.mk!.updateUser(userInfo.value)
-      clearPendingAvatar()
-      applySnapshot()
+      if (JSON.stringify(buildProfileUpdate(submitted)) !== savedProfileJson.value) {
+        const response = await request.put<{ result: HDMUser }>('/member/profile', buildProfileUpdate(submitted), { headers })
+        assertCurrentSession(token, sequence)
+        const saved = response.data.result
+        if (saved.token !== token || saved.id !== submitted.id) throw new Error('服务器返回的资料不完整，请重新加载')
+        recordSavedProfile(saved)
+        // 未再修改的字段接受服务端规范化；等待期间的新输入继续保留。
+        for (const field of Object.keys(buildProfileUpdate(submitted)) as (keyof ProfileUpdatePayload)[]) {
+          if (profileDraft.value[field] === submitted[field]) {
+            Object.assign(profileDraft.value, { [field]: saved[field] })
+          }
+        }
+        pendingNativeProfile.value = { ...saved }
+      }
+      await syncConfirmedProfile(token, sequence)
       return true
-    } catch {
+    } catch (error) {
+      if (sequence === loadSequence) {
+        saveError.value = pendingNativeProfile.value
+          ? (hasProfileChanges.value ? '头像已保存，手机同步失败，其余修改仍未保存，请重试' : '资料已保存，手机同步失败，请重试同步')
+          : requestErrorMessage(error)
+      }
       return false
     } finally {
-      isLoading.value = false
+      isSaving.value = false
     }
   }
-
-  return {
-    userInfo,
-    pageState,
-    isLoading,
-    pendingAvatarBase64,
-    uploadedAvatarUrl,
-    isProfileDirty,
-    isDirty,
-    applySnapshot,
-    setAvatarPreview,
-    clearPendingAvatar,
-    loadUserInfo,
-    saveProfile,
+  const saveProfile = (): Promise<boolean> => {
+    if (nicknameError.value) {
+      saveError.value = nicknameError.value
+      return Promise.resolve(false)
+    }
+    if (pendingSave) return pendingSave
+    if (pageState.value !== 'ready') return Promise.resolve(false)
+    if (!hasUnsavedChanges.value) return Promise.resolve(true)
+    pendingSave = persistProfile().finally(() => { pendingSave = undefined })
+    return pendingSave
   }
+  return { profileDraft, pageState, isSaving, saveError, nicknameError, pendingAvatarBase64,
+    hasProfileChanges, hasUnsavedChanges, recordSavedProfile, setAvatarPreview, loadProfile, saveProfile }
 })

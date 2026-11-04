@@ -1,8 +1,8 @@
 import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { OrderItem, OrderSku } from 'models'
-import { DemoOrderStore, demoOrderStore } from 'storage'
+import { HDMUser, OrderItem, OrderSku } from 'models'
+import { validateEvaluation, auth, storeManager } from 'storage'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
 import { EvaluationSubmitActions, submitEvaluationFlow } from '../utils/EvaluationSubmitFlow'
 import { EvaluationNavigationActions, returnEvaluationToOrders } from '../utils/EvaluationNavigation'
@@ -19,8 +19,14 @@ function EvaluationViewBuilder() {
   EvaluationView()
 }
 
+interface EvaluationDraft {
+  score: number
+  content: string
+}
+
 @Component
 export struct EvaluationView {
+  @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
   @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM)
@@ -36,6 +42,14 @@ export struct EvaluationView {
 
   private orderId: string = ''
   private leaving: boolean = false
+  private draftKey: string = ''
+  private submitted: boolean = false
+  private sessionToken: string = ''
+  private pageActive: boolean = false
+  private pageGeneration: number = 0
+  private querySequence: number = 0
+  private draftTimer: number = -1
+  private draftSaveSequence: number = 0
   private previousKeyboardAvoidMode: KeyboardAvoidMode | undefined = undefined
   private readonly quickTags: string[] = getEvaluationQuickTags()
 
@@ -47,25 +61,88 @@ export struct EvaluationView {
   }
 
   aboutToAppear(): void {
+    if (this.pageActive) return
+    this.pageActive = true
     this.leaving = false
-    const params = this.stackPath.getParamByName(PAGE_PATH.EVALUATION_PAGE) as string[]
-    this.orderId = params && params.length ? params[params.length - 1] : ''
+    this.pageGeneration++
+    this.synchronizeEvaluationContext()
     try {
       this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode()
       this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     } catch {
     }
-    this.load()
+    this.loadOrderForEvaluation()
+  }
+
+  private reloadForCurrentAccount(): void {
+    if (this.synchronizeEvaluationContext() && this.pageActive && !this.leaving) {
+      this.loadOrderForEvaluation()
+    }
+  }
+
+  private synchronizeEvaluationContext(): boolean {
+    const user = auth.getUserInfo()
+    const token: string = user?.token || ''
+    const orderId: string = this.readEvaluationOrderId()
+    const draftKey: string = token && user?.id && orderId ? 'evaluation-draft:' + user.id + ':' + orderId : ''
+    if (token === this.sessionToken && orderId === this.orderId && draftKey === this.draftKey) return false
+    // 保存仍属于旧账号和旧订单的输入，再切换草稿归属。
+    this.saveDraft()
+    clearTimeout(this.draftTimer)
+    this.draftTimer = -1
+    this.pageGeneration++
+    this.querySequence++
+    this.sessionToken = token
+    this.orderId = orderId
+    this.draftKey = draftKey
+    this.order = null
+    this.score = 5
+    this.content = ''
+    this.errorText = ''
+    this.submitted = false
+    this.submitting = false
+    this.loading = false
+    this.loadFailed = false
+    if (!draftKey) return true
+    try {
+      const raw: string = storeManager.getStore().getSync(draftKey, '') as string
+      if (raw) {
+        const draft = JSON.parse(raw) as EvaluationDraft
+        this.score = draft.score >= 1 && draft.score <= 5 ? draft.score : 5
+        this.content = typeof draft.content === 'string' ? draft.content.slice(0, EVALUATION_CONTENT_MAX_LENGTH) : ''
+      }
+    } catch {}
+    return true
+  }
+
+  private readEvaluationOrderId(): string {
+    const evaluationOrderIds = this.stackPath.getParamByName(PAGE_PATH.EVALUATION_PAGE) as string[]
+    if (!evaluationOrderIds || evaluationOrderIds.length === 0) {
+      return ''
+    }
+    // 同名评价页可能存在多次，最后一项对应最近打开的评价页。
+    const latestPageIndex: number = evaluationOrderIds.length - 1
+    return evaluationOrderIds[latestPageIndex]
   }
 
   aboutToDisappear(): void {
+    if (!this.pageActive) return
+    this.pageActive = false
     this.leaving = true
+    this.pageGeneration++
+    this.querySequence++
+    clearTimeout(this.draftTimer)
+    this.draftTimer = -1
+    this.saveDraft()
+    this.submitting = false
+    this.loading = false
     try {
       if (this.previousKeyboardAvoidMode !== undefined) {
         this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode)
       }
     } catch {
     }
+    this.previousKeyboardAvoidMode = undefined
   }
 
   private leaveToPrevious(message: string): void {
@@ -79,8 +156,65 @@ export struct EvaluationView {
     this.stackPath.pop()
   }
 
-  private async load(): Promise<void> {
-    if (!this.orderId) {
+  private saveDraft(): void {
+    if (!this.draftKey) return
+    const key: string = this.draftKey
+    const sequence: number = ++this.draftSaveSequence
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.orderId
+    const failed = (): void => {
+      if (sequence !== this.draftSaveSequence || !this.isCurrentEvaluation(generation, token, orderId)) return
+      this.errorText = '本机草稿保存失败，请保留文字后重试'
+      this.safeToast(this.errorText)
+    }
+    try {
+      const store = storeManager.getStore()
+      if (this.submitted) store.deleteSync(key)
+      else {
+        const draft: EvaluationDraft = { score: this.score, content: this.content }
+        store.putSync(key, JSON.stringify(draft))
+      }
+      void store.flush().catch(failed)
+    } catch { failed() }
+  }
+
+  private queueDraft(): void {
+    clearTimeout(this.draftTimer)
+    this.draftTimer = -1
+    if (!this.canEditEvaluation()) return
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.orderId
+    this.draftTimer = setTimeout(() => {
+      if (!this.isCurrentEvaluation(generation, token, orderId)) return
+      this.draftTimer = -1
+      this.saveDraft()
+    }, 500)
+  }
+
+  private isCurrentSession(): boolean {
+    return this.sessionToken.length > 0 && auth.getUserInfo()?.token === this.sessionToken
+  }
+
+  private isCurrentEvaluation(generation: number, token: string, orderId: string): boolean {
+    return this.pageActive && !this.leaving && generation === this.pageGeneration &&
+      token === this.sessionToken && this.isCurrentSession() && orderId === this.orderId &&
+      orderId === this.readEvaluationOrderId()
+  }
+
+  private canEditEvaluation(): boolean {
+    return this.isCurrentEvaluation(this.pageGeneration, this.sessionToken, this.orderId) &&
+      this.orderId.length > 0 && !this.submitting && !this.submitted
+  }
+
+  private async loadOrderForEvaluation(): Promise<void> {
+    this.synchronizeEvaluationContext()
+    const sequence: number = ++this.querySequence
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.orderId
+    if (!orderId || !this.isCurrentEvaluation(generation, token, orderId)) {
       this.loading = false
       this.loadFailed = true
       return
@@ -88,32 +222,36 @@ export struct EvaluationView {
     this.loading = true
     this.loadFailed = false
     try {
-      const order = await getOrderDetailAPI(this.orderId)
-      if (this.leaving) {
+      const orderToReview = await getOrderDetailAPI(orderId, token)
+      if (sequence !== this.querySequence || !this.isCurrentEvaluation(generation, token, orderId)) {
         return
       }
-      this.order = order
-      if (order.serverManaged ? !!order.evaluation : !!demoOrderStore.getEvaluation(this.orderId)) {
-        this.leaveToOrderList('该订单已评价')
-        return
+      this.order = orderToReview
+      if (orderToReview.evaluation) {
+        this.errorText = '该订单已评价，当前输入保留为本机草稿'
+      } else if (!orderToReview.canEvaluate) {
+        this.errorText = '当前订单暂不能评价，输入已保留，请确认收货后重试'
+      } else {
+        this.errorText = ''
       }
     } catch {
-      if (!this.leaving) {
+      if (sequence === this.querySequence && this.isCurrentEvaluation(generation, token, orderId)) {
         this.loadFailed = true
       }
     } finally {
-      if (!this.leaving) {
+      if (sequence === this.querySequence && this.isCurrentEvaluation(generation, token, orderId)) {
         this.loading = false
       }
     }
   }
 
   private setScore(value: number): void {
-    if (this.submitting || value < 1 || value > 5) {
+    if (!this.canEditEvaluation() || value < 1 || value > 5) {
       return
     }
     this.score = value
     this.errorText = ''
+    this.queueDraft()
   }
 
   private leaveToOrderList(message: string): void {
@@ -134,45 +272,67 @@ export struct EvaluationView {
   }
 
   private toggleTag(tag: string): void {
-    if (this.submitting) {
+    if (!this.canEditEvaluation()) {
       return
     }
     this.content = toggleEvaluationTag(this.content, tag, EVALUATION_CONTENT_MAX_LENGTH)
     this.errorText = ''
+    this.queueDraft()
   }
 
-  private async submit(): Promise<void> {
-    if (this.submitting || this.leaving || !this.order) {
+  private async submitEvaluation(): Promise<void> {
+    if (this.submitting || this.submitted || !this.pageActive || this.leaving || this.loading || this.loadFailed ||
+      !this.order || this.order.id !== this.orderId || this.orderId !== this.readEvaluationOrderId()) {
       return
     }
-    const validation = DemoOrderStore.validateEvaluation(this.score, this.content)
-    if (validation) {
-      this.errorText = validation
+    if (!this.order.canEvaluate) {
+      this.errorText = '当前订单暂不能评价，请确认收货后重试'
+      return
+    }
+    if (!this.isCurrentSession()) {
+      this.errorText = '登录状态已变化，请重新打开评价页'
+      return
+    }
+    // 空字符串表示评分和文字均通过检查；否则直接显示具体原因。
+    const validationMessage = validateEvaluation(this.score, this.content)
+    if (validationMessage) {
+      this.errorText = validationMessage
       return
     }
     this.submitting = true
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.order.id
     try {
-      const orderId: string = this.order.id
       const score: number = this.score
       const content: string = this.content
-      if (this.order.serverManaged) {
-        await commentOrderAPI(orderId, { score, content })
-        this.leaveToOrderList('评价成功')
-        return
-      }
       const actions: EvaluationSubmitActions = {
-        submitRemote: async (): Promise<void> => { await commentOrderAPI(orderId, { score, content }) },
-        saveLocal: async (): Promise<void> => { await demoOrderStore.saveEvaluation(orderId, score, content) },
-        isActive: (): boolean => !this.leaving,
+        submitRemote: async (): Promise<void> => {
+          try {
+            await commentOrderAPI(orderId, { score, content }, token)
+          } catch (error) {
+            if (!this.isCurrentEvaluation(generation, token, orderId)) return
+            // 回应丢失时按已保存内容确认；其他评价不冒充本次提交成功。
+            const confirmed = await getOrderDetailAPI(orderId, token).catch(() => null)
+            if (!this.isCurrentEvaluation(generation, token, orderId)) return
+            if (!confirmed?.evaluation || confirmed.evaluation.score !== score ||
+              confirmed.evaluation.content !== content.trim()) throw error as Error
+          }
+          if (!this.isCurrentEvaluation(generation, token, orderId)) return
+          this.submitted = true
+          clearTimeout(this.draftTimer)
+          this.saveDraft()
+        },
+        isActive: (): boolean => this.isCurrentEvaluation(generation, token, orderId),
         returnToOrderList: (): void => this.leaveToOrderList('评价成功')
       }
-      await submitEvaluationFlow(GlobalVariable.DEMO_ORDER_FLOW, actions)
+      await submitEvaluationFlow(actions)
     } catch (error) {
-      if (!this.leaving) {
+      if (this.isCurrentEvaluation(generation, token, orderId)) {
         this.errorText = (error as Error).message || '提交失败，请重试'
       }
     } finally {
-      this.submitting = false
+      if (this.isCurrentEvaluation(generation, token, orderId)) this.submitting = false
     }
   }
 
@@ -227,21 +387,21 @@ export struct EvaluationView {
     .width('100%')
   }
 
-  private currentSkus(): OrderSku[] {
+  private getOrderGoods(): OrderSku[] {
     return this.order ? this.order.skus : []
   }
 
-  private currentTotalNum(): number {
+  private getOrderGoodsCount(): number {
     return this.order ? this.order.totalNum : 0
   }
 
-  private currentPayMoney(): number {
+  private getOrderPaidAmount(): number {
     return this.order ? this.order.payMoney : 0
   }
 
   @Builder
   private SkuList() {
-    ForEach(this.currentSkus(), (sku: OrderSku) => {
+    ForEach(this.getOrderGoods(), (sku: OrderSku) => {
       Row({ space: 8 }) {
         Image(sku.image)
           .width(52)
@@ -280,35 +440,31 @@ export struct EvaluationView {
           onLeftClick: () => this.leaveToPrevious('')
         })
         if (this.loading) {
-          Column() {
-            LoadingProgress()
-              .width(60)
-              .height(60)
-              .color($r('[ui_components].color.red'))
-          }
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else if (this.loadFailed || !this.order) {
+          Text('正在核对评价资格，可以先填写内容')
+            .fontSize(12)
+            .padding(10)
+        }
+        if (this.loadFailed) {
           Column({ space: 12 }) {
             Text('订单加载失败，请稍后重试')
               .fontSize(14)
               .fontColor($r('[ui_components].color.gray'))
             Button('重新加载')
-              .onClick(() => this.load())
+              .onClick(() => this.loadOrderForEvaluation())
           }
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else {
+        }
+        Column() {
           Scroll() {
             Column({ space: 12 }) {
+              if (this.order) {
               Column({ space: 6 }) {
                 this.SkuList()
                 Row() {
-                  Text('共 ' + this.currentTotalNum().toString() + ' 件')
+                  Text('共 ' + this.getOrderGoodsCount().toString() + ' 件')
                     .fontSize(12)
                     .fontColor($r('[ui_components].color.gray'))
                   Blank()
-                  Text('实付款 ¥' + this.currentPayMoney().toFixed(2))
+                  Text('实付款 ¥' + this.getOrderPaidAmount().toFixed(2))
                     .fontSize(14)
                     .fontWeight(500)
                 }
@@ -318,6 +474,7 @@ export struct EvaluationView {
               .padding({ left: 12, right: 12, top: 10, bottom: 10 })
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(12)
+              }
 
               Column({ space: 12 }) {
                 Row() {
@@ -363,10 +520,12 @@ export struct EvaluationView {
                   .borderRadius(8)
                   .padding(10)
                   .maxLength(EVALUATION_CONTENT_MAX_LENGTH)
-                  .enabled(!this.submitting)
+                  .enabled(this.canEditEvaluation())
                   .onChange((value: string) => {
+                    if (!this.canEditEvaluation()) return
                     this.content = value
                     this.errorText = ''
+                    this.queueDraft()
                   })
 
                 if (this.errorText) {
@@ -400,19 +559,22 @@ export struct EvaluationView {
               .fontWeight(500)
               .backgroundColor($r('[ui_components].color.red'))
               .constraintSize({ minHeight: 44 })
-              .enabled(!this.submitting)
-              .onClick(() => this.submit())
+              .enabled(this.canEditEvaluation() && !this.loading && !this.loadFailed && !!this.order?.canEvaluate)
+              .onClick(() => this.submitEvaluation())
           }
           .width('100%')
           .padding({ left: 16, right: 16, top: 8, bottom: 8 + this.bottomHeight })
           .backgroundColor($r('[ui_components].color.white'))
         }
+        .layoutWeight(1)
       }
       .width('100%')
       .height('100%')
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
+    .onShown(() => this.aboutToAppear())
+    .onHidden(() => this.aboutToDisappear())
     .padding({ top: this.topHeight })
   }
 }

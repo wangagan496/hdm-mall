@@ -1,6 +1,7 @@
 import { DemoOrderOverlay, LocalEvaluationItem } from 'models'
 import { storeManager } from './StoreManager'
 import { getAccountScopedKey } from './AccountScope'
+import { validateEvaluation } from './EvaluationValidation'
 
 /**
  * 演示闭环数据：明确标注为本地模拟，绝不与服务端真实订单状态混淆。
@@ -8,8 +9,6 @@ import { getAccountScopedKey } from './AccountScope'
  */
 const DEMO_OVERLAY_KEY: string = 'demo_order_overlay'
 const DEMO_EVALUATION_KEY: string = 'demo_order_evaluation'
-const EVALUATION_MAX_LENGTH: number = 200
-const EVALUATION_MIN_LENGTH: number = 5
 
 export class DemoOrderStore {
   private getScopedKey(key: string): string {
@@ -85,17 +84,7 @@ export class DemoOrderStore {
 
   /** 校验评价内容长度与评分范围，避免空评价或越界分数写入。 */
   static validateEvaluation(score: number, content: string): string | null {
-    if (!Number.isInteger(score) || score < 1 || score > 5) {
-      return '请给出 1-5 星评分'
-    }
-    const trimmed = content.trim()
-    if (trimmed.length < EVALUATION_MIN_LENGTH) {
-      return `评价内容至少 ${EVALUATION_MIN_LENGTH} 个字`
-    }
-    if (trimmed.length > EVALUATION_MAX_LENGTH) {
-      return `评价内容不能超过 ${EVALUATION_MAX_LENGTH} 个字`
-    }
-    return null
+    return validateEvaluation(score, content)
   }
 
   async saveEvaluation(orderId: string, score: number, content: string): Promise<LocalEvaluationItem> {

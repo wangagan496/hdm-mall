@@ -18,6 +18,7 @@ const decisionInstance = axios.create({
 
 export class DecisionService {
   static async routeOrderMessage(state: string): Promise<DecisionServiceResponse> {
+    if (!GlobalVariable.DECISION_SERVICE_URL) throw new Error('智能分流服务未配置')
     const res: AxiosResponse<DecisionServiceResponse> = await decisionInstance.post<DecisionServiceResponse>('/api/decision/template', {
       project: 'hdm-mall',
       module: 'order-routing',
