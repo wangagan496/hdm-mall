@@ -125,6 +125,10 @@ export struct MineView {
             colors: [['#FFF1E5', 0], [$r('[ui_components].color.under'), 1]]
           })
 
+          if (this.user.role === 'merchant') {
+            Button('库存管理').margin({ top: 12 })
+              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))
+          }
           Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
             .margin({ top: 12, bottom: 12 })
             .onClick(() => {
