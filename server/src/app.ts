@@ -11,10 +11,12 @@ import { Accounts, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
 import { Orders } from './orders.ts'
 import { AppError, ensure } from './errors.ts'
+import { TestFixtures, registerFixtureRoutes } from './test-fixtures.ts'
+import { systemClock, type Clock } from './clock.ts'
 import { validateRuntimeOptions, type RuntimeOptions } from './config.ts'
 import { inventoryPage, stockMovements, adjustStock, adjustmentReceipt } from './inventory.ts'
 
-export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean }
+export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock }
 const idSchema = z.string().min(1).max(100)
 const credentials = z.object({ account: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/), password: z.string().min(8).max(128) })
 const pageSchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(10), orderState: z.coerce.number().int().min(0).max(6).default(0) })
@@ -28,9 +30,11 @@ function maskNickname(nickname: string): string { const chars = Array.from(nickn
 export async function buildApp(options: AppOptions) {
   validateRuntimeOptions(options)
   const db = new Database(options.databasePath)
-  const accounts = new Accounts(db, options.publicUrl), catalog = new Catalog(db, options.publicUrl)
-  const orders = new Orders(db, accounts, catalog, options.mockPayments)
-  catalog.seed()
+  const clock = options.clock ?? systemClock
+  const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
+  const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
+  if (!options.testFixtures) catalog.seed()
+  const fixtures = options.testFixtures ? new TestFixtures(accounts, options.testFixtures.credential) : undefined
   const app = Fastify({ logger: options.logger ?? false, logController: new LogController({ disableRequestLogging: true }),
     bodyLimit: 1024 * 1024, trustProxy: options.trustedProxies?.length ? options.trustedProxies : false })
   if (options.production && options.corsOrigins?.includes('null')) app.log.warn('CORS_ORIGINS 显式允许 Origin null：已开放打包 ArkWeb 等不透明来源，请仅在需要内嵌 H5 时启用并保留 Bearer token 鉴权')
@@ -58,6 +62,7 @@ export async function buildApp(options: AppOptions) {
   const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User) => unknown) => {
     app.route({ method, url, handler: async req => ok(await handler(req, accounts.authenticate(req.headers.authorization))) })
   }
+  if (fixtures) registerFixtureRoutes(app, fixtures)
   app.options('/*', async (_req, reply) => reply.code(204).send())
   app.get('/health', async () => ok({ status: 'ok', mockPayments: options.mockPayments }))
   app.get('/ready', async () => ok(db.one('SELECT 1 AS ready')))
@@ -196,9 +201,9 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/merchant/inventory/:id/adjustments', (req, user) =>
     adjustStock(db, user, key(req), z.object({ requestKey: z.string().uuid(),
       delta: z.number().int().min(-1000000).max(1000000).refine(value => value !== 0),
-      expectedStock: z.number().int().min(0).max(2147483647), reason: z.string().trim().min(5).max(200) }).parse(req.body)))
+      expectedStock: z.number().int().min(0).max(2147483647), reason: z.string().trim().min(5).max(200) }).parse(req.body), clock))
   protectedRoute('POST', '/merchant/orders/:id/ship', (req, user) => orders.ship(user, key(req)))
   const timer = setInterval(() => { try { orders.expire() } catch { app.log.error('Order expiration failed') } }, 30_000).unref()
   app.addHook('onClose', async () => { clearInterval(timer); db.close() })
-  return { app, db, accounts }
+  return { app, db, accounts, catalog, orders, clock, fixtures }
 }

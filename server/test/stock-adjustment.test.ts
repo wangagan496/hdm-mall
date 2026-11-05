@@ -6,19 +6,25 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { Database } from '../src/database.ts'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
 import { adjustStock } from '../src/inventory.ts'
 import { createBackup, restoreBackup } from '../src/backup.ts'
 
+const priceCents = 2531, initialStock = 20
+const productInput = { id: 'adjust-product', name: '独立测试商品', category: '测试分类',
+  skus: [{ id: 'adjust-product-a', spec: '标准', priceCents, stock: initialStock },
+    { id: 'adjust-product-b', spec: '加大', priceCents: priceCents + 517, stock: 10 }] }
+
 async function fixture() {
-  const f = await buildApp({ databasePath: ':memory:', uploadsPath: './unused', publicUrl: 'http://127.0.0.1:3000', mockPayments: true })
+  const f = await buildTestApp({ databasePath: ':memory:', uploadsPath: './unused', publicUrl: 'http://127.0.0.1:3000', mockPayments: true })
+  f.testData.product(productInput)
   for (const account of ['merchant_one', 'merchant_two', 'normal_buyer']) f.accounts.register(account, 'test-password-123', account === 'normal_buyer' ? 'buyer' : 'merchant')
   const merchant = f.accounts.login('merchant_one', 'test-password-123')
   const other = f.accounts.login('merchant_two', 'test-password-123')
   const buyer = f.accounts.login('normal_buyer', 'test-password-123')
-  const payload = (delta = 3, expectedStock = 20) => ({ requestKey: randomUUID(), delta, expectedStock, reason: '仓库盘点补充库存' })
-  const put = (data: object, token = merchant.token, sku = 'hdm-1-a') => f.app.inject({ method: 'PUT', url: `/merchant/inventory/${sku}/adjustments`, headers: { authorization: `Bearer ${token}` }, payload: data })
-  const stock = () => f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock
+  const payload = (delta = 3, expectedStock = initialStock) => ({ requestKey: randomUUID(), delta, expectedStock, reason: '仓库盘点补充库存' })
+  const put = (data: object, token = merchant.token, sku = 'adjust-product-a') => f.app.inject({ method: 'PUT', url: `/merchant/inventory/${sku}/adjustments`, headers: { authorization: `Bearer ${token}` }, payload: data })
+  const stock = () => f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'adjust-product-a')!.stock
   const rows = () => f.db.all("SELECT * FROM inventory_movements WHERE kind='adjust'")
   return { ...f, merchant, other, buyer, payload, put, stock, rows }
 }
@@ -28,15 +34,15 @@ test('库存调整记录原因及操作者，重复请求返回原凭据且不�
   try {
     const data = f.payload(), first = await f.put(data)
     assert.equal(first.statusCode, 200)
-    assert.equal(first.json().result.balance, 23)
-    assert.equal(f.stock(), 23)
-    assert.equal((await f.put(f.payload(-2, 23))).statusCode, 200)
+    assert.equal(first.json().result.balance, initialStock + 3)
+    assert.equal(f.stock(), initialStock + 3)
+    assert.equal((await f.put(f.payload(-2, initialStock + 3))).statusCode, 200)
     assert.deepEqual((await f.put(data)).json(), first.json())
-    assert.equal(f.stock(), 21); assert.equal(f.rows().length, 2)
-    for (const changed of [{ ...data, reason: '另一次不同原因' }, { ...data, delta: 4 }, { ...data, expectedStock: 21 }]) {
+    assert.equal(f.stock(), initialStock + 1); assert.equal(f.rows().length, 2)
+    for (const changed of [{ ...data, reason: '另一次不同原因' }, { ...data, delta: 4 }, { ...data, expectedStock: initialStock + 1 }]) {
       assert.equal((await f.put(changed)).statusCode, 409)
     }
-    assert.equal((await f.put(data, f.merchant.token, 'hdm-1-b')).statusCode, 409)
+    assert.equal((await f.put(data, f.merchant.token, 'adjust-product-b')).statusCode, 409)
     const row = f.db.one<{ actor_id: string; reason: string }>("SELECT * FROM inventory_movements WHERE kind='adjust' ORDER BY id")!
     assert.equal(row.actor_id, f.merchant.id); assert.equal(row.reason, data.reason)
     const result = await f.app.inject({ url: `/merchant/inventory/adjustments/${data.requestKey}`, headers: { authorization: `Bearer ${f.merchant.token}` } })
@@ -53,11 +59,11 @@ test('买家和匿名不能调库存，非法数量原因、库存不足、过�
     for (const changed of [{ delta: 0 }, { delta: 0.5 }, { delta: 1000001 }, { expectedStock: -1 }, { reason: '太短' }, { requestKey: 'invalid' }]) {
       assert.equal((await f.put({ ...f.payload(), ...changed })).statusCode, 400)
     }
-    assert.equal((await f.put(f.payload(-21))).statusCode, 409)
-    assert.equal((await f.put(f.payload(3, 19))).statusCode, 409)
-    assert.equal(f.stock(), 20); assert.equal(f.rows().length, 0)
-    f.db.run('UPDATE skus SET stock=19 WHERE id=?', 'hdm-1-a')
-    assert.equal((await f.put(f.payload(1, 19))).statusCode, 409)
+    assert.equal((await f.put(f.payload(-initialStock - 1))).statusCode, 409)
+    assert.equal((await f.put(f.payload(3, initialStock - 1))).statusCode, 409)
+    assert.equal(f.stock(), initialStock); assert.equal(f.rows().length, 0)
+    f.db.run('UPDATE skus SET stock=? WHERE id=?', initialStock - 1, 'adjust-product-a')
+    assert.equal((await f.put(f.payload(1, initialStock - 1))).statusCode, 409)
     assert.equal(f.rows().length, 0)
   } finally { await f.app.close() }
 })
@@ -67,11 +73,11 @@ test('重复请求幂等：旧库存连续提交只成功一个，相同编号�
   try {
     const results = await Promise.all([f.put(f.payload()), f.put(f.payload())])
     assert.deepEqual(results.map(r => r.statusCode).sort(), [200, 409])
-    const data = f.payload(2, 23)
+    const data = f.payload(2, initialStock + 3)
     const repeated = await Promise.all([f.put(data), f.put(data)])
     assert.ok(repeated.every(r => r.statusCode === 200))
     assert.deepEqual(repeated[0]!.json(), repeated[1]!.json())
-    assert.equal(f.stock(), 25); assert.equal(f.rows().length, 2)
+    assert.equal(f.stock(), initialStock + 5); assert.equal(f.rows().length, 2)
   } finally { await f.app.close() }
 })
 
@@ -82,9 +88,9 @@ test('调整流水写失败时库存回滚，同一编号可在修复后重试',
     f.db.run = (sql, ...params) => { if (sql.includes("VALUES(?,?,'adjust'")) throw new Error('injected adjustment failure'); return run(sql, ...params) }
     assert.equal((await f.put(data)).statusCode, 500)
     f.db.run = run
-    assert.equal(f.stock(), 20); assert.equal(f.rows().length, 0)
+    assert.equal(f.stock(), initialStock); assert.equal(f.rows().length, 0)
     assert.equal((await f.put(data)).statusCode, 200)
-    assert.equal(f.stock(), 23); assert.equal(f.rows().length, 1)
+    assert.equal(f.stock(), initialStock + 3); assert.equal(f.rows().length, 1)
   } finally { await f.app.close() }
 })
 
@@ -96,7 +102,7 @@ async function createV3(path: string) {
       CREATE TABLE product_categories(product_id TEXT PRIMARY KEY REFERENCES products(id),category_id TEXT NOT NULL REFERENCES categories(id));
       INSERT INTO users VALUES('merchant','merchant','unused','商家','merchant','{}');
       INSERT INTO products VALUES('product','商品','测试','/assets/product.svg','测试');
-      INSERT INTO skus VALUES('sku','product','规格',1900,20);`)
+      INSERT INTO skus VALUES('sku','product','规格',2531,20);`)
     db.exec(await readFile(new URL('../src/migrations/003-inventory.sql', import.meta.url), 'utf8'))
   } finally { db.close() }
 }

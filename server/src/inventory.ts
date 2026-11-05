@@ -1,5 +1,6 @@
 import type { User } from './accounts.ts'
 import { Database } from './database.ts'
+import { systemClock, type Clock } from './clock.ts'
 import { ensure } from './errors.ts'
 
 type Movement = { skuId: string; delta: number } & (
@@ -9,7 +10,7 @@ type Movement = { skuId: string; delta: number } & (
 )
 
 // 与库存更新共用调用者的事务；流水写入失败必须让整笔业务回滚。
-export function recordStockMovement(db: Database, movement: Movement) {
+export function recordStockMovement(db: Database, movement: Movement, clock: Clock = systemClock) {
   const stock = db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', movement.skuId)
   ensure(stock, 404, '商品规格不存在')
   const orderId = movement.kind === 'opening' ? null : movement.orderId
@@ -17,7 +18,7 @@ export function recordStockMovement(db: Database, movement: Movement) {
   const businessKey = movement.kind === 'opening' ? `opening:${movement.skuId}` :
     `${movement.kind === 'reserve' ? 'reserve' : 'release'}:${orderId}:${movement.skuId}`
   db.run('INSERT INTO inventory_movements(sku_id,order_id,actor_id,kind,delta,balance,business_key,created) VALUES(?,?,?,?,?,?,?,?)',
-    movement.skuId, orderId, actorId, movement.kind, movement.delta, stock.stock, businessKey, Date.now())
+    movement.skuId, orderId, actorId, movement.kind, movement.delta, stock.stock, businessKey, clock.now())
 }
 
 interface PageQuery { page: number; pageSize: number }
@@ -60,7 +61,7 @@ export function adjustmentReceipt(db: Database, user: User, requestKey: string) 
   return receipt
 }
 
-export function adjustStock(db: Database, user: User, skuId: string, data: StockAdjustment) {
+export function adjustStock(db: Database, user: User, skuId: string, data: StockAdjustment, clock: Clock = systemClock) {
   ensure(user.role === 'merchant', 403, '需要商家权限')
   return db.transaction(() => {
     const existing = findAdjustment(db, user, data.requestKey)
@@ -78,7 +79,7 @@ export function adjustStock(db: Database, user: User, skuId: string, data: Stock
     ensure(Number.isSafeInteger(balance) && balance >= 0 && balance <= 2147483647, 409, '调整后库存超出允许范围')
     db.run('UPDATE skus SET stock=? WHERE id=?', balance, skuId)
     db.run(`INSERT INTO inventory_movements(sku_id,actor_id,kind,delta,balance,business_key,created,reason)
-      VALUES(?,?,'adjust',?,?,?,?,?)`, skuId, user.id, data.delta, balance, `adjust:${user.id}:${data.requestKey}`, Date.now(), data.reason)
+      VALUES(?,?,'adjust',?,?,?,?,?)`, skuId, user.id, data.delta, balance, `adjust:${user.id}:${data.requestKey}`, clock.now(), data.reason)
     return findAdjustment(db, user, data.requestKey)!
   })
 }

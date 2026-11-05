@@ -4,6 +4,8 @@ import { z } from 'zod'
 export interface RuntimeOptions {
   publicUrl: string
   mockPayments: boolean
+  testMode?: boolean
+  testFixtures?: { credential: string }
   production?: boolean
   corsOrigins?: string[]
   trustedProxies?: string[]
@@ -27,6 +29,13 @@ function localHostname(hostname: string): boolean {
 }
 
 export function validateRuntimeOptions(options: RuntimeOptions): void {
+  if (options.testFixtures) {
+    if (options.production) throw new Error('正式环境禁止启用测试夹具')
+    if (!options.testMode) throw new Error('测试夹具必须显式开启测试模式')
+    if (typeof options.testFixtures.credential !== 'string' || options.testFixtures.credential.length < 32) {
+      throw new Error('测试凭证至少需要 32 个字符')
+    }
+  }
   const publicUrl = originUrl(options.publicUrl, 'PUBLIC_URL')
   if (options.production && options.mockPayments) throw new Error('正式环境禁止启用模拟支付')
   if (options.production && (publicUrl.protocol !== 'https:' || localHostname(publicUrl.hostname))) {

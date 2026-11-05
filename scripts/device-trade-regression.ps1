@@ -127,7 +127,7 @@ function Checkout {
   Wait-Text '结算'
   Tap-Text '提交订单'
   Tap-Text '立即支付'
-  Wait-Text '确认支付 ¥19.00'
+  Wait-Text $PaymentText
 }
 function Ship {
   Login 'device_merchant'
@@ -167,6 +167,11 @@ try {
     } catch { Start-Sleep -Milliseconds 200 }
   }
   if (-not $Ready) { throw 'Isolated backend did not start.' }
+  if (-not $Identity.skuId -or $Identity.amountCents -le 0 -or $Identity.initialStock -lt 11) { throw 'Isolated fixture product metadata is invalid.' }
+  $SkuId = [string]$Identity.skuId
+  $AmountCents = [int]$Identity.amountCents
+  $InitialStock = [int]$Identity.initialStock
+  $PaymentText = '确认支付 ¥' + ([decimal]$AmountCents / 100).ToString('F2', [System.Globalization.CultureInfo]::InvariantCulture)
   if ($HadOriginal) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3000'); $OriginalRemoved=$true }
   $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103'); $Mapped=$true
   $null = Invoke-Hdc @('install','-r',"$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app")
@@ -240,8 +245,8 @@ try {
   }
   if ($ShipProbe) {
     $Addresses = @(Api 'device_buyer' '/member/address')
-    $Order = Api 'device_buyer' '/member/order' 'Post' @{requestKey=[guid]::NewGuid().ToString(); addressId=$Addresses[0].id; goods=@(@{skuId='hdm-1-a'; count=1})}
-    $null = Api 'device_buyer' "/member/order/$($Order.id)/mock-pay" 'Post' @{amountCents=1900}
+    $Order = Api 'device_buyer' '/member/order' 'Post' @{requestKey=[guid]::NewGuid().ToString(); addressId=$Addresses[0].id; goods=@(@{skuId=$SkuId; count=1})}
+    $null = Api 'device_buyer' "/member/order/$($Order.id)/mock-pay" 'Post' @{amountCents=$AmountCents}
     Ship
     $null = Assert-State $Order.id 3
     Write-Output "SCRIPT $PSCommandPath RESULT native merchant shipment probe passed"
@@ -250,7 +255,7 @@ try {
   Login 'device_buyer'
   Checkout
   $SelfOrder = (Orders)[0].id
-  Tap-Text '确认支付 ¥19.00'
+  Tap-Text $PaymentText
   $null = Assert-State $SelfOrder 2
   Ship
   $null = Assert-State $SelfOrder 3
@@ -274,7 +279,7 @@ try {
   Tap-Text '亲友中心 · 代付与代收'
   Scroll-Text '同意绑定'
   Wait-Text '已绑定'
-  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId='hdm-1-a'; count=1}
+  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1}
   # 在账号登录触发购物袋加载前准备数据，避免外部夹具修改绕过客户端更新事件。
   Login 'device_buyer'
   Checkout
@@ -306,9 +311,9 @@ try {
   Review 'device family trade review'
   $Family = Assert-State $FamilyOrder 5
   if ($Family.payerAccount -ne 'device_friend' -or $Family.receivedByAccount -ne 'device_friend') { throw 'Family participant proof failed' }
-  $Inventory = Api 'device_merchant' '/merchant/inventory?skuId=hdm-1-a'
-  $Movements = Api 'device_merchant' '/merchant/inventory/hdm-1-a/movements'
-  if ((Orders).Count -ne 2 -or $Inventory.items[0].stock -ne 18 -or $Inventory.items[0].difference -ne 0 -or @($Movements.items | Where-Object { $_.kind -eq 'reserve' }).Count -ne 2) { throw 'Final order and inventory proof failed' }
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $Movements = Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
+  if ((Orders).Count -ne 2 -or $Inventory.items[0].stock -ne ($InitialStock - 2) -or $Inventory.items[0].difference -ne 0 -or @($Movements.items | Where-Object { $_.kind -eq 'reserve' }).Count -ne 2) { throw 'Final order and inventory proof failed' }
   Capture 'family-completed'
   $Report = [ordered]@{
     completedAt = (Get-Date).ToString('o'); target = $Target; mode = 'Full'; result = 'passed'
@@ -319,7 +324,7 @@ try {
     reserves = @($Movements.items | Where-Object { $_.kind -eq 'reserve' }).Count
   }
   $Report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$Output/result.json" -Encoding utf8
-  Write-Output "SCRIPT $PSCommandPath RESULT self and family native trade, account switching, two reviewed orders and stock 20->18 passed"
+  Write-Output "SCRIPT $PSCommandPath RESULT self and family native trade, account switching, two reviewed orders and stock $InitialStock->$($InitialStock - 2) passed"
 } catch {
   Capture 'failure'
   throw

@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import { Database } from './database.ts'
+import { systemClock, type Clock } from './clock.ts'
 import { AppError, ensure } from './errors.ts'
 import { localAvatarPath } from './avatar.ts'
 
@@ -9,7 +10,10 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 export class Accounts {
   db: Database
   publicUrl: string
-  constructor(db: Database, publicUrl: string) { this.db = db; this.publicUrl = publicUrl.replace(/\/$/, '') }
+  readonly clock: Clock
+  constructor(db: Database, publicUrl: string, clock: Clock = systemClock) {
+    this.db = db; this.publicUrl = publicUrl.replace(/\/$/, ''); this.clock = clock
+  }
   register(account: string, password: string, role: User['role'] = 'buyer') {
     const salt = randomBytes(16).toString('hex')
     const hash = scryptSync(password, salt, 64).toString('hex')
@@ -27,13 +31,13 @@ export class Accounts {
     const valid = timingSafeEqual(scryptSync(password, salt!, 64), Buffer.from(hash!, 'hex'))
     ensure(user && valid, 401, '账号或密码不正确')
     const token = randomBytes(32).toString('hex')
-    this.db.run('DELETE FROM sessions WHERE expires<?', Date.now())
-    this.db.run('INSERT INTO sessions VALUES(?,?,?)', digest(token), user.id, Date.now() + 24 * 3600_000)
+    this.db.run('DELETE FROM sessions WHERE expires<?', this.clock.now())
+    this.db.run('INSERT INTO sessions VALUES(?,?,?)', digest(token), user.id, this.clock.now() + 24 * 3600_000)
     return { ...this.profile(user), token }
   }
   authenticate(authorization: string | undefined): User {
     ensure(authorization && authorization.startsWith('Bearer '), 401, '请先登录')
-    const user = this.db.one<User>('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.digest=? AND s.expires>?', digest(authorization.slice(7)), Date.now())
+    const user = this.db.one<User>('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.digest=? AND s.expires>?', digest(authorization.slice(7)), this.clock.now())
     ensure(user, 401, '登录已过期，请重新登录')
     return user
   }
@@ -74,7 +78,7 @@ export class Accounts {
       if (existing && existing.status !== 'revoked') return { id: existing.id }
       const id = randomUUID()
       if (existing) this.db.run('DELETE FROM relations WHERE id=?', existing.id)
-      this.db.run('INSERT INTO relations VALUES(?,?,?,?,?)', id, user.id, friend.id, 'pending', Date.now())
+      this.db.run('INSERT INTO relations VALUES(?,?,?,?,?)', id, user.id, friend.id, 'pending', this.clock.now())
       return { id }
     })
   }

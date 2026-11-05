@@ -5,14 +5,20 @@ import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
 import { Database } from '../src/database.ts'
 import { Catalog } from '../src/catalog.ts'
 import { Orders } from '../src/orders.ts'
 import { createBackup, restoreBackup, verifyBackup } from '../src/backup.ts'
 
+const priceCents = 2371, initialStock = 23
+const productInput = { id: 'inventory-product', name: '独立测试商品', category: '测试分类',
+  skus: [{ id: 'inventory-product-a', spec: '标准', priceCents, stock: initialStock },
+    { id: 'inventory-product-b', spec: '加大', priceCents: priceCents + 517, stock: 10 }] }
+
 async function fixture(databasePath = ':memory:') {
-  const ctx = await buildApp({ databasePath, uploadsPath: './unused', publicUrl: 'http://127.0.0.1:3000', mockPayments: true })
+  const ctx = await buildTestApp({ databasePath, uploadsPath: './unused', publicUrl: 'http://127.0.0.1:3000', mockPayments: true })
+  ctx.testData.product(productInput)
   ctx.accounts.register('stock_buyer', 'test-password-123')
   ctx.accounts.register('stock_merchant', 'test-password-123', 'merchant')
   const buyer = ctx.accounts.login('stock_buyer', 'test-password-123')
@@ -22,7 +28,7 @@ async function fixture(databasePath = ':memory:') {
   const catalog = new Catalog(ctx.db, 'http://127.0.0.1:3000')
   const orders = new Orders(ctx.db, ctx.accounts, catalog, true)
   const create = (count = 1, requestKey = randomUUID()) => orders.create(user, {
-    addressId: address.id, requestKey, goods: [{ skuId: 'hdm-1-a', count }]
+    addressId: address.id, requestKey, goods: [{ skuId: 'inventory-product-a', count }]
   }).id
   const ledger = () => ctx.db.all('SELECT * FROM inventory_movements ORDER BY id')
   const reconcile = () => ctx.db.all(`SELECT s.id FROM skus s LEFT JOIN inventory_movements m ON m.sku_id=s.id
@@ -33,21 +39,24 @@ async function fixture(databasePath = ':memory:') {
 test('初始化与重复下单取消都只记一次流水，数量余额操作者可追溯', async () => {
   const f = await fixture()
   try {
-    assert.equal(f.ledger().length, 8)
-    f.catalog.seed(); f.catalog.seed()
-    assert.equal(f.ledger().length, 8)
+    assert.equal(f.ledger().length, productInput.skus.length)
+    f.catalog.seed()
+    const seeded = f.ledger().length
+    assert.equal(seeded, productInput.skus.length + 8)
+    f.catalog.seed()
+    assert.equal(f.ledger().length, seeded)
     const key = randomUUID(), id = f.create(2, key)
     assert.equal(f.create(2, key), id)
     assert.throws(() => f.create(3, key), /同一次下单/)
     const reservation = f.db.one<{ delta: number; balance: number; actor_id: string; business_key: string }>(
       'SELECT * FROM inventory_movements WHERE order_id=?', id)!
-    assert.equal(reservation.delta, -2); assert.equal(reservation.balance, 18)
+    assert.equal(reservation.delta, -2); assert.equal(reservation.balance, initialStock - 2)
     assert.equal(reservation.actor_id, f.user.id)
-    assert.equal(reservation.business_key, `reserve:${id}:hdm-1-a`)
+    assert.equal(reservation.business_key, `reserve:${id}:inventory-product-a`)
     f.orders.cancel(f.user, id); f.orders.cancel(f.user, id)
     const rows = f.db.all<{ kind: string; delta: number; balance: number; actor_id: string }>(
       'SELECT * FROM inventory_movements WHERE order_id=? ORDER BY id', id)
-    assert.deepEqual(rows.map(row => [row.kind, row.delta, row.balance]), [['reserve', -2, 18], ['cancel', 2, 20]])
+    assert.deepEqual(rows.map(row => [row.kind, row.delta, row.balance]), [['reserve', -2, initialStock - 2], ['cancel', 2, initialStock]])
     assert.equal(rows[1]!.actor_id, f.user.id)
     assert.deepEqual(f.reconcile(), [])
   } finally { await f.app.close() }
@@ -64,7 +73,7 @@ test('超时归还标明系统操作，重复扫描和已付款订单不重复�
     assert.equal(released.length, 1)
     assert.equal(released[0]!.kind, 'expire'); assert.equal(released[0]!.actor_id, null); assert.equal(released[0]!.delta, 2)
     const paid = f.create()
-    f.orders.pay(f.user, paid, 1900)
+    f.orders.pay(f.user, paid, priceCents)
     f.db.run('UPDATE orders SET expires=0 WHERE id=?', paid)
     f.orders.expire()
     assert.throws(() => f.orders.cancel(f.user, paid), /只有未付款/)
@@ -76,7 +85,7 @@ test('超时归还标明系统操作，重复扫描和已付款订单不重复�
 test('流水写失败时下单及归还整笔回滚，已写的其他规格流水也撤销', async () => {
   const f = await fixture()
   try {
-    f.catalog.addCart(f.user, 'hdm-1-a', 1)
+    f.catalog.addCart(f.user, 'inventory-product-a', 1)
     const before = f.ledger(), original = f.db.run.bind(f.db)
     let writes = 0
     f.db.run = (sql, ...params) => {
@@ -84,7 +93,7 @@ test('流水写失败时下单及归还整笔回滚，已写的其他规格流�
       return original(sql, ...params)
     }
     assert.throws(() => f.orders.create(f.user, { addressId: f.address.id, requestKey: randomUUID(),
-      goods: [{ skuId: 'hdm-1-a', count: 1 }, { skuId: 'hdm-1-b', count: 1 }] }), /ledger write failure/)
+      goods: [{ skuId: 'inventory-product-a', count: 1 }, { skuId: 'inventory-product-b', count: 1 }] }), /ledger write failure/)
     f.db.run = original
     assert.deepEqual(f.ledger(), before)
     assert.equal(f.db.all('SELECT * FROM orders').length, 0)
@@ -99,7 +108,7 @@ test('流水写失败时下单及归还整笔回滚，已写的其他规格流�
     f.db.run = original
     assert.equal(f.orders.detail(f.user, id).orderState, 1)
     assert.deepEqual(f.ledger(), reserved)
-    assert.equal(f.catalog.sku('hdm-1-a').stock, 18)
+    assert.equal(f.catalog.sku('inventory-product-a').stock, initialStock - 2)
     f.orders.cancel(f.user, id)
     assert.deepEqual(f.reconcile(), [])
   } finally { await f.app.close() }
@@ -119,7 +128,7 @@ test('同批到期处理失败全部回滚，重新处理只记一次归还', as
     assert.throws(() => f.orders.expire(), /expiry failure/)
     f.db.run = original
     assert.deepEqual(f.ledger(), before)
-    assert.equal(f.catalog.sku('hdm-1-a').stock, 18)
+    assert.equal(f.catalog.sku('inventory-product-a').stock, initialStock - 2)
     assert.equal(f.db.all('SELECT id FROM orders WHERE state=1').length, 2)
     f.orders.expire(); f.orders.expire()
     assert.equal(f.db.all("SELECT id FROM inventory_movements WHERE kind='expire'").length, 2)
@@ -132,24 +141,24 @@ test('商家按规格分页核对流水，买家和匿名请求不能访问，�
   try {
     const id = f.create(); f.orders.cancel(f.user, id)
     const auth = { authorization: `Bearer ${f.merchant.token}` }
-    for (const url of ['/merchant/inventory', '/merchant/inventory/hdm-1-a/movements']) {
+    for (const url of ['/merchant/inventory', '/merchant/inventory/inventory-product-a/movements']) {
       assert.equal((await f.app.inject({ url })).statusCode, 401)
       assert.equal((await f.app.inject({ url, headers: { authorization: `Bearer ${f.buyer.token}` } })).statusCode, 403)
     }
-    const page = await f.app.inject({ url: '/merchant/inventory/hdm-1-a/movements?pageSize=2', headers: auth })
+    const page = await f.app.inject({ url: '/merchant/inventory/inventory-product-a/movements?pageSize=2', headers: auth })
     assert.equal(page.statusCode, 200)
     assert.equal(page.json().result.counts, 3)
     assert.deepEqual(page.json().result.items.map((item: { kind: string }) => item.kind), ['cancel', 'reserve'])
-    const next = await f.app.inject({ url: '/merchant/inventory/hdm-1-a/movements?pageSize=2&page=2', headers: auth })
+    const next = await f.app.inject({ url: '/merchant/inventory/inventory-product-a/movements?pageSize=2&page=2', headers: auth })
     assert.equal(next.json().result.items[0].kind, 'opening')
     assert.equal((await f.app.inject({ url: '/merchant/inventory/missing/movements', headers: auth })).statusCode, 404)
     assert.equal((await f.app.inject({ url: '/merchant/inventory?pageSize=101', headers: auth })).statusCode, 400)
-    const clean = await f.app.inject({ url: '/merchant/inventory?skuId=hdm-1-a', headers: auth })
+    const clean = await f.app.inject({ url: '/merchant/inventory?skuId=inventory-product-a', headers: auth })
     assert.equal(clean.json().result.counts, 1)
     assert.equal(clean.json().result.items[0].difference, 0)
-    f.db.run('UPDATE skus SET stock=19 WHERE id=?', 'hdm-1-a')
-    const dirty = await f.app.inject({ url: '/merchant/inventory?skuId=hdm-1-a', headers: auth })
-    assert.equal(dirty.json().result.items[0].recordedStock, 20)
+    f.db.run('UPDATE skus SET stock=? WHERE id=?', initialStock - 1, 'inventory-product-a')
+    const dirty = await f.app.inject({ url: '/merchant/inventory?skuId=inventory-product-a', headers: auth })
+    assert.equal(dirty.json().result.items[0].recordedStock, initialStock)
     assert.equal(dirty.json().result.items[0].difference, -1)
   } finally { await f.app.close() }
 })
@@ -157,10 +166,10 @@ test('商家按规格分页核对流水，买家和匿名请求不能访问，�
 test('重复请求幂等：最后一件连续下单只记成功订单，流水不可更新、删除或重复释放', async () => {
   const f = await fixture()
   try {
-    f.create(19)
+    f.create(initialStock - 1)
     const results = await Promise.all([1, 2].map(() => f.app.inject({ method: 'POST', url: '/member/order',
       headers: { authorization: `Bearer ${f.buyer.token}` }, payload: { addressId: f.address.id, requestKey: randomUUID(),
-        goods: [{ skuId: 'hdm-1-a', count: 1 }] } })))
+        goods: [{ skuId: 'inventory-product-a', count: 1 }] } })))
     assert.deepEqual(results.map(result => result.statusCode).sort(), [200, 409])
     assert.equal(f.db.all("SELECT id FROM inventory_movements WHERE kind='reserve'").length, 2)
     assert.deepEqual(f.reconcile(), [])
@@ -169,8 +178,8 @@ test('重复请求幂等：最后一件连续下单只记成功订单，流水�
     assert.throws(() => f.db.run('UPDATE inventory_movements SET delta=100 WHERE id=1'), /append-only/)
     assert.throws(() => f.db.run('DELETE FROM inventory_movements WHERE id=1'), /append-only/)
     assert.throws(() => f.db.run(`INSERT INTO inventory_movements(sku_id,order_id,kind,delta,balance,business_key,created)
-      VALUES(?,?,'expire',1,2,'another-key',0)`, 'hdm-1-a', id), /UNIQUE/)
-    assert.equal(f.catalog.sku('hdm-1-a').stock, 1)
+      VALUES(?,?,'expire',1,2,'another-key',0)`, 'inventory-product-a', id), /UNIQUE/)
+    assert.equal(f.catalog.sku('inventory-product-a').stock, 1)
     assert.deepEqual(f.reconcile(), [])
   } finally { await f.app.close() }
 })
@@ -189,28 +198,28 @@ async function legacyFixture(path: string) {
 test('v2 备份仍可恢复并升级，历史待付款取消只记录真实归还，重启不重复基线', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hdm-stock-migration-'))
   const path = join(root, 'live', 'mall.sqlite')
-  let ctx: Awaited<ReturnType<typeof buildApp>> | undefined
+  let ctx: Awaited<ReturnType<typeof buildTestApp>> | undefined
   try {
     const id = await legacyFixture(path)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'v2-backup') })
     assert.equal(backup.manifest.schemaVersion, 2)
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const options = { databasePath: join(restored.root, 'mall.sqlite'), uploadsPath: join(restored.root, 'uploads'), publicUrl: 'http://127.0.0.1:3000', mockPayments: true }
-    ctx = await buildApp(options)
+    ctx = await buildTestApp(options)
     assert.equal(ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 6)
-    assert.equal(ctx.db.all('SELECT * FROM inventory_movements').length, 8)
-    assert.equal(ctx.db.one<{ delta: number }>('SELECT delta FROM inventory_movements WHERE sku_id=?', 'hdm-1-a')!.delta, 18)
+    assert.equal(ctx.db.all('SELECT * FROM inventory_movements').length, productInput.skus.length)
+    assert.equal(ctx.db.one<{ delta: number }>('SELECT delta FROM inventory_movements WHERE sku_id=?', 'inventory-product-a')!.delta, initialStock - 2)
     const user = ctx.accounts.login('stock_buyer', 'test-password-123')
     const response = await ctx.app.inject({ method: 'PUT', url: `/member/order/${id}/cancel`, headers: { authorization: `Bearer ${user.token}` } })
     assert.equal(response.statusCode, 200)
     assert.equal(ctx.db.all('SELECT * FROM inventory_movements WHERE order_id=?', id).length, 1)
-    assert.equal(ctx.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 20)
+    assert.equal(ctx.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'inventory-product-a')!.stock, initialStock)
     const nextBackup = await createBackup({ databasePath: options.databasePath, uploadsPath: options.uploadsPath, destination: join(root, 'v3-backup') })
     assert.equal(nextBackup.manifest.schemaVersion, 6)
-    assert.equal(nextBackup.counts.inventory_movements, 9)
+    assert.equal(nextBackup.counts.inventory_movements, productInput.skus.length + 1)
     await ctx.app.close(); ctx = undefined
-    ctx = await buildApp(options)
-    assert.equal(ctx.db.all('SELECT * FROM inventory_movements').length, 9)
+    ctx = await buildTestApp(options)
+    assert.equal(ctx.db.all('SELECT * FROM inventory_movements').length, productInput.skus.length + 1)
   } finally { await ctx?.app.close(); await rm(root, { recursive: true, force: true }) }
 })
 
@@ -227,11 +236,11 @@ test('v3 迁移中途失败会回滚表与版本并关闭连接，修正冲突�
     try {
       assert.equal(check.prepare('PRAGMA user_version').get()!.user_version, 2)
       assert.equal(check.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name='inventory_movements'").get()!.count, 0)
-      assert.equal(check.prepare('SELECT stock FROM skus WHERE id=?').get('hdm-1-a')!.stock, 18)
+      assert.equal(check.prepare('SELECT stock FROM skus WHERE id=?').get('inventory-product-a')!.stock, initialStock - 2)
       check.exec('DROP TRIGGER inventory_no_update')
     } finally { check.close() }
     const migrated = new Database(path)
-    try { assert.equal(migrated.all('SELECT * FROM inventory_movements').length, 8) }
+    try { assert.equal(migrated.all('SELECT * FROM inventory_movements').length, productInput.skus.length) }
     finally { migrated.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
@@ -243,11 +252,11 @@ test('库存流水不一致写入快照，未登记的不一致即使重填哈�
   try {
     const options = { databasePath: path, uploadsPath: join(root, 'live', 'uploads') }
     const backup = await createBackup({ ...options, destination: join(root, 'valid') })
-    f.db.run('UPDATE skus SET stock=19 WHERE id=?', 'hdm-1-a')
+    f.db.run('UPDATE skus SET stock=? WHERE id=?', initialStock - 1, 'inventory-product-a')
     const inconsistent = await createBackup({ ...options, destination: join(root, 'invalid') })
-    assert.deepEqual(inconsistent.manifest.issues, [{ type: 'inventory-mismatch', skuId: 'hdm-1-a' }])
+    assert.deepEqual(inconsistent.manifest.issues, [{ type: 'inventory-mismatch', skuId: 'inventory-product-a' }])
     const snapshot = join(backup.root, 'mall.sqlite'), changed = new DatabaseSync(snapshot)
-    try { changed.prepare('UPDATE skus SET stock=19 WHERE id=?').run('hdm-1-a') } finally { changed.close() }
+    try { changed.prepare('UPDATE skus SET stock=? WHERE id=?').run(initialStock - 1, 'inventory-product-a') } finally { changed.close() }
     const bytes = await readFile(snapshot)
     backup.manifest.files[0] = { path: 'mall.sqlite', bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }
     await writeFile(join(backup.root, 'manifest.json'), JSON.stringify(backup.manifest))

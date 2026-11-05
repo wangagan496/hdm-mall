@@ -1,20 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
 
 const options = { databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' }
 test('首页新增分页只读当前页，分类摘要不加载商品正文且售罄分类隐藏', async () => {
-  const f = await buildApp(options)
+  const f = await buildTestApp(options)
   try {
-    f.db.transaction(() => {
-      for (let i = 0; i < 1000; i++) {
-        const id = `bulk-${String(i).padStart(4, '0')}`
-        f.db.run('INSERT INTO products VALUES(?,?,?,?,?)', id, id, '服饰', '/assets/product.svg', '详情')
-        f.db.run('INSERT INTO skus VALUES(?,?,?,?,?)', id + '-sku', id, '标准', 100, 2)
-        const child = f.db.one<{ category_id: string }>('SELECT category_id FROM product_categories WHERE product_id=?', 'hdm-1')!
-        f.db.run('INSERT INTO product_categories VALUES(?,?)', id, child.category_id)
-      }
-    })
+    for (let i = 0; i < 1000; i++) {
+      const id = `bulk-${String(i).padStart(4, '0')}`
+      f.testData.product({ id, name: '分页商品', category: '分页服饰',
+        skus: [{ id: id + '-sku', spec: '标准', priceCents: 217, stock: 2 }] })
+    }
     const all = f.db.all.bind(f.db)
     let materialized = 0, queryCount = 0
     f.db.all = (<T>(sql: string, ...params: Parameters<typeof f.db.all>[1][]) => {
@@ -28,7 +24,7 @@ test('首页新增分页只读当前页，分类摘要不加载商品正文且�
       const response = await f.app.inject(`${path}?page=2&pageSize=8`)
       assert.equal(response.statusCode, 200)
       const page = response.json().result
-      assert.equal(page.counts, 1004); assert.equal(page.items.length, 8); assert.equal(materialized, 8)
+      assert.equal(page.counts, 1000); assert.equal(page.items.length, 8); assert.equal(materialized, 8)
       console.log(`HOME_PAGE route=${path} total=${page.counts} materialized=${materialized}`)
     }
     materialized = 0; queryCount = 0
@@ -51,18 +47,19 @@ test('首页新增分页只读当前页，分类摘要不加载商品正文且�
 })
 
 test('首页分页拒绝无效参数，越界不读正文，旧数组保持兼容', async () => {
-  const f = await buildApp(options)
+  const f = await buildTestApp(options)
   try {
+    f.testData.product({ name: '兼容商品', skus: [{ spec: '默认', priceCents: 531, stock: 3 }] })
     for (const path of ['/home/new/page', '/home/recommend/page']) {
       for (const query of ['page=0', 'pageSize=101', 'page=1.5']) assert.equal((await f.app.inject(`${path}?${query}`)).statusCode, 400)
       assert.deepEqual((await f.app.inject(`${path}?page=${Number.MAX_SAFE_INTEGER}`)).json().result.items, [])
     }
-    for (const path of ['/home/new', '/home/recommend']) assert.equal((await f.app.inject(path)).json().result.length, 4)
+    for (const path of ['/home/new', '/home/recommend']) assert.equal((await f.app.inject(path)).json().result.length, 1)
   } finally { await f.app.close() }
 })
 
 async function relationsFixture() {
-  const f = await buildApp(options)
+  const f = await buildTestApp(options)
   f.accounts.register('owner', 'relation-test-pass')
   f.accounts.register('outsider', 'relation-test-pass')
   const owner = f.accounts.login('owner', 'relation-test-pass'), outsider = f.accounts.login('outsider', 'relation-test-pass')

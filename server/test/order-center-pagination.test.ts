@@ -1,9 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
+
+const priceCents = 2371, initialStock = 23
+const productInput = { id: 'center-product', name: '独立测试商品', category: '测试分类',
+  skus: [{ id: 'center-product-a', spec: '标准', priceCents, stock: initialStock },
+    { id: 'center-product-b', spec: '加大', priceCents: priceCents + 517, stock: 10 }] }
 
 async function fixture() {
-  const f = await buildApp({ databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' })
+  const f = await buildTestApp({ databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' })
+  f.testData.product(productInput)
   const users: Record<string, { id: string; token: string }> = {}
   for (const name of ['buyer', 'friend', 'other', 'merchant']) {
     f.accounts.register(name, 'center-test-password', name === 'merchant' ? 'merchant' : 'buyer')
@@ -13,10 +19,10 @@ async function fixture() {
     f.db.run("INSERT INTO relations VALUES(?,?,?,'accepted',?)", name, users.buyer.id, users[name].id, Date.now())
   }
   const add = (id: string, state: number, payer: string | null = null, invited: string | null = null, receiver: string | null = null, owner = 'buyer', created = 1700000000000) => {
-    f.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires,paid_by,invited_payer,received_by) VALUES(?,?,?,1900,?,?,?,?,?,?,?,?)',
-      id, users[owner].id, state, '{"receiver":"测试","contact":"13800138000","address":"private"}', id, '{}', created, Date.now() + 900000,
+    f.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires,paid_by,invited_payer,received_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+      id, users[owner].id, state, priceCents, '{"receiver":"测试","contact":"13800138000","address":"private"}', id, '{}', created, Date.now() + 900000,
       payer ? users[payer].id : null, invited ? users[invited].id : null, receiver ? users[receiver].id : null)
-    f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, 'hdm-1-a', 'hdm-1', id, '/assets/product.svg', '标准款', 1900, 1)
+    f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, 'center-product-a', 'center-product', id, '/assets/product.svg', '标准款', priceCents, 1)
   }
   const get = (path: string, name = 'friend') => f.app.inject({ url: path, headers: { authorization: `Bearer ${users[name].token}` } })
   return { ...f, users, add, get }

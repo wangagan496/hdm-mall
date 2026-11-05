@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
 
 async function fixture(count = 37) {
-  const f = await buildApp({ databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' })
+  const f = await buildTestApp({ databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' })
   const products: { id: string; name: string; category: string; price: number; child: string; stock: number }[] = []
   f.db.transaction(() => {
     f.db.run('INSERT INTO categories VALUES(?,?,NULL,?)', 'test-root', '测试分类', 'test-root')
@@ -83,7 +83,7 @@ test('千件商品查询一页只读入当前页，搜索、猜你喜欢和热�
       const response = await f.app.inject(`${path}?page=3&pageSize=20`)
       assert.equal(response.statusCode, 200)
       const data = path.includes('/hot') ? response.json().result.subTypes[0].goodsItems : response.json().result
-      assert.equal(data.counts, 1004); assert.equal(data.items.length, 20); assert.equal(data.page, 3)
+      assert.equal(data.counts, 1000); assert.equal(data.items.length, 20); assert.equal(data.page, 3)
       assert.equal(readRows, 20)
     }
   } finally { await f.app.close() }

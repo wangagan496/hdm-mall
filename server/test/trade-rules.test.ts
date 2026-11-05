@@ -2,12 +2,18 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import type { HTTPMethods } from 'fastify'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
+
+const priceCents = 2371, initialStock = 23
+const productInput = { id: 'rules-product', name: '独立测试商品', category: '测试分类',
+  skus: [{ id: 'rules-product-a', spec: '标准', priceCents, stock: initialStock },
+    { id: 'rules-product-b', spec: '加大', priceCents: priceCents + 517, stock: 10 }] }
 
 test('交易状态表：禁止跳步，重复写不倒退，付款后到期不退库存', async () => {
-  const { app, accounts, db } = await buildApp({ databasePath: ':memory:', publicUrl: 'http://127.0.0.1:3000',
+  const { app, accounts, db, testData } = await buildTestApp({ databasePath: ':memory:', publicUrl: 'http://127.0.0.1:3000',
     uploadsPath: './unused', mockPayments: true })
   try {
+    testData.product(productInput)
     accounts.register('rules_buyer', 'test-password-123')
     accounts.register('rules_merchant', 'test-password-123', 'merchant')
     const buyer = accounts.login('rules_buyer', 'test-password-123')
@@ -17,11 +23,11 @@ test('交易状态表：禁止跳步，重复写不倒退，付款后到期不�
     const address = await call('POST', '/member/address', buyer.token,
       { receiver: '测试', contact: '13800000000', address: '测试地址', isDefault: 1 })
     const created = await call('POST', '/member/order', buyer.token, { requestKey: randomUUID(),
-      addressId: address.json().result.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] })
+      addressId: address.json().result.id, goods: [{ skuId: 'rules-product-a', count: 1 }] })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id as string
     const state = () => db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', id)!.state
-    const stock = () => db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock
+    const stock = () => db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'rules-product-a')!.stock
     const reservedStock = stock()
     assert.equal(state(), 1)
     assert.equal((await call('POST', `/merchant/orders/${id}/ship`, merchant.token)).statusCode, 409)
@@ -29,7 +35,7 @@ test('交易状态表：禁止跳步，重复写不倒退，付款后到期不�
     assert.equal((await call('PUT', `/member/order/${id}/evaluation`, buyer.token, { score: 5, content: '尚未收货不能评价' })).statusCode, 409)
     assert.equal((await call('POST', `/member/order/${id}/mock-pay`, buyer.token, { amountCents: 1 })).statusCode, 409)
     assert.equal(state(), 1)
-    for (let i = 0; i < 2; i++) assert.equal((await call('POST', `/member/order/${id}/mock-pay`, buyer.token, { amountCents: 1900 })).statusCode, 200)
+    for (let i = 0; i < 2; i++) assert.equal((await call('POST', `/member/order/${id}/mock-pay`, buyer.token, { amountCents: priceCents })).statusCode, 200)
     assert.equal(state(), 2)
     db.run('UPDATE orders SET expires=0 WHERE id=?', id)
     assert.equal((await call('GET', `/member/order/${id}`)).json().result.orderState, 2)

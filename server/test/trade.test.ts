@@ -6,9 +6,17 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { HTTPMethods } from 'fastify'
 import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
+
+const priceCents = 2371, initialStock = 23
+const productInput = { id: 'trade-product', name: '独立测试商品', category: '测试分类',
+  skus: [{ id: 'trade-product-a', spec: '标准', priceCents, stock: initialStock },
+    { id: 'trade-product-b', spec: '加大', priceCents: priceCents + 517, stock: 10 }] }
+
 
 async function fixture(databasePath = ':memory:') {
-  const ctx = await buildApp({ databasePath, publicUrl: 'http://127.0.0.1:3000', mockPayments: true, uploadsPath: './data/test-uploads' })
+  const ctx = await buildTestApp({ databasePath, publicUrl: 'http://127.0.0.1:3000', mockPayments: true, uploadsPath: './data/test-uploads' })
+  ctx.testData.product(productInput)
   const call = async (method: HTTPMethods, url: string, token = '', payload?: object) => {
     const res = await ctx.app.inject({ method, url, headers: token ? { authorization: `Bearer ${token}` } : {}, payload })
     return { status: res.statusCode, body: res.json() }
@@ -34,7 +42,7 @@ async function fixture(databasePath = ':memory:') {
     return id
   }
   const create = async (requestKey = randomUUID(), count = 1) => {
-    const response = await call('POST', '/member/order', users.buyer!.token, { addressId: address.body.result.id, requestKey, goods: [{ skuId: 'hdm-1-a', count }] })
+    const response = await call('POST', '/member/order', users.buyer!.token, { addressId: address.body.result.id, requestKey, goods: [{ skuId: 'trade-product-a', count }] })
     return response
   }
   const paidOrder = async (family: boolean) => {
@@ -44,7 +52,7 @@ async function fixture(databasePath = ':memory:') {
       await bind('payer')
       assert.equal((await call('PUT', `/member/order/${id}/payer`, users.buyer!.token, { friendId: users.payer!.id })).status, 200)
     }
-    assert.equal((await call('POST', `/member/order/${id}/mock-pay`, users[family ? 'payer' : 'buyer']!.token, { amountCents: 1900 })).status, 200)
+    assert.equal((await call('POST', `/member/order/${id}/mock-pay`, users[family ? 'payer' : 'buyer']!.token, { amountCents: priceCents })).status, 200)
     assert.equal((await call('POST', `/merchant/orders/${id}/ship`, users.merchant!.token)).status, 200)
     return id
   }
@@ -69,14 +77,14 @@ test('本人下单、支付、商家发货、本人收货和评价，评价可�
     assert.equal((await f.call('PUT', `/member/order/${id}/evaluation`, token, { score: 5, content: '质量很好下次再来' })).status, 200)
     const order = (await f.call('GET', `/member/order/${id}`, token)).body.result
     assert.equal(order.orderState, 5); assert.equal(order.evaluation.content, '质量很好下次再来'); assert.equal(order.receivedByAccount, 'buyer')
-    const evaluations = await f.call('GET', '/goods/hdm-1/evaluate/page')
+    const evaluations = await f.call('GET', '/goods/trade-product/evaluate/page')
     assert.equal(evaluations.status, 200)
     assert.equal(evaluations.body.result.items.length, 1)
     assert.equal(evaluations.body.result.items[0].member.nickname, 'b***r')
     assert.equal(JSON.stringify(evaluations.body).includes('buyer'), false)
     for (const nickname of ['张', '张三', '张三丰', '😀小明😀']) {
       f.db.run('UPDATE users SET nickname=? WHERE id=?', nickname, f.users.buyer!.id)
-      const masked = (await f.call('GET', '/goods/hdm-1/evaluate/page')).body.result.items[0].member.nickname
+      const masked = (await f.call('GET', '/goods/trade-product/evaluate/page')).body.result.items[0].member.nickname
       assert.equal(masked, nickname === '张' || nickname === '张三' ? '张***' : nickname === '张三丰' ? '张***丰' : '😀***😀')
     }
   } finally { await f.app.close() }
@@ -134,28 +142,28 @@ test('仅指定且仍绑定的亲友能代付，购买人可以切回本人付�
   try {
     const relation = await f.bind('payer'), created = await f.create(), id = created.body.result.id
     assert.equal((await f.call('PUT', `/member/order/${id}/payer`, f.users.buyer!.token, { friendId: f.users.payer!.id })).status, 200)
-    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: 1900 })).status, 403)
-    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.stranger!.token, { amountCents: 1900 })).status, 403)
+    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: priceCents })).status, 403)
+    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.stranger!.token, { amountCents: priceCents })).status, 403)
     await f.call('PUT', `/member/relations/${relation}`, f.users.payer!.token, { action: 'revoke' })
-    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.payer!.token, { amountCents: 1900 })).status, 403)
+    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.payer!.token, { amountCents: priceCents })).status, 403)
     await f.call('PUT', `/member/order/${id}/payer`, f.users.buyer!.token, { friendId: null })
     assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: 1 })).status, 409)
-    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: 1900 })).status, 200)
+    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: priceCents })).status, 200)
   } finally { await f.app.close() }
 })
 
 test('重复请求幂等：连续购买最后一件只有一次成功，全部售罄下架，取消仅释放一次', async () => {
   const f = await fixture()
   try {
-    f.db.run('UPDATE skus SET stock=0 WHERE product_id=?', 'hdm-1')
-    f.db.run('UPDATE skus SET stock=1 WHERE id=?', 'hdm-1-a')
+    f.db.run('UPDATE skus SET stock=0 WHERE product_id=?', 'trade-product')
+    f.db.run('UPDATE skus SET stock=1 WHERE id=?', 'trade-product-a')
     const results = await Promise.all([f.create(), f.create()])
     assert.deepEqual(results.map(r => r.status).sort(), [200,409])
     const id = results.find(r => r.status === 200)!.body.result.id
-    assert.equal((await f.call('GET', '/home/new')).body.result.some((p: { id: string }) => p.id === 'hdm-1'), false)
-    assert.equal((await f.call('GET', '/goods?id=hdm-1')).body.inventory, 0)
+    assert.equal((await f.call('GET', '/home/new')).body.result.some((p: { id: string }) => p.id === 'trade-product'), false)
+    assert.equal((await f.call('GET', '/goods?id=trade-product')).body.inventory, 0)
     for (let i = 0; i < 2; i++) assert.equal((await f.call('PUT', `/member/order/${id}/cancel`, f.users.buyer!.token)).status, 200)
-    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 1)
+    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'trade-product-a')!.stock, 1)
   } finally { await f.app.close() }
 })
 
@@ -165,16 +173,16 @@ test('下单幂等、库存事务回滚、账号隔离与超时释放', async ()
     const key = randomUUID(), first = await f.create(key), retry = await f.create(key)
     assert.equal(first.body.result.id, retry.body.result.id)
     assert.equal((await f.create(key, 2)).status, 409)
-    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 19)
-    const fail = await f.call('POST', '/member/order', f.users.buyer!.token, { requestKey: randomUUID(), addressId: f.addressId, goods: [{ skuId: 'hdm-1-a', count: 1 }, { skuId: 'hdm-2-a', count: 999 }] })
+    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'trade-product-a')!.stock, initialStock - 1)
+    const fail = await f.call('POST', '/member/order', f.users.buyer!.token, { requestKey: randomUUID(), addressId: f.addressId, goods: [{ skuId: 'trade-product-a', count: 1 }, { skuId: 'trade-product-b', count: 999 }] })
     assert.equal(fail.status, 409)
-    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 19)
-    assert.equal((await f.call('POST', '/member/order', f.users.stranger!.token, { requestKey: randomUUID(), addressId: f.addressId, goods: [{ skuId: 'hdm-1-a', count: 1 }] })).status, 400)
+    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'trade-product-a')!.stock, initialStock - 1)
+    assert.equal((await f.call('POST', '/member/order', f.users.stranger!.token, { requestKey: randomUUID(), addressId: f.addressId, goods: [{ skuId: 'trade-product-a', count: 1 }] })).status, 400)
     const id = first.body.result.id
     f.db.run('UPDATE orders SET expires=0 WHERE id=?', id)
     assert.equal((await f.call('GET', `/member/order/${id}`, f.users.buyer!.token)).body.result.orderState, 6)
-    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 20)
-    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: 1900 })).status, 409)
+    assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'trade-product-a')!.stock, initialStock)
+    assert.equal((await f.call('POST', `/member/order/${id}/mock-pay`, f.users.buyer!.token, { amountCents: priceCents })).status, 409)
   } finally { await f.app.close() }
 })
 
@@ -182,7 +190,7 @@ test('购买人无发货权限，提醒不改变状态，注销撤销会话', as
   const f = await fixture()
   try {
     const id = (await f.create()).body.result.id, token = f.users.buyer!.token
-    await f.call('POST', `/member/order/${id}/mock-pay`, token, { amountCents: 1900 })
+    await f.call('POST', `/member/order/${id}/mock-pay`, token, { amountCents: priceCents })
     assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, token)).status, 403)
     assert.equal((await f.call('POST', `/member/order/${id}/reminder`, token)).status, 200)
     assert.equal((await f.call('GET', `/member/order/${id}`, token)).body.result.orderState, 2)
@@ -197,7 +205,7 @@ test('数据重启后可恢复；真实 HTTP 监听与查询通过', async () =>
   const f = await fixture(path)
   const id = await f.paidOrder(true), token = f.users.buyer!.token
   await f.app.close()
-  const next = await buildApp({ databasePath: path, publicUrl: 'http://127.0.0.1:3000', mockPayments: true, uploadsPath: join(dir, 'uploads') })
+  const next = await buildTestApp({ databasePath: path, publicUrl: 'http://127.0.0.1:3000', mockPayments: true, uploadsPath: join(dir, 'uploads') })
   try {
     const url = await next.app.listen({ port: 0, host: '127.0.0.1' })
     assert.equal((await fetch(url + '/health')).status, 200)

@@ -228,7 +228,7 @@ struct PayView {
       this.safeToast('当前环境未接入支付渠道')
       return
     }
-    if (this.remainingCountdown() <= 0 && this.order.countdown > 0) {
+    if (this.remainingCountdown() <= 0) {
       this.safeToast('订单已超时，请重新下单')
       return
     }

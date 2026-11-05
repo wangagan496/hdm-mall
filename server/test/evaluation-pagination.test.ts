@@ -1,9 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
+
+const priceCents = 2671, largerPriceCents = 3153
 
 async function fixture(count: number) {
-  const f = await buildApp({ databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' })
+  const f = await buildTestApp({ databasePath: ':memory:', publicUrl: 'http://fixture', mockPayments: true, uploadsPath: './unused' })
+  for (const id of ['review-product', 'other-product']) f.testData.product({ id, name: id,
+    skus: [{ id: id + '-a', spec: '标准', priceCents, stock: 7 },
+      { id: id + '-b', spec: '加大', priceCents: largerPriceCents, stock: 4 }] })
   f.accounts.register('review_reader', 'review-test-password')
   const owner = f.db.one<{ id: string }>('SELECT id FROM users WHERE account=?', 'review_reader')!.id
   f.db.run('UPDATE users SET nickname=? WHERE id=?', '😀用户甲', owner)
@@ -13,12 +18,12 @@ async function fixture(count: number) {
     for (let index = count + 6; index >= 0; index--) {
       const id = `review-${String(index).padStart(5, '0')}`
       const created = 1700000000000 + index % 3
-      const product = index < count ? 'hdm-1' : 'hdm-2'
-      f.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires) VALUES(?,?,5,1900,?,?,?,?,?)',
-        id, owner, '{"contact":"13800138000","address":"private"}', id, '{}', created, created + 900000)
-      f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, `${product}-a`, product, '测试商品', '/assets/product.svg', '标准款', 1900, 1)
+      const product = index < count ? 'review-product' : 'other-product'
+      f.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires) VALUES(?,?,5,?,?,?,?,?,?)',
+        id, owner, priceCents, '{"contact":"13800138000","address":"private"}', id, '{}', created, created + 900000)
+      f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, `${product}-a`, product, '测试商品', '/assets/product.svg', '标准款', priceCents, 1)
       if (index === 0) {
-        f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, 'hdm-1-b', 'hdm-1', '测试商品', '/assets/product.svg', '加大款', 2400, 1)
+        f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, 'review-product-b', 'review-product', '测试商品', '/assets/product.svg', '加大款', largerPriceCents, 1)
       }
       if (index === count + 6) continue // 尚未评价的订单不计入总数。
       f.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, 5, `评价内容 ${index}`, created)
@@ -34,7 +39,7 @@ test('商品评价按商品计数且一单多规格不重复，同毫秒评价�
   try {
     const actual: string[] = []
     for (let page = 1; page <= 5; page++) {
-      const response = await f.app.inject(`/goods/hdm-1/evaluate/page?page=${page}&pageSize=5`)
+      const response = await f.app.inject(`/goods/review-product/evaluate/page?page=${page}&pageSize=5`)
       assert.equal(response.statusCode, 200)
       const result = response.json().result
       assert.equal(result.counts, 23); assert.equal(result.pages, 5)
@@ -51,7 +56,7 @@ test('商品评价按商品计数且一单多规格不重复，同毫秒评价�
     }
     assert.deepEqual(actual, f.expected.map(row => row.id))
     assert.equal(new Set(actual).size, 23)
-    const other = (await f.app.inject('/goods/hdm-2/evaluate/page')).json().result
+    const other = (await f.app.inject('/goods/other-product/evaluate/page')).json().result
     assert.equal(other.counts, 6)
     assert.equal(other.items.length, 6)
   } finally { await f.app.close() }
@@ -67,7 +72,7 @@ test('两千条商品评价请求二十条时仅取当前页，不把所有正�
       if (sql.includes('evaluations')) reads.push(rows.length)
       return rows
     }) as typeof f.db.all
-    const response = await f.app.inject('/goods/hdm-1/evaluate/page?page=7&pageSize=20')
+    const response = await f.app.inject('/goods/review-product/evaluate/page?page=7&pageSize=20')
     assert.equal(response.statusCode, 200)
     const result = response.json().result
     assert.equal(result.counts, 2000); assert.equal(result.pages, 100)
@@ -87,11 +92,11 @@ test('评价页在查询前拒绝非法参数，空结果、越界页和超大�
       return all<T>(sql, ...params)
     }) as typeof f.db.all
     for (const query of ['page=0', 'page=-1', 'page=1.5', 'page=no', 'pageSize=0', 'pageSize=101', 'pageSize=1.5']) {
-      assert.equal((await f.app.inject(`/goods/hdm-1/evaluate/page?${query}`)).statusCode, 400)
+      assert.equal((await f.app.inject(`/goods/review-product/evaluate/page?${query}`)).statusCode, 400)
     }
     assert.equal(reviewReads, 0, '非法分页不能先读取评价正文')
     for (const page of [3, Number.MAX_SAFE_INTEGER]) {
-      const response = await f.app.inject(`/goods/hdm-1/evaluate/page?page=${page}&pageSize=10`)
+      const response = await f.app.inject(`/goods/review-product/evaluate/page?page=${page}&pageSize=10`)
       assert.equal(response.statusCode, 200)
       assert.deepEqual(response.json().result, { items: [], counts: 12, pages: 2, page, pageSize: 10 })
     }

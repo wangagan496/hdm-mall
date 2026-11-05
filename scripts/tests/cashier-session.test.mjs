@@ -15,11 +15,13 @@ function fixture() {
   let mutation = async () => ({ id: orderId }), overlay = async () => {}
   const queries = [], writes = [], navigations = [], messages = [], overlays = []
   const config = { DEMO_ORDER_FLOW: false }
+  const presentation = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderPresentation.ets'), {
+    models: execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/OrderState.ets')),
+    '@kit.BasicServicesKit': { systemDateTime: { TimeType: { STARTUP: 0 }, getUptime: () => now } },
+  })
   const { PayView } = execute(body, {}, {
     GlobalVariable: config, PAGE_PATH: { PAY_PAGE: 'pay', PAY_RESULT_PAGE: 'result' },
-    auth: { getUserInfo: () => user }, readPhoneClockMillis: () => now,
-    secondsLeftToPay: (remaining, baseline) => Math.max(0, remaining - Math.floor((now - baseline) / 1000)),
-    mergeOrderState: order => order.orderState,
+    auth: { getUserInfo: () => user }, ...presentation,
     demoOrderStore: { getOverlay: () => null, getEvaluation: () => null,
       setOverlay: (...args) => { overlays.push(args); return overlay(...args) } },
     getOrderDetailAPI: (id, token) => { queries.push(['order', id, token]); return load(id, token) },
@@ -148,4 +150,18 @@ test('演示写入迟到不跳转新页面，已付与取消查询导航一次�
   const mismatch = fixture(); mismatch.setLoad(async () => row('wrong-order')); await mismatch.page.load()
   await mismatch.page.handleMockPay(); await mismatch.page.choosePayer(null)
   assert.equal(mismatch.writes.length, 0); assert.equal(mismatch.page.loadFailed, true)
+})
+
+test('真实开机时长倒计时归零或首次读到零时，收银页不发送付款', async () => {
+  for (const countdown of [100, 0]) {
+    const f = fixture()
+    f.setLoad(async id => row(id, { countdown }))
+    await f.page.load()
+    f.advance(countdown * 1000)
+    assert.equal(f.page.remainingCountdown(), 0)
+    await f.page.handleMockPay()
+    assert.equal(f.writes.length, 0)
+    assert.equal(f.navigations.length, 0)
+    assert.ok(f.messages.some(message => message.includes('超时')))
+  }
 })

@@ -1,4 +1,5 @@
 import { Database } from './database.ts'
+import { systemClock, type Clock } from './clock.ts'
 import { ensure } from './errors.ts'
 import type { User } from './accounts.ts'
 import { randomUUID } from 'node:crypto'
@@ -9,7 +10,8 @@ interface ProductSummary { id: string; name: string; picture: string; descriptio
 export class Catalog {
   db: Database
   publicUrl: string
-  constructor(db: Database, publicUrl: string) { this.db = db; this.publicUrl = publicUrl }
+  readonly clock: Clock
+  constructor(db: Database, publicUrl: string, clock: Clock = systemClock) { this.db = db; this.publicUrl = publicUrl; this.clock = clock }
   seed() {
     this.db.transaction(() => {
       for (const [index, name, category, price] of [[1, '纯棉短袜', '服饰', 1900], [2, '轻便双肩包', '箱包', 9900], [3, '收纳包', '箱包', 2900], [4, '日常休闲鞋', '鞋靴', 15900]] as const) {
@@ -18,7 +20,7 @@ export class Catalog {
         for (const [suffix, spec, amount, stock] of [['a', '标准款', price, 20], ['b', '加大款', price + 500, 10]] as const) {
           const skuId = `${id}-${suffix}`
           const inserted = this.db.run('INSERT OR IGNORE INTO skus VALUES(?,?,?,?,?)', skuId, id, spec, amount, stock)
-          if (inserted.changes === 1) recordStockMovement(this.db, { kind: 'opening', skuId, delta: stock })
+          if (inserted.changes === 1) recordStockMovement(this.db, { kind: 'opening', skuId, delta: stock }, this.clock)
         }
       }
       // 编号写入数据库后保持不变；改名、重排不再改变分类身份。

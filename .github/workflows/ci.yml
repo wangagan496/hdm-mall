@@ -43,3 +43,48 @@ jobs:
   # command-line-tools、签名环境和目标设备。当前仓库通过
   # scripts/verify-project.ps1 固化可复现的本机构建检查；GitHub 托管 Runner
   # 没有这些环境，因此不在 CI 中伪装执行原生测试。
+
+  buyer-tests:
+    name: Buyer · server and client state tests (L1–L3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+      - name: Install native harness TypeScript dependency
+        run: pnpm install --frozen-lockfile
+        working-directory: shoph5-vue3
+      - name: Check server types
+        run: npm run check
+        working-directory: server
+      - name: Test server with no skipped cases
+        shell: bash
+        working-directory: server
+        run: |
+          npm test | tee "$RUNNER_TEMP/buyer-server.log"
+          grep -Eq '^(#|ℹ) skipped 0$' "$RUNNER_TEMP/buyer-server.log"
+      - name: Test real client logic with no skipped cases
+        shell: bash
+        run: |
+          node --test scripts/tests/*.test.mjs | tee "$RUNNER_TEMP/buyer-client.log"
+          grep -Eq '^(#|ℹ) skipped 0$' "$RUNNER_TEMP/buyer-client.log"
+      - name: Verify randomized server test order
+        shell: bash
+        working-directory: server
+        run: |
+          node --test --test-randomize test/*.test.ts | tee "$RUNNER_TEMP/buyer-shuffled.log"
+          grep -Eq '^(#|ℹ) skipped 0$' "$RUNNER_TEMP/buyer-shuffled.log"
+      - name: Verify randomized client test order
+        shell: bash
+        run: |
+          node --test --test-randomize scripts/tests/*.test.mjs | tee "$RUNNER_TEMP/buyer-client-shuffled.log"
+          grep -Eq '^(#|ℹ) skipped 0$' "$RUNNER_TEMP/buyer-client-shuffled.log"

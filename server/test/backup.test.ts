@@ -8,8 +8,13 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
-import { buildApp } from '../src/app.ts'
+import { buildTestApp } from './helpers/fixtures.ts'
 import { createBackup, restoreBackup, verifyBackup } from '../src/backup.ts'
+
+const priceCents = 2371, initialStock = 23
+const productInput = { id: 'backup-product', name: '独立测试商品', category: '测试分类',
+  skus: [{ id: 'backup-product-a', spec: '标准', priceCents, stock: initialStock },
+    { id: 'backup-product-b', spec: '加大', priceCents: priceCents + 517, stock: 10 }] }
 
 const run = promisify(execFile)
 const password = 'backup-test-password'
@@ -21,7 +26,8 @@ async function fixture() {
   await mkdir(data)
   const databasePath = join(data, 'mall.sqlite'), uploadsPath = join(data, 'uploads')
   const appOptions = { databasePath, uploadsPath, publicUrl: 'http://127.0.0.1:3000', mockPayments: true }
-  const context = await buildApp(appOptions)
+  const context = await buildTestApp(appOptions)
+  context.testData.product(productInput)
   context.db.run('PRAGMA wal_autocheckpoint=0')
   context.accounts.register('backup_buyer', password)
   const user = context.accounts.login('backup_buyer', password)
@@ -51,11 +57,11 @@ test('在线 WAL 快照与头像恢复后，订单库存亲友一致，旧会话
     f.accounts.updateRelation(f.accounts.authenticate(`Bearer ${friend.token}`), invitation.id, 'accept')
     const address = f.accounts.saveAddress(f.authenticated, { receiver: '备份测试', contact: '13800000000', address: '仅测试', isDefault: 0 })
     const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: f.auth,
-      payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 2 }] } })
+      payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'backup-product-a', count: 2 }] } })
     assert.equal(order.statusCode, 200)
     const id = order.json().result.id as string
     assert.equal((await f.app.inject({ method: 'POST', url: `/member/order/${id}/mock-pay`, headers: f.auth,
-      payload: { amountCents: 3800 } })).statusCode, 200)
+      payload: { amountCents: priceCents * 2 } })).statusCode, 200)
     assert.ok((await stat(f.databasePath + '-wal')).size > 0)
     const snapshotTables = ['users', 'relations', 'products', 'skus', 'carts', 'addresses', 'orders', 'order_items', 'evaluations', 'categories', 'product_categories', 'inventory_movements']
     const expected = new Map(snapshotTables.map(table => [table, f.db.all(`SELECT * FROM ${table} ORDER BY rowid`)]))
@@ -71,7 +77,7 @@ test('在线 WAL 快照与头像恢复后，订单库存亲友一致，旧会话
     const restoreMs = performance.now() - restoreStart
     assert.equal(restored.report.sessionPolicy, 'all-sessions-revoked')
     assert.equal(restored.report.counts.sessions, 0)
-    const next = await buildApp({ ...f.appOptions, databasePath: join(restored.root, 'mall.sqlite'), uploadsPath: join(restored.root, 'uploads') })
+    const next = await buildTestApp({ ...f.appOptions, databasePath: join(restored.root, 'mall.sqlite'), uploadsPath: join(restored.root, 'uploads') })
     try {
       for (const table of snapshotTables) assert.deepEqual(next.db.all(`SELECT * FROM ${table} ORDER BY rowid`), expected.get(table), table)
       const address = await next.app.listen({ host: '127.0.0.1', port: 0 })
@@ -85,8 +91,8 @@ test('在线 WAL 快照与头像恢复后，订单库存亲友一致，旧会话
       assert.equal(detail.status, 200)
       const body = await detail.json() as { result: { orderState: number; payMoney: number } }
       assert.equal(body.result.orderState, 2)
-      assert.equal(body.result.payMoney, 38)
-      assert.equal(next.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'hdm-1-a')!.stock, 18)
+      assert.equal(body.result.payMoney, priceCents * 2 / 100)
+      assert.equal(next.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'backup-product-a')!.stock, initialStock - 2)
       assert.deepEqual(Buffer.from(await (await fetch(address + `/uploads/${image}`)).arrayBuffer()), jpeg)
     } finally { await next.app.close() }
     assert.equal((await verifyBackup(backup.root)).counts.sessions, 2, '恢复不修改原备份')
@@ -119,10 +125,10 @@ test('源路径拼错不创建数据库，头像和库存不一致仍生成快�
     f.accounts.updateProfile(f.authenticated, { avatar: 'https://example.invalid/external.png' })
     const external = await f.backup('external-image')
     assert.deepEqual(external.manifest.issues, [{ type: 'unsupported-avatar', userId: f.user.id }])
-    f.db.run('UPDATE skus SET stock=19 WHERE id=?', 'hdm-1-a')
+    f.db.run('UPDATE skus SET stock=? WHERE id=?', initialStock - 1, 'backup-product-a')
     const inventory = await f.backup('inventory-mismatch')
     assert.deepEqual(inventory.manifest.issues, [
-      { type: 'inventory-mismatch', skuId: 'hdm-1-a' }, { type: 'unsupported-avatar', userId: f.user.id },
+      { type: 'inventory-mismatch', skuId: 'backup-product-a' }, { type: 'unsupported-avatar', userId: f.user.id },
     ])
     for (const [index, backup] of [missing, external, inventory].entries()) {
       await access(join(backup.root, 'mall.sqlite'))
@@ -135,7 +141,7 @@ test('源路径拼错不创建数据库，头像和库存不一致仍生成快�
       const db = new DatabaseSync(join(restored.root, 'mall.sqlite'))
       try {
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM users').get()!.count, 1)
-        assert.equal(db.prepare('SELECT stock FROM skus WHERE id=?').get('hdm-1-a')!.stock, index === 2 ? 19 : 20)
+        assert.equal(db.prepare('SELECT stock FROM skus WHERE id=?').get('backup-product-a')!.stock, index === 2 ? initialStock - 1 : initialStock)
         const profile = JSON.parse(String(db.prepare('SELECT profile FROM users WHERE id=?').get(f.user.id)!.profile))
         assert.equal(profile.avatar, index === 0 ? `/uploads/${name}` : 'https://example.invalid/external.png')
       } finally { db.close() }
@@ -244,14 +250,14 @@ test('命令行完成创建、校验和恢复；失败退出非零且不回显�
 test('命令行保存不一致快照后非零退出，显式参数允许恢复且不能绕过哈希校验', async () => {
   const f = await fixture()
   try {
-    f.db.run('UPDATE skus SET stock=19 WHERE id=?', 'hdm-1-a')
+    f.db.run('UPDATE skus SET stock=? WHERE id=?', initialStock - 1, 'backup-product-a')
     const cli = fileURLToPath(new URL('../src/backup-cli.ts', import.meta.url))
     const destination = join(f.root, 'inconsistent-cli'), restored = join(f.root, 'restored-cli')
     await assert.rejects(run(process.execPath, [cli, 'create', '--database', f.databasePath, '--uploads', f.uploadsPath, '--out', destination]),
       (error: unknown) => {
         const result = error as { code: number; stderr: string; stdout: string }
         assert.equal(result.code, 1); assert.match(result.stderr, /快照含不一致数据/)
-        assert.deepEqual(JSON.parse(result.stdout).issues, [{ type: 'inventory-mismatch', skuId: 'hdm-1-a' }])
+        assert.deepEqual(JSON.parse(result.stdout).issues, [{ type: 'inventory-mismatch', skuId: 'backup-product-a' }])
         return true
       })
     await assert.rejects(run(process.execPath, [cli, 'restore', '--from', destination, '--out', restored]), /allow-inconsistent/)

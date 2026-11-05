@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Database } from './database.ts'
+import type { Clock } from './clock.ts'
 import { Accounts, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
 import { ensure } from './errors.ts'
@@ -55,12 +56,15 @@ export class Orders {
   accounts: Accounts
   catalog: Catalog
   mockPayments: boolean
-  private lastExpirationReadCheck = 0
-  constructor(db: Database, accounts: Accounts, catalog: Catalog, mockPayments: boolean) {
+  private lastExpirationReadCheck = Number.NEGATIVE_INFINITY
+  private nextExpirationReadCheck = Number.NEGATIVE_INFINITY
+  readonly clock: Clock
+  constructor(db: Database, accounts: Accounts, catalog: Catalog, mockPayments: boolean, clock: Clock = accounts.clock) {
     this.db = db
     this.accounts = accounts
     this.catalog = catalog
     this.mockPayments = mockPayments
+    this.clock = clock
   }
   private get(id: string): Order {
     const order = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id)
@@ -129,7 +133,7 @@ export class Orders {
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
       canEvaluate: isOrderOwner && order.state === ORDER_STATE.AWAITING_REVIEW,
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
-      countdown: Math.max(0, Math.floor((order.expires - Date.now()) / 1000)),
+      countdown: Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
       payMoney: order.amount / 100, totalMoney: order.amount / 100, postFee: 0, payChannel: 1, payType: 1,
       totalNum: items.reduce((sum, item) => sum + item.count, 0),
@@ -225,7 +229,7 @@ export class Orders {
       this.reserveStock(items)
       const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items)
       for (const item of items) {
-        recordStockMovement(this.db, { kind: 'reserve', skuId: item.id, delta: -item.count, orderId: id, actorId: user.id })
+        recordStockMovement(this.db, { kind: 'reserve', skuId: item.id, delta: -item.count, orderId: id, actorId: user.id }, this.clock)
         this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
       }
       return { id }
@@ -239,7 +243,7 @@ export class Orders {
     }
   }
   private saveOrderAndItems(user: User, requestKey: string, requestBody: string, address: string, items: CheckoutItem[]) {
-    const id = randomUUID(), now = Date.now()
+    const id = randomUUID(), now = this.clock.now()
     const amount = items.reduce((sum, item) => sum + item.price * item.count, 0)
     this.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires) VALUES(?,?,?,?,?,?,?,?,?)',
       id, user.id, ORDER_STATE.AWAITING_PAYMENT, amount, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS)
@@ -254,16 +258,19 @@ export class Orders {
       this.db.run('UPDATE skus SET stock=stock+? WHERE id=?', item.count, item.sku_id)
       recordStockMovement(this.db, actor ?
         { kind: 'cancel', skuId: item.sku_id, delta: item.count, orderId: order.id, actorId: actor.id } :
-        { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: order.id })
+        { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: order.id }, this.clock)
     }
     this.db.run('UPDATE orders SET state=? WHERE id=? AND state=?', ORDER_STATE.CANCELLED, order.id, ORDER_STATE.AWAITING_PAYMENT)
   }
-  expireIfDue(now = Date.now()) {
-    if (now - this.lastExpirationReadCheck < EXPIRATION_READ_INTERVAL_MS) return
+  expireIfDue(now = this.clock.now()) {
+    if (now >= this.lastExpirationReadCheck && now < this.nextExpirationReadCheck) return
     this.expire(now)
+    // 合并读请求不能跨过最近订单的付款截止；时钟回拨也必须重新检查。
+    const next = this.db.one<{ expires: number }>('SELECT expires FROM orders WHERE state=1 ORDER BY expires LIMIT 1')
     this.lastExpirationReadCheck = now
+    this.nextExpirationReadCheck = Math.min(now + EXPIRATION_READ_INTERVAL_MS, next?.expires ?? Infinity)
   }
-  expire(now = Date.now()) {
+  expire(now = this.clock.now()) {
     const hasExpiredOrders = this.db.one('SELECT id FROM orders WHERE state=1 AND expires<=? LIMIT 1', now)
     if (!hasExpiredOrders) return
     this.db.transaction(() => {
@@ -310,7 +317,7 @@ export class Orders {
       } else {
         this.owner(user, order)
       }
-      this.db.run('UPDATE orders SET state=2,paid_by=?,paid_at=? WHERE id=? AND state=1', user.id, Date.now(), id)
+      this.db.run('UPDATE orders SET state=2,paid_by=?,paid_at=? WHERE id=? AND state=1', user.id, this.clock.now(), id)
       return { id }
     })
   }
@@ -328,7 +335,7 @@ export class Orders {
     return this.db.transaction(() => {
       const order = this.get(id)
       ensure(order.state === ORDER_STATE.AWAITING_SHIPMENT, 409, '订单不在待发货状态')
-      this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=?', Date.now(), id)
+      this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=?', this.clock.now(), id)
       return { id }
     })
   }
@@ -343,7 +350,7 @@ export class Orders {
       const order = this.get(id)
       ensure(user.id === order.owner_id || this.canConfirmFamilyReceipt(user, order), 403, '仅下单人或代付订单中仍绑定的代收人可收货')
       ensure(order.state === ORDER_STATE.AWAITING_RECEIPT, 409, '订单尚未发货或已确认收货')
-      this.db.run('UPDATE orders SET state=4,received_by=?,received_at=? WHERE id=? AND state=3', user.id, Date.now(), id)
+      this.db.run('UPDATE orders SET state=4,received_by=?,received_at=? WHERE id=? AND state=3', user.id, this.clock.now(), id)
       return this.present(this.get(id), user)
     })
   }
@@ -352,7 +359,7 @@ export class Orders {
       const order = this.get(id)
       this.owner(user, order)
       ensure(order.state === ORDER_STATE.AWAITING_REVIEW, 409, '订单未收货或已评价')
-      this.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, score, content, Date.now())
+      this.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, score, content, this.clock.now())
       this.db.run('UPDATE orders SET state=5 WHERE id=?', id)
       return { id }
     })
