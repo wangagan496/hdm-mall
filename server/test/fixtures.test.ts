@@ -28,11 +28,12 @@ test('独立夹具凭证创建完整数据，买家令牌不可使用且各实�
     const merchant = (await call('accounts', { account: 'fixture_merchant', password: 'password-123', role: 'merchant' })).json().result
     const friend = (await call('accounts', { account: 'fixture_friend', password: 'password-123' })).json().result
     assert.equal(f.accounts.authenticate('Bearer ' + merchant.token).role, 'merchant')
-    for (const kind of ['accounts', 'addresses', 'products', 'relations']) {
+    for (const kind of ['accounts', 'addresses', 'products', 'relations', 'payments']) {
       assert.equal((await call(kind, {}, buyer.token)).statusCode, 403)
       assert.equal((await f.app.inject({ method: 'POST', url: '/__test/fixtures/' + kind,
         headers: { authorization: 'Bearer ' + buyer.token }, payload: {} })).statusCode, 403)
     }
+    assert.equal((await call('payments', { paymentId: 'next', preset: { outcome: 'unknown' } })).statusCode, 200)
     assert.equal((await call('addresses', { userId: buyer.id, receiver: '买家', contact: '13800138000',
       address: '测试地址', isDefault: 0 })).statusCode, 200)
     assert.equal((await call('relations', { ownerId: buyer.id, friendId: friend.id })).statusCode, 200)

@@ -5,6 +5,7 @@ import { Accounts, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
 import { ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
+import type { Payments } from './payments.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -59,6 +60,7 @@ export class Orders {
   private lastExpirationReadCheck = Number.NEGATIVE_INFINITY
   private nextExpirationReadCheck = Number.NEGATIVE_INFINITY
   readonly clock: Clock
+  private payments?: Payments
   constructor(db: Database, accounts: Accounts, catalog: Catalog, mockPayments: boolean, clock: Clock = accounts.clock) {
     this.db = db
     this.accounts = accounts
@@ -66,6 +68,7 @@ export class Orders {
     this.mockPayments = mockPayments
     this.clock = clock
   }
+  attachPayments(payments: Payments) { this.payments = payments }
   private get(id: string): Order {
     const order = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id)
     ensure(order, 404, '订单不存在')
@@ -87,7 +90,8 @@ export class Orders {
     return stillBoundToOrderOwner
   }
   private canRead(user: User, order: Order) {
-    if (user.id === order.owner_id || user.id === order.paid_by) {
+    if (user.id === order.owner_id || user.id === order.paid_by ||
+      this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)) {
       return true
     }
     // 待付款时，只有受邀且绑定关系仍有效的亲友可以查看。
@@ -115,6 +119,7 @@ export class Orders {
 
   private canPay(user: User, order: Order): boolean {
     if (order.state !== ORDER_STATE.AWAITING_PAYMENT) return false
+    if (this.payments?.hasPending(order.id)) return false
     if (order.invited_payer) {
       return order.invited_payer === user.id && this.accounts.bound(order.owner_id, user.id)
     }
@@ -124,16 +129,20 @@ export class Orders {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
     const evaluation = this.db.one<{ score: number; content: string; created: number }>('SELECT * FROM evaluations WHERE order_id=?', order.id)
+    const paymentFields = this.payments?.orderFields(order, user)
+    const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&
+      !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
+    if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order), skus: [], ...paymentFields }
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
       paymentMode: this.paymentMode(order),
       receivedAt: order.received_at, serverManaged: true,
-      canPay: this.canPay(user, order),
+      canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
       canEvaluate: isOrderOwner && order.state === ORDER_STATE.AWAITING_REVIEW,
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
-      countdown: Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
+      countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
       payMoney: order.amount / 100, totalMoney: order.amount / 100, postFee: 0, payChannel: 1, payType: 1,
       totalNum: items.reduce((sum, item) => sum + item.count, 0),
@@ -141,13 +150,16 @@ export class Orders {
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100 })),
       evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created } : null,
-      ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {})
+      ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {}),
+      ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
+        canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner })
     }
   }
   detail(user: User, id: string) {
     this.expireIfDue()
     const order = this.get(id)
     ensure(this.canRead(user, order), 403, '无权查看此订单')
+    this.payments?.markViewed(order.id, user.id)
     return this.present(order, user)
   }
   private listFilter(user: User, state: number, family: boolean) {
@@ -156,8 +168,9 @@ export class Orders {
     if (!family) return { where: `${stateFilter} AND o.owner_id=?`, values }
     // 与 canRead 一致，把亲友可读范围直接交给数据库筛选。
     const bound = "EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')"
-    values.push(user.id, user.id, user.id, user.id, user.id)
+    values.push(user.id, user.id, user.id, user.id, user.id, user.id)
     return { where: `${stateFilter} AND o.owner_id<>? AND (o.paid_by=? OR o.received_by=? OR
+      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR
       (o.state=1 AND o.invited_payer=? AND ${bound}) OR
       (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND ${bound}))`, values }
   }
@@ -266,7 +279,8 @@ export class Orders {
     if (now >= this.lastExpirationReadCheck && now < this.nextExpirationReadCheck) return
     this.expire(now)
     // 合并读请求不能跨过最近订单的付款截止；时钟回拨也必须重新检查。
-    const next = this.db.one<{ expires: number }>('SELECT expires FROM orders WHERE state=1 ORDER BY expires LIMIT 1')
+    const next = this.db.one<{ expires: number }>(`SELECT expires FROM orders WHERE state=1
+      AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=orders.id AND p.state='pending') ORDER BY expires LIMIT 1`)
     this.lastExpirationReadCheck = now
     this.nextExpirationReadCheck = Math.min(now + EXPIRATION_READ_INTERVAL_MS, next?.expires ?? Infinity)
   }
@@ -275,13 +289,17 @@ export class Orders {
     if (!hasExpiredOrders) return
     this.db.transaction(() => {
       // 进入事务后再查一次，只处理此刻仍未付款且已超时的订单。
-      const expiredOrders = this.db.all<Order>('SELECT * FROM orders WHERE state=1 AND expires<=?', now)
+      const expiredOrders = this.db.all<Order>(`SELECT o.* FROM orders o WHERE o.state=1 AND o.expires<=?
+        AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.state='pending')`, now)
       for (const order of expiredOrders) {
         this.cancelAndRestoreStock(order)
       }
     })
   }
   cancel(user: User, id: string) {
+    if (this.payments?.hasPending(id)) {
+      return this.payments.cancelPending(user, id).then(() => this.present(this.get(id), user))
+    }
     return this.db.transaction(() => {
       const order = this.get(id)
       this.owner(user, order)
@@ -298,12 +316,14 @@ export class Orders {
       const order = this.get(id)
       this.owner(user, order)
       ensure(order.state === ORDER_STATE.AWAITING_PAYMENT, 409, '只能为待付款订单选择付款方式')
+      ensure(!this.payments?.hasPending(id), 409, '支付确认中不能更改付款人')
       ensure(!friendId || this.accounts.bound(user.id, friendId), 403, '只能邀请已确认绑定的亲友代付')
       this.db.run('UPDATE orders SET invited_payer=? WHERE id=?', friendId, id)
       return { id }
     })
   }
   pay(user: User, id: string, expectedAmount: number) {
+    if (this.payments) return this.payments.mockPay(user, id, expectedAmount)
     ensure(this.mockPayments, 403, '此环境未启用模拟支付')
     this.expire()
     return this.db.transaction(() => {
@@ -335,6 +355,8 @@ export class Orders {
     return this.db.transaction(() => {
       const order = this.get(id)
       ensure(order.state === ORDER_STATE.AWAITING_SHIPMENT, 409, '订单不在待发货状态')
+      if (this.payments) ensure(this.db.one(`SELECT p.id FROM payments p WHERE p.order_id=? AND p.state='succeeded'
+        AND p.payer_id=? AND p.channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)`, id, order.paid_by, order.paid_at), 409, '订单没有有效支付，不能发货')
       this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=?', this.clock.now(), id)
       return { id }
     })

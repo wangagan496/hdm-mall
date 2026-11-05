@@ -65,7 +65,7 @@ test('分页排除已取消订单，页数一致，只整理当前页且可明�
     assert.ok(all.every(order => order.orderState !== 6))
     assert.equal(f.orders.listPage(f.user, 0, 4, 2).items.length, 0)
     assert.equal(f.orders.listPage(f.user, 6, 1, 10).counts, 3)
-    const cancelled = f.orders.cancel(f.user, ids[0]!)
+    const cancelled = await f.orders.cancel(f.user, ids[0]!)
     assert.equal(cancelled.orderState, 6); assert.ok(cancelled.skus.length)
   } finally { await f.app.close() }
 })
@@ -295,7 +295,7 @@ test('旧版数据库迁移保留商品，分类编号重启后保持稳定', ()
     const reloaded = new Catalog(migrated, 'http://fixture'); reloaded.seed()
     assert.equal(reloaded.categories().find(row => row.name === '原有分类')!.id, category.id)
     assert.equal(reloaded.categories().find(row => row.id === category.id)!.children[0]!.id, child.id)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 6)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 7)
   } finally {
     migrated?.close()
     rmSync(directory, { recursive: true, force: true })

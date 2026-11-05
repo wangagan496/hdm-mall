@@ -4,6 +4,8 @@ import type { FastifyInstance } from 'fastify'
 import { Accounts, type User } from './accounts.ts'
 import { ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
+import type { PaymentPreset } from './payment-channel.ts'
+import type { Payments } from './payments.ts'
 
 const identifier = z.string().min(1).max(100)
 const accountSchema = z.object({
@@ -28,7 +30,8 @@ const productSchema = z.object({
 export class TestFixtures {
   private accounts: Accounts
   private credential: string
-  constructor(accounts: Accounts, credential: string) { this.accounts = accounts; this.credential = credential }
+  private payments: Payments
+  constructor(accounts: Accounts, credential: string, payments: Payments) { this.accounts = accounts; this.credential = credential; this.payments = payments }
   private authorize(credential: unknown) {
     const expected = Buffer.from(this.credential)
     const actual = Buffer.from(typeof credential === 'string' ? credential : '')
@@ -86,13 +89,26 @@ export class TestFixtures {
       return { id, name: data.name, skus, categoryId: parent.id, subcategoryId: child.id }
     })
   }
-  // D2 扩展点：支付结果预设与本类共享 accounts.clock；本步不提供支付接口。
+  configurePayments(credential: unknown, input: unknown) {
+    this.authorize(credential)
+    const data = z.object({ paymentId: z.string().min(1).max(100).default('next'), preset: z.object({
+      outcome: z.enum(['success', 'fail', 'unknown', 'close-paid']).default('unknown'),
+      paidAt: z.number().int().optional(), query: z.enum(['match', 'opposite', 'missing-time']).optional(),
+      refundFailures: z.number().int().min(0).max(100).optional()
+    }) }).parse(input)
+    const { paymentId, preset } = data as { paymentId: string; preset: PaymentPreset }
+    const channel = this.payments.channel
+    ensure(channel && 'setPreset' in channel && typeof channel.setPreset === 'function', 409, '当前支付渠道不支持模拟预设')
+    channel.setPreset(paymentId, preset)
+    return { configured: true }
+  }
 }
 
 export function registerFixtureRoutes(app: FastifyInstance, fixtures: TestFixtures) {
   const routes = {
     accounts: fixtures.createAccount.bind(fixtures), addresses: fixtures.createAddress.bind(fixtures),
-    products: fixtures.createProduct.bind(fixtures), relations: fixtures.createRelation.bind(fixtures)
+    products: fixtures.createProduct.bind(fixtures), relations: fixtures.createRelation.bind(fixtures),
+    payments: fixtures.configurePayments.bind(fixtures)
   }
   for (const [kind, create] of Object.entries(routes)) {
     app.post('/__test/fixtures/' + kind, async req => ({

@@ -10,6 +10,8 @@ import { Database } from './database.ts'
 import { Accounts, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
 import { Orders } from './orders.ts'
+import { Payments } from './payments.ts'
+import { MockPaymentChannel } from './payment-channel.ts'
 import { AppError, ensure } from './errors.ts'
 import { TestFixtures, registerFixtureRoutes } from './test-fixtures.ts'
 import { systemClock, type Clock } from './clock.ts'
@@ -32,9 +34,14 @@ export async function buildApp(options: AppOptions) {
   const db = new Database(options.databasePath)
   const clock = options.clock ?? systemClock
   const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
+  const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
+  const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
+    (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret) : undefined)
+  const payments = new Payments(db, accounts, paymentChannel, paymentCallbackSecret, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
+  orders.attachPayments(payments)
   if (!options.testFixtures) catalog.seed()
-  const fixtures = options.testFixtures ? new TestFixtures(accounts, options.testFixtures.credential) : undefined
+  const fixtures = options.testFixtures ? new TestFixtures(accounts, options.testFixtures.credential, payments) : undefined
   const app = Fastify({ logger: options.logger ?? false, logController: new LogController({ disableRequestLogging: true }),
     bodyLimit: 1024 * 1024, trustProxy: options.trustedProxies?.length ? options.trustedProxies : false })
   if (options.production && options.corsOrigins?.includes('null')) app.log.warn('CORS_ORIGINS 显式允许 Origin null：已开放打包 ArkWeb 等不透明来源，请仅在需要内嵌 H5 时启用并保留 Bearer token 鉴权')
@@ -177,7 +184,23 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('GET', '/member/order/:id', (req, user) => orders.detail(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/payer', (req, user) => orders.invitePayer(user, key(req), z.object({ friendId: idSchema.nullable() }).parse(req.body).friendId))
-  protectedRoute('POST', '/member/order/:id/mock-pay', (req, user) => orders.pay(user, key(req), z.object({ amountCents: z.number().int().positive() }).parse(req.body).amountCents))
+  protectedRoute('POST', '/member/order/:id/payments', (req, user) => payments.start(user, key(req), z.object({ amountCents: z.number().int().positive() }).parse(req.body).amountCents))
+  protectedRoute('POST', '/member/order/:id/payments/refresh', (req, user) => payments.refresh(user, key(req)))
+  protectedRoute('POST', '/member/order/:id/mock-pay', (req, user) => {
+    ensure(options.mockPayments, 403, '此环境未启用模拟支付')
+    return payments.mockPay(user, key(req), z.object({ amountCents: z.number().int().positive() }).parse(req.body).amountCents)
+  })
+  app.post('/payments/callback', async req => {
+    try {
+      const data = z.object({ paymentId: idSchema, orderId: idSchema, amount: z.number().int().positive(),
+        state: z.enum(['success', 'fail']), paidAt: z.number().int().optional(), signature: z.string().min(1).max(256) }).parse(req.body)
+      const { signature, ...payload } = data
+      return ok(await payments.callbackPayload(payload, signature))
+    } catch (error) {
+      req.log.warn({ requestId: req.id }, 'Payment callback rejected')
+      throw error
+    }
+  })
   protectedRoute('PUT', '/member/order/:id/cancel', (req, user) => orders.cancel(user, key(req)))
   protectedRoute('POST', '/member/order/:id/reminder', (req, user) => orders.remind(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/receipt', (req, user) => orders.receive(user, key(req)))
@@ -190,6 +213,15 @@ export async function buildApp(options: AppOptions) {
     const query = pageSchema.parse(req.query)
     return orders.merchantPage(user, query.page, query.pageSize)
   })
+  protectedRoute('GET', '/merchant/payments/review', (req, user) => {
+    const query = pageSchema.pick({ page: true, pageSize: true }).parse(req.query)
+    return payments.reviewPage(user, query.page, query.pageSize)
+  })
+  protectedRoute('POST', '/merchant/payments/:id/requery', (req, user) => payments.requery(user, key(req)))
+  protectedRoute('PUT', '/merchant/payments/:id/resolution', (req, user) => payments.resolve(user, key(req),
+    z.object({ outcome: z.enum(['paid', 'unpaid']), paidAt: z.number().int().positive().optional(), reason: z.string().trim().min(5).max(200), requestKey: z.string().uuid() }).parse(req.body)))
+  protectedRoute('POST', '/merchant/refunds/:id/retry', (req, user) => payments.retryRefund(user, key(req),
+    z.object({ requestKey: z.string().uuid() }).parse(req.body).requestKey))
   protectedRoute('GET', '/merchant/inventory', (req, user) => {
     const query = pageSchema.pick({ page: true, pageSize: true }).extend({ skuId: idSchema.optional() }).parse(req.query)
     return inventoryPage(db, user, query)
@@ -203,7 +235,10 @@ export async function buildApp(options: AppOptions) {
       delta: z.number().int().min(-1000000).max(1000000).refine(value => value !== 0),
       expectedStock: z.number().int().min(0).max(2147483647), reason: z.string().trim().min(5).max(200) }).parse(req.body), clock))
   protectedRoute('POST', '/merchant/orders/:id/ship', (req, user) => orders.ship(user, key(req)))
-  const timer = setInterval(() => { try { orders.expire() } catch { app.log.error('Order expiration failed') } }, 30_000).unref()
+  const timer = setInterval(() => {
+    try { orders.expire() } catch { app.log.error('Order expiration failed') }
+    void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
+  }, 30_000).unref()
   app.addHook('onClose', async () => { clearInterval(timer); db.close() })
-  return { app, db, accounts, catalog, orders, clock, fixtures }
+  return { app, db, accounts, catalog, orders, payments, clock, fixtures }
 }

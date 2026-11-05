@@ -30,7 +30,9 @@ export function inventoryPage(db: Database, user: User, query: PageQuery & { sku
   const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM skus s ${where}`, ...values)!.count
   const items = db.all(`SELECT s.id AS skuId,p.name,s.spec,s.stock,
     COALESCE((SELECT SUM(m.delta) FROM inventory_movements m WHERE m.sku_id=s.id),0) AS recordedStock,
-    s.stock-COALESCE((SELECT SUM(m.delta) FROM inventory_movements m WHERE m.sku_id=s.id),0) AS difference
+    s.stock-COALESCE((SELECT SUM(m.delta) FROM inventory_movements m WHERE m.sku_id=s.id),0) AS difference,
+    COALESCE((SELECT SUM(i.count) FROM order_items i JOIN orders o ON o.id=i.order_id
+      JOIN payments p ON p.order_id=o.id AND p.state='pending' WHERE i.sku_id=s.id AND o.state=1),0) AS confirmingCount
     FROM skus s JOIN products p ON p.id=s.product_id ${where} ORDER BY s.id LIMIT ? OFFSET ?`,
     ...values, query.pageSize, (query.page - 1) * query.pageSize)
   return { items, counts, pages: Math.ceil(counts / query.pageSize), ...query }

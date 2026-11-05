@@ -13,10 +13,11 @@ const issueSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('inventory-mismatch'), skuId: z.string() }).strict(),
   z.object({ type: z.literal('unsupported-avatar'), userId: z.string() }).strict(),
   z.object({ type: z.literal('missing-avatar'), userId: z.string() }).strict(),
+  z.object({ type: z.literal('payment-mismatch'), orderId: z.string() }).strict(),
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -70,10 +71,11 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6) throw new Error('仅支持数据库版本 2、3、4、5 或 6')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7) throw new Error('仅支持数据库版本 2、3、4、5、6 或 7')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
-      ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : [])]) {
+      ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
+      ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -82,6 +84,15 @@ function inspectDatabase(path: string) {
         NOT EXISTS(SELECT 1 FROM inventory_movements m WHERE m.sku_id=s.id AND m.kind='opening') OR
         s.stock<>(SELECT COALESCE(SUM(m.delta),0) FROM inventory_movements m WHERE m.sku_id=s.id) ORDER BY s.id`).iterate()) {
         issues.push({ type: 'inventory-mismatch', skuId: String(row.id) })
+      }
+    }
+    if (version >= 7) {
+      for (const row of db.prepare(`SELECT o.id FROM orders o WHERE o.paid_by IS NOT NULL AND (
+        SELECT COUNT(*) FROM payments p WHERE p.order_id=o.id AND p.state='succeeded'
+          AND p.payer_id=o.paid_by AND p.amount=o.amount AND p.channel_paid_at=o.paid_at
+          AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)
+      )<>1 ORDER BY o.id`).iterate()) {
+        issues.push({ type: 'payment-mismatch', orderId: String(row.id) })
       }
     }
     const uploads = new Set<string>()
@@ -99,7 +110,7 @@ function inspectDatabase(path: string) {
       uploads.add(path.slice(1))
       avatarUsers.push({ path: path.slice(1), userId: String(row.id) })
     }
-    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 }
+    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 }
   } finally { db.close() }
 }
 
@@ -141,7 +152,7 @@ async function checkFiles(root: string, manifest: Manifest) {
   const actualIssues = snapshotIssues(database, images)
   const issueKeys = (issues: BackupIssue[]) => JSON.stringify(issues.map(issue => JSON.stringify(issue)).sort())
   if (issueKeys(actualIssues) !== issueKeys(manifest.issues)) {
-    throw new Error('库存与流水或头像引用的不一致项与清单 issues 不符')
+    throw new Error('库存与流水、支付或头像引用的不一致项与清单 issues 不符')
   }
   return database
 }

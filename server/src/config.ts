@@ -1,5 +1,6 @@
 import { isIP } from 'node:net'
 import { z } from 'zod'
+import type { PaymentChannel } from './payment-channel.ts'
 
 export interface RuntimeOptions {
   publicUrl: string
@@ -9,6 +10,8 @@ export interface RuntimeOptions {
   production?: boolean
   corsOrigins?: string[]
   trustedProxies?: string[]
+  paymentChannel?: PaymentChannel | null
+  paymentCallbackSecret?: string
 }
 
 function originUrl(value: string, field: string): URL {
@@ -38,6 +41,7 @@ export function validateRuntimeOptions(options: RuntimeOptions): void {
   }
   const publicUrl = originUrl(options.publicUrl, 'PUBLIC_URL')
   if (options.production && options.mockPayments) throw new Error('正式环境禁止启用模拟支付')
+  if (options.production && options.paymentChannel && !options.paymentCallbackSecret) throw new Error('正式环境配置支付渠道时必须设置 PAYMENT_CALLBACK_SECRET')
   if (options.production && (publicUrl.protocol !== 'https:' || localHostname(publicUrl.hostname))) {
     throw new Error('正式环境 PUBLIC_URL 必须使用非本机、非模拟器的 HTTPS 地址')
   }
@@ -76,7 +80,7 @@ export function readConfig(source: Record<string, string | undefined>) {
     databasePath: env.DATABASE_PATH, uploadsPath: env.UPLOADS_PATH,
     publicUrl: env.PUBLIC_URL.replace(/\/$/, ''), mockPayments: env.MOCK_PAYMENTS === 'true', production,
     corsOrigins: split(env.CORS_ORIGINS ?? (production ? '' : 'http://localhost:5173,http://127.0.0.1:5173')),
-    trustedProxies: split(env.TRUSTED_PROXIES), logger: true
+    trustedProxies: split(env.TRUSTED_PROXIES), logger: true, paymentCallbackSecret: source.PAYMENT_CALLBACK_SECRET
   }
   validateRuntimeOptions(appOptions)
   if (env.MERCHANT_ACCOUNT || env.MERCHANT_PASSWORD) {
