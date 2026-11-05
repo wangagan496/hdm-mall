@@ -116,7 +116,7 @@ export struct AddressView {
   private pageActive: boolean = true
   private pageGeneration: number = 0
   private sessionToken: string = ''
-  private loadedToken: string = ''
+  @State loadedToken: string = ''
 
   @Builder
   DeleteConfirmBuilder() {

@@ -42,7 +42,7 @@ export struct FamilyView {
   private pageGeneration: number = 0
   private sessionToken: string = ''
   private sessionRole: string = ''
-  private loadedToken: string = ''
+  @State loadedToken: string = ''
   private dialogSequence: number = 0
 
   aboutToAppear(): void {
