@@ -18,7 +18,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -106,12 +106,13 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8) throw new Error('仅支持数据库版本 2、3、4、5、6、7 或 8')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9) throw new Error('仅支持数据库版本 2 至 9')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
       ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions', 'payment_notices', 'payment_review_resolutions'] : []),
-      ...(version >= 8 ? ['order_cancel_requests', 'order_cancel_actions'] : [])]) {
+      ...(version >= 8 ? ['order_cancel_requests', 'order_cancel_actions'] : []),
+      ...(version >= 9 ? ['cart_requests'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -156,7 +157,7 @@ function inspectDatabase(path: string) {
       uploads.add(path.slice(1))
       avatarUsers.push({ path: path.slice(1), userId: String(row.id) })
     }
-    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 }
+    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }
   } finally { db.close() }
 }
 

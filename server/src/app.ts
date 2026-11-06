@@ -156,8 +156,8 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('GET', '/member/cart', (_req, user) => { orders.expireIfDue(); return catalog.cart(user) })
   protectedRoute('GET', '/member/cart/count', (_req, user) => ({ count: catalog.cartCount(user) }))
   protectedRoute('POST', '/member/cart', (req, user) => {
-    orders.expire(); const data = z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) }).parse(req.body)
-    return catalog.addCart(user, data.skuId, data.count)
+    orders.expire(); const data = z.object({ skuId: idSchema, count: z.number().int().min(1).max(999), requestKey: z.string().uuid() }).parse(req.body)
+    return catalog.addCart(user, data.skuId, data.count, data.requestKey)
   })
   protectedRoute('PUT', '/member/cart/:id', (req, user) => catalog.updateCart(user, key(req), z.object({ selected: z.boolean().optional(), count: z.number().int().min(1).max(999).optional() }).parse(req.body)))
   protectedRoute('DELETE', '/member/cart', (req, user) => {
@@ -172,10 +172,14 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('POST', '/member/relations', (req, user) => accounts.invite(user, z.object({ account: credentials.shape.account }).parse(req.body).account))
   protectedRoute('PUT', '/member/relations/:id', (req, user) => accounts.updateRelation(user, key(req), z.object({ action: z.enum(['accept','revoke']) }).parse(req.body).action))
-  protectedRoute('GET', '/member/order/pre', (_req, user) => orders.preOrder(user))
+  protectedRoute('GET', '/member/order/pre', (req, user) => {
+    const query = z.object({ skuId: idSchema.optional(), count: z.coerce.number().int().min(1).max(999).optional() }).parse(req.query)
+    ensure((query.skuId === undefined) === (query.count === undefined), 400, '请同时指定规格和数量')
+    return orders.preOrder(user, query.skuId === undefined ? undefined : { skuId: query.skuId, count: query.count! })
+  })
   protectedRoute('GET', '/member/order/by-request/:requestKey', (req, user) => orders.byRequest(user,
     z.object({ requestKey: z.string().min(16).max(100) }).parse(req.params).requestKey))
-  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100) }).parse(req.body)))
+  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100) }).parse(req.body)))
   protectedRoute('GET', '/member/order', (req, user) => {
     const query = pageSchema.parse(req.query)
     return orders.listPage(user, query.orderState, query.page, query.pageSize)
@@ -259,6 +263,7 @@ export async function buildApp(options: AppOptions) {
   processCancelRequests()
   const timer = setInterval(() => {
     try { orders.expire() } catch { app.log.error('Order expiration failed') }
+    try { catalog.cleanupCartRequests() } catch { app.log.error('Cart request cleanup failed') }
     try { processCancelRequests() } catch { app.log.error('Order cancellation scan failed') }
     void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
   }, 30_000).unref()

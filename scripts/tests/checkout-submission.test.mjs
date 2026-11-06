@@ -7,6 +7,25 @@ test('B-24: 调整入口明确打开购物车而非返回不确定来源页', as
   assert.equal(f.paths[0].name, 'cart')
 })
 
+test('D9/B-17: 立即购买同样更新报价、标明缺货并保留来源摘要', async () => {
+  const f = fixture(); f.page.checkoutSelection = { skuId: 'sku', count: 3 }; await f.load()
+  f.create(async () => { throw { httpStatus: 409, reason: 'PRICE_CHANGED', result: { totalAmountCents: 33,
+    goods: [{ skuId: 'sku', priceCents: 11, subtotalCents: 33, count: 3 }] } } })
+  await f.page.createOrderAndOpenCashier()
+  const key = f.writes[0].requestKey
+  assert.equal(f.writes[0].source, 'buy-now')
+  assert.equal(f.page.summary.totalPayPrice, 0.33)
+  f.create(async () => { throw { httpStatus: 409, reason: 'STOCK_SHORTAGE', result: {
+    goods: [{ skuId: 'sku', name: '苹果', spec: '红', remainingCount: 1, requiredCount: 3 }] } } })
+  await f.page.createOrderAndOpenCashier()
+  assert.notEqual(f.writes[1].requestKey, key)
+  assert.equal(f.writes[1].source, 'buy-now')
+  assert.equal(f.page.goodsList[0].stock, 1)
+  assert.equal(f.page.isCheckoutReady(), false)
+  f.page.adjustInCart()
+  assert.deepEqual(f.paths, ['back'])
+})
+
 
 test('B-21: 真实购物车合计用整数分，0.1元乘3等于0.3元', () => {
   const { CartOperationHelper } = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/CartOperations.ets'))
@@ -34,7 +53,7 @@ test('B-32: 查无订单才清记录并允许新号，旧账号迟到查询不�
   await f.page.loadCheckoutPreview()
   const before = f.messages.length
   gate.resolve({ id: 'old-order', orderState: 1 }); await checking
-  assert.equal(f.paths.length, 0)
+  assert.deepEqual(f.paths, ['home'])
   assert.equal(f.messages.length, before)
   assert.ok(f.records.has('buyer'))
 })
@@ -141,6 +160,7 @@ function fixture(stock = 9) {
   }
   const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets', 'CheckView', {}, {
     CheckoutSheet: { None: 0, Payment: 1, Address: 2 }, GlobalVariable: { DEMO_ORDER_FLOW: false },
+    AppStorage: { setOrCreate() {} },
     util: { generateRandomUUID: () => 'request-key-' + ++counter }, storeManager,
     getOrderByRequestAPI: (key, token) => { queries.push({ key, token }); return lookup() },
     checkoutFailure,
@@ -153,7 +173,7 @@ function fixture(stock = 9) {
   const page = new Page()
   page.user = { id: 'buyer', token: 'token' }
   page.safeToast = message => messages.push(message)
-  page.stackPath = { replacePath: path => paths.push(path), pop: () => paths.push('back') }
+  page.stackPath = { replacePath: path => paths.push(path), pop: () => paths.push('back'), clear: () => paths.push('home') }
   return { page, writes, queries, messages, paths, records, storeManager, load: () => page.loadCheckoutPreview(),
     create: fn => { create = fn }, lookup: fn => { lookup = fn } }
 }

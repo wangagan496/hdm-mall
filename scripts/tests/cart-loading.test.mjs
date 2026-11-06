@@ -31,6 +31,27 @@ function fixture(operations = {}) {
   return { page, requests, paths, toasts }
 }
 
+test('B-16/B-71: 标签和独立购物车各自监听与清理，换账号迟到结果不串页', async () => {
+  const tab = fixture(), standalone = fixture(), listeners = new Set()
+  const eventHub = { on: (_event, listener) => listeners.add(listener), off: (_event, listener) => listeners.delete(listener) }
+  for (const current of [tab, standalone]) current.page.getUIContext = () => ({ getHostContext: () => ({ eventHub }) })
+  standalone.page.standalone = true
+  tab.page.aboutToAppear(); standalone.page.aboutToAppear()
+  assert.equal(tab.page.showBackIcon, false)
+  assert.equal(standalone.page.showBackIcon, true)
+  assert.equal(listeners.size, 2)
+  tab.requests[0].resolve([item('previous')]); standalone.requests[0].resolve([item('previous')]); await tick()
+  for (const listener of listeners) listener()
+  standalone.page.aboutToDisappear()
+  assert.equal(listeners.size, 1)
+  tab.page.user = { token: 'buyer-b' }; tab.page.reloadForCurrentAccount()
+  tab.requests[2].resolve([item('current')]); await tick()
+  tab.requests[1].resolve([item('old')]); standalone.requests[1].resolve([item('old')]); await tick()
+  assert.equal(tab.page.cartList[0].skuId, 'current')
+  assert.equal(standalone.page.cartList[0].skuId, 'previous')
+  tab.page.aboutToDisappear(); assert.equal(listeners.size, 0)
+})
+
 test('购物车乱序成功和失败不覆盖最新列表或提前结束最新查询', async () => {
   for (const oldFails of [false, true]) {
     const f = fixture()

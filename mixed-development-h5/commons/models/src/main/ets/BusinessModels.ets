@@ -118,6 +118,7 @@ export class CartGoodsModel implements CartGoods {
 export interface AddCartParams {
   skuId: string
   count: number
+  requestKey: string
 }
 
 export interface CartCount {
@@ -180,6 +181,7 @@ export interface CreateOrderParamsGoods {
 
 export interface CreateOrderParams {
   expectedAmountCents: number
+  source?: 'cart' | 'buy-now'
   requestKey?: string
   deliveryTimeType: number
   payType: number
@@ -231,6 +233,19 @@ export interface OrderItem {
   skus: OrderSku[]
   totalMoney: number
   totalNum: number
+}
+
+export interface CheckoutSelection {
+  skuId: string
+  count: number
+}
+
+export interface PendingTradeInfo {
+  accountId: string
+  requestKey: string
+  goodsId: string
+  created: number
+  entry?: HDMGoodsItem
 }
 
 export interface OrderCancelRequest {

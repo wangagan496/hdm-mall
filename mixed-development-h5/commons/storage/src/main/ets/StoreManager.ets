@@ -1,7 +1,7 @@
 import { preferences } from "@kit.ArkData"
 import { common } from "@kit.AbilityKit"
 import { GlobalVariable } from "constants"
-import { HDMUser, PendingOrderRequest } from "models"
+import { HDMUser, PendingOrderRequest, PendingTradeInfo } from "models"
 
 export class StoreManager {
   ctx?: common.UIAbilityContext
@@ -23,6 +23,21 @@ export class StoreManager {
   async saveUserInfo(user: HDMUser): Promise<void> {
     try {
       const store = this.getStore()
+      const pendingTrade = this.getPendingTrade()
+      if (pendingTrade && user.id) {
+        try {
+          const intent = JSON.parse(pendingTrade) as PendingTradeInfo
+          if ((intent.accountId && intent.accountId !== user.id) || !Number.isFinite(intent.created) ||
+            intent.created > Date.now() || Date.now() - intent.created > 30 * 60_000) {
+            store.deleteSync('pendingGuestTrade')
+          } else {
+            intent.accountId = user.id
+            store.putSync('pendingGuestTrade', JSON.stringify(intent))
+          }
+        } catch {
+          store.deleteSync('pendingGuestTrade')
+        }
+      }
       store.putSync(GlobalVariable.USER_INFO_KEY, user)
       // 内存写入立即生效，磁盘 flush 按调用顺序完成，避免旧资料最后落盘。
       const pending = this.userFlush.then(() => store.flush())
@@ -72,6 +87,28 @@ export class StoreManager {
     if (!raw) return null
     const record = JSON.parse(raw) as PendingOrderRequest
     return record.accountId === accountId && record.requestKey.length > 0 ? record : null
+  }
+
+  getPendingTrade(): string {
+    return this.getStore().getSync('pendingGuestTrade', '') as string
+  }
+
+  async savePendingTrade(record: string): Promise<void> {
+    const store = this.getStore()
+    store.putSync('pendingGuestTrade', record)
+    const pending = this.userFlush.then(() => store.flush())
+    this.userFlush = pending.catch(() => {})
+    await pending
+  }
+
+  async clearPendingTrade(requestKey: string): Promise<void> {
+    const store = this.getStore()
+    const raw = this.getPendingTrade()
+    if (!raw || (JSON.parse(raw) as PendingTradeInfo).requestKey !== requestKey) return
+    store.deleteSync('pendingGuestTrade')
+    const pending = this.userFlush.then(() => store.flush())
+    this.userFlush = pending.catch(() => {})
+    await pending
   }
 
   async savePendingOrder(record: PendingOrderRequest): Promise<void> {

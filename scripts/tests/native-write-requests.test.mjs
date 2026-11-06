@@ -147,7 +147,7 @@ test('结算预览和下单固定发起账号，切换登录态后仍保留原�
     const owner = f.accounts.authenticate(`Bearer ${buyer.token}`)
     const address = f.accounts.saveAddress(owner, { receiver: '结算回归', contact: '13800138000', address: '测试', isDefault: 0 })
     await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` },
-      payload: { skuId: 'hdm-1-a', count: 1 } })
+      payload: { skuId: 'hdm-1-a', count: 1, requestKey: randomUUID() } })
     let current = buyer
     const requests = []
     const adapter = async config => {

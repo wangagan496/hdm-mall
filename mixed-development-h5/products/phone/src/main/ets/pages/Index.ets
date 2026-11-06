@@ -1,4 +1,4 @@
-import { TabItem, BreakPointType, HDMUser } from 'models'
+import { TabItem, BreakPointType, HDMUser, PendingTradeInfo, CreateOrderParams } from 'models'
 import { GlobalVariable, BusinessVariable, PAGE_PATH } from 'constants'
 import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI } from 'storage'
 import { CartView } from 'cart'
@@ -39,6 +39,7 @@ struct Index {
   }
 
   private async recoverPendingOrder(): Promise<void> {
+    if (this.recoverPendingTrade()) return
     const accountId: string = this.user.id || ''
     const token: string = this.user.token || ''
     if (GlobalVariable.DEMO_ORDER_FLOW || !this.recoveryActive || this.stackPath.getAllPathName().length > 0 ||
@@ -64,7 +65,9 @@ struct Index {
         if (checkoutFailure(error as Error).status === 404) {
           await storeManager.clearPendingOrder(accountId, record.requestKey)
           if (this.isCurrentRecovery(sequence, accountId, token)) {
-            this.getUIContext().getPromptAction().showToast({ message: '上次提交没有成功，商品仍在购物车里' })
+            let buyNow: boolean = false
+            try { buyNow = (JSON.parse(record.summary) as CreateOrderParams).source === 'buy-now' } catch { }
+            this.getUIContext().getPromptAction().showToast({ message: buyNow ? '上次立即购买没有成功，请返回商品重新确认' : '上次提交没有成功，商品仍在购物车里' })
           }
         }
       }
@@ -72,6 +75,22 @@ struct Index {
     } finally {
       if (sequence === this.recoverySequence) this.recoveringToken = ''
     }
+  }
+
+  private recoverPendingTrade(): boolean {
+    if (GlobalVariable.DEMO_ORDER_FLOW || !this.recoveryActive || this.stackPath.getAllPathName().length > 0 || !this.user.token || !this.user.id) return false
+    try {
+      const raw = storeManager.getPendingTrade()
+      if (!raw) return false
+      const record = JSON.parse(raw) as PendingTradeInfo
+      if (!Number.isFinite(record.created) || record.created > Date.now() || Date.now() - record.created > 30 * 60_000 ||
+        (record.accountId && record.accountId !== this.user.id)) {
+        void storeManager.clearPendingTrade(record.requestKey)
+        return false
+      }
+      this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: record.entry })
+      return true
+    } catch { return false }
   }
 
   onPageShow(): void {
@@ -149,7 +168,7 @@ struct Index {
             else if (index === TabIndex.CATEGORY) {
               CategoryView({ isActive: this.activeIndex === TabIndex.CATEGORY })
             }
-            else if (index === TabIndex.CART) { CartView() }
+            else if (index === TabIndex.CART) { CartView({ standalone: false }) }
             else if (index === TabIndex.MINE) { MineView() }
           }
           .tabBar(this.getTabItemBuilder(item, index))

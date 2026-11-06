@@ -1,6 +1,7 @@
 import { RequestAxios } from 'network'
 import {
   CartGoodsModel,
+  CheckoutSelection,
   CreateOrderParams,
   CreateOrderResult,
   DeleteCartParams,
@@ -48,8 +49,9 @@ export const delCart = (data: DeleteCartParams) => {
 
 // 结算预览：读取已选商品、地址和金额，不创建订单、不扣库存。
 // 静默请求：失败提示统一由 CheckView 显示。
-export const getPreOrderAPI = (token: string) => {
-  return RequestAxios.getForSession<PreOrder>('/member/order/pre', token)
+export const getPreOrderAPI = (token: string, selection?: CheckoutSelection) => {
+  const query = selection ? `?skuId=${encodeURIComponent(selection.skuId)}&count=${selection.count}` : ''
+  return RequestAxios.getForSession<PreOrder>('/member/order/pre' + query, token)
 }
 
 // 确认购买后才创建订单，返回真实订单号供收银台使用；创建成功不代表已付款。

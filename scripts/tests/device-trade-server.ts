@@ -93,7 +93,7 @@ f.app.addHook('onResponse', async (req, reply) => {
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
 })
 f.app.addHook('onError', async (_req, _reply, error) => { console.log(JSON.stringify({ errorCode: error.code })) })
-await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: 1 } })
+await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: 1, requestKey: randomUUID() } })
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {
     const account = `probe_${String(index).padStart(2, '0')}`

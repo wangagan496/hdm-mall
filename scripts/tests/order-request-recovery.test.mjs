@@ -10,7 +10,7 @@ function fixture(state = 'pending') {
     putSync: (key, value) => disk.set(key, value), deleteSync: key => disk.delete(key), flush: async () => {} }) }
   const { StoreManager } = execute(sourceOf('mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets'), {
     '@kit.ArkData': { preferences }, constants: { GlobalVariable: { USER_INFO_KEY: 'user' } }
-  })
+  }, { Date: { now: () => 1000 } })
   const storeManager = new StoreManager(); storeManager.ctx = {}
   let lookup = async () => {
     if (state === 'missing') throw { response: { status: 404 } }
@@ -20,10 +20,10 @@ function fixture(state = 'pending') {
   let source = sourceOf('mixed-development-h5/products/phone/src/main/ets/pages/Index.ets')
   source = source.slice(source.indexOf('struct Index')).split('  @Builder')[0]
     .replace('struct Index', 'export class Index').replace(/@\w+(?:\([^)]*\))?\s*/g, '') + '\n}'
-  const { Index } = execute(source, {}, { storeManager, GlobalVariable: { DEMO_ORDER_FLOW: false },
+  const { Index } = execute(source, {}, { storeManager, GlobalVariable: { DEMO_ORDER_FLOW: false }, Date: { now: () => 1000 },
     checkoutFailure,
     getOrderByRequestAPI: (key, token) => { queries.push({ key, token }); return lookup() },
-    NavPathStack: class {}, TabIndex: { HOME: 0 }, PAGE_PATH: { PAY_PAGE: 'pay' }
+    NavPathStack: class {}, TabIndex: { HOME: 0 }, PAGE_PATH: { PAY_PAGE: 'pay', GOODS_PAGE: 'goods' }
   })
   const page = new Index(); page.user = { id: 'buyer', token: 'token' }
   page.stackPath = { pushPath: path => paths.push(path), getAllPathName: () => [] }
@@ -67,6 +67,22 @@ test('B-34/K8: 其他账号记录和迟到的恢复结果均不处理', async ()
   assert.equal(f.dialogs.length, 0)
   assert.equal(f.paths.length, 0)
   assert.ok(f.storeManager.getPendingOrder('buyer'))
+})
+
+test('D5/B-71: 本地续办跨实例恢复，首次登录绑定A，切B清除', async () => {
+  const f = fixture()
+  const record = { accountId: '', goodsId: 'goods', entry: { id: 'goods' }, requestKey: 'guest-key', created: 1000,
+    action: 'cart', sku: { id: 'sku', price: '1', specs: [] }, count: 1 }
+  await f.storeManager.savePendingTrade(JSON.stringify(record))
+  const reopened = f.reopenStore()
+  assert.equal(JSON.parse(reopened.getPendingTrade()).requestKey, 'guest-key')
+  await reopened.saveUserInfo({ id: 'buyer', token: 'token', account: 'buyer' })
+  assert.equal(JSON.parse(reopened.getPendingTrade()).accountId, 'buyer')
+  await f.page.recoverPendingOrder()
+  assert.deepEqual(JSON.parse(JSON.stringify(f.paths)), [{ name: 'goods', param: { id: 'goods' } }])
+  assert.equal(f.queries.length, 0)
+  await reopened.saveUserInfo({ id: 'other', token: 'other-token', account: 'other' })
+  assert.equal(reopened.getPendingTrade(), '')
 })
 
 test('B-34: 去付款按钮只在原会话有效时打开收银页', async () => {

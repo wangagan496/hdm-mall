@@ -1,5 +1,5 @@
-import { GlobalVariable } from 'constants'
-import { HDMUser } from 'models'
+import { GlobalVariable, PAGE_PATH } from 'constants'
+import { HDMUser, PendingTradeInfo } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { auth, localGoodsStore, storeManager } from 'storage'
 import { authCart } from 'storage'
@@ -68,7 +68,7 @@ export struct LoginView {
       const user = await loginAPI(this.loginForm)
       await this.saveLoginAndRefreshCart(user)
       this.safeToast('登录成功')
-      this.stackPath.pop()
+      await this.finishLogin(user)
     } catch (error) {
       if (isAuthNetworkError(error as Error)) {
         this.safeToast(this.isRegistrationMode ? '注册时网络异常，请稍后重试' : '登录时网络异常，请稍后重试')
@@ -94,6 +94,23 @@ export struct LoginView {
       // 旧版全局收藏迁移失败不应把已经成功的登录回报为失败。
     }
     await authCart.updateCartCount()
+  }
+
+  private async finishLogin(user: HDMUser): Promise<void> {
+    if (auth.getUserInfo()?.token !== user.token) return
+    const paths = this.stackPath.getAllPathName()
+    if (paths.length === 0 || paths[paths.length - 1] !== PAGE_PATH.LOGIN_PAGE) return
+    this.stackPath.pop()
+    if (GlobalVariable.DEMO_ORDER_FLOW || this.stackPath.getAllPathName().includes(PAGE_PATH.GOODS_PAGE)) return
+    try {
+      const raw: string = storeManager.getPendingTrade()
+      if (raw) {
+        const trade: PendingTradeInfo = JSON.parse(raw) as PendingTradeInfo
+        if (trade.accountId === user.id && trade.entry && trade.created <= Date.now() && Date.now() - trade.created <= 30 * 60_000) {
+          this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: trade.entry })
+        }
+      }
+    } catch { }
   }
 
   private async handleHuaweiLogin(
@@ -123,7 +140,7 @@ export struct LoginView {
       const user = await huaweiLoginAPI({ code: authorizationCode })
       await this.saveLoginAndRefreshCart(user)
       this.safeToast('华为登录成功')
-      this.stackPath.pop()
+      await this.finishLogin(user)
     } catch {
       this.safeToast('华为登录换取商城账号失败，请稍后重试')
     } finally {

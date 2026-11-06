@@ -19,6 +19,7 @@ function fixture() {
   const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets', 'CheckView', {}, {
     CheckoutSheet: { None: 0, Payment: 1, Address: 2 },
     GlobalVariable: { DEMO_ORDER_FLOW: false },
+    AppStorage: { setOrCreate() {} },
     storeManager: {
       getPendingOrder: accountId => records.get(accountId) || null,
       savePendingOrder: async record => { records.set(record.accountId, structuredClone(record)) },
@@ -40,7 +41,7 @@ function fixture() {
   const page = new Page()
   page.user = { id: 'buyer-a', token: 'buyer-a' }
   page.safeToast = message => messages.push(message)
-  page.stackPath = { replacePath: path => navigations.push(path.param), pop: () => navigations.push('back') }
+  page.stackPath = { replacePath: path => navigations.push(path.param), pop: () => navigations.push('back'), clear: () => navigations.push('home') }
   const load = async value => {
     const loading = page.loadCheckoutPreview()
     queries.at(-1).resolve(value)
@@ -182,12 +183,12 @@ test('切换账号立即清除结算地址商品和金额，旧查询成功失�
     if (result === 'failure') f.queries[1].reject(new Error('old error'))
     else f.queries[1].resolve({ ...preview(), goods: result === 'empty' ? [] : preview().goods })
     await old
-    assert.equal(f.page.checkoutLoading, true)
+    assert.equal(f.page.checkoutLoading, false)
     assert.deepEqual(f.messages, [])
-    assert.deepEqual(f.navigations, [])
-    f.queries[2].resolve(preview('sku-b', 'address-b'))
+    assert.deepEqual(f.navigations, ['home'])
+    assert.equal(f.queries.length, 2)
     await current
-    assert.equal(f.page.addressId, 'address-b')
+    assert.equal(f.page.addressId, '')
   }
 })
 
@@ -230,19 +231,19 @@ test('换账号或离页重进后旧下单收尾不能解除新提交锁，当�
     f.setSubmit(() => newGate.promise)
     const current = f.page.createOrderAndOpenCashier()
     await tick()
-    assert.equal(f.writes.length, transition === 'account' ? 2 : 1)
-    if (transition === 'account') assert.notEqual(f.writes[0].requestKey, f.writes[1].requestKey)
+    assert.equal(f.writes.length, 1)
+    if (transition === 'account') assert.deepEqual(f.navigations, ['home'])
     else assert.equal(f.lookups[0].key, f.writes[0].requestKey)
     oldGate.resolve({ id: 'old-order' })
     await old
-    assert.equal(transition === 'account' ? f.page.isSubmittingOrder : f.page.confirmingRequest, true)
-    assert.deepEqual(f.navigations, [])
+    assert.equal(transition === 'account' ? f.page.isSubmittingOrder : f.page.confirmingRequest, transition !== 'account')
+    assert.deepEqual(f.navigations, transition === 'account' ? ['home'] : [])
     newGate.resolve({ id: 'current-order', orderState: 1 })
     await current
     await tick()
     assert.equal(f.page.isSubmittingOrder, false)
-    assert.deepEqual(f.navigations, ['current-order'])
-    assert.equal(f.badges(), 1)
+    assert.deepEqual(f.navigations, transition === 'account' ? ['home'] : ['current-order'])
+    assert.equal(f.badges(), transition === 'account' ? 0 : 1)
   }
 })
 
@@ -257,7 +258,7 @@ test('结算请求使用发起时凭证，账号监听前也不能借新账号�
   assert.equal(f.writes.length, 1)
 })
 
-test('退出登录清空结算且不发匿名查询，同账号资料更新不重新生成请求编号', async () => {
+test('凭证失效保留结算且不发匿名查询，换账号回首页且不携带旧数据', async () => {
   const anonymous = fixture()
   anonymous.page.user = { token: '' }
   await anonymous.page.loadCheckoutPreview()
@@ -273,8 +274,8 @@ test('退出登录清空结算且不发匿名查询，同账号资料更新不�
   f.page.user = { token: '' }
   f.page.reloadForCurrentAccount()
   assert.equal(f.queries.length, 1)
-  assert.equal(f.page.goodsList.length, 0)
-  assert.equal(f.page.addressList.length, 0)
+  assert.equal(f.page.goodsList.length, 1)
+  assert.equal(f.page.addressList.length, 1)
   assert.equal(f.page.checkoutLoading, false)
   await f.page.createOrderAndOpenCashier()
   assert.equal(f.writes.length, 0)
@@ -282,9 +283,7 @@ test('退出登录清空结算且不发匿名查询，同账号资料更新不�
   f.page.user = { id: 'buyer-b', token: 'buyer-b' }
   f.page.reloadForCurrentAccount()
   assert.equal(f.queries.length, 1)
-  f.page.aboutToAppear()
-  assert.equal(f.queries.length, 2)
-  f.queries[1].resolve(preview('sku-b', 'address-b'))
-  await tick()
-  assert.equal(f.page.addressId, 'address-b')
+  assert.deepEqual(f.navigations, ['home'])
+  assert.equal(f.page.goodsList.length, 0)
+  assert.equal(f.page.addressId, '')
 })

@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { deferred, execute, pageMethods, sourceOf } from './native-harness.mjs'
 import { buildApp } from '../../server/src/app.ts'
 
@@ -127,7 +128,7 @@ async function fixture() {
     storage: { authCart: { updateCartCount: async () => { badges++ } } },
   })
   for (const skuId of ['hdm-1-a', 'hdm-2-a']) {
-    const response = await f.app.inject({ method: 'POST', url: '/member/cart', headers, payload: { skuId, count: 2 } })
+    const response = await f.app.inject({ method: 'POST', url: '/member/cart', headers, payload: { skuId, count: 2, requestKey: randomUUID() } })
     assert.equal(response.statusCode, 200)
   }
   const items = async () => (await f.app.inject({ method: 'GET', url: '/member/cart', headers })).json().result

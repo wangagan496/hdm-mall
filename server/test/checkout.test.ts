@@ -48,7 +48,7 @@ test('B-31/B-32/B-34: 请求号只读恢复、本人隔离、幂等与过期状�
 test('B-24/B-25: 加载与提交缺货给出具体规格，多商品整单回滚', async () => {
   const f = await fixture()
   try {
-    for (const skuId of ['apple-red', 'apple-green']) await f.app.inject({ method: 'POST', url: '/member/cart', headers: f.headers, payload: { skuId, count: 3 } })
+    for (const skuId of ['apple-red', 'apple-green']) await f.app.inject({ method: 'POST', url: '/member/cart', headers: f.headers, payload: { skuId, count: 3, requestKey: randomUUID() } })
     const merchant = f.testData.account({ account: 'stock_merchant', password: 'checkout-password', role: 'merchant' })
     f.testData.updateSku({ skuId: 'apple-green', stock: 1, actorId: merchant.id })
     const preview = (await f.get('/member/order/pre')).json().result
@@ -87,7 +87,7 @@ async function fixture() {
 test('B-23: 报价变化返回409和分明细，不创建订单不扣库存不删购物车', async () => {
   const f = await fixture()
   try {
-    await f.app.inject({ method: 'POST', url: '/member/cart', headers: f.headers, payload: { skuId: 'apple-red', count: 3 } })
+    await f.app.inject({ method: 'POST', url: '/member/cart', headers: f.headers, payload: { skuId: 'apple-red', count: 3, requestKey: randomUUID() } })
     assert.equal(f.orders.preOrder(f.user).summary.totalPayPrice, 0.3)
     f.testData.updateSku({ skuId: 'apple-red', priceCents: 11 })
     const response = await f.create()
@@ -106,7 +106,7 @@ test('B-23: 报价变化返回409和分明细，不创建订单不扣库存不�
 test('B-21 L1/L2: 0.1元乘3的行小计、购物车、结算、详情和支付均为30分', async () => {
   const f = await fixture()
   try {
-    await f.app.inject({ method: 'POST', url: '/member/cart', headers: f.headers, payload: { skuId: 'apple-red', count: 3 } })
+    await f.app.inject({ method: 'POST', url: '/member/cart', headers: f.headers, payload: { skuId: 'apple-red', count: 3, requestKey: randomUUID() } })
     const cart = (await f.get('/member/cart')).json().result
     assert.equal(Math.round(cart[0].price * 100) * cart[0].count, 30)
     const preview = f.orders.preOrder(f.user)

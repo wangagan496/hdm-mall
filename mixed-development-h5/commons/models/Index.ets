@@ -11,6 +11,8 @@ export {
   CartGoods,
   CartGoodsModel,
   AddCartParams,
+  CheckoutSelection,
+  PendingTradeInfo,
   CartCount,
   UpdateCartParams,
   DeleteCartParams,

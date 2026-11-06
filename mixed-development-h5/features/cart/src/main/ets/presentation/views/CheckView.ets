@@ -1,5 +1,5 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, CheckoutPrice, CheckoutShortage, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
+import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart, checkoutFailure, getOrderByRequestAPI, storeManager } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
@@ -55,6 +55,8 @@ export struct CheckView {
   private requestSummary: string = ''
   private confirmationSequence: number = 0
   private recoveredOrderId: string = ''
+  private checkoutAccountId: string = ''
+  private checkoutSelection: CheckoutSelection | undefined = undefined
   @Consume
   stackPath: NavPathStack
 
@@ -75,6 +77,11 @@ export struct CheckView {
 
   aboutToAppear(): void {
     this.pageActive = true
+    if (!GlobalVariable.DEMO_ORDER_FLOW) {
+      const params = this.stackPath.getParamByName?.(PAGE_PATH.CHECK_ORDER_PAGE) as Array<CheckoutSelection> | undefined
+      const selection = params && params.length > 0 ? params[params.length - 1] : undefined
+      if (selection && selection.skuId && Number.isInteger(selection.count) && selection.count > 0) this.checkoutSelection = selection
+    }
     emitter.on(BusinessVariable.UPDATE_ADDRESS_LIST, this.reloadCheckoutAfterAddressChange)
     this.loadCheckoutPreview()
   }
@@ -93,23 +100,34 @@ export struct CheckView {
 
   private reloadForCurrentAccount(): void {
     if ((this.user.token || '') !== this.checkoutToken) {
+      if (!GlobalVariable.DEMO_ORDER_FLOW && this.checkoutAccountId && this.checkoutAccountId === this.user.id && this.goodsList.length > 0) {
+        this.synchronizeCheckoutAccount()
+        if (this.checkoutToken && storeManager.getPendingOrder(this.checkoutAccountId)) void this.confirmPendingOrder()
+        return
+      }
       this.loadCheckoutPreview()
     }
   }
 
   private synchronizeCheckoutAccount(): void {
     const token: string = this.user.token || ''
-    if (token === this.checkoutToken) {
+    const accountId: string = this.user.id || ''
+    if (token === this.checkoutToken && (!accountId || accountId === this.checkoutAccountId)) {
       return
     }
+    const changedAccount: boolean = !!accountId && !!this.checkoutAccountId && accountId !== this.checkoutAccountId
+    if (accountId) this.checkoutAccountId = accountId
     this.checkoutToken = token
     this.confirmationSequence++
     this.confirmingOrder = false
     this.confirmingRequest = false
-    this.requestSummary = ''
-    this.recoveredOrderId = ''
     this.pageGeneration++
     this.checkoutQuerySequence++
+    this.isSubmittingOrder = false
+    this.checkoutLoading = false
+    if (!changedAccount) return
+    this.requestSummary = ''
+    this.recoveredOrderId = ''
     this.goodsList = []
     this.addressList = []
     this.addressId = ''
@@ -121,6 +139,9 @@ export struct CheckView {
     this.checkoutRefreshFailed = false
     this.checkoutLoading = false
     this.orderRequestKey = util.generateRandomUUID(true)
+    this.pageActive = false
+    AppStorage.setOrCreate<number>('currentTabIndex', 0)
+    this.stackPath.clear()
   }
 
   private isCurrentCheckout(generation: number, token: string): boolean {
@@ -138,6 +159,7 @@ export struct CheckView {
   // 第一步：获取结算预览，让用户核对商品、地址和金额；此时没有创建订单。
   private async loadCheckoutPreview(): Promise<void> {
     this.synchronizeCheckoutAccount()
+    if (this.checkoutAccountId && this.user.id && this.checkoutAccountId !== this.user.id) return
     const token: string = this.checkoutToken
     const generation: number = this.pageGeneration
     if (!this.isCurrentCheckout(generation, token)) {
@@ -157,7 +179,7 @@ export struct CheckView {
         await this.confirmPendingOrder()
         if (!this.isCurrentCheckout(generation, token) || this.confirmingOrder || this.recoveredOrderId) return
       }
-      const checkoutPreview = await getPreOrderAPI(token)
+      const checkoutPreview = await getPreOrderAPI(token, this.checkoutSelection)
       if (sequence !== this.checkoutQuerySequence || !this.isCurrentCheckout(generation, token)) {
         return
       }
@@ -166,7 +188,7 @@ export struct CheckView {
         this.goodsList = []
         this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
         this.showSheet = false
-        this.safeToast('购物车中没有选中的商品')
+        this.safeToast(this.checkoutSelection ? '商品规格已失效，请重新选择' : '购物车中没有选中的商品')
         this.stackPath.pop()
         return
       }
@@ -244,6 +266,11 @@ export struct CheckView {
           if (!sent) {
             this.confirmingOrder = storeManager.getPendingOrder(accountId) !== null
             this.safeToast('提交记录保存失败，请重试确认订单')
+            return
+          }
+          if (failure.status === 401) {
+            this.showSheet = false
+            this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
             return
           }
           if (failure.status < 400 || failure.status >= 500 || failure.status === 408 || failure.status === 429) {
@@ -341,6 +368,10 @@ export struct CheckView {
 
   private adjustInCart(): void {
     this.showSheet = false
+    if (this.checkoutSelection) {
+      this.stackPath.pop()
+      return
+    }
     this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true })
   }
 
@@ -354,7 +385,8 @@ export struct CheckView {
 
   // 只提交商品规格、数量和地址等下单信息；金额由服务端核算。
   private buildOrderRequest(): CreateOrderParams {
-    const summary: string = JSON.stringify({ addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+    const source: 'cart' | 'buy-now' = this.checkoutSelection ? 'buy-now' : 'cart'
+    const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
       goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({ skuId: item.skuId, count: item.count }))
         .sort((left: CreateOrderParamsGoods, right: CreateOrderParamsGoods) => left.skuId.localeCompare(right.skuId)) })
     if (!GlobalVariable.DEMO_ORDER_FLOW && this.requestSummary && this.requestSummary !== summary) {
@@ -362,6 +394,7 @@ export struct CheckView {
     }
     this.requestSummary = summary
     return {
+      source,
       requestKey: this.orderRequestKey,
       expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
       payChannel: this.payChannel,
@@ -415,7 +448,7 @@ export struct CheckView {
         if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
         this.confirmingOrder = false
         this.orderRequestKey = util.generateRandomUUID(true)
-        this.safeToast('上次提交没有成功，商品仍在购物车里')
+        this.safeToast(this.checkoutSelection ? '上次提交没有成功，请重新确认这件商品' : '上次提交没有成功，商品仍在购物车里')
       }
     } finally {
       if (sequence === this.confirmationSequence && this.isCurrentCheckout(generation, token)) this.confirmingRequest = false
@@ -528,6 +561,10 @@ export struct CheckView {
             .enabled(!this.confirmingRequest)
             .onClick(() => this.confirmPendingOrder())
         }
+        if (!this.user.token) {
+          Button('重新登录后继续结算')
+            .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }))
+        }
         if (this.checkoutLoading) {
           Text('正在加载结算资料…')
             .fontSize(13)
@@ -540,7 +577,7 @@ export struct CheckView {
             .onClick(() => this.loadCheckoutPreview())
         }
         if (this.hasStockShortage()) {
-          Button('去购物车调整')
+          Button(this.checkoutSelection ? '返回商品重新选择' : '去购物车调整')
             .onClick(() => this.adjustInCart())
         }
         List() {

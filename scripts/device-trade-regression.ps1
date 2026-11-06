@@ -235,7 +235,7 @@ function Invoke-PaidCancellation {
   $Cases = if ($Family) { @('B-65','B-73','B-79') } elseif ($Reject) { @('B-75','B-73') } else { @('B-62','B-73','B-78','B-79') }
   $Before = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
   $ReservedStock = [int]$Before.items[0].stock - 1
-  if ($S3) { $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1} }
+  if ($S3) { $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1; requestKey=[guid]::NewGuid().ToString()} }
   Login 'device_buyer'
   Checkout
   $OrderId = (Orders)[0].id
@@ -437,7 +437,7 @@ function Invoke-S3 {
   $Recovery = Payment-Proof $RecoveryId
   if ($Recovered.paymentState -ne 'paid' -or $Recovery.payments.Count -ne 1 -or $Recovery.payments[0].id -ne $RecoveryPaymentId -or $Recovery.payments[0].state -ne 'succeeded' -or $Recovery.payments[0].amount -ne $AmountCents -or $Recovery.refunds.Count -ne 0) { throw 'Recovered payment success proof failed' }
   Save-S3Checkpoint 'a5-recovered-paid' @('B-54') $RecoveryId
-  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1}
+  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1; requestKey=[guid]::NewGuid().ToString()}
   Mine
   Checkout
   $CancelId = @(Orders | Where-Object { $_.id -ne $RecoveryId })[0].id
@@ -667,7 +667,7 @@ try {
   Tap-Text '亲友中心 · 代付与代收'
   Scroll-Text '同意绑定'
   Wait-Text '已绑定'
-  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1}
+  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1; requestKey=[guid]::NewGuid().ToString()}
   # 在账号登录触发购物袋加载前准备数据，避免外部夹具修改绕过客户端更新事件。
   Login 'device_buyer'
   Checkout

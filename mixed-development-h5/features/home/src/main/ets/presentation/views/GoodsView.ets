@@ -1,6 +1,7 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { HDMGoodsItem, HDMUser } from 'models'
-import { auth, localGoodsStore } from 'storage'
+import { CheckoutSelection, HDMGoodsItem, HDMUser } from 'models'
+import { auth, checkoutFailure, localGoodsStore, storeManager } from 'storage'
+import { util } from '@kit.ArkTS'
 import { HDMGuess, HDMLoading, HDMLoadingDialog, HDMNavBar, HDMPreviewImage, HDMSku, HDMSkuType } from 'ui_components'
 import { authCart } from 'storage'
 import { Logger } from 'utils'
@@ -9,7 +10,7 @@ import { GoodsInfo, GoodsComment, GoodsDetail } from '../components'
 import { getDetailAPI, getGoodsEvaluationsAPI, getGuessLikeAPI } from '../../data/api'
 import { generateFallbackGoods, isFallbackSkuId } from '../../data/api/mockData'
 import { normalizeSkuSelection } from '../../data/api/goodsPresentation'
-import { canPreserveLoginSelection, PendingLoginSelection, restoreLoginSelection } from '../../data/api/loginSkuSelection'
+import { canPreserveLoginSelection, isPendingTradeValid, PendingLoginSelection, restoreLoginSelection } from '../../data/api/loginSkuSelection'
 
 
 @Builder
@@ -45,6 +46,11 @@ export struct GoodsView {
   private sessionToken: string = ''
   private sessionAccount: string = ''
   private loginSelection: PendingLoginSelection | undefined = undefined
+  private addRequestKey: string = ''
+  private addRequestSignature: string = ''
+  private navigatingPurchase: boolean = false
+  private addRequestCreated: number = 0
+  private addOutcomeUnknown: boolean = false
   @State evaluations: GoodsEvaluation[] = []
   @State evaluationCount: number = 0
   @State evaluationLoading: boolean = false
@@ -104,10 +110,28 @@ export struct GoodsView {
     if (token === this.sessionToken && account === this.sessionAccount) return false
     if (this.loginSelection && canPreserveLoginSelection(this.sessionToken, token)) {
       this.loginSelection.token = token
+      if (!GlobalVariable.DEMO_ORDER_FLOW) {
+        const raw = storeManager.getPendingTrade()
+        if (raw) {
+          const pending = JSON.parse(raw) as PendingLoginSelection
+          const accountId = this.user.id || account
+          if (pending.accountId && pending.accountId !== accountId) {
+            void storeManager.clearPendingTrade(pending.requestKey || '')
+          } else {
+            pending.accountId = accountId
+            void storeManager.savePendingTrade(JSON.stringify(pending))
+          }
+        }
+      }
     } else {
       this.loginSelection = undefined
+      if (!GlobalVariable.DEMO_ORDER_FLOW && this.sessionAccount && account && account !== this.sessionAccount) {
+        const raw = storeManager.getPendingTrade()
+        if (raw) void storeManager.clearPendingTrade((JSON.parse(raw) as PendingLoginSelection).requestKey || '')
+      }
     }
     this.sessionToken = token; this.sessionAccount = account
+    this.addRequestKey = ''; this.addRequestSignature = ''; this.navigatingPurchase = false
     this.pageGeneration++; this.detailSequence++; this.evaluationRequestId++
     this.resetInteractions()
     this.goods = {} as Goods
@@ -137,8 +161,18 @@ export struct GoodsView {
     const generation: number = this.pageGeneration, token: string = this.sessionToken
     if (!this.isCurrentSession(generation, token) || this.loading || this.favoriteSaving) return
     const sequence: number = ++this.detailSequence
-    const loginSelection: PendingLoginSelection | undefined = this.loginSelection
-    if (!token) this.loginSelection = undefined
+    let loginSelection: PendingLoginSelection | undefined = this.loginSelection
+    if (!GlobalVariable.DEMO_ORDER_FLOW) {
+      loginSelection = undefined
+      try {
+        const raw = storeManager.getPendingTrade()
+        if (raw) {
+          const stored = JSON.parse(raw) as PendingLoginSelection
+          if (isPendingTradeValid(stored, Date.now(), this.user.id || this.user.account || '')) loginSelection = stored
+          else { loginSelection = undefined; void storeManager.clearPendingTrade(stored.requestKey || '') }
+        }
+      } catch { }
+    }
     this.evaluationRequestId++
     this.evaluations = []; this.evaluationCount = 0; this.evaluationLoading = false
     this.detailReady = false
@@ -171,15 +205,35 @@ export struct GoodsView {
       this.goods = detail
       this.detailReady = !!detail.skus?.some(item => !isFallbackSkuId(item.id))
       this.detailFailed = !this.detailReady
-      if (loginSelection && token && loginSelection.token === token) {
-        const restored = restoreLoginSelection(loginSelection, detail)
+      if (loginSelection && (!token || loginSelection.token === token || loginSelection.action)) {
+        const restored = restoreLoginSelection(loginSelection, detail, GlobalVariable.DEMO_ORDER_FLOW)
         this.loginSelection = undefined
-        this.sku = restored.sku
-        this.count = restored.count
+        this.sku = token ? restored.sku : normalizeSkuSelection(loginSelection.sku)
+        this.count = token ? restored.count : loginSelection.count
         this.goods.specs = restored.specs
-        this.showSheet = this.detailReady
-        if (restored.invalid) this.safeToast('原选规格或数量已失效，请重新选择')
+        this.showSheet = this.detailReady && (restored.invalid || !token || GlobalVariable.DEMO_ORDER_FLOW)
+        if (!token || restored.invalid) {
+          if (loginSelection.requestKey) await storeManager.clearPendingTrade(loginSelection.requestKey)
+          if (restored.invalid && token) this.safeToast('商品规格或价格已变化，请重新选择')
+        } else if (loginSelection.action && loginSelection.requestKey) {
+          const accountId = this.user.id || this.user.account || ''
+          if (!isPendingTradeValid(loginSelection, Date.now(), accountId)) {
+            await storeManager.clearPendingTrade(loginSelection.requestKey)
+          } else {
+            loginSelection.accountId = accountId
+            await storeManager.savePendingTrade(JSON.stringify(loginSelection))
+            if (!this.isCurrentGoods(generation, token, sequence, goodsId)) return
+            if (loginSelection.action === 'cart') {
+              await this.submitCartSelection(loginSelection.sku.id, loginSelection.requestKey)
+              if (!this.addOutcomeUnknown) await storeManager.clearPendingTrade(loginSelection.requestKey)
+            } else {
+              await storeManager.clearPendingTrade(loginSelection.requestKey)
+              if (this.isCurrentGoods(generation, token, sequence, goodsId)) this.openBuyNow(loginSelection.sku.id, loginSelection.count)
+            }
+          }
+        }
       }
+      if (!this.isCurrentGoods(generation, token, sequence, goodsId)) return
       this.isFavorite = localGoodsStore.isFavorite(this.goods.id)
       this.loadEvaluations(this.goods.id)
       try {
@@ -187,9 +241,13 @@ export struct GoodsView {
       } catch {
         // 足迹写入失败不应阻断商品详情主流程。
       }
-    } catch {
+    } catch (error) {
       if (!this.isCurrentGoods(generation, token, sequence, goodsId)) {
         return
+      }
+      const status = checkoutFailure(error as Error).status
+      if (loginSelection?.requestKey && status >= 400 && status < 500 && status !== 401) {
+        void storeManager.clearPendingTrade(loginSelection.requestKey)
       }
       this.detailFailed = true
       this.loginSelection = undefined
@@ -214,6 +272,7 @@ export struct GoodsView {
     this.detailSequence++
     this.evaluationRequestId++
     this.resetInteractions()
+    this.navigatingPurchase = false
     this.evaluationLoading = false
   }
 
@@ -299,14 +358,6 @@ export struct GoodsView {
       this.safeToast(this.detailFailed ? '详情或规格未更新，请重试后再购买' : '正在更新商品资料，请稍候')
       return undefined
     }
-    const user = auth.getUserInfo()
-    if (!user || !user.token) {
-      this.loginSelection = { goodsId: this.goods.id, sku: normalizeSkuSelection(this.sku), count: this.count, token: '' }
-      this.safeToast('您还未登录')
-      this.showSheet = false // 关闭半模态弹窗
-      this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
-      return undefined
-    }
     if (!this.sku.id) {
       this.safeToast('请选择对应的产品规格')
       return undefined
@@ -324,21 +375,68 @@ export struct GoodsView {
     return this.sku.id
   }
 
+  private async requestGuestTrade(action: 'cart' | 'buy-now'): Promise<void> {
+    const generation = this.pageGeneration, sequence = this.detailSequence, goodsId = this.goods.id
+    const selection: PendingLoginSelection = { goodsId, sku: normalizeSkuSelection(this.sku), count: this.count,
+      token: '', action, requestKey: util.generateRandomUUID(true), created: Date.now(), accountId: '', entry: this.getGoodsFromNavigation() }
+    this.loading = true
+    try {
+      if (!GlobalVariable.DEMO_ORDER_FLOW) await storeManager.savePendingTrade(JSON.stringify(selection))
+      if (!this.isCurrentGoods(generation, '', sequence, goodsId)) return
+      if (GlobalVariable.DEMO_ORDER_FLOW) { selection.action = undefined; selection.requestKey = undefined }
+      this.loginSelection = selection
+      this.safeToast('您还未登录')
+      this.showSheet = false
+      this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
+    } catch {
+      if (this.isCurrentGoods(generation, '', sequence, goodsId)) this.safeToast('保存购买选择失败，请重试')
+    } finally {
+      if (this.isCurrentGoods(generation, '', sequence, goodsId)) this.loading = false
+    }
+  }
+
   // 只有加入购物车成功，调用方才可以继续结算或立即购买。
-  private async submitCartSelection(skuId: string): Promise<boolean> {
+  private async submitCartSelection(skuId: string, requestKey?: string, openCart: boolean = true): Promise<boolean> {
     if (this.validateCartSelection() !== skuId) return false
     const generation: number = this.pageGeneration, token: string = this.sessionToken
     const sequence: number = this.detailSequence, goodsId: string = this.goods.id, count: number = this.count
+    const signature = JSON.stringify({ token, skuId, count })
+    if (signature !== this.addRequestSignature || Date.now() - this.addRequestCreated > 30 * 60_000) {
+      this.addRequestSignature = signature
+      this.addRequestKey = requestKey || util.generateRandomUUID(true)
+      this.addRequestCreated = Date.now()
+    }
+    this.addOutcomeUnknown = false
+    const key = requestKey || this.addRequestKey
     this.loadingTitle = "加入中..."
     this.loading = true
     this.showLoadingDialog = true
     try {
-      await authCart.addCart({ skuId, count }, token)
+      try {
+        await authCart.addCart({ skuId, count, requestKey: key }, token)
+      } catch (error) {
+        const status = checkoutFailure(error as Error).status
+        if (!this.isCurrentGoods(generation, token, sequence, goodsId) || Date.now() - this.addRequestCreated > 30 * 60_000 ||
+          (status >= 400 && status < 500)) throw error as Error
+        await authCart.addCart({ skuId, count, requestKey: key }, token)
+      }
       if (!this.isCurrentGoods(generation, token, sequence, goodsId)) return false
+      this.addRequestKey = ''; this.addRequestSignature = ''
       this.safeToast('加入购物车成功')
+      if (openCart && !GlobalVariable.DEMO_ORDER_FLOW) {
+        this.showSheet = false
+        this.stackPath.pushPath({ name: PAGE_PATH.CART_PAGE, param: true })
+      }
       return true
-    } catch {
-      if (this.isCurrentGoods(generation, token, sequence, goodsId)) this.safeToast('加入购物车失败，请稍后重试')
+    } catch (error) {
+      const status = checkoutFailure(error as Error).status
+      if (this.isCurrentGoods(generation, token, sequence, goodsId)) {
+        this.addOutcomeUnknown = status === 0 || status >= 500
+        if (status === 409) {
+          this.addRequestKey = ''; this.addRequestSignature = ''
+          this.safeToast('库存不足，请重新选择数量')
+        } else this.safeToast('加入购物车失败，请稍后重试')
+      }
       return false
     } finally {
       if (this.isCurrentGoods(generation, token, sequence, goodsId)) {
@@ -349,26 +447,40 @@ export struct GoodsView {
   }
 
   // 加入购物车
-  async addToCart(): Promise<boolean> {
+  async addToCart(openCart: boolean = true): Promise<boolean> {
     const skuId: string | undefined = this.validateCartSelection()
     if (!skuId) {
       return false
     }
-    return this.submitCartSelection(skuId)
+    if (!auth.getUserInfo()?.token) {
+      await this.requestGuestTrade('cart')
+      return false
+    }
+    return this.submitCartSelection(skuId, undefined, openCart)
+  }
+
+  private openBuyNow(skuId: string, count: number): void {
+    if (this.navigatingPurchase) return
+    this.navigatingPurchase = true
+    this.showSheet = false
+    const selection: CheckoutSelection = { skuId, count }
+    this.stackPath.pushPath({ name: PAGE_PATH.CHECK_ORDER_PAGE, param: selection })
   }
 
   // 快速购买
   async buyQuickly() {
-    const generation: number = this.pageGeneration, token: string = this.sessionToken
-    const sequence: number = this.detailSequence, goodsId: string = this.goods.id
-    const added: boolean = await this.addToCart()
-    if (!added || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
+    const skuId = this.validateCartSelection()
+    if (!skuId || this.navigatingPurchase) return
+    if (!auth.getUserInfo()?.token) {
+      await this.requestGuestTrade('buy-now')
       return
     }
-    this.showSheet = false // 关闭半模态
-    this.stackPath.pushPath({
-      name: PAGE_PATH.CHECK_ORDER_PAGE
-    }) // 跳转到核对订单页面
+    if (GlobalVariable.DEMO_ORDER_FLOW) {
+      const added = await this.addToCart(false)
+      if (added) this.openBuyNow(skuId, this.count)
+      return
+    }
+    this.openBuyNow(skuId, this.count)
   }
 
   async toggleFavorite(): Promise<void> {

@@ -144,12 +144,26 @@ export class Catalog {
     // 角标统计件数，包含未勾选及售罄条目，无需读取商品资料。
     return this.db.one<{ count: number }>('SELECT COALESCE(SUM(count),0) AS count FROM carts WHERE user_id=?', user.id)!.count
   }
-  addCart(user: User, skuId: string, count: number) {
-    const sku = this.sku(skuId)
-    const previous = this.db.one<{ count: number }>('SELECT count FROM carts WHERE user_id=? AND sku_id=?', user.id, skuId)?.count ?? 0
-    ensure(sku.stock >= previous + count, 409, '该规格库存不足或已售罄')
-    this.db.run('INSERT INTO carts VALUES(?,?,?,1) ON CONFLICT(user_id,sku_id) DO UPDATE SET count=excluded.count,selected=1', user.id, skuId, previous + count)
-    return { count: previous + count }
+  addCart(user: User, skuId: string, count: number, requestKey: string) {
+    const requestBody = JSON.stringify({ skuId, count })
+    return this.db.transaction(() => {
+      const existing = this.db.one<{ request_body: string; result: string }>(
+        'SELECT request_body,result FROM cart_requests WHERE user_id=? AND request_key=?', user.id, requestKey)
+      if (existing) {
+        ensure(existing.request_body === requestBody, 409, '同一次加购不能修改商品或数量')
+        return JSON.parse(existing.result) as { count: number }
+      }
+      const sku = this.sku(skuId)
+      const previous = this.db.one<{ count: number }>('SELECT count FROM carts WHERE user_id=? AND sku_id=?', user.id, skuId)?.count ?? 0
+      ensure(sku.stock >= previous + count, 409, '该规格库存不足或已售罄')
+      const result = { count: previous + count }
+      this.db.run('INSERT INTO carts VALUES(?,?,?,1) ON CONFLICT(user_id,sku_id) DO UPDATE SET count=excluded.count,selected=1', user.id, skuId, result.count)
+      this.db.run('INSERT INTO cart_requests VALUES(?,?,?,?,?)', user.id, requestKey, requestBody, JSON.stringify(result), this.clock.now())
+      return result
+    })
+  }
+  cleanupCartRequests(): void {
+    this.db.run('DELETE FROM cart_requests WHERE created<?', this.clock.now() - 24 * 60 * 60_000)
   }
   updateCart(user: User, skuId: string, data: { count?: number; selected?: boolean }) {
     if (skuId === 'selected') {

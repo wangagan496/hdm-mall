@@ -170,9 +170,9 @@ test('商品和购物车 GET 首次读取沿用合并过期检查', async () => 
 test('购物车一次 JOIN 读取商品资料，不按商品数量触发规格查询', async () => {
   const f = await fixture()
   try {
-    f.catalog.addCart(f.user, 'optimization-product-a', 1)
-    f.catalog.addCart(f.user, 'optimization-bag-a', 1)
-    f.catalog.addCart(f.user, 'optimization-storage-a', 1)
+    f.catalog.addCart(f.user, 'optimization-product-a', 1, randomUUID())
+    f.catalog.addCart(f.user, 'optimization-bag-a', 1, randomUUID())
+    f.catalog.addCart(f.user, 'optimization-storage-a', 1, randomUUID())
     const oneQueries: string[] = []
     const allQueries: string[] = []
     const originalOne = f.db.one.bind(f.db)
@@ -193,9 +193,9 @@ test('购物车角标只读取数量汇总，包含未勾选和售罄商品并�
     f.accounts.register('cart_other', 'test-password-123')
     const otherLogin = f.accounts.login('cart_other', 'test-password-123')
     const other = f.accounts.authenticate(`Bearer ${otherLogin.token}`)
-    f.catalog.addCart(f.user, 'optimization-product-a', 2)
-    f.catalog.addCart(f.user, 'optimization-product-b', 3)
-    f.catalog.addCart(other, 'optimization-product-a', 7)
+    f.catalog.addCart(f.user, 'optimization-product-a', 2, randomUUID())
+    f.catalog.addCart(f.user, 'optimization-product-b', 3, randomUUID())
+    f.catalog.addCart(other, 'optimization-product-a', 7, randomUUID())
     f.db.run('UPDATE carts SET selected=0 WHERE user_id=?', f.user.id)
     f.db.run('UPDATE skus SET stock=0 WHERE id=?', 'optimization-product-a')
     const originalAll = f.db.all.bind(f.db)
@@ -221,14 +221,14 @@ test('购物车角标只读取数量汇总，包含未勾选和售罄商品并�
 test('购物车修改单项只读取该项，保留完整回应、库存校验和账号隔离', async () => {
   const f = await fixture()
   try {
-    f.catalog.addCart(f.user, 'optimization-product-a', 1)
-    f.catalog.addCart(f.user, 'optimization-bag-a', 2)
-    f.catalog.addCart(f.user, 'optimization-storage-a', 3)
+    f.catalog.addCart(f.user, 'optimization-product-a', 1, randomUUID())
+    f.catalog.addCart(f.user, 'optimization-bag-a', 2, randomUUID())
+    f.catalog.addCart(f.user, 'optimization-storage-a', 3, randomUUID())
     const expected = { ...f.catalog.cart(f.user)[1], count: 4, selected: false }
     f.accounts.register('cart_update_other', 'test-password-123')
     const otherLogin = f.accounts.login('cart_update_other', 'test-password-123')
     const other = f.accounts.authenticate(`Bearer ${otherLogin.token}`)
-    f.catalog.addCart(other, 'optimization-bag-a', 7)
+    f.catalog.addCart(other, 'optimization-bag-a', 7, randomUUID())
     const originalAll = f.db.all.bind(f.db)
     let rowsRead = 0
     f.db.all = (<T>(sql: string, ...params: Parameters<typeof f.db.all>[1][]) => {
@@ -253,12 +253,12 @@ test('购物车修改单项只读取该项，保留完整回应、库存校验�
 test('购物车全选只修改本人状态，不读取商品明细且保留 null 回应', async () => {
   const f = await fixture()
   try {
-    f.catalog.addCart(f.user, 'optimization-product-a', 2)
-    f.catalog.addCart(f.user, 'optimization-bag-a', 3)
+    f.catalog.addCart(f.user, 'optimization-product-a', 2, randomUUID())
+    f.catalog.addCart(f.user, 'optimization-bag-a', 3, randomUUID())
     f.accounts.register('cart_select_other', 'test-password-123')
     const otherLogin = f.accounts.login('cart_select_other', 'test-password-123')
     const other = f.accounts.authenticate(`Bearer ${otherLogin.token}`)
-    f.catalog.addCart(other, 'optimization-product-a', 7)
+    f.catalog.addCart(other, 'optimization-product-a', 7, randomUUID())
     const originalAll = f.db.all.bind(f.db)
     let reads = 0
     f.db.all = (<T>(sql: string, ...params: Parameters<typeof f.db.all>[1][]) => {
@@ -298,7 +298,7 @@ test('旧版数据库迁移保留商品，分类编号重启后保持稳定', ()
     const reloaded = new Catalog(migrated, 'http://fixture'); reloaded.seed()
     assert.equal(reloaded.categories().find(row => row.name === '原有分类')!.id, category.id)
     assert.equal(reloaded.categories().find(row => row.id === category.id)!.children[0]!.id, child.id)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 8)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
   } finally {
     migrated?.close()
     rmSync(directory, { recursive: true, force: true })

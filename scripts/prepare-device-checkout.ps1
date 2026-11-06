@@ -24,7 +24,7 @@ if (-not $addresses.result -or $addresses.result.Count -eq 0) {
 }
 $cart = Invoke-RestMethod -Method Get -Uri "$baseUrl/member/cart" -Headers $headers
 if (-not $cart.result -or $cart.result.Count -eq 0) {
-  $cartBody = @{ skuId = 'hdm-1-a'; count = 1 } | ConvertTo-Json
+  $cartBody = @{ skuId = 'hdm-1-a'; count = 1; requestKey = [guid]::NewGuid().ToString() } | ConvertTo-Json
   $null = Invoke-RestMethod -Method Post -Uri "$baseUrl/member/cart" -Headers $headers -ContentType 'application/json' -Body $cartBody
 }
 Write-Output "Prepared one checkout address and one cart item for $Account."

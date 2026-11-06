@@ -48,6 +48,7 @@ interface Item {
 }
 type CheckoutItem = ReturnType<Catalog['sku']> & { count: number }
 export interface CreateOrder {
+  source?: 'cart' | 'buy-now'
   requestKey: string
   expectedAmountCents: number
   addressId: string
@@ -259,10 +260,14 @@ export class Orders {
     ensure(order, 404, '未找到本次提交的订单')
     return { id: order.id, orderState: order.state, expiresAt: order.expires }
   }
-  preOrder(user: User) {
+  preOrder(user: User, selection?: { skuId: string; count: number }) {
     this.expireIfDue()
     // 只预览购物车里已勾选的商品，不扣库存、不创建订单。
-    const selectedGoods = this.catalog.cart(user).filter(item => item.selected)
+    const selectedSku = selection ? this.catalog.sku(selection.skuId) : undefined
+    const selectedGoods = selectedSku ? [{ id: selectedSku.product_id, skuId: selectedSku.id, name: selectedSku.name,
+      picture: selectedSku.picture, stock: selectedSku.stock, price: selectedSku.price / 100,
+      attrsText: selectedSku.spec, count: selection!.count, selected: true }] :
+      this.catalog.cart(user).filter(item => item.selected)
     const goods = selectedGoods.map(item => ({
       ...item,
       price: String(item.price),
@@ -285,6 +290,7 @@ export class Orders {
     this.expire()
     // 按规格编号排好再记录：同样的商品即使提交顺序不同，也算同一次下单。
     const normalizedRequestBody = JSON.stringify({
+      source: data.source ?? 'cart',
       addressId: data.addressId,
       expectedAmountCents: data.expectedAmountCents,
       goods: [...data.goods].sort((left, right) => left.skuId.localeCompare(right.skuId))
@@ -294,7 +300,10 @@ export class Orders {
       // 第一步：同一个用户用同一个 requestKey 重试时，找回原订单。
       const existing = this.db.one<Order>('SELECT * FROM orders WHERE owner_id=? AND request_key=?', user.id, data.requestKey)
       if (existing) {
-        ensure(existing.request_body === normalizedRequestBody, 409, '同一次下单不能修改商品或地址，请重新结算')
+        const previous = JSON.parse(existing.request_body) as Omit<CreateOrder, 'requestKey'>
+        const previousBody = JSON.stringify({ source: previous.source ?? 'cart', addressId: previous.addressId,
+          expectedAmountCents: previous.expectedAmountCents, goods: previous.goods })
+        ensure(previousBody === normalizedRequestBody, 409, '同一次下单不能修改来源、商品或地址，请重新结算')
         return { id: existing.id }
       }
       // 第二步：检查规格是否重复、地址是否属于下单人，价格从服务端商品资料取。
@@ -314,7 +323,7 @@ export class Orders {
       const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items)
       for (const item of items) {
         recordStockMovement(this.db, { kind: 'reserve', skuId: item.id, delta: -item.count, orderId: id, actorId: user.id }, this.clock)
-        this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
+        if (data.source !== 'buy-now') this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
       }
       return { id }
     })

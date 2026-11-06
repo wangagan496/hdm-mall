@@ -9,6 +9,7 @@ import { CartOperationHelper as CartOperations } from '../utils/CartOperations'
 
 @Component
 export struct CartView {
+  @Prop standalone: boolean = false
   // 购物袋流程：加载商品 → 勾选／改数量／删除 → 重算合计 → 进入结算页确认。
   // 本页的“去结算”只打开确认页；真正创建订单在 CheckView.ets。
   @StorageProp(GlobalVariable.USER_INFO_KEY)
@@ -46,10 +47,7 @@ export struct CartView {
 
   aboutToAppear(): void {
     this.isPageActive = true
-    const params = this.stackPath.getParamByName(PAGE_PATH.CART_PAGE) as boolean[]
-    if (params[params.length - 1]) {
-      this.showBackIcon = true
-    }
+    this.showBackIcon = this.standalone
     this.loadCartAndListenForChanges()
   }
 
@@ -473,5 +471,5 @@ export struct CartView {
 
 @Builder
 function CartViewBuilder() {
-  CartView()
+  CartView({ standalone: true })
 }
