@@ -1,8 +1,11 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe)
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3)
 $ErrorActionPreference = 'Stop'
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3 | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+$StartedAt = Get-Date
+$Mode = if ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
-$Output = Join-Path $Root $(if ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
+$Output = Join-Path $Root $(if ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Base = 'http://127.0.0.1:3103'
 $Password = 'Device-trade-123'
@@ -146,6 +149,181 @@ function Capture([string]$Name) {
   Start-Sleep -Milliseconds 700
   $null = Invoke-Hdc @('shell','uitest','screenCap','-p','/data/local/tmp/hdm-regression.png')
   $null = Invoke-Hdc @('file','recv','/data/local/tmp/hdm-regression.png',"$Output/$Name.png")
+  $script:Nodes = Read-Nodes
+  Copy-Item -LiteralPath "$Output/layout.json" -Destination "$Output/$Name.layout.json"
+}
+function Save-Result($Data, [string]$Result = 'passed') {
+  $Report = [ordered]@{
+    startedAt = $StartedAt.ToString('o'); completedAt = (Get-Date).ToString('o')
+    durationSeconds = [math]::Round(((Get-Date) - $StartedAt).TotalSeconds, 2)
+    target = $Target; mode = $Mode; result = $Result
+    counts = @{ passed=$(if ($Result -eq 'passed') { 1 } else { 0 }); failed=$(if ($Result -eq 'failed') { 1 } else { 0 }); skipped=0 }
+    packageSha256 = (Get-FileHash "$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app" -Algorithm SHA256).Hash
+  }
+  foreach ($Entry in $Data.GetEnumerator()) { $Report[$Entry.Key] = $Entry.Value }
+  $Report | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath "$Output/result.json" -Encoding utf8
+}
+function Set-PaymentPreset([string]$Outcome, [string]$OrderId = '') {
+  $Body = @{preset=@{outcome=$Outcome}}
+  if ($OrderId) { $Body.orderId = $OrderId }
+  return Invoke-RestMethod "$Base/device-fixture/payment-preset" -Method Post -ContentType 'application/json' -Body ($Body | ConvertTo-Json)
+}
+function Payment-Proof([string]$OrderId) {
+  return Invoke-RestMethod "$Base/device-fixture/orders/$OrderId/payments"
+}
+function Assert-NoPaymentAction {
+  $script:Nodes = Read-Nodes
+  if (Find-Text '去支付') { throw 'Confirming order still exposes payment action' }
+  if (@($script:Nodes | Where-Object { $_.visible -ne 'false' -and $_.text -match '剩 \d+:\d+ 自动取消|已超时，等待系统取消' }).Count) { throw 'Confirming order still exposes countdown' }
+}
+function Save-S3Checkpoint([string]$Name, [string[]]$Cases, [string]$OrderId) {
+  Capture $Name
+  $Proof = Payment-Proof $OrderId
+  $Presentation = @(Orders | Where-Object { $_.id -eq $OrderId })[0]
+  $Checkpoint = [ordered]@{ name=$Name; cases=$Cases; result='passed'; capturedAt=(Get-Date).ToString('o');
+    screenshot="$Name.png"; layout="$Name.layout.json"; order=$Presentation; ledger=$Proof }
+  $Checkpoint | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath "$Output/$Name.json" -Encoding utf8
+  $script:S3Checks.Add(@{name=$Name; cases=$Cases; result='passed'})
+  Write-Output "CHECK S3 $Name [$($Cases -join ',')] passed"
+}
+function Invoke-S3 {
+  $script:S3Checks = [System.Collections.Generic.List[object]]::new()
+  Login 'device_buyer'
+  Checkout
+  $RecoveryId = (Orders)[0].id
+  Save-S3Checkpoint 'a1-cashier-unpaid' @('B-33','B-41','B-49') $RecoveryId
+  Back
+  $Unpaid = Assert-State $RecoveryId 1
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  if ((Orders).Count -ne 1 -or (Payment-Proof $RecoveryId).payments.Count -ne 0 -or $Inventory.items[0].stock -ne ($InitialStock - 1)) { throw 'Leaving cashier changed order uniqueness, payment or stock' }
+  Save-S3Checkpoint 'a1-left-cashier' @('B-33','B-41','B-49') $RecoveryId
+  Mine
+  Tap-Text '待付款'
+  Wait-Text '设备独立测试商品'
+  Wait-Text '去支付'
+  if ((Orders).Count -ne 1 -or (Assert-State $RecoveryId 1).canPay -ne $true) { throw 'Unpaid restart recovery failed' }
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  if ($Inventory.items[0].stock -ne ($InitialStock - 1)) { throw 'Unpaid restart released reserved stock' }
+  Save-S3Checkpoint 'a2-restarted-unpaid' @('B-33','B-41','B-49') $RecoveryId
+  Tap-Text '去支付'
+  Wait-Text $PaymentText
+  Save-S3Checkpoint 'a2-reopened-cashier' @('B-33','B-41') $RecoveryId
+  $null = Set-PaymentPreset 'unknown'
+  Tap-Text $PaymentText
+  Wait-Text '正在确认付款结果，请勿重复付款'
+  $Pending = Payment-Proof $RecoveryId
+  if ($Pending.payments.Count -ne 1 -or $Pending.payments[0].state -ne 'pending') { throw 'First confirming payment is not unique' }
+  $RecoveryPaymentId = $Pending.payments[0].id
+  Save-S3Checkpoint 'a3-confirming-result' @('B-49','B-54') $RecoveryId
+  Mine
+  Tap-Text '待付款'
+  Wait-Text '确认中'
+  Assert-NoPaymentAction
+  $Confirming = Assert-State $RecoveryId 1
+  $Pending = Payment-Proof $RecoveryId
+  if ((Orders).Count -ne 1 -or $Confirming.paymentState -ne 'confirming' -or $Confirming.canPay -ne $false -or $Confirming.countdown -ne 0 -or $Pending.payments.Count -ne 1 -or $Pending.payments[0].id -ne $RecoveryPaymentId -or $Pending.payments[0].state -ne 'pending') { throw 'Confirming restart backend proof failed' }
+  Save-S3Checkpoint 'a4-restarted-confirming' @('B-49','B-54') $RecoveryId
+  Tap-Text '设备独立测试商品'
+  Wait-Text ('订单号 ' + $RecoveryId)
+  Wait-Text '确认中'
+  Assert-NoPaymentAction
+  Save-S3Checkpoint 'a4-detail-payment-blocked' @('B-54') $RecoveryId
+  $Configured = Set-PaymentPreset 'success' $RecoveryId
+  if ($Configured.paymentId -ne $RecoveryPaymentId) { throw 'Recovery preset selected a different payment' }
+  Back
+  $Deadline = (Get-Date).AddMinutes(6)
+  do {
+    Tap-Text '全部'
+    Tap-Text '待发货'
+    $Recovered = @(Orders | Where-Object { $_.id -eq $RecoveryId })[0]
+    if ($Recovered.orderState -eq 2) { break }
+    Start-Sleep -Seconds 3
+  } while ((Get-Date) -lt $Deadline)
+  if ($Recovered.orderState -ne 2) { throw 'Application re-entry did not observe reconciled payment within six minutes' }
+  Wait-Text '设备独立测试商品'
+  Wait-Text '提醒发货'
+  $Recovery = Payment-Proof $RecoveryId
+  if ($Recovered.paymentState -ne 'paid' -or $Recovery.payments.Count -ne 1 -or $Recovery.payments[0].id -ne $RecoveryPaymentId -or $Recovery.payments[0].state -ne 'succeeded' -or $Recovery.payments[0].amount -ne $AmountCents -or $Recovery.refunds.Count -ne 0) { throw 'Recovered payment success proof failed' }
+  Save-S3Checkpoint 'a5-recovered-paid' @('B-54') $RecoveryId
+  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1}
+  Mine
+  Checkout
+  $CancelId = @(Orders | Where-Object { $_.id -ne $RecoveryId })[0].id
+  $null = Set-PaymentPreset 'unknown'
+  Tap-Text $PaymentText
+  Wait-Text '正在确认付款结果，请勿重复付款'
+  Save-S3Checkpoint 'b6-confirming-result' @('B-59') $CancelId
+  Tap-Text '返回首页'
+  Tap-Text '我的'
+  Wait-Text '编辑资料'
+  Tap-Text '待付款'
+  Wait-Text '确认中'
+  Tap-Text '取消订单'
+  $AmountText = ([decimal]$AmountCents / 100).ToString('F2', [System.Globalization.CultureInfo]::InvariantCulture)
+  Wait-Text ('付款可能已经成功。取消后，如已扣款，¥' + $AmountText + '将原路退回付款账户。确定取消吗？')
+  Save-S3Checkpoint 'b6-cancel-warning' @('B-59') $CancelId
+  Tap-Text '再等等'
+  $StillPending = Assert-State $CancelId 1
+  $CancelProof = Payment-Proof $CancelId
+  if ($StillPending.paymentState -ne 'confirming' -or $CancelProof.payments.Count -ne 1 -or $CancelProof.payments[0].state -ne 'pending') { throw 'Dismissing cancellation changed pending order' }
+  $CancelPaymentId = $CancelProof.payments[0].id
+  Save-S3Checkpoint 'b6-dismissed-cancellation' @('B-59') $CancelId
+  Tap-Text '取消订单'
+  Wait-Text '确认取消订单'
+  Tap-Text '确认取消'
+  $null = Assert-State $CancelId 6
+  Tap-Text '全部'
+  Wait-Text '已取消'
+  Save-S3Checkpoint 'b6-cancelled' @('B-59') $CancelId
+  $Configured = Set-PaymentPreset 'success' $CancelId
+  if ($Configured.paymentId -ne $CancelPaymentId -or $Configured.state -ne 'closed') { throw 'Cancelled preset did not select the original closed payment' }
+  for ($Try = 0; $Try -lt 15; $Try++) {
+    $null = Api 'device_buyer' "/member/order/$CancelId/payments/refresh" 'Post' @{}
+    $Cancelled = Payment-Proof $CancelId
+    if ($Cancelled.refunds.Count -eq 1 -and $Cancelled.refunds[0].state -eq 'succeeded') { break }
+    Start-Sleep -Seconds 1
+  }
+  $null = Api 'device_buyer' "/member/order/$CancelId/payments/refresh" 'Post' @{}
+  $Cancelled = Payment-Proof $CancelId
+  if ($Cancelled.order.state -ne 6 -or $Cancelled.payments.Count -ne 1 -or $Cancelled.payments[0].state -ne 'succeeded' -or $Cancelled.payments[0].id -ne $CancelPaymentId -or $Cancelled.refunds.Count -ne 1 -or $Cancelled.refunds[0].payment_id -ne $CancelPaymentId -or $Cancelled.refunds[0].state -ne 'succeeded' -or $Cancelled.refunds[0].amount -ne $AmountCents -or $Cancelled.refunds[0].amount -ne $Cancelled.payments[0].amount -or $Cancelled.refunds[0].reason -ne 'cancelled') { throw 'Cancelled payment refund proof failed' }
+  Tap-Text '待付款'
+  Tap-Text '全部'
+  Wait-Text '已取消 · 已退款'
+  $script:Nodes = Read-Nodes
+  $RefundLine = @($script:Nodes | Where-Object { $_.visible -ne 'false' -and $_.text -like "¥$AmountText · device_buyer · * · 已退款" })
+  if ($RefundLine.Count -ne 1 -or $RefundLine[0].text -match '付款时间待确认') { throw 'Cancelled card refund amount, payer, time or status missing' }
+  Wait-Text '●'
+  Save-S3Checkpoint 'b7-cancelled-refund-card' @('B-59') $CancelId
+  Back
+  Wait-Text '编辑资料'
+  Wait-Text '●'
+  Save-S3Checkpoint 'b7-mine-unread' @('B-59') $CancelId
+  Tap-Text '全部订单'
+  Tap-Text '已取消 · 已退款'
+  Wait-Text ('订单号 ' + $CancelId)
+  Wait-Text '已取消 · 已退款'
+  Save-S3Checkpoint 'b7-refund-detail' @('B-59') $CancelId
+  Back
+  Wait-Text '已取消 · 已退款'
+  $script:Nodes = Read-Nodes
+  if (Find-Text '●') { throw 'Order list unread dot did not clear after viewing detail' }
+  Save-S3Checkpoint 'b7-list-read' @('B-59') $CancelId
+  Back
+  Wait-Text '编辑资料'
+  $script:Nodes = Read-Nodes
+  if (Find-Text '●') { throw 'Mine unread dot did not clear after returning from detail' }
+  $CancelledOrder = @(Orders | Where-Object { $_.id -eq $CancelId })[0]
+  if ($CancelledOrder.needsAttention) { throw 'Backend unread notice did not clear' }
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $Movements = Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
+  $Reserves = @($Movements.items | Where-Object { $_.kind -eq 'reserve' })
+  $Releases = @($Movements.items | Where-Object { $_.kind -in @('cancel','expire') })
+  if ((Orders).Count -ne 2 -or $Inventory.items[0].stock -ne ($InitialStock - 1) -or $Inventory.items[0].difference -ne 0 -or $Reserves.Count -ne 2 -or $Releases.Count -ne 1 -or $Releases[0].orderId -ne $CancelId -or $Releases[0].delta -ne 1 -or $Releases[0].businessKey -ne "release:${CancelId}:${SkuId}") { throw 'S3 final order count or exactly-once inventory release failed' }
+  Save-S3Checkpoint 'b7-mine-read' @('B-59') $CancelId
+  Save-Result @{ recovery=$Recovery; cancelled=$Cancelled; stock=$Inventory.items[0].stock; difference=$Inventory.items[0].difference;
+    reserves=$Reserves.Count; releases=$Releases.Count; inventoryMovements=$Movements.items; needsAttention=$CancelledOrder.needsAttention;
+    checkpoints=$script:S3Checks.ToArray(); deferred=@{case='B-62'; reason='B-62 待第四步 D8 后补入 S3'; date='2026-11-06'} }
+  Write-Output "SCRIPT $PSCommandPath RESULT S3 recovery, confirming restart, cancellation, refund, unread notices and exactly-once inventory release passed"
 }
 $Existing = @(& $Hdc -t $Target fport ls)
 $HadOriginal = ($Existing -join "`n") -match 'tcp:3000 tcp:3000\s+\[Reverse\]'
@@ -175,6 +353,7 @@ try {
   if ($HadOriginal) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3000'); $OriginalRemoved=$true }
   $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103'); $Mapped=$true
   $null = Invoke-Hdc @('install','-r',"$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app")
+  if ($S3) { Invoke-S3; return }
   if ($RelationsProbe) {
     Login 'device_buyer'
     Checkout
@@ -217,6 +396,7 @@ try {
     Tap-Text '亲友中心 · 代付与代收'
     Wait-Text '我的亲友：probe_10'
     Capture 'relations-after-restart'
+    Save-Result @{ invitedPayer=$Order.invitedPayerAccount; relations=$Relations.counts; offlinePreserved=$true; restart=$true }
     Write-Output "SCRIPT $PSCommandPath RESULT payer pagination, relation revoke recovery, offline preservation, retry and application restart passed"
     return
   }
@@ -240,6 +420,7 @@ try {
     $Page = Api 'device_merchant' '/merchant/orders/page?page=1&pageSize=10'
     if ($Page.counts -ne 10 -or $Page.pages -ne 1 -or $Page.items.Count -ne 10) { throw 'Merchant last-page recovery proof failed' }
     Capture 'merchant-returned-to-page-1'
+    Save-Result @{ shippedOrderId=$Shipped; merchantOrders=$Page.counts; merchantPages=$Page.pages }
     Write-Output "SCRIPT $PSCommandPath RESULT native family next/previous page, merchant next page and last-item shipment page recovery passed"
     return
   }
@@ -249,6 +430,7 @@ try {
     $null = Api 'device_buyer' "/member/order/$($Order.id)/mock-pay" 'Post' @{amountCents=$AmountCents}
     Ship
     $null = Assert-State $Order.id 3
+    Save-Result @{ shippedOrderId=$Order.id; state=3 }
     Write-Output "SCRIPT $PSCommandPath RESULT native merchant shipment probe passed"
     return
   }
@@ -316,7 +498,9 @@ try {
   if ((Orders).Count -ne 2 -or $Inventory.items[0].stock -ne ($InitialStock - 2) -or $Inventory.items[0].difference -ne 0 -or @($Movements.items | Where-Object { $_.kind -eq 'reserve' }).Count -ne 2) { throw 'Final order and inventory proof failed' }
   Capture 'family-completed'
   $Report = [ordered]@{
+    startedAt = $StartedAt.ToString('o'); durationSeconds = [math]::Round(((Get-Date) - $StartedAt).TotalSeconds, 2)
     completedAt = (Get-Date).ToString('o'); target = $Target; mode = 'Full'; result = 'passed'
+    counts = @{ passed=1; failed=0; skipped=0 }
     packageSha256 = (Get-FileHash "$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app" -Algorithm SHA256).Hash
     self = @{ id=$Self.id; state=$Self.orderState; payer=$Self.payerAccount; receiver=$Self.receivedByAccount }
     family = @{ id=$Family.id; state=$Family.orderState; payer=$Family.payerAccount; receiver=$Family.receivedByAccount }
@@ -326,8 +510,10 @@ try {
   $Report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$Output/result.json" -Encoding utf8
   Write-Output "SCRIPT $PSCommandPath RESULT self and family native trade, account switching, two reviewed orders and stock $InitialStock->$($InitialStock - 2) passed"
 } catch {
-  Capture 'failure'
-  throw
+  $Failure = $_
+  try { Capture 'failure' } catch { Write-Warning 'Failure screenshot or layout could not be captured' }
+  Save-Result @{ error=$Failure.Exception.Message; scriptStackTrace=$Failure.ScriptStackTrace } 'failed'
+  throw $Failure
 } finally {
   try {
     if ($Mapped) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3103') }

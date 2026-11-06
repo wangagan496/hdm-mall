@@ -17,6 +17,28 @@ const address = f.testData.address({ userId: user.id, receiver: '设备验收', 
   provinceCode: 'test', cityCode: 'test', countyCode: 'test', address: '独立模拟器验收地址', isDefault: 0 })
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid,
   skuId: sku.id, amountCents: sku.priceCents, initialStock: sku.stock }))
+f.app.post<{ Body: { orderId?: string; preset: unknown } }>('/device-fixture/payment-preset', {
+  schema: { body: { type: 'object', required: ['preset'], additionalProperties: false,
+    properties: { orderId: { type: 'string', minLength: 1 }, preset: { type: 'object' } } } }
+}, async (req, reply) => {
+  const { orderId, preset } = req.body
+  const payment = orderId ? f.db.one<{ id: string; state: string }>(
+    `SELECT id,state FROM payments WHERE order_id=? AND (state='pending' OR
+      (state='closed' AND EXISTS (SELECT 1 FROM orders WHERE id=? AND state=6)))
+      ORDER BY CASE WHEN state='pending' THEN 0 ELSE 1 END,created DESC,id DESC LIMIT 1`, orderId, orderId) : undefined
+  if (orderId && !payment) return reply.code(404).send({ error: 'No pending or cancelled closed payment for this order' })
+  const configured = f.testData.payments({ paymentId: payment?.id ?? 'next', preset })
+  return { ...configured, paymentId: payment?.id ?? 'next', state: payment?.state ?? null }
+})
+f.app.get<{ Params: { orderId: string } }>('/device-fixture/orders/:orderId/payments', async (req, reply) => {
+  const orderId = req.params.orderId
+  const order = f.db.one('SELECT id,state,amount FROM orders WHERE id=?', orderId)
+  if (!order) return reply.code(404).send({ error: 'Fixture order not found' })
+  return { order,
+    payments: f.db.all('SELECT id,order_id,amount,state,created,channel_paid_at,next_query_at FROM payments WHERE order_id=? ORDER BY created,id', orderId),
+    refunds: f.db.all(`SELECT refunds.id,payment_id,refunds.amount,refunds.state,reason,attempts FROM refunds
+      JOIN payments ON payments.id=refunds.payment_id WHERE payments.order_id=? ORDER BY refunds.id`, orderId) }
+})
 f.app.addHook('onResponse', async (req, reply) => {
   if (req.method !== 'GET') console.log(JSON.stringify({ method: req.method, route: req.routeOptions.url,
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
