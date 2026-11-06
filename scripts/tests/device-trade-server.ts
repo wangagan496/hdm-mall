@@ -28,15 +28,62 @@ const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
 const product = f.testData.product({ name: '设备独立测试商品',
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
 const sku = product.skus[0]!
+const s1 = process.argv.includes('--s1')
+const s2 = process.argv.includes('--s2')
+const extra = s2 ? f.testData.product({ name: '购物车保留商品', skus: [{ spec: '保留款', priceCents: 1109, stock: 19 }] }) : undefined
 for (const account of ['device_buyer', 'device_friend', 'device_merchant']) {
   f.testData.account({ account, password: 'Device-trade-123', role: account === 'device_merchant' ? 'merchant' : 'buyer' })
 }
 const buyer = f.accounts.login('device_buyer', 'Device-trade-123')
 const user = f.accounts.authenticate(`Bearer ${buyer.token}`)
-const address = f.testData.address({ userId: user.id, receiver: '设备验收', contact: '13800138000', fullLocation: '测试省 测试市 测试区',
+const address = s1 ? undefined : f.testData.address({ userId: user.id, receiver: '设备验收', contact: '13800138000', fullLocation: '测试省 测试市 测试区',
   provinceCode: 'test', cityCode: 'test', countyCode: 'test', address: '独立模拟器验收地址', isDefault: 0 })
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid,
-  skuId: sku.id, amountCents: sku.priceCents, initialStock: sku.stock }))
+  skuId: sku.id, productId: product.id, amountCents: sku.priceCents, initialStock: sku.stock,
+  extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : 'default' }))
+let responseBarrier: { kind: 'order' | 'payment'; received: boolean; response?: unknown; request?: unknown } | undefined
+let responseGate: Promise<void> | undefined
+let releaseResponse: (() => void) | undefined
+const tradeRequests: { method: string; route: string; requestKey?: string; orderId?: string }[] = []
+f.app.get('/device-fixture/trade-requests', async () => tradeRequests)
+f.app.addHook('preHandler', async req => {
+  const route = req.routeOptions.url ?? ''
+  if ((req.method === 'POST' && ['/member/order', '/member/cart', '/member/order/:id/payments'].includes(route)) ||
+    (req.method === 'GET' && route === '/member/order/by-request/:requestKey')) {
+    const params = req.params as { id?: string; requestKey?: string }
+    const body = req.body as { requestKey?: string } | undefined
+    tradeRequests.push({ method: req.method, route, requestKey: body?.requestKey ?? params.requestKey, orderId: params.id })
+  }
+})
+f.app.post<{ Body: { kind: 'order' | 'payment'; hold: boolean } }>('/device-fixture/response-barrier', {
+  schema: { body: { type: 'object', required: ['kind', 'hold'], additionalProperties: false,
+    properties: { kind: { type: 'string', enum: ['order', 'payment'] }, hold: { type: 'boolean' } } } }
+}, async (req, reply) => {
+  if (req.body.hold) {
+    if (responseBarrier) return reply.code(409).send({ error: 'Response barrier already armed' })
+    responseBarrier = { kind: req.body.kind, received: false }
+    responseGate = new Promise<void>(resolve => { releaseResponse = resolve })
+  } else {
+    if (responseBarrier?.kind !== req.body.kind) return reply.code(409).send({ error: 'Response barrier mismatch' })
+    releaseResponse?.()
+    responseBarrier = undefined
+    responseGate = undefined
+    releaseResponse = undefined
+  }
+  return { armed: req.body.hold }
+})
+f.app.get('/device-fixture/response-barrier', async () => responseBarrier ?? { received: false })
+f.app.addHook('onSend', async (req, reply, payload) => {
+  const barrier = responseBarrier
+  const matches = barrier?.kind === 'order' ? req.routeOptions.url === '/member/order' : req.routeOptions.url === '/member/order/:id/payments'
+  if (barrier && !barrier.received && req.method === 'POST' && reply.statusCode === 200 && matches) {
+    barrier.received = true
+    barrier.request = req.body
+    barrier.response = typeof payload === 'string' ? JSON.parse(payload) : undefined
+    await responseGate
+  }
+  return payload
+})
 f.app.post<{ Body: { paymentId: string; hold: boolean } }>('/device-fixture/refund-barrier', {
   schema: { body: { type: 'object', required: ['paymentId', 'hold'], additionalProperties: false,
     properties: { paymentId: { type: 'string', minLength: 1 }, hold: { type: 'boolean' } } } }
@@ -75,7 +122,7 @@ f.app.post<{ Body: { orderId?: string; preset: unknown } }>('/device-fixture/pay
 })
 f.app.get<{ Params: { orderId: string } }>('/device-fixture/orders/:orderId/payments', async (req, reply) => {
   const orderId = req.params.orderId
-  const order = f.db.one('SELECT id,state,amount FROM orders WHERE id=?', orderId)
+  const order = f.db.one('SELECT id,state,amount,request_key,request_body FROM orders WHERE id=?', orderId)
   if (!order) return reply.code(404).send({ error: 'Fixture order not found' })
   return { order,
     payments: f.db.all(`SELECT payments.id,order_id,amount,state,created,channel_paid_at,next_query_at,payer_id,
@@ -93,7 +140,8 @@ f.app.addHook('onResponse', async (req, reply) => {
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
 })
 f.app.addHook('onError', async (_req, _reply, error) => { console.log(JSON.stringify({ errorCode: error.code })) })
-await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: 1, requestKey: randomUUID() } })
+if (!s1) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
+if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {
     const account = `probe_${String(index).padStart(2, '0')}`
@@ -102,7 +150,7 @@ if (process.argv.includes('--relations')) {
     f.db.run('UPDATE relations SET created=? WHERE id=?', 1000 + index, id)
   }
 }
-if (process.argv.includes('--cancel-family')) {
+if (process.argv.includes('--cancel-family') || s2) {
   const friend = f.accounts.login('device_friend', 'Device-trade-123')
   f.testData.relation({ ownerId: user.id, friendId: friend.id })
 }
@@ -113,12 +161,13 @@ if (process.argv.includes('--pagination')) {
   f.testData.relation({ ownerId: user.id, friendId: friend.id })
   const orders = f.orders
   for (let index = 1; index <= 11; index++) {
-    const order = orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] })
+    const order = orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address!.id, goods: [{ skuId: sku.id, count: 1 }] })
     orders.invitePayer(user, order.id, friend.id)
     orders.pay(friendUser, order.id, sku.priceCents)
     f.db.run('UPDATE orders SET created=? WHERE id=?', f.clock.now() - 60000 + index, order.id)
     f.db.run('UPDATE order_items SET name=? WHERE order_id=?', `分页商品 ${String(index).padStart(2, '0')}`, order.id)
   }
 }
+tradeRequests.length = 0
 await f.app.listen({ port: 3103, host: '127.0.0.1' })
 console.log('RESULT isolated trade fixture ready')

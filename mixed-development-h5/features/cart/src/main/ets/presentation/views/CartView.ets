@@ -465,6 +465,8 @@ export struct CartView {
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
+    // 和订单页一致，让出系统状态栏高度，避免标题栏和返回键压在时间、电量上。
+    .padding({ top: this.topHeight })
     .bindContentCover($$this.showClearCartConfirm, this.ClearCartConfirmBuilder())
   }
 }
