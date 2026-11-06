@@ -1,11 +1,11 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3)
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe)
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3 | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 $StartedAt = Get-Date
-$Mode = if ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
+$Mode = if ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
-$Output = Join-Path $Root $(if ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
+$Output = Join-Path $Root $(if ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Base = 'http://127.0.0.1:3103'
 $Password = 'Device-trade-123'
@@ -59,11 +59,11 @@ function Tap-CellArrow([string]$Text) {
   if ($Arrow.Count -ne 1) { throw "Cell arrow is not uniquely identified: $Text" }
   Operate-Node $Arrow[0]
 }
-function Scroll-Text([string]$Text) {
+function Scroll-Text([string]$Text, [switch]$ViewOnly) {
   for ($Try = 0; $Try -lt 8; $Try++) {
     $script:Nodes = Read-Nodes
     $Node = Find-Text $Text
-    if ($Node) { Operate-Node $Node; return }
+    if ($Node) { if (-not $ViewOnly) { Operate-Node $Node }; return }
     $null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','2350','660','900','600')
   }
   throw "Expected scroll target not found: $Text"
@@ -181,10 +181,202 @@ function Save-S3Checkpoint([string]$Name, [string[]]$Cases, [string]$OrderId) {
   $Proof = Payment-Proof $OrderId
   $Presentation = @(Orders | Where-Object { $_.id -eq $OrderId })[0]
   $Checkpoint = [ordered]@{ name=$Name; cases=$Cases; result='passed'; capturedAt=(Get-Date).ToString('o');
-    screenshot="$Name.png"; layout="$Name.layout.json"; order=$Presentation; ledger=$Proof }
+    screenshot="$Name.png"; layout="$Name.layout.json"; order=$Presentation; ledger=$Proof;
+    roles=@{buyer='device_buyer';friend='device_friend';merchant='device_merchant'};
+    inventory=(Api 'device_merchant' "/merchant/inventory?skuId=$SkuId");
+    inventoryMovements=(Api 'device_merchant' "/merchant/inventory/$SkuId/movements"); initialStock=$InitialStock }
   $Checkpoint | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath "$Output/$Name.json" -Encoding utf8
   $script:S3Checks.Add(@{name=$Name; cases=$Cases; result='passed'})
-  Write-Output "CHECK S3 $Name [$($Cases -join ',')] passed"
+  Write-Output "CHECK $Mode $Name [$($Cases -join ',')] passed"
+}
+function Wait-OrderState([string]$OrderId, [int]$State) {
+  for ($Try = 0; $Try -lt 20; $Try++) {
+    $Order = @(Orders | Where-Object { $_.id -eq $OrderId })[0]
+    if ($Order.orderState -eq $State) { return $Order }
+    Start-Sleep -Milliseconds 250
+  }
+  throw "Expected list state $State for $OrderId, got $($Order.orderState)"
+}
+function Assert-CancelInventory([string]$OrderId, [int]$ReleaseCount, [int]$ExpectedStock) {
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $Movements = Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
+  $Reserved = @($Movements.items | Where-Object { $_.orderId -eq $OrderId -and $_.kind -eq 'reserve' })
+  $Released = @($Movements.items | Where-Object { $_.orderId -eq $OrderId -and $_.kind -in @('cancel','expire') })
+  if ($Reserved.Count -ne 1 -or $Reserved[0].delta -ne -1 -or $Released.Count -ne $ReleaseCount -or $Inventory.items[0].stock -ne $ExpectedStock -or $Inventory.items[0].difference -ne 0) { throw 'Cancellation inventory reservation/release/stock proof failed' }
+  if ($ReleaseCount -eq 1 -and ($Released[0].delta -ne 1 -or $Released[0].businessKey -ne "release:${OrderId}:${SkuId}")) { throw 'Cancellation release is not exactly once for this SKU' }
+}
+function Assert-PendingCancellation([string]$OrderId, [int]$Stock) {
+  $Order = Wait-OrderState $OrderId 2
+  $Proof = Payment-Proof $OrderId
+  if ($Order.cancelRequest.state -ne 'pending' -or -not $Order.canWithdrawCancel -or $Order.canRequestCancel -or $Proof.cancelRequests.Count -ne 1 -or $Proof.refunds.Count -ne 0 -or $Proof.payments.Count -ne 1 -or $Proof.payments[0].state -ne 'succeeded') { throw 'Pending cancellation changed payment, refund or capabilities' }
+  Assert-CancelInventory $OrderId 0 $Stock
+  Wait-Text '撤回申请'
+  $script:Nodes = Read-Nodes
+  foreach ($Forbidden in @('提醒发货','取消订单','去支付')) {
+    if (Find-Text $Forbidden) { throw "Pending cancellation exposes $Forbidden" }
+  }
+}
+function Assert-CancelReceipts([string]$OrderId, [string]$Decision) {
+  $Proof = Payment-Proof $OrderId
+  if ($Proof.cancelActions.Count -ne 2 -or @($Proof.cancelActions | Where-Object { $_.action -eq 'request' }).Count -ne 1 -or @($Proof.cancelActions | Where-Object { $_.action -eq $Decision }).Count -ne 1) { throw 'Cancellation action receipt cardinality failed' }
+  $Receipts = @()
+  foreach ($Action in $Proof.cancelActions) {
+    $Actor = if ($Action.action -eq 'request') { 'device_buyer' } else { 'device_merchant' }
+    if ($Action.actorAccount -ne $Actor) { throw 'Cancellation receipt actor does not match buyer/merchant role' }
+    $Receipt = Api $Action.actorAccount "/order-cancel-actions/by-request/$($Action.request_key)"
+    if ($Receipt.id -ne $Action.id -or $Receipt.orderId -ne $OrderId -or $Receipt.cancelRequestId -ne $Proof.cancelRequests[0].id -or $Receipt.action -ne $Action.action) { throw 'Cancellation HTTP receipt does not match recorded action' }
+    $Receipts += $Receipt
+  }
+  $Receipts | ConvertTo-Json -Depth 10 | Set-Content "$Output/c-cancel-receipts.json" -Encoding utf8
+}
+function Invoke-PaidCancellation {
+  $Family = [bool]$CancelFamilyProbe
+  $Reject = [bool]$CancelRejectProbe
+  $Cases = if ($Family) { @('B-65','B-73','B-79') } elseif ($Reject) { @('B-75','B-73') } else { @('B-62','B-73','B-78','B-79') }
+  $Before = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $ReservedStock = [int]$Before.items[0].stock - 1
+  if ($S3) { $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1} }
+  Login 'device_buyer'
+  Checkout
+  $OrderId = (Orders)[0].id
+  if ($Family) {
+    Scroll-Text '邀请 device_friend 代付'
+    Wait-Text '等待亲友 device_friend 代付'
+    Login 'device_friend'
+    Tap-Text '亲友中心 · 代付与代收'
+    Scroll-Text '确认模拟代付'
+    Wait-Text '为 device_buyer 模拟代付'
+    Operate-Node ($script:Nodes | Where-Object { $_.text -eq '确认模拟代付' -and $_.visible -ne 'false' } | Select-Object -Last 1)
+    Wait-Text '待发货'
+  } else {
+    $null = Set-PaymentPreset 'success'
+    Tap-Text $PaymentText
+  }
+  $Paid = Wait-OrderState $OrderId 2
+  $Payer = if ($Family) { 'device_friend' } else { 'device_buyer' }
+  $Proof = Payment-Proof $OrderId
+  if ($Proof.payments.Count -ne 1 -or $Proof.payments[0].state -ne 'succeeded' -or $Proof.payments[0].payerAccount -ne $Payer -or $Proof.payments[0].amount -ne $AmountCents -or $Proof.refunds.Count -ne 0) { throw 'Independent paid cancellation order is invalid' }
+  $PaymentId = $Proof.payments[0].id
+  Login 'device_buyer'
+  Tap-Text '待发货'
+  Tap-Text '取消订单'
+  Wait-Text $Paid.cancelConfirmation.message
+  if ($Family -and $Paid.cancelConfirmation.message -notlike '*退回亲友 device_friend 的付款账户*') { throw 'Family cancellation dialog does not name the actual payer' }
+  Save-S3Checkpoint 'c1-request-warning' $Cases $OrderId
+  Tap-Text '再等等'
+  $Proof = Payment-Proof $OrderId
+  if ($Proof.cancelRequests.Count -ne 0 -or $Proof.cancelActions.Count -ne 0 -or $Proof.refunds.Count -ne 0 -or $Proof.order.state -ne 2) { throw 'Dismissed paid cancellation wrote a request or refund' }
+  Assert-CancelInventory $OrderId 0 $ReservedStock
+  Save-S3Checkpoint 'c1-request-dismissed' $Cases $OrderId
+  Tap-Text '取消订单'
+  Tap-Text '确定申请'
+  Wait-Text '取消申请审核中'
+  Tap-Text '取消申请审核中'
+  Wait-Text ('订单号 ' + $OrderId)
+  Assert-PendingCancellation $OrderId $ReservedStock
+  Save-S3Checkpoint 'c2-pending-detail' $Cases $OrderId
+  Mine
+  Tap-Text '待发货'
+  Tap-Text '取消申请审核中'
+  Wait-Text ('订单号 ' + $OrderId)
+  Assert-PendingCancellation $OrderId $ReservedStock
+  Save-S3Checkpoint 'c3-pending-restarted' $Cases $OrderId
+  if ($Family) {
+    Login 'device_friend'
+    Tap-Text '亲友中心 · 代付与代收'
+    Scroll-Text '取消申请审核中' -ViewOnly
+    $script:Nodes = Read-Nodes
+    foreach ($Forbidden in @('取消订单','确定申请','撤回申请','处理取消申请')) {
+      if (Find-Text $Forbidden) { throw "Family read-only card exposes $Forbidden" }
+    }
+    $FamilyOrder = @((Api 'device_friend' '/member/family-orders') | Where-Object { $_.id -eq $OrderId })[0]
+    if ($FamilyOrder.canRequestCancel -or $FamilyOrder.canWithdrawCancel -or $FamilyOrder.canResolveCancel -or $FamilyOrder.cancelRequest.state -ne 'pending') { throw 'Family read-only projection failed' }
+    $FamilyOrder | ConvertTo-Json -Depth 12 | Set-Content "$Output/c-family-readonly.json" -Encoding utf8
+    Save-S3Checkpoint 'c4-family-readonly' $Cases $OrderId
+  }
+  Login 'device_merchant'
+  Tap-Text '亲友中心 / 商家发货'
+  Scroll-Text '处理取消申请' -ViewOnly
+  Save-S3Checkpoint 'c5-merchant-request-card' $Cases $OrderId
+  Scroll-Text '处理取消申请'
+  if ($Reject) {
+    Input-Type 'TextArea' 0 '已打包'
+    Back
+    Save-S3Checkpoint 'c6-reject-reason' $Cases $OrderId
+    Tap-Text '拒绝并发货'
+    $null = Wait-OrderState $OrderId 3
+    Login 'device_buyer'
+    Tap-Text '待收货'
+    Wait-Text '商家拒绝取消申请：已打包。如有问题请联系客服'
+    $script:Nodes = Read-Nodes
+    if (Find-Text '取消订单') { throw 'Shipped rejected order still exposes cancellation' }
+    Save-S3Checkpoint 'c7-rejected-shipped' $Cases $OrderId
+    $Proof = Payment-Proof $OrderId
+    if ($Proof.order.state -ne 3 -or $Proof.cancelRequests[0].state -ne 'rejected-shipped' -or $Proof.cancelRequests[0].reject_reason -ne '已打包' -or $Proof.refunds.Count -ne 0) { throw 'Reject-and-ship ledger proof failed' }
+    Assert-CancelInventory $OrderId 0 $ReservedStock
+    Assert-CancelReceipts $OrderId 'reject-and-ship'
+    $script:CancellationResult = @{orderId=$OrderId; payer=$Payer; ledger=$Proof; stock=$ReservedStock; refundPendingCaptured=$false}
+    return
+  }
+  $null = Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$PaymentId;hold=$true} | ConvertTo-Json)
+  Tap-Text '同意取消'
+  Wait-Text '同意取消订单'
+  Save-S3Checkpoint 'c6-merchant-approve-dialog' $Cases $OrderId
+  Operate-Node ($script:Nodes | Where-Object { $_.text -eq '同意取消' -and $_.visible -ne 'false' } | Select-Object -Last 1)
+  $Approved = Wait-OrderState $OrderId 6
+  $MerchantPage = Api 'device_merchant' '/merchant/orders/page?page=1&pageSize=100'
+  if (@($MerchantPage.items | Where-Object { $_.id -eq $OrderId }).Count -ne 0) { throw 'Approved cancellation remains in merchant shipment list' }
+  $script:Nodes = Read-Nodes
+  if ((Find-Text '处理取消申请') -or (Find-Text '买家申请取消')) { throw 'Approved cancellation remains visible on merchant card' }
+  $MerchantPage | ConvertTo-Json -Depth 12 | Set-Content "$Output/c-merchant-removed.json" -Encoding utf8
+  Save-S3Checkpoint 'c6-merchant-removed' $Cases $OrderId
+  $ShipResponse = Invoke-WebRequest "$Base/merchant/orders/$OrderId/ship" -Method Post -Headers @{Authorization='Bearer '+$Tokens['device_merchant']} -ContentType 'application/json' -Body '{}' -SkipHttpErrorCheck
+  $ShipError = $ShipResponse.Content | ConvertFrom-Json
+  if ($ShipResponse.StatusCode -ne 409 -or $ShipError.msg -ne '买家已取消，不能发货') { throw 'Legacy shipment did not reject cancelled order with expected message' }
+  @{status=$ShipResponse.StatusCode;body=$ShipError} | ConvertTo-Json -Depth 10 | Set-Content "$Output/c-legacy-ship-rejected.json" -Encoding utf8
+  Login 'device_buyer'
+  Tap-Text '全部订单'
+  Wait-Text '已取消 · 退款中'
+  Wait-Text '●'
+  $Proof = Payment-Proof $OrderId
+  if ($Proof.refunds.Count -ne 1 -or $Proof.refunds[0].state -ne 'pending' -or $Proof.refunds[0].attempts -ne 0 -or -not $Approved.needsAttention) { throw 'Refund barrier did not preserve genuine pending refund and unread notice' }
+  Save-S3Checkpoint 'c7-refund-pending' $Cases $OrderId
+  $null = Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$PaymentId;hold=$false} | ConvertTo-Json)
+  Tap-Text '待付款'
+  Tap-Text '全部'
+  Wait-Text '已取消 · 已退款'
+  $Proof = Payment-Proof $OrderId
+  if ($Proof.order.state -ne 6 -or $Proof.cancelRequests.Count -ne 1 -or $Proof.cancelRequests[0].state -ne 'approved' -or $Proof.cancelRequests[0].payment_id -ne $PaymentId -or $Proof.payments.Count -ne 1 -or $Proof.payments[0].payerAccount -ne $Payer -or $Proof.refunds.Count -ne 1 -or $Proof.refunds[0].payment_id -ne $PaymentId -or $Proof.refunds[0].reason -ne 'cancelled' -or $Proof.refunds[0].amount -ne $AmountCents -or $Proof.refunds[0].amount -ne $Proof.payments[0].amount -or $Proof.refunds[0].state -ne 'succeeded' -or $Proof.cancelRequests[0].refund_id -ne $Proof.refunds[0].id) { throw 'Approved cancellation payment/refund/request correlation failed' }
+  Assert-CancelInventory $OrderId 1 ($ReservedStock + 1)
+  Assert-CancelReceipts $OrderId 'approve'
+  Save-S3Checkpoint 'c8-refunded-unread' $Cases $OrderId
+  Tap-Text '已取消 · 已退款'
+  Wait-Text ('订单号 ' + $OrderId)
+  Wait-Text '已取消 · 已退款'
+  Save-S3Checkpoint 'c9-refunded-detail' $Cases $OrderId
+  Back
+  Wait-Text '已取消 · 已退款'
+  $script:Nodes = Read-Nodes
+  if (Find-Text '●') { throw 'Paid cancellation list unread dot did not clear' }
+  Save-S3Checkpoint 'c9-list-read' $Cases $OrderId
+  Back
+  Wait-Text '编辑资料'
+  $script:Nodes = Read-Nodes
+  if (Find-Text '●') { throw 'Paid cancellation mine unread dot did not clear' }
+  $ReadOrder = Wait-OrderState $OrderId 6
+  if ($ReadOrder.needsAttention) { throw 'Paid cancellation backend notice remains unread' }
+  Save-S3Checkpoint 'c9-mine-read' $Cases $OrderId
+  if ($Family) {
+    Login 'device_friend'
+    Tap-Text '亲友中心 · 代付与代收'
+    Scroll-Text '已取消 · 已退款' -ViewOnly
+    $FriendOrder = @((Api 'device_friend' '/member/family-orders') | Where-Object { $_.id -eq $OrderId })[0]
+    if (-not $FriendOrder.needsAttention -or $FriendOrder.refunds.Count -ne 1 -or $FriendOrder.refunds[0].payerAccount -ne 'device_friend') { throw 'Buyer detail cleared friend notice or refund belongs to wrong payer' }
+    $FriendOrder | ConvertTo-Json -Depth 12 | Set-Content "$Output/c-family-refund.json" -Encoding utf8
+    Save-S3Checkpoint 'c10-family-refunded' $Cases $OrderId
+  }
+  Assert-CancelInventory $OrderId 1 ($ReservedStock + 1)
+  $script:CancellationResult = @{orderId=$OrderId; payer=$Payer; ledger=$Proof; stock=($ReservedStock + 1); refundPendingCaptured=$true; needsAttention=$ReadOrder.needsAttention}
 }
 function Invoke-S3 {
   $script:S3Checks = [System.Collections.Generic.List[object]]::new()
@@ -320,9 +512,15 @@ function Invoke-S3 {
   $Releases = @($Movements.items | Where-Object { $_.kind -in @('cancel','expire') })
   if ((Orders).Count -ne 2 -or $Inventory.items[0].stock -ne ($InitialStock - 1) -or $Inventory.items[0].difference -ne 0 -or $Reserves.Count -ne 2 -or $Releases.Count -ne 1 -or $Releases[0].orderId -ne $CancelId -or $Releases[0].delta -ne 1 -or $Releases[0].businessKey -ne "release:${CancelId}:${SkuId}") { throw 'S3 final order count or exactly-once inventory release failed' }
   Save-S3Checkpoint 'b7-mine-read' @('B-59') $CancelId
+  Invoke-PaidCancellation
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $Movements = Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
+  $Reserves = @($Movements.items | Where-Object { $_.kind -eq 'reserve' })
+  $Releases = @($Movements.items | Where-Object { $_.kind -in @('cancel','expire') })
+  if ((Orders).Count -ne 3 -or $Inventory.items[0].stock -ne ($InitialStock - 1) -or $Inventory.items[0].difference -ne 0 -or $Reserves.Count -ne 3 -or $Releases.Count -ne 2) { throw 'Extended S3 final three-order inventory proof failed' }
   Save-Result @{ recovery=$Recovery; cancelled=$Cancelled; stock=$Inventory.items[0].stock; difference=$Inventory.items[0].difference;
     reserves=$Reserves.Count; releases=$Releases.Count; inventoryMovements=$Movements.items; needsAttention=$CancelledOrder.needsAttention;
-    checkpoints=$script:S3Checks.ToArray(); deferred=@{case='B-62'; reason='B-62 待第四步 D8 后补入 S3'; date='2026-11-06'} }
+    checkpoints=$script:S3Checks.ToArray(); paidCancellation=$script:CancellationResult }
   Write-Output "SCRIPT $PSCommandPath RESULT S3 recovery, confirming restart, cancellation, refund, unread notices and exactly-once inventory release passed"
 }
 $Existing = @(& $Hdc -t $Target fport ls)
@@ -332,6 +530,7 @@ $FixturePath = Join-Path $PSScriptRoot 'tests/device-trade-server.ts'
 $FixtureArguments = @($FixturePath)
 if ($PaginationProbe) { $FixtureArguments += '--pagination' }
 if ($RelationsProbe) { $FixtureArguments += '--relations' }
+if ($CancelFamilyProbe) { $FixtureArguments += '--cancel-family' }
 $Fixture = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList $FixtureArguments -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput "$Output/server.stdout.log" -RedirectStandardError "$Output/server.stderr.log"
 $Mapped = $false
 $OriginalRemoved = $false
@@ -354,6 +553,13 @@ try {
   $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103'); $Mapped=$true
   $null = Invoke-Hdc @('install','-r',"$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app")
   if ($S3) { Invoke-S3; return }
+  if ($CancelRejectProbe -or $CancelFamilyProbe) {
+    $script:S3Checks = [System.Collections.Generic.List[object]]::new()
+    Invoke-PaidCancellation
+    Save-Result @{ cancellation=$script:CancellationResult; checkpoints=$script:S3Checks.ToArray() }
+    Write-Output "SCRIPT $PSCommandPath RESULT $Mode native cancellation, payer, receipts and inventory passed"
+    return
+  }
   if ($RelationsProbe) {
     Login 'device_buyer'
     Checkout

@@ -3,7 +3,27 @@ import { buildTestApp } from '../../server/test/helpers/fixtures.ts'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
+const paymentCallbackSecret = randomUUID()
+const channel = new MockPaymentChannel(paymentCallbackSecret)
+const refund = channel.refund.bind(channel)
+let heldPaymentId: string | undefined
+let refundBarrier: Promise<void> | undefined
+let releaseRefund: (() => void) | undefined
+const activeRefunds = new Map<string, Promise<'success' | 'fail'>>()
+Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: string, amount: number) => {
+  const existing = activeRefunds.get(refundId)
+  if (existing) return existing
+  const completion = (async () => {
+    if (paymentId === heldPaymentId) await refundBarrier
+    return refund(refundId, paymentId, amount)
+  })()
+  activeRefunds.set(refundId, completion)
+  void completion.finally(() => activeRefunds.delete(refundId))
+  return completion
+} })
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
+  paymentChannel: channel, paymentCallbackSecret,
   publicUrl: 'http://127.0.0.1:3000', uploadsPath: join(tmpdir(), 'hdm-device-trade-uploads') })
 const product = f.testData.product({ name: '设备独立测试商品',
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
@@ -17,6 +37,29 @@ const address = f.testData.address({ userId: user.id, receiver: '设备验收', 
   provinceCode: 'test', cityCode: 'test', countyCode: 'test', address: '独立模拟器验收地址', isDefault: 0 })
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid,
   skuId: sku.id, amountCents: sku.priceCents, initialStock: sku.stock }))
+f.app.post<{ Body: { paymentId: string; hold: boolean } }>('/device-fixture/refund-barrier', {
+  schema: { body: { type: 'object', required: ['paymentId', 'hold'], additionalProperties: false,
+    properties: { paymentId: { type: 'string', minLength: 1 }, hold: { type: 'boolean' } } } }
+}, async (req, reply) => {
+  const { paymentId, hold } = req.body
+  if (!f.db.one("SELECT id FROM payments WHERE id=? AND state='succeeded'", paymentId)) {
+    return reply.code(404).send({ error: 'Succeeded fixture payment not found' })
+  }
+  if (hold) {
+    if (heldPaymentId) return reply.code(409).send({ error: 'Refund barrier already armed' })
+    heldPaymentId = paymentId
+    refundBarrier = new Promise<void>(resolve => { releaseRefund = resolve })
+  } else {
+    if (heldPaymentId !== paymentId) return reply.code(409).send({ error: 'Refund barrier payment mismatch' })
+    heldPaymentId = undefined
+    releaseRefund?.()
+    await Promise.all(activeRefunds.values())
+    await f.payments.reconcile()
+    refundBarrier = undefined
+    releaseRefund = undefined
+  }
+  return { paymentId, held: hold }
+})
 f.app.post<{ Body: { orderId?: string; preset: unknown } }>('/device-fixture/payment-preset', {
   schema: { body: { type: 'object', required: ['preset'], additionalProperties: false,
     properties: { orderId: { type: 'string', minLength: 1 }, preset: { type: 'object' } } } }
@@ -35,9 +78,15 @@ f.app.get<{ Params: { orderId: string } }>('/device-fixture/orders/:orderId/paym
   const order = f.db.one('SELECT id,state,amount FROM orders WHERE id=?', orderId)
   if (!order) return reply.code(404).send({ error: 'Fixture order not found' })
   return { order,
-    payments: f.db.all('SELECT id,order_id,amount,state,created,channel_paid_at,next_query_at FROM payments WHERE order_id=? ORDER BY created,id', orderId),
+    payments: f.db.all(`SELECT payments.id,order_id,amount,state,created,channel_paid_at,next_query_at,payer_id,
+      (SELECT account FROM users WHERE users.id=payments.payer_id) AS payerAccount
+      FROM payments WHERE order_id=? ORDER BY created,id`, orderId),
     refunds: f.db.all(`SELECT refunds.id,payment_id,refunds.amount,refunds.state,reason,attempts FROM refunds
-      JOIN payments ON payments.id=refunds.payment_id WHERE payments.order_id=? ORDER BY refunds.id`, orderId) }
+      JOIN payments ON payments.id=refunds.payment_id WHERE payments.order_id=? ORDER BY refunds.id`, orderId),
+    cancelRequests: f.db.all('SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence', orderId),
+    cancelActions: f.db.all(`SELECT order_cancel_actions.*,
+      (SELECT account FROM users WHERE users.id=order_cancel_actions.actor_id) AS actorAccount
+      FROM order_cancel_actions WHERE order_id=? ORDER BY created,id`, orderId) }
 })
 f.app.addHook('onResponse', async (req, reply) => {
   if (req.method !== 'GET') console.log(JSON.stringify({ method: req.method, route: req.routeOptions.url,
@@ -52,6 +101,10 @@ if (process.argv.includes('--relations')) {
     const id = f.testData.relation({ ownerId: user.id, friendId: friend.id }).id
     f.db.run('UPDATE relations SET created=? WHERE id=?', 1000 + index, id)
   }
+}
+if (process.argv.includes('--cancel-family')) {
+  const friend = f.accounts.login('device_friend', 'Device-trade-123')
+  f.testData.relation({ ownerId: user.id, friendId: friend.id })
 }
 // 分页探针单独准备 11 笔代付订单；Full 模式仍由设备完成全部交易操作。
 if (process.argv.includes('--pagination')) {
