@@ -145,6 +145,8 @@ test('实际Vite配置拒绝移动端地址覆盖及独立正式构建的缺失�
 test('发布验证入口拒绝跳过网页或原生构建，不复用缺少来源检查的旧产物', () => {
   for (const flag of ['-SkipH5', '-SkipNative']) {
     const result = spawnSync('pwsh', ['-File', fileURLToPath(new URL('../verify-project.ps1', import.meta.url)), '-BuildMode', 'release', flag], { encoding: 'utf8' })
-    assert.notEqual(result.status, 0); assert.match(result.stdout + result.stderr, /skip switches are not allowed/)
+    // Linux 上的 PowerShell 会给错误加颜色并按终端宽度折行（续行以“|”开头），先还原成一行再比对原文。
+    const output = (result.stdout + result.stderr).replace(/\x1B\[[0-9;]*m/g, '').replace(/\s*\n\s*\|?\s*/g, ' ')
+    assert.notEqual(result.status, 0); assert.match(output, /skip switches are not allowed/)
   }
 })
