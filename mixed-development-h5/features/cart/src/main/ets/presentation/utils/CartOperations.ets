@@ -104,8 +104,8 @@ export class CartOperationHelper {
     return carts
       .filter(cart => cart.selected)
       .reduce((total, cart) => {
-        return total + (cart.price * cart.count)
-      }, 0)
+        return total + Math.round(cart.price * 100) * cart.count
+      }, 0) / 100
   }
 
   /**

@@ -3,7 +3,7 @@ import { Database } from './database.ts'
 import type { Clock } from './clock.ts'
 import { Accounts, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
-import { ensure } from './errors.ts'
+import { AppError, ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
 import type { Payments } from './payments.ts'
 
@@ -49,6 +49,7 @@ interface Item {
 type CheckoutItem = ReturnType<Catalog['sku']> & { count: number }
 export interface CreateOrder {
   requestKey: string
+  expectedAmountCents: number
   addressId: string
   goods: { skuId: string; count: number }[]
 }
@@ -198,6 +199,12 @@ export class Orders {
       ...filter.values, pageSize, offset)
     return { items: rows.map(order => this.present(order, user, merchantShipment)), counts, pages: Math.ceil(counts / pageSize), page, pageSize }
   }
+  byRequest(user: User, requestKey: string) {
+    this.expireIfDue()
+    const order = this.db.one<Order>('SELECT * FROM orders WHERE owner_id=? AND request_key=?', user.id, requestKey)
+    ensure(order, 404, '未找到本次提交的订单')
+    return { id: order.id, orderState: order.state, expiresAt: order.expires }
+  }
   preOrder(user: User) {
     this.expireIfDue()
     // 只预览购物车里已勾选的商品，不扣库存、不创建订单。
@@ -206,8 +213,8 @@ export class Orders {
       ...item,
       price: String(item.price),
       payPrice: String(item.price),
-      totalPrice: String(item.price * item.count),
-      totalPayPrice: String(item.price * item.count)
+      totalPrice: String(Math.round(item.price * 100) * item.count / 100),
+      totalPayPrice: String(Math.round(item.price * 100) * item.count / 100)
     }))
     // 先换算成整数“分”再合计，最后转成“元”供页面显示。
     const totalCents = goods.reduce((sum, item) => sum + Math.round(Number(item.price) * 100) * item.count, 0)
@@ -220,10 +227,12 @@ export class Orders {
     }
   }
   create(user: User, data: CreateOrder) {
+    ensure(Number.isSafeInteger(data.expectedAmountCents) && data.expectedAmountCents > 0, 400, '请提供整数分报价')
     this.expire()
     // 按规格编号排好再记录：同样的商品即使提交顺序不同，也算同一次下单。
     const normalizedRequestBody = JSON.stringify({
       addressId: data.addressId,
+      expectedAmountCents: data.expectedAmountCents,
       goods: [...data.goods].sort((left, right) => left.skuId.localeCompare(right.skuId))
     })
     // 查重、扣库存、保存订单和移除购物车商品必须一起成功；任何一步失败都回滚。
@@ -240,6 +249,13 @@ export class Orders {
       const address = this.db.one<{ data: string }>('SELECT data FROM addresses WHERE id=? AND user_id=?', data.addressId, user.id)
       ensure(address, 400, '请选择自己的收货地址')
       const items = data.goods.map(item => ({ ...this.catalog.sku(item.skuId), count: item.count }))
+      const totalAmountCents = items.reduce((sum, item) => sum + item.price * item.count, 0)
+      if (totalAmountCents !== data.expectedAmountCents) {
+        throw new AppError(409, '商品价格有变化，已更新为最新价格，请确认后再提交', 'PRICE_CHANGED', {
+          totalAmountCents, goods: items.map(item => ({ skuId: item.id, name: item.name, spec: item.spec,
+            priceCents: item.price, count: item.count, subtotalCents: item.price * item.count }))
+        })
+      }
       this.reserveStock(items)
       const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items)
       for (const item of items) {
@@ -251,6 +267,10 @@ export class Orders {
   }
   // 这两个步骤只使用入口持有的事务，不提交、不另开事务。
   private reserveStock(items: CheckoutItem[]) {
+    const shortages = items.filter(item => item.stock < item.count).map(item => ({ skuId: item.id,
+      name: item.name, spec: item.spec, requiredCount: item.count, remainingCount: item.stock }))
+    if (shortages.length > 0) throw new AppError(409, '库存不足：' + shortages.map(item => item.name + '（' + item.spec + '）').join('、'),
+      'STOCK_SHORTAGE', { goods: shortages })
     for (const item of items) {
       const result = this.db.run('UPDATE skus SET stock=stock-? WHERE id=? AND stock>=?', item.count, item.id, item.count)
       ensure(result.changes === 1, 409, '商品刚刚售罄或剩余库存不足，请刷新')

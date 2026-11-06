@@ -42,7 +42,7 @@ async function fixture(databasePath = ':memory:') {
     return id
   }
   const create = async (requestKey = randomUUID(), count = 1) => {
-    const response = await call('POST', '/member/order', users.buyer!.token, { addressId: address.body.result.id, requestKey, goods: [{ skuId: 'trade-product-a', count }] })
+    const response = await call('POST', '/member/order', users.buyer!.token, { addressId: address.body.result.id, requestKey, expectedAmountCents: priceCents * count, goods: [{ skuId: 'trade-product-a', count }] })
     return response
   }
   const paidOrder = async (family: boolean) => {
@@ -174,10 +174,10 @@ test('下单幂等、库存事务回滚、账号隔离与超时释放', async ()
     assert.equal(first.body.result.id, retry.body.result.id)
     assert.equal((await f.create(key, 2)).status, 409)
     assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'trade-product-a')!.stock, initialStock - 1)
-    const fail = await f.call('POST', '/member/order', f.users.buyer!.token, { requestKey: randomUUID(), addressId: f.addressId, goods: [{ skuId: 'trade-product-a', count: 1 }, { skuId: 'trade-product-b', count: 999 }] })
+    const fail = await f.call('POST', '/member/order', f.users.buyer!.token, { requestKey: randomUUID(), addressId: f.addressId, expectedAmountCents: priceCents + (priceCents + 517) * 999, goods: [{ skuId: 'trade-product-a', count: 1 }, { skuId: 'trade-product-b', count: 999 }] })
     assert.equal(fail.status, 409)
     assert.equal(f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'trade-product-a')!.stock, initialStock - 1)
-    assert.equal((await f.call('POST', '/member/order', f.users.stranger!.token, { requestKey: randomUUID(), addressId: f.addressId, goods: [{ skuId: 'trade-product-a', count: 1 }] })).status, 400)
+    assert.equal((await f.call('POST', '/member/order', f.users.stranger!.token, { requestKey: randomUUID(), addressId: f.addressId, expectedAmountCents: priceCents, goods: [{ skuId: 'trade-product-a', count: 1 }] })).status, 400)
     const id = first.body.result.id
     f.db.run('UPDATE orders SET expires=0 WHERE id=?', id)
     assert.equal((await f.call('GET', `/member/order/${id}`, f.users.buyer!.token)).body.result.orderState, 6)

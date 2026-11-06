@@ -5,3 +5,4 @@ export { LocalGoodsStore, localGoodsStore } from './src/main/ets/LocalGoodsStore
 export { UserSession, userSession } from './src/main/ets/UserSession'
 export { DemoOrderStore, demoOrderStore } from './src/main/ets/DemoOrderStore'
 export { validateEvaluation } from './src/main/ets/EvaluationValidation'
+export { checkoutFailure, getOrderByRequestAPI } from './src/main/ets/OrderRequest'

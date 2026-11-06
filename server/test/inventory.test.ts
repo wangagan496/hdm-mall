@@ -28,7 +28,7 @@ async function fixture(databasePath = ':memory:') {
   const catalog = new Catalog(ctx.db, 'http://127.0.0.1:3000')
   const orders = new Orders(ctx.db, ctx.accounts, catalog, true)
   const create = (count = 1, requestKey = randomUUID()) => orders.create(user, {
-    addressId: address.id, requestKey, goods: [{ skuId: 'inventory-product-a', count }]
+    addressId: address.id, requestKey, expectedAmountCents: priceCents * count, goods: [{ skuId: 'inventory-product-a', count }]
   }).id
   const ledger = () => ctx.db.all('SELECT * FROM inventory_movements ORDER BY id')
   const reconcile = () => ctx.db.all(`SELECT s.id FROM skus s LEFT JOIN inventory_movements m ON m.sku_id=s.id
@@ -93,7 +93,7 @@ test('流水写失败时下单及归还整笔回滚，已写的其他规格流�
       return original(sql, ...params)
     }
     assert.throws(() => f.orders.create(f.user, { addressId: f.address.id, requestKey: randomUUID(),
-      goods: [{ skuId: 'inventory-product-a', count: 1 }, { skuId: 'inventory-product-b', count: 1 }] }), /ledger write failure/)
+      expectedAmountCents: priceCents * 2 + 517, goods: [{ skuId: 'inventory-product-a', count: 1 }, { skuId: 'inventory-product-b', count: 1 }] }), /ledger write failure/)
     f.db.run = original
     assert.deepEqual(f.ledger(), before)
     assert.equal(f.db.all('SELECT * FROM orders').length, 0)
@@ -169,7 +169,7 @@ test('重复请求幂等：最后一件连续下单只记成功订单，流水�
     f.create(initialStock - 1)
     const results = await Promise.all([1, 2].map(() => f.app.inject({ method: 'POST', url: '/member/order',
       headers: { authorization: `Bearer ${f.buyer.token}` }, payload: { addressId: f.address.id, requestKey: randomUUID(),
-        goods: [{ skuId: 'inventory-product-a', count: 1 }] } })))
+        expectedAmountCents: priceCents, goods: [{ skuId: 'inventory-product-a', count: 1 }] } })))
     assert.deepEqual(results.map(result => result.statusCode).sort(), [200, 409])
     assert.equal(f.db.all("SELECT id FROM inventory_movements WHERE kind='reserve'").length, 2)
     assert.deepEqual(f.reconcile(), [])

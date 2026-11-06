@@ -1,6 +1,6 @@
-import { TabItem, BreakPointType } from 'models'
+import { TabItem, BreakPointType, HDMUser } from 'models'
 import { GlobalVariable, BusinessVariable, PAGE_PATH } from 'constants'
-import { authCart } from 'storage'
+import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI } from 'storage'
 import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
@@ -21,6 +21,62 @@ struct Index {
   // activeIndex 决定底部选中哪个栏目；stackPath 记录详情、搜索等子页面的前进与返回。
   @StorageLink('currentTabIndex') activeIndex: number = TabIndex.HOME
   @Provide stackPath: NavPathStack = new NavPathStack()
+
+  @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('onRecoveryAccountChange') user: HDMUser = {} as HDMUser
+  private recoverySequence: number = 0
+  private recoveryActive: boolean = true
+  private recoveringToken: string = ''
+
+  private onRecoveryAccountChange(): void {
+    this.recoverySequence++
+    this.recoveringToken = ''
+    void this.recoverPendingOrder()
+  }
+
+  private isCurrentRecovery(sequence: number, accountId: string, token: string): boolean {
+    return this.recoveryActive && this.stackPath.getAllPathName().length === 0 &&
+      sequence === this.recoverySequence && this.user.id === accountId && this.user.token === token
+  }
+
+  private async recoverPendingOrder(): Promise<void> {
+    const accountId: string = this.user.id || ''
+    const token: string = this.user.token || ''
+    if (GlobalVariable.DEMO_ORDER_FLOW || !this.recoveryActive || this.stackPath.getAllPathName().length > 0 ||
+      !accountId || !token || this.recoveringToken === token) return
+    const sequence: number = ++this.recoverySequence
+    this.recoveringToken = token
+    try {
+      const record = storeManager.getPendingOrder(accountId)
+      if (!record) return
+      try {
+        const order = await getOrderByRequestAPI(record.requestKey, token)
+        if (!this.isCurrentRecovery(sequence, accountId, token)) return
+        await storeManager.clearPendingOrder(accountId, record.requestKey)
+        if (!this.isCurrentRecovery(sequence, accountId, token) || order.orderState !== 1) return
+        const result = await this.getUIContext().getPromptAction().showDialog({ title: '订单已生成',
+          message: '上次提交的订单已生成，请在订单创建后15分钟内付款',
+          buttons: [{ text: '稍后处理', color: '#666666' }, { text: '去付款', color: '#E64340' }] })
+        if (result.index === 1 && this.isCurrentRecovery(sequence, accountId, token)) {
+          this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: order.id })
+        }
+      } catch (error) {
+        if (!this.isCurrentRecovery(sequence, accountId, token)) return
+        if (checkoutFailure(error as Error).status === 404) {
+          await storeManager.clearPendingOrder(accountId, record.requestKey)
+          if (this.isCurrentRecovery(sequence, accountId, token)) {
+            this.getUIContext().getPromptAction().showToast({ message: '上次提交没有成功，商品仍在购物车里' })
+          }
+        }
+      }
+    } catch {
+    } finally {
+      if (sequence === this.recoverySequence) this.recoveringToken = ''
+    }
+  }
+
+  onPageShow(): void {
+    void this.recoverPendingOrder()
+  }
 
   @Builder
   TabItemContent(item: TabItem, index: number) {
@@ -58,12 +114,17 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    this.recoveryActive = true
+    void this.recoverPendingOrder()
     LaunchPerf.mark('tabsAboutToAppear')
     this.listenForNavigationEvents()
     authCart.updateCartCount()
   }
 
   aboutToDisappear(): void {
+    this.recoveryActive = false
+    this.recoverySequence++
+    this.recoveringToken = ''
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     context.eventHub.off(GlobalVariable.SWITCH_TAB, this.switchToRequestedTab)
     emitter.off(BusinessVariable.TO_SEARCH, this.openSearchPage)

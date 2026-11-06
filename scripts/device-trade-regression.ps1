@@ -426,7 +426,7 @@ try {
   }
   if ($ShipProbe) {
     $Addresses = @(Api 'device_buyer' '/member/address')
-    $Order = Api 'device_buyer' '/member/order' 'Post' @{requestKey=[guid]::NewGuid().ToString(); addressId=$Addresses[0].id; goods=@(@{skuId=$SkuId; count=1})}
+    $Order = Api 'device_buyer' '/member/order' 'Post' @{requestKey=[guid]::NewGuid().ToString(); expectedAmountCents=$AmountCents; addressId=$Addresses[0].id; goods=@(@{skuId=$SkuId; count=1})}
     $null = Api 'device_buyer' "/member/order/$($Order.id)/mock-pay" 'Post' @{amountCents=$AmountCents}
     Ship
     $null = Assert-State $Order.id 3

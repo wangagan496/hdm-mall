@@ -85,6 +85,7 @@ test('结算乱序成功、失败及空车都不覆盖新结果，并保留等�
     const messages = []
     const Page = pageMethods(base + 'features/cart/src/main/ets/presentation/views/CheckView.ets', 'CheckView', {}, {
       CheckoutSheet: { None: 0 }, util: { generateRandomUUID: () => 'key' }, normalizeCheckoutAddress: value => value,
+      GlobalVariable: { DEMO_ORDER_FLOW: false }, storeManager: { getPendingOrder: () => null },
       getPreOrderAPI: () => (++reads === 1 ? oldGate.promise : newGate.promise),
     })
     const page = new Page(); page.safeToast = text => messages.push(text); page.stackPath = { pop: () => pops++ }

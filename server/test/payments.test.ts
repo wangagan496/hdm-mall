@@ -46,7 +46,7 @@ async function fixture(paymentChannel?: PaymentChannel) {
   }
   const createOrder = async () => {
     const response = await call('POST', '/member/order', buyer.token, {
-      addressId: address.id, requestKey: randomUUID(), goods: [{ skuId: sku.id, count: 1 }]
+      addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: sku.id, count: 1 }]
     })
     assert.equal(response.status, 200)
     return response.body.result.id as string
@@ -767,7 +767,7 @@ test('mock-pay 不会把注入的非模拟渠道当作模拟器调用', async ()
     const address = f.testData.address({ userId: buyer.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
     const product = f.testData.product({ name: '模拟渠道隔离商品', skus: [{ spec: '标准', priceCents: amountCents, stock: 1 }] })
     const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
-      payload: { addressId: address.id, requestKey: randomUUID(), goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
+      payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
     const response = await f.app.inject({ method: 'POST', url: `/member/order/${order.json().result.id}/mock-pay`,
       headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
     assert.equal(response.statusCode, 403)
@@ -783,7 +783,7 @@ test('付款渠道缺失时返回 503，正式环境配置渠道但缺少回调�
     const address = f.testData.address({ userId: buyer.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
     const product = f.testData.product({ name: '未配置渠道商品', skus: [{ spec: '标准', priceCents: amountCents, stock: 1 }] })
     const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
-      payload: { addressId: address.id, requestKey: randomUUID(), goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
+      payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
     const started = await f.app.inject({ method: 'POST', url: `/member/order/${order.json().result.id}/payments`,
       headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
     assert.equal(started.statusCode, 503)
@@ -928,7 +928,7 @@ test('v7 备份统计支付、退款与退款重试审计，并报告缺少有�
     const address = f.testData.address({ userId: buyer.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
     const product = f.testData.product({ name: '备份支付商品', skus: [{ spec: '标准', priceCents: amountCents, stock: 2 }] })
     const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
-      payload: { addressId: address.id, requestKey: randomUUID(), goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
+      payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
     const orderId = created.json().result.id as string
     await f.app.inject({ method: 'POST', url: `/member/order/${orderId}/mock-pay`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
     f.db.run('DELETE FROM payments WHERE order_id=?', orderId)

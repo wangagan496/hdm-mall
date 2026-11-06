@@ -14,8 +14,18 @@ function fixture() {
   const queries = [], writes = [], writeTokens = [], messages = [], navigations = []
   let badges = 0, nextKey = 0
   let submit = async () => ({ id: 'created-order' })
+  let lookup = async () => { throw new Error('offline') }
+  const records = new Map(), lookups = []
   const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets', 'CheckView', {}, {
     CheckoutSheet: { None: 0, Payment: 1, Address: 2 },
+    GlobalVariable: { DEMO_ORDER_FLOW: false },
+    storeManager: {
+      getPendingOrder: accountId => records.get(accountId) || null,
+      savePendingOrder: async record => { records.set(record.accountId, structuredClone(record)) },
+      clearPendingOrder: async (accountId, key) => { if (records.get(accountId)?.requestKey === key) records.delete(accountId) }
+    },
+    checkoutFailure: error => ({ status: error.httpStatus || 0 }),
+    getOrderByRequestAPI: (key, token) => { lookups.push({ key, token }); return lookup() },
     util: { generateRandomUUID: () => `request-key-${++nextKey}` },
     normalizeCheckoutAddress: value => value,
     getPreOrderAPI: token => { const gate = deferred(); queries.push({ ...gate, token }); return gate.promise },
@@ -28,7 +38,7 @@ function fixture() {
     PAGE_PATH: { PAY_PAGE: 'pay' },
   })
   const page = new Page()
-  page.user = { token: 'buyer-a' }
+  page.user = { id: 'buyer-a', token: 'buyer-a' }
   page.safeToast = message => messages.push(message)
   page.stackPath = { replacePath: path => navigations.push(path.param), pop: () => navigations.push('back') }
   const load = async value => {
@@ -36,7 +46,7 @@ function fixture() {
     queries.at(-1).resolve(value)
     await loading
   }
-  return { page, queries, writes, writeTokens, messages, navigations, load,
+  return { page, queries, writes, writeTokens, messages, navigations, load, lookups, setLookup: fn => { lookup = fn },
     badges: () => badges, setSubmit: fn => { submit = fn } }
 }
 
@@ -138,7 +148,7 @@ test('首次查询、无商品和无效地址不能下单，离页的迟到预�
   assert.equal(f.writes.length, 0)
 })
 
-test('就绪后重复提交只创建一次在途请求，失败重试沿用原请求编号', async () => {
+test('就绪后重复提交只创建一次在途请求，失败重查沿用原请求编号', async () => {
   const f = fixture()
   await f.load(preview())
   const gate = deferred()
@@ -149,9 +159,10 @@ test('就绪后重复提交只创建一次在途请求，失败重试沿用原�
   gate.reject(new Error('response lost'))
   await submitting
   assert.equal(f.page.isSubmittingOrder, false)
-  f.setSubmit(async () => ({ id: 'recovered-order' }))
+  f.setLookup(async () => ({ id: 'recovered-order', orderState: 1 }))
   await f.page.createOrderAndOpenCashier()
-  assert.deepEqual(f.writes[0], f.writes[1])
+  assert.equal(f.writes.length, 1)
+  assert.ok(f.lookups.every(query => query.key === f.writes[0].requestKey))
   assert.deepEqual(f.navigations, ['recovered-order'])
 })
 
@@ -161,7 +172,7 @@ test('切换账号立即清除结算地址商品和金额，旧查询成功失�
     await f.load(preview())
     f.page.addressManuallySelected = true
     const old = f.page.loadCheckoutPreview()
-    f.page.user = { token: 'buyer-b' }
+    f.page.user = { id: 'buyer-b', token: 'buyer-b' }
     const current = f.page.loadCheckoutPreview()
     assert.equal(f.page.goodsList.length, 0)
     assert.equal(f.page.addressList.length, 0)
@@ -187,6 +198,7 @@ test('下单结果在离页后到达不跳转、不提示，也不刷新新页�
     const pending = deferred()
     f.setSubmit(() => pending.promise)
     const saving = f.page.createOrderAndOpenCashier()
+    await tick()
     f.page.aboutToDisappear()
     if (fails) pending.reject(new Error('late error'))
     else pending.resolve({ id: 'old-order' })
@@ -204,8 +216,10 @@ test('换账号或离页重进后旧下单收尾不能解除新提交锁，当�
     const oldGate = deferred(), newGate = deferred()
     f.setSubmit(() => oldGate.promise)
     const old = f.page.createOrderAndOpenCashier()
+    await tick()
+    if (transition === 'reenter') f.setLookup(() => newGate.promise)
     if (transition === 'account') {
-      f.page.user = { token: 'buyer-b' }
+      f.page.user = { id: 'buyer-b', token: 'buyer-b' }
       f.page.reloadForCurrentAccount()
     } else {
       f.page.aboutToDisappear()
@@ -215,15 +229,17 @@ test('换账号或离页重进后旧下单收尾不能解除新提交锁，当�
     await tick()
     f.setSubmit(() => newGate.promise)
     const current = f.page.createOrderAndOpenCashier()
-    assert.equal(f.writes.length, 2)
+    await tick()
+    assert.equal(f.writes.length, transition === 'account' ? 2 : 1)
     if (transition === 'account') assert.notEqual(f.writes[0].requestKey, f.writes[1].requestKey)
-    else assert.equal(f.writes[0].requestKey, f.writes[1].requestKey)
+    else assert.equal(f.lookups[0].key, f.writes[0].requestKey)
     oldGate.resolve({ id: 'old-order' })
     await old
-    assert.equal(f.page.isSubmittingOrder, true)
+    assert.equal(transition === 'account' ? f.page.isSubmittingOrder : f.page.confirmingRequest, true)
     assert.deepEqual(f.navigations, [])
-    newGate.resolve({ id: 'current-order' })
+    newGate.resolve({ id: 'current-order', orderState: 1 })
     await current
+    await tick()
     assert.equal(f.page.isSubmittingOrder, false)
     assert.deepEqual(f.navigations, ['current-order'])
     assert.equal(f.badges(), 1)
@@ -236,7 +252,7 @@ test('结算请求使用发起时凭证，账号监听前也不能借新账号�
   assert.equal(f.queries[0].token, 'buyer-a')
   await f.page.createOrderAndOpenCashier()
   assert.equal(f.writeTokens[0], 'buyer-a')
-  f.page.user = { token: 'buyer-b' }
+  f.page.user = { id: 'buyer-b', token: 'buyer-b' }
   await f.page.createOrderAndOpenCashier()
   assert.equal(f.writes.length, 1)
 })
@@ -250,7 +266,7 @@ test('退出登录清空结算且不发匿名查询，同账号资料更新不�
   const f = fixture()
   await f.load(preview())
   const key = f.page.orderRequestKey
-  f.page.user = { token: 'buyer-a', nickname: 'new-name' }
+  f.page.user = { id: 'buyer-a', token: 'buyer-a', nickname: 'new-name' }
   f.page.reloadForCurrentAccount()
   assert.equal(f.queries.length, 1)
   assert.equal(f.page.orderRequestKey, key)
@@ -263,7 +279,7 @@ test('退出登录清空结算且不发匿名查询，同账号资料更新不�
   await f.page.createOrderAndOpenCashier()
   assert.equal(f.writes.length, 0)
   f.page.aboutToDisappear()
-  f.page.user = { token: 'buyer-b' }
+  f.page.user = { id: 'buyer-b', token: 'buyer-b' }
   f.page.reloadForCurrentAccount()
   assert.equal(f.queries.length, 1)
   f.page.aboutToAppear()

@@ -12,6 +12,7 @@ export async function buildTestApp(options: AppOptions) {
     product: (input: Parameters<typeof fixtures.createProduct>[1]) => fixtures.createProduct(credential, input),
     relation: (input: Parameters<typeof fixtures.createRelation>[1]) => fixtures.createRelation(credential, input),
     payments: (input: Parameters<typeof fixtures.configurePayments>[1]) => fixtures.configurePayments(credential, input),
+    updateSku: (input: Parameters<typeof fixtures.updateSku>[1]) => fixtures.updateSku(credential, input),
   }
   return { ...context, testData }
 }

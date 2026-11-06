@@ -22,7 +22,7 @@ test('交易状态表：禁止跳步，重复写不倒退，付款后到期不�
       app.inject({ method, url, headers: { authorization: `Bearer ${token}` }, payload })
     const address = await call('POST', '/member/address', buyer.token,
       { receiver: '测试', contact: '13800000000', address: '测试地址', isDefault: 1 })
-    const created = await call('POST', '/member/order', buyer.token, { requestKey: randomUUID(),
+    const created = await call('POST', '/member/order', buyer.token, { requestKey: randomUUID(), expectedAmountCents: priceCents,
       addressId: address.json().result.id, goods: [{ skuId: 'rules-product-a', count: 1 }] })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id as string

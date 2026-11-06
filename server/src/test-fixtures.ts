@@ -89,6 +89,24 @@ export class TestFixtures {
       return { id, name: data.name, skus, categoryId: parent.id, subcategoryId: child.id }
     })
   }
+  updateSku(credential: unknown, input: unknown) {
+    this.authorize(credential)
+    const data = z.object({ skuId: identifier, priceCents: z.number().int().min(1).max(100000000).optional(),
+      stock: z.number().int().min(0).max(1000000).optional(), actorId: identifier.optional() }).parse(input)
+    const db = this.accounts.db
+    return db.transaction(() => {
+      const sku = db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', data.skuId)
+      ensure(sku, 404, '商品规格不存在')
+      if (data.priceCents !== undefined) db.run('UPDATE skus SET price=? WHERE id=?', data.priceCents, data.skuId)
+      if (data.stock !== undefined && data.stock !== sku.stock) {
+        ensure(data.actorId && this.user(data.actorId).role === 'merchant', 400, '调库存需指定夹具商家')
+        db.run('UPDATE skus SET stock=? WHERE id=?', data.stock, data.skuId)
+        db.run("INSERT INTO inventory_movements(sku_id,actor_id,kind,delta,balance,business_key,created,reason) VALUES(?,?,'adjust',?,?,?,?,?)",
+          data.skuId, data.actorId, data.stock - sku.stock, data.stock, 'fixture:' + randomUUID(), this.accounts.clock.now(), '测试夹具调库存')
+      }
+      return { skuId: data.skuId }
+    })
+  }
   configurePayments(credential: unknown, input: unknown) {
     this.authorize(credential)
     const data = z.object({ paymentId: z.string().min(1).max(100).default('next'), preset: z.object({
@@ -108,7 +126,7 @@ export function registerFixtureRoutes(app: FastifyInstance, fixtures: TestFixtur
   const routes = {
     accounts: fixtures.createAccount.bind(fixtures), addresses: fixtures.createAddress.bind(fixtures),
     products: fixtures.createProduct.bind(fixtures), relations: fixtures.createRelation.bind(fixtures),
-    payments: fixtures.configurePayments.bind(fixtures)
+    payments: fixtures.configurePayments.bind(fixtures), skus: fixtures.updateSku.bind(fixtures)
   }
   for (const [kind, create] of Object.entries(routes)) {
     app.post('/__test/fixtures/' + kind, async req => ({

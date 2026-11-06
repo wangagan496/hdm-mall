@@ -58,7 +58,7 @@ test('亲友邀请确认解除、代付代收及商家发货固定凭证，真�
       receiver: '亲友回归', contact: '13800138000', address: '仅测试', isDefault: 0,
     })
     const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${owner.token}` },
-      payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
+      payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id
     const invited = await f.app.inject({ method: 'PUT', url: `/member/order/${id}/payer`,

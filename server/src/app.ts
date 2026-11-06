@@ -62,7 +62,8 @@ export async function buildApp(options: AppOptions) {
     const status = error instanceof z.ZodError ? 400 : error instanceof AppError ? error.statusCode : (error as { statusCode?: number }).statusCode ?? 500
     const msg = error instanceof z.ZodError ? '参数不正确，请检查输入' : error instanceof AppError ? error.message : status === 429 ? '操作太频繁，请稍后重试' : status === 413 ? '文件或请求过大' : '服务暂时不可用'
     if (status >= 500) app.log.error({ requestId: req.id, error: error instanceof Error ? error.message : 'unknown' }, 'request failed')
-    reply.code(status).send({ code: '0', msg, requestId: req.id })
+    reply.code(status).send({ code: '0', msg, requestId: req.id,
+      ...(error instanceof AppError && error.reason ? { reason: error.reason, result: error.data } : {}) })
   })
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ code: '0', msg: '接口不存在' }))
   const ok = (result: unknown) => ({ code: '1', result })
@@ -172,7 +173,9 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('POST', '/member/relations', (req, user) => accounts.invite(user, z.object({ account: credentials.shape.account }).parse(req.body).account))
   protectedRoute('PUT', '/member/relations/:id', (req, user) => accounts.updateRelation(user, key(req), z.object({ action: z.enum(['accept','revoke']) }).parse(req.body).action))
   protectedRoute('GET', '/member/order/pre', (_req, user) => orders.preOrder(user))
-  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ requestKey: z.string().min(16).max(100), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100) }).parse(req.body)))
+  protectedRoute('GET', '/member/order/by-request/:requestKey', (req, user) => orders.byRequest(user,
+    z.object({ requestKey: z.string().min(16).max(100) }).parse(req.params).requestKey))
+  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100) }).parse(req.body)))
   protectedRoute('GET', '/member/order', (req, user) => {
     const query = pageSchema.parse(req.query)
     return orders.listPage(user, query.orderState, query.page, query.pageSize)

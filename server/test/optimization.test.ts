@@ -28,7 +28,7 @@ async function fixture() {
   const address = f.accounts.saveAddress(user, { receiver: '测试', contact: '13800000000', address: '测试地址' })
   const catalog = new Catalog(f.db, 'http://127.0.0.1:3000')
   const orders = new Orders(f.db, f.accounts, catalog, true)
-  const create = () => orders.create(user, { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'optimization-product-a', count: 1 }] }).id
+  const create = () => orders.create(user, { requestKey: randomUUID(), expectedAmountCents: priceCents, addressId: address.id, goods: [{ skuId: 'optimization-product-a', count: 1 }] }).id
   return { ...f, catalog, orders, login, user, create }
 }
 test('资料读写返回本次凭证和完整资料，不更新会话期限，地区可回显', async () => {

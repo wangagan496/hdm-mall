@@ -146,6 +146,7 @@ export interface AddressItem {
 }
 
 export interface OrderGoodsItem {
+  stock?: number
   attrsText: string
   count: number
   id: string
@@ -178,6 +179,7 @@ export interface CreateOrderParamsGoods {
 }
 
 export interface CreateOrderParams {
+  expectedAmountCents: number
   requestKey?: string
   deliveryTimeType: number
   payType: number

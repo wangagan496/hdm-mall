@@ -60,7 +60,7 @@ if (process.argv.includes('--pagination')) {
   f.testData.relation({ ownerId: user.id, friendId: friend.id })
   const orders = f.orders
   for (let index = 1; index <= 11; index++) {
-    const order = orders.create(user, { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] })
+    const order = orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] })
     orders.invitePayer(user, order.id, friend.id)
     orders.pay(friendUser, order.id, sku.priceCents)
     f.db.run('UPDATE orders SET created=? WHERE id=?', f.clock.now() - 60000 + index, order.id)

@@ -1,7 +1,7 @@
 import { preferences } from "@kit.ArkData"
 import { common } from "@kit.AbilityKit"
 import { GlobalVariable } from "constants"
-import { HDMUser } from "models"
+import { HDMUser, PendingOrderRequest } from "models"
 
 export class StoreManager {
   ctx?: common.UIAbilityContext
@@ -64,6 +64,33 @@ export class StoreManager {
     } catch {
       throw new Error('卡片信息保存失败')
     }
+  }
+
+  getPendingOrder(accountId: string): PendingOrderRequest | null {
+    if (!accountId) return null
+    const raw = this.getStore().getSync('pendingOrder:' + accountId, '') as string
+    if (!raw) return null
+    const record = JSON.parse(raw) as PendingOrderRequest
+    return record.accountId === accountId && record.requestKey.length > 0 ? record : null
+  }
+
+  async savePendingOrder(record: PendingOrderRequest): Promise<void> {
+    const store = this.getStore()
+    const previous = this.getPendingOrder(record.accountId)
+    if (previous && previous.requestKey !== record.requestKey) throw new Error('正在确认订单')
+    store.putSync('pendingOrder:' + record.accountId, JSON.stringify(record))
+    const pending = this.userFlush.then(() => store.flush())
+    this.userFlush = pending.catch(() => {})
+    await pending
+  }
+
+  async clearPendingOrder(accountId: string, requestKey: string): Promise<void> {
+    const store = this.getStore()
+    if (this.getPendingOrder(accountId)?.requestKey !== requestKey) return
+    store.deleteSync('pendingOrder:' + accountId)
+    const pending = this.userFlush.then(() => store.flush())
+    this.userFlush = pending.catch(() => {})
+    await pending
   }
 
   getFormId(): string[] {

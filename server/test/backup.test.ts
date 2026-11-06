@@ -57,7 +57,7 @@ test('在线 WAL 快照与头像恢复后，订单库存亲友一致，旧会话
     f.accounts.updateRelation(f.accounts.authenticate(`Bearer ${friend.token}`), invitation.id, 'accept')
     const address = f.accounts.saveAddress(f.authenticated, { receiver: '备份测试', contact: '13800000000', address: '仅测试', isDefault: 0 })
     const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: f.auth,
-      payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'backup-product-a', count: 2 }] } })
+      payload: { requestKey: randomUUID(), expectedAmountCents: priceCents * 2, addressId: address.id, goods: [{ skuId: 'backup-product-a', count: 2 }] } })
     assert.equal(order.statusCode, 200)
     const id = order.json().result.id as string
     assert.equal((await f.app.inject({ method: 'POST', url: `/member/order/${id}/mock-pay`, headers: f.auth,

@@ -25,7 +25,7 @@ test('收银台邀请切回本人和模拟付款固定凭证，真实路由保�
       headers: { authorization: `Bearer ${friend.token}` }, payload: { action: 'accept' } })
     assert.equal(accepted.statusCode, 200)
     const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
-      payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
+      payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id
     let current = buyer
@@ -86,7 +86,7 @@ test('订单列表详情提醒和收货固定原会话，真实路由拒绝无�
       receiver: '详情回归', contact: '13800138000', address: '测试地址', isDefault: 0,
     })
     const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
-      payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
+      payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id
     await f.app.inject({ method: 'POST', url: `/member/order/${id}/mock-pay`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents: 1900 } })
@@ -168,7 +168,7 @@ test('结算预览和下单固定发起账号，切换登录态后仍保留原�
     const preview = await loading
     assert.equal(preview.goods[0].skuId, 'hdm-1-a')
     assert.equal(preview.userAddresses[0].id, address.id)
-    const body = { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] }
+    const body = { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] }
     current = buyer
     const saving = api.createOrderAPI(body, buyer.token)
     current = other
@@ -215,7 +215,7 @@ test('原生无业务参数的发货收货与注销发送有效 JSON，保留正
     }, { AppStorage: { get: key => key === 'user' ? current : undefined } })
     for (const [post, put] of [['post', 'put'], ['postSilent', 'putSilent']]) {
       const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
-        payload: { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
+        payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
       assert.equal(created.statusCode, 200)
       const order = created.json().result
       current = buyer

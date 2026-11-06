@@ -1,7 +1,7 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
+import { AddressItem, CheckoutPrice, CheckoutShortage, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { authCart } from 'storage'
+import { authCart, checkoutFailure, getOrderByRequestAPI, storeManager } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
 import { util } from '@kit.ArkTS'
 import { createOrderAPI, getPreOrderAPI } from '../../data/api'
@@ -50,6 +50,11 @@ export struct CheckView {
   @State addressManuallySelected: boolean = false
   // 只表示“正在创建订单”，不是结算信息加载中，也不是支付中。
   @State isSubmittingOrder: boolean = false
+  @State confirmingOrder: boolean = false
+  @State confirmingRequest: boolean = false
+  private requestSummary: string = ''
+  private confirmationSequence: number = 0
+  private recoveredOrderId: string = ''
   @Consume
   stackPath: NavPathStack
 
@@ -60,9 +65,9 @@ export struct CheckView {
   // 服务端按“用户 + 编号”找回原订单，并核对商品和地址是否与首次提交一致。
   private orderRequestKey: string = util.generateRandomUUID(true)
   private checkoutQuerySequence: number = 0
-  private checkoutToken: string = ''
+  @State checkoutToken: string = ''
   private pageGeneration: number = 0
-  private pageActive: boolean = true
+  @State pageActive: boolean = true
   @State checkoutLoading: boolean = true
   @State checkoutRefreshFailed: boolean = false
 
@@ -75,6 +80,8 @@ export struct CheckView {
   }
 
   aboutToDisappear(): void {
+    this.confirmationSequence++
+    this.confirmingRequest = false
     this.pageActive = false
     this.pageGeneration++
     this.isSubmittingOrder = false
@@ -96,6 +103,11 @@ export struct CheckView {
       return
     }
     this.checkoutToken = token
+    this.confirmationSequence++
+    this.confirmingOrder = false
+    this.confirmingRequest = false
+    this.requestSummary = ''
+    this.recoveredOrderId = ''
     this.pageGeneration++
     this.checkoutQuerySequence++
     this.goodsList = []
@@ -140,6 +152,11 @@ export struct CheckView {
       this.showSheet = false
     }
     try {
+      if (!GlobalVariable.DEMO_ORDER_FLOW && storeManager.getPendingOrder(this.user.id || '')) {
+        this.confirmingOrder = true
+        await this.confirmPendingOrder()
+        if (!this.isCurrentCheckout(generation, token) || this.confirmingOrder || this.recoveredOrderId) return
+      }
       const checkoutPreview = await getPreOrderAPI(token)
       if (sequence !== this.checkoutQuerySequence || !this.isCurrentCheckout(generation, token)) {
         return
@@ -191,24 +208,87 @@ export struct CheckView {
 
   // 第二步：用户在支付方式弹层确认购买，才校验并提交订单。
   private async createOrderAndOpenCashier(): Promise<void> {
+    if (this.confirmingOrder) {
+      await this.confirmPendingOrder()
+      return
+    }
     if (!this.canSubmitOrder()) {
       return
     }
     this.isSubmittingOrder = true
     const token: string = this.checkoutToken
     const generation: number = this.pageGeneration
+    const accountId: string = this.user.id || ''
+    const request = this.buildOrderRequest()
+    let sent: boolean = false
     try {
-      const createdOrder = await createOrderAPI(this.buildOrderRequest(), token)
+      if (!GlobalVariable.DEMO_ORDER_FLOW) {
+        await storeManager.savePendingOrder({ accountId, requestKey: this.orderRequestKey,
+          summary: this.requestSummary })
+        if (!this.isCurrentCheckout(generation, token)) return
+      }
+      sent = true
+      const createdOrder = await createOrderAPI(request, token)
       if (!this.isCurrentCheckout(generation, token)) {
         return
       }
+      if (!GlobalVariable.DEMO_ORDER_FLOW) await storeManager.clearPendingOrder(accountId, request.requestKey || '')
+      if (!this.isCurrentCheckout(generation, token)) return
       // 下单后服务端会移除对应购物袋商品；角标刷新不阻塞进入收银台。
       void authCart.updateCartCount()
       this.openCashier(createdOrder.id)
-    } catch {
-      // 没收到成功回应时仍保留 orderRequestKey，原样重试可找回已创建的订单。
+    } catch (error) {
       if (this.isCurrentCheckout(generation, token)) {
-        this.safeToast('提交订单失败，请稍后重试')
+        const failure = checkoutFailure(error as Error)
+        if (!GlobalVariable.DEMO_ORDER_FLOW) {
+          if (!sent) {
+            this.confirmingOrder = storeManager.getPendingOrder(accountId) !== null
+            this.safeToast('提交记录保存失败，请重试确认订单')
+            return
+          }
+          if (failure.status < 400 || failure.status >= 500 || failure.status === 408 || failure.status === 429) {
+            this.confirmingOrder = true
+            this.showSheet = false
+            await this.confirmPendingOrder()
+            return
+          }
+          await storeManager.clearPendingOrder(accountId, request.requestKey || '')
+          if (!this.isCurrentCheckout(generation, token)) return
+          this.orderRequestKey = util.generateRandomUUID(true)
+        }
+        if (failure.reason === 'PRICE_CHANGED' && failure.result) {
+          const prices = failure.result.goods as CheckoutPrice[]
+          this.goodsList = this.goodsList.map((item: OrderGoodsItem): OrderGoodsItem => {
+            const price = prices.find((value: CheckoutPrice) => value.skuId === item.skuId)
+            const updated = this.copyCheckoutItem(item)
+            if (price) {
+              updated.price = String(price.priceCents / 100)
+              updated.payPrice = updated.price
+              updated.totalPrice = String(price.subtotalCents / 100)
+              updated.totalPayPrice = updated.totalPrice
+            }
+            return updated
+          })
+          this.summary = { goodsCount: this.summary.goodsCount, discountPrice: this.summary.discountPrice,
+            postFee: this.summary.postFee, totalPrice: (failure.result.totalAmountCents || 0) / 100,
+            totalPayPrice: (failure.result.totalAmountCents || 0) / 100 }
+          this.orderRequestKey = util.generateRandomUUID(true)
+          this.showSheet = false
+          this.safeToast('商品价格有变化，已更新为最新价格，请确认后再提交')
+        } else if (failure.reason === 'STOCK_SHORTAGE' && failure.result) {
+          const shortages = failure.result.goods as CheckoutShortage[]
+          this.goodsList = this.goodsList.map((item: OrderGoodsItem): OrderGoodsItem => {
+            const shortage = shortages.find((value: CheckoutShortage) => value.skuId === item.skuId)
+            const updated = this.copyCheckoutItem(item)
+            if (shortage) updated.stock = shortage.remainingCount
+            return updated
+          })
+          this.orderRequestKey = util.generateRandomUUID(true)
+          this.showSheet = false
+          this.safeToast('库存不足：' + shortages.map((item: CheckoutShortage) => item.name + '（' + item.spec + '）').join('、'))
+        } else {
+          this.safeToast('提交订单失败，请稍后重试')
+        }
       }
     } finally {
       if (this.isCurrentCheckout(generation, token)) {
@@ -241,8 +321,27 @@ export struct CheckView {
   }
 
   private isCheckoutReady(): boolean {
-    return this.isCurrentCheckout(this.pageGeneration, this.checkoutToken) &&
-      !this.checkoutLoading && !this.checkoutRefreshFailed && this.goodsList.length > 0
+    return this.pageActive && this.checkoutToken.length > 0 && this.checkoutToken === (this.user.token || '') &&
+      !this.confirmingOrder && !this.checkoutLoading && !this.checkoutRefreshFailed && this.goodsList.length > 0 && !this.hasStockShortage()
+  }
+
+  private hasStockShortage(): boolean {
+    return this.goodsList.some((item: OrderGoodsItem) => item.stock !== undefined && item.count > item.stock)
+  }
+
+  private stockShortageText(item: OrderGoodsItem): string {
+    return item.stock !== undefined && item.count > item.stock ? '库存不足，剩余' + item.stock + '件' : ''
+  }
+
+  private copyCheckoutItem(item: OrderGoodsItem): OrderGoodsItem {
+    return { id: item.id, skuId: item.skuId, name: item.name, attrsText: item.attrsText, count: item.count,
+      picture: item.picture, stock: item.stock, price: item.price, payPrice: item.payPrice,
+      totalPrice: item.totalPrice, totalPayPrice: item.totalPayPrice }
+  }
+
+  private adjustInCart(): void {
+    this.showSheet = false
+    this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true })
   }
 
   private openPaymentSheet(): void {
@@ -255,8 +354,16 @@ export struct CheckView {
 
   // 只提交商品规格、数量和地址等下单信息；金额由服务端核算。
   private buildOrderRequest(): CreateOrderParams {
+    const summary: string = JSON.stringify({ addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+      goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({ skuId: item.skuId, count: item.count }))
+        .sort((left: CreateOrderParamsGoods, right: CreateOrderParamsGoods) => left.skuId.localeCompare(right.skuId)) })
+    if (!GlobalVariable.DEMO_ORDER_FLOW && this.requestSummary && this.requestSummary !== summary) {
+      this.orderRequestKey = util.generateRandomUUID(true)
+    }
+    this.requestSummary = summary
     return {
       requestKey: this.orderRequestKey,
+      expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
       payChannel: this.payChannel,
       payType: 1,
       buyerMessage: '',
@@ -273,6 +380,46 @@ export struct CheckView {
   private openCashier(orderId: string): void {
     this.showSheet = false
     this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: orderId })
+  }
+
+  private orderStatusText(): string {
+    return this.confirmingOrder ? '正在确认订单' : ''
+  }
+
+  private async confirmPendingOrder(): Promise<void> {
+    const generation: number = this.pageGeneration
+    const token: string = this.checkoutToken
+    if (this.confirmingRequest || !this.isCurrentCheckout(generation, token)) return
+    const accountId: string = this.user.id || ''
+    const record = storeManager.getPendingOrder(accountId)
+    if (!record) { this.confirmingOrder = false; return }
+    const sequence: number = ++this.confirmationSequence
+    this.orderRequestKey = record.requestKey
+    this.confirmingOrder = true
+    this.confirmingRequest = true
+    try {
+      const order = await getOrderByRequestAPI(record.requestKey, token)
+      if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
+      await storeManager.clearPendingOrder(accountId, record.requestKey)
+      if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
+      this.confirmingOrder = false
+      this.goodsList = []
+      this.recoveredOrderId = order.id
+      void authCart.updateCartCount()
+      if (order.orderState === 1) this.openCashier(order.id)
+      else this.stackPath.replacePath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: order.id })
+    } catch (error) {
+      if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
+      if (checkoutFailure(error as Error).status === 404) {
+        await storeManager.clearPendingOrder(accountId, record.requestKey)
+        if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
+        this.confirmingOrder = false
+        this.orderRequestKey = util.generateRandomUUID(true)
+        this.safeToast('上次提交没有成功，商品仍在购物车里')
+      }
+    } finally {
+      if (sequence === this.confirmationSequence && this.isCurrentCheckout(generation, token)) this.confirmingRequest = false
+    }
   }
 
   // 以下只负责页面展示和把用户操作交给上述业务方法。
@@ -307,6 +454,11 @@ export struct CheckView {
           .width('100%')
           .fontSize(16)
           .fontColor($r('[ui_components].color.black'))
+        if (this.stockShortageText(goods).length > 0) {
+          Text(this.stockShortageText(goods))
+            .fontColor($r('[ui_components].color.red'))
+            .fontSize(14)
+        }
       }
       .layoutWeight(1)
     }
@@ -370,6 +522,12 @@ export struct CheckView {
             width: { bottom: 0.5 },
             color: $r('[ui_components].color.border')
           })
+        if (this.confirmingOrder) {
+          Text(this.orderStatusText())
+          Button('重新确认订单')
+            .enabled(!this.confirmingRequest)
+            .onClick(() => this.confirmPendingOrder())
+        }
         if (this.checkoutLoading) {
           Text('正在加载结算资料…')
             .fontSize(13)
@@ -380,6 +538,10 @@ export struct CheckView {
             .fontSize(13)
             .padding(12)
             .onClick(() => this.loadCheckoutPreview())
+        }
+        if (this.hasStockShortage()) {
+          Button('去购物车调整')
+            .onClick(() => this.adjustInCart())
         }
         List() {
           ListItem() {
