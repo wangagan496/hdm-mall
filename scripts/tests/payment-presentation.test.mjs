@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { execute, sourceOf } from './native-harness.mjs'
 
 const source = sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderPresentation.ets')
+const { formatBeijingTime } = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/TimeFormat.ets'))
 const presentation = execute(source, {
   models: { OrderState: { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3,
-    AWAITING_REVIEW: 4, COMPLETED: 5, CANCELLED: 6 } },
+    AWAITING_REVIEW: 4, COMPLETED: 5, CANCELLED: 6 }, formatBeijingTime },
   '@kit.BasicServicesKit': { systemDateTime: { TimeType: { STARTUP: 0 }, getUptime: () => 0 } },
 })
 
@@ -30,7 +31,7 @@ test('退款展示行包含金额、付款人、付款时间和状态', () => {
   const line = presentation.getRefundDisplayLine({ amount: 24.5, payerAccount: 'payer-a', paidAt: Date.UTC(2026, 10, 5, 8), state: '退款中' })
   assert.match(line, /¥24\.50/)
   assert.match(line, /payer-a/)
-  assert.match(line, /2026/)
+  assert.match(line, /2026-11-05 16:00/)
   assert.match(line, /退款中/)
 })
 

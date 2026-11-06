@@ -1,5 +1,5 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { FamilyRelationPage, HDMUser, OrderItem, PayResultParams } from 'models'
+import { FamilyRelationPage, HDMUser, OrderItem, PayResultParams, formatBeijingTime } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { auth, demoOrderStore } from 'storage'
 import { getOrderDetailAPI, startPaymentAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
@@ -338,7 +338,7 @@ struct PayView {
                   Text('|')
                     .fontSize(11)
                     .fontColor($r('[ui_components].color.border'))
-                  Text(this.order.createTime + ' 下单')
+                  Text(formatBeijingTime(this.order.createTime) + ' 下单')
                     .fontSize(11)
                     .fontColor($r('[ui_components].color.gray'))
                 }

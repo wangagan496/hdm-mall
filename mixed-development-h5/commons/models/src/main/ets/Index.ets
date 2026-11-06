@@ -31,3 +31,4 @@ export {
 export { ListDataSource } from './ListDataSource'
 export { BreakPointEnum, BreakPointType } from './BreakPoint'
 export { CheckoutPrice, CheckoutShortage, CheckoutDetail, CheckoutFailure, OrderRequestResult, PendingOrderRequest } from './CheckoutModels'
+export { formatBeijingTime } from './TimeFormat'

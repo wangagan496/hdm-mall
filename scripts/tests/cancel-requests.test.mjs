@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { execute, pageMethods, sourceOf, deferred, tick } from './native-harness.mjs'
 const cart = 'mixed-development-h5/features/cart/src/main/ets/'
 const storage = 'mixed-development-h5/commons/storage/src/main/ets/'
+// 页面里的时间显示调用真实的 formatBeijingTime（不是替身）。
+const { formatBeijingTime } = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/TimeFormat.ets'))
 const states = { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, CANCELLED: 6 }
 const paid = (message = '取消申请提交后，商家同意即不再发货，¥12.30将原路退回付款账户。确定申请取消吗？') => ({ id: 'order', orderState: 2, serverManaged: true, canRequestCancel: true, canCancel: false, skus: [], totalNum: 1, createTime: '2026-11-06', payMoney: 12.3, cancelRequest: null, cancelConfirmation: { message }, serverNow: 1000 })
 function buyerFixture(demo = false) {
@@ -31,7 +33,7 @@ function renderBuilder(path, name, page, order) {
     .replace(/}\n(\s*)\./g, '}\n$1UI.')
   const buttons = [], texts = [], controls = []
   const chain = new Proxy({}, { get: () => () => chain })
-  const globals = { OrderState: states, GlobalVariable: { DEMO_ORDER_FLOW: false }, UI: chain,
+  const globals = { OrderState: states, formatBeijingTime, GlobalVariable: { DEMO_ORDER_FLOW: false }, UI: chain,
     Row: () => chain, Column: () => chain, Blank: () => {}, Text: value => { texts.push(value); return chain },
     Button: label => {
       buttons.push(label); const entry = { label, enabled: true }; controls.push(entry)
@@ -121,7 +123,7 @@ function merchantFixture() {
   const order = { ...paid(), canRequestCancel: false, canResolveCancel: true, canShip: false, payerAccount: 'friend', paymentMode: 'family', cancelRequest: { id: 'request-1', state: 'pending', deadlineAt: 99999 } }
   const api = { mutate: async () => {}, ship: async () => {}, merchant: async page => ({ items: [order], page, pages: 1 }) }
   const actions = { pending: () => [], confirm: async value => { writes.push(value); await api.mutate(value) }, recover: async () => {} }
-  const Page = pageMethods(familyPath, 'FamilyView', {}, { OrderState: states, cancelActions: actions, cancelActionFailure,
+  const Page = pageMethods(familyPath, 'FamilyView', {}, { OrderState: states, formatBeijingTime, cancelActions: actions, cancelActionFailure,
     getFamilyRelationsPageAPI: async () => ({ items: [], page: 1, pages: 0 }),
     getFamilyOrdersPageAPI: async () => ({ items: [], page: 1, pages: 0 }),
     getMerchantOrdersPageAPI: async page => { queries.push(page); return api.merchant(page) },
@@ -379,7 +381,7 @@ test('B-78 进入详情和商家页恢复保存号，只刷新最新服务端投
   assert.deepEqual(recovered, [['order', 'token']]); assert.equal(merchant.queries.length, 2)
 })
 test('B-64 B-79 取消退款状态、原paymentNotice及needsAttention沿用，不制造红点', () => {
-  const presentation = execute(sourceOf(cart + 'presentation/utils/OrderPresentation.ets'), { models: { OrderState: states } })
+  const presentation = execute(sourceOf(cart + 'presentation/utils/OrderPresentation.ets'), { models: { OrderState: states, formatBeijingTime } })
   const fixture = merchantFixture()
   for (const state of ['退款中', '退款失败重试中', '已退款']) {
     const order = { ...paid(), orderState: 6, canRequestCancel: false, cancelRequest: { state: 'approved' }, refunds: [{ id: 'refund', amount: 12.3, payerAccount: 'friend', paidAt: null, state }], needsAttention: true, paymentNotice: '¥12.30（时间 由 friend 付款）正在退回付款账户。' }

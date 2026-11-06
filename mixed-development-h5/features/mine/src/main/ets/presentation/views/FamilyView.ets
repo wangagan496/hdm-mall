@@ -1,6 +1,6 @@
 import { cancelActions, cancelActionFailure } from 'storage'
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { CancelActionIntent, FamilyRelation, FamilyRelationPage, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund } from 'models'
+import { CancelActionIntent, FamilyRelation, FamilyRelationPage, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund, formatBeijingTime } from 'models'
 import { HDMNavBar } from 'ui_components'
 import {
   getFamilyRelationsPageAPI,
@@ -430,7 +430,7 @@ export struct FamilyView {
   }
 
   private refundDisplayLine(refund: OrderRefund): string {
-    const paidAt: string = refund.paidAt === null ? '付款时间待确认' : new Date(refund.paidAt).toLocaleString('zh-CN', { hour12: false })
+    const paidAt: string = refund.paidAt === null ? '付款时间待确认' : formatBeijingTime(refund.paidAt)
     return '¥' + refund.amount.toFixed(2) + ' · ' + refund.payerAccount + ' · ' + paidAt + ' · ' + refund.state
   }
 
@@ -489,7 +489,7 @@ export struct FamilyView {
       Text(order.cancelRequestNotice).fontSize(12).fontColor('#666666')
     }
     if (order.cancelRequest?.state === 'pending') {
-      Text('处理截止：' + new Date(order.cancelRequest.deadlineAt).toLocaleString('zh-CN', { hour12: false }))
+      Text('处理截止：' + formatBeijingTime(order.cancelRequest.deadlineAt))
         .fontSize(12).fontColor('#666666')
     }
     if (order.paymentNotice) {

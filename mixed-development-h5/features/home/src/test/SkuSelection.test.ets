@@ -13,22 +13,38 @@ export default function skuSelectionTest() {
       expect(canPreserveLoginSelection('old', '')).assertFalse();
     });
 
-    it('restoresSelectedSpecAndCountUsingFreshPriceAndStock', 0, () => {
+    // 2026-11-06 口径（第五步 B-12）：登录期间价格变化不自动恢复，提示用户重选；不改价的情况仍按最新库存恢复。
+    it('restoresSelectedSpecAndCountUsingFreshStockWhenPriceUnchanged', 0, () => {
       const selected: HDMSkuType = normalizeSkuSelection();
       selected.id = 'real-sku'; selected.inventory = 5; selected.price = '10';
       selected.specs = [{ name: '颜色', valueName: '红色' }];
       const pending: PendingLoginSelection = { goodsId: 'goods', sku: selected, count: 2, token: 'login' };
       const latest: HDMSkuType = normalizeSkuSelection(selected);
-      latest.price = '20'; latest.inventory = 3;
+      latest.inventory = 3;
       const goods: Goods = { id: 'goods', skus: [latest],
         specs: [{ name: '颜色', values: [{ name: '红色' }, { name: '蓝色' }] }] } as Goods;
       const restored = restoreLoginSelection(pending, goods);
       expect(restored.invalid).assertFalse();
       expect(restored.count).assertEqual(2);
-      expect(restored.sku.price).assertEqual('20');
+      expect(restored.sku.price).assertEqual('10');
       expect(restored.sku.inventory).assertEqual(3);
       expect(restored.specs[0].values[0].selected).assertTrue();
       expect(goods.specs[0].values[0].selected === true).assertFalse();
+    });
+
+    it('rejectsRestoreWhenPriceChangedDuringLogin', 0, () => {
+      const selected: HDMSkuType = normalizeSkuSelection();
+      selected.id = 'real-sku'; selected.inventory = 5; selected.price = '10';
+      selected.specs = [{ name: '颜色', valueName: '红色' }];
+      const pending: PendingLoginSelection = { goodsId: 'goods', sku: selected, count: 2, token: 'login' };
+      const latest: HDMSkuType = normalizeSkuSelection(selected);
+      latest.price = '20';
+      const goods: Goods = { id: 'goods', skus: [latest],
+        specs: [{ name: '颜色', values: [{ name: '红色' }, { name: '蓝色' }] }] } as Goods;
+      const restored = restoreLoginSelection(pending, goods);
+      expect(restored.invalid).assertTrue();
+      expect(restored.count).assertEqual(1);
+      expect(restored.specs[0].values[0].selected === true).assertFalse();
     });
 
     it('clearsRemovedChangedOrSoldOutSelectionAndInvalidQuantity', 0, () => {
