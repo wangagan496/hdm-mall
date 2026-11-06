@@ -127,13 +127,13 @@ export default function localUnitTest() {
       expect(getDisplayOrderStateText(5, true)).assertEqual('已评价');
       expect(getDisplayOrderStateText(4, true)).assertEqual('待评价');
     });
-    it('hidesCancelledFromEveryTabAndKeepsCompletedInAllTab', 0, () => {
+    it('keepsCancelledAndCompletedInAllTabAndFiltersOtherTabs', 0, () => {
       expect(isOrderStateInTab(1, 0)).assertTrue();
       expect(isOrderStateInTab(2, 0)).assertTrue();
       expect(isOrderStateInTab(3, 0)).assertTrue();
       expect(isOrderStateInTab(4, 0)).assertTrue();
       expect(isOrderStateInTab(5, 0)).assertTrue();
-      expect(isOrderStateInTab(6, 0)).assertFalse();
+      expect(isOrderStateInTab(6, 0)).assertTrue();
       expect(isOrderStateInTab(1, 1)).assertTrue();
       expect(isOrderStateInTab(2, 1)).assertFalse();
       expect(isOrderStateInTab(6, 1)).assertFalse();

@@ -199,7 +199,12 @@ export interface OrderItem {
   invitedPayerAccount?: string
   receivedByAccount?: string
   paymentMode?: string
+  paymentState?: 'none' | 'confirming' | 'paid' | 'review'
+  refunds?: OrderRefund[]
+  paymentNotice?: string
+  needsAttention?: boolean
   canPay?: boolean
+  canCancel?: boolean
   canReceive?: boolean
   canEvaluate?: boolean
   canInvitePayer?: boolean
@@ -216,6 +221,36 @@ export interface OrderItem {
   skus: OrderSku[]
   totalMoney: number
   totalNum: number
+}
+
+export interface OrderRefund {
+  id: string
+  amount: number
+  payerAccount: string
+  paidAt: number | null
+  state: string
+  reason: string
+}
+
+export interface PaymentStartResult {
+  id: string
+  orderId: string
+  paymentId: string
+  state: string
+}
+
+export interface OrderAttentionCount {
+  count: number
+}
+
+export interface PaymentFields {
+  paymentState: string
+  refunds: OrderRefund[]
+  paymentNotice: string
+  needsAttention: boolean
+  canPay: boolean
+  canCancel: boolean
+  countdown: number
 }
 
 export interface OrderListParams {

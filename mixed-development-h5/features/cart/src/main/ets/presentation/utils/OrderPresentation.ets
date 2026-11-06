@@ -1,4 +1,4 @@
-import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderState } from 'models'
+import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderRefund, OrderState } from 'models'
 import { systemDateTime } from '@kit.BasicServicesKit'
 
 /**
@@ -39,15 +39,46 @@ export function getDisplayOrderStateText(orderState: number, evaluated: boolean)
   return getOrderStateText(orderState)
 }
 
+export function getPaymentDisplayLabel(order: OrderItem): string {
+  if (order.orderState === OrderState.CANCELLED) {
+    const states: string[] = []
+    order.refunds?.forEach((refund: OrderRefund) => {
+      if (!states.includes(refund.state)) states.push(refund.state)
+    })
+    return '已取消' + (states.length > 0 ? ' · ' + states.join(' · ') : '')
+  }
+  if (order.orderState === OrderState.AWAITING_PAYMENT) {
+    if (order.paymentState === 'confirming') return '确认中'
+    if (order.paymentState === 'review') return '核实中'
+  }
+  return getDisplayOrderStateText(order.orderState, !!order.evaluation)
+}
+
+export function shouldShowPaymentCountdown(order: OrderItem): boolean {
+  return order.orderState === OrderState.AWAITING_PAYMENT &&
+    order.paymentState !== 'confirming' && order.paymentState !== 'review'
+}
+
+export function canOpenPayment(order: OrderItem): boolean {
+  return order.orderState === OrderState.AWAITING_PAYMENT &&
+    (order.serverManaged ? order.canPay === true : true) &&
+    order.paymentState !== 'confirming' && order.paymentState !== 'review'
+}
+
+export function hasUnreadPaymentNotice(order: OrderItem): boolean {
+  return order.needsAttention === true
+}
+
+export function getRefundDisplayLine(refund: OrderRefund): string {
+  const paidAt: string = refund.paidAt === null ? '付款时间待确认' : new Date(refund.paidAt).toLocaleString('zh-CN', { hour12: false })
+  return '¥' + refund.amount.toFixed(2) + ' · ' + refund.payerAccount + ' · ' + paidAt + ' · ' + refund.state
+}
+
 /**
  * 这笔订单该不该出现在当前栏目里。
- * 规则 1：已取消的订单任何栏目都不显示。
- * 规则 2：“全部”栏目显示其余所有订单；其他栏目只显示状态相同的订单。
+ * “全部”栏目包含已取消订单；其他栏目只显示状态相同的订单。
  */
 export function isOrderStateInTab(orderState: number, tabState: number): boolean {
-  if (orderState === OrderState.CANCELLED) {
-    return false
-  }
   return tabState === OrderState.ALL_TAB || orderState === tabState
 }
 

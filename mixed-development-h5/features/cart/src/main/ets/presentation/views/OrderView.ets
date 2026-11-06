@@ -1,12 +1,13 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { HDMUser, OrderItem, OrderListParams, OrderPage, OrderSku } from 'models'
+import { HDMUser, OrderItem, OrderListParams, OrderPage, OrderSku, OrderRefund } from 'models'
 import { HDMEmpty, HDMNavBar } from 'ui_components'
 import {
   remindShipmentAPI,
   getOrderListAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { getDisplayOrderStateText, OrderState, readPhoneClockMillis, isOrderStateInTab, secondsLeftToPay } from '../utils/OrderPresentation'
+import { getPaymentDisplayLabel, getRefundDisplayLine, hasUnreadPaymentNotice, shouldShowPaymentCountdown, canOpenPayment,
+  OrderState, readPhoneClockMillis, isOrderStateInTab, secondsLeftToPay } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
 import { loadOrderTabPage, mergeOrdersForTab, OrderTabAPI, OrderTabRequest } from '../utils/OrderTabLoader'
 import { orderCancellation } from '../utils/OrderCancellation'
@@ -64,13 +65,14 @@ export struct OrderView {
   /** 每次重新加载加一；请求返回时编号对不上，说明用户已切走，结果作废 */
   private requestGeneration: number = 0
   private pageGeneration: number = 0
-  private pageActive: boolean = true
-  private sessionToken: string = ''
+  @State pageActive: boolean = true
+  @State sessionToken: string = ''
   private recoverySequence: number = 0
-  private loadedToken: string = ''
-  private loadedState: number = OrderState.ALL_TAB
-  private replaceOnNextLoad: boolean = false
+  @State loadedToken: string = ''
+  @State loadedState: number = OrderState.ALL_TAB
+  @State replaceOnNextLoad: boolean = false
   private hasShown: boolean = false
+  private cancellationDialogSequence: number = 0
   private readonly tabs: OrderTab[] = [
     { label: '全部', state: OrderState.ALL_TAB },
     { label: '待付款', state: OrderState.AWAITING_PAYMENT },
@@ -247,6 +249,10 @@ export struct OrderView {
     return !!order.evaluation
   }
 
+  private hasOrderActions(order: OrderItem): boolean {
+    return order.orderState !== OrderState.CANCELLED
+  }
+
   private rebaseCountdowns(): void {
     this.orders = this.orders.map((order: OrderItem) => {
       order.countdown = secondsLeftToPay(order.countdown, this.countdownBaseAt)
@@ -312,8 +318,36 @@ export struct OrderView {
   }
 
   private goPay(orderId: string): void {
-    if (this.busyOrderId || !this.canUseOrder(orderId)) return
+    const order: OrderItem | undefined = this.orders.find((item: OrderItem) => item.id === orderId)
+    if (this.busyOrderId || !order || !canOpenPayment(order) || !this.canUseOrder(orderId)) return
     this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: orderId })
+  }
+
+  private requestCancelOrder(order: OrderItem): void {
+    const current: OrderItem | undefined = this.orders.find((item: OrderItem) => item.id === order.id)
+    if (!current || current.orderState !== OrderState.AWAITING_PAYMENT || current.canCancel === false ||
+      this.busyOrderId || !this.canUseOrder(order.id)) return
+    if (current.paymentState !== 'confirming' && current.paymentState !== 'review') {
+      this.runOrderAction(current.id, 'cancel', (): Promise<OrderItem> => orderCancellation.confirm(current.id), '订单已取消')
+      return
+    }
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = current.id
+    const dialog: number = ++this.cancellationDialogSequence
+    this.getUIContext().showAlertDialog({
+      title: '确认取消订单',
+      message: '付款可能已经成功。取消后，如已扣款，¥' + current.payMoney.toFixed(2) + '将原路退回付款账户。确定取消吗？',
+      primaryButton: { value: '再等等', action: () => { this.cancellationDialogSequence++ } },
+      secondaryButton: { value: '确认取消', action: () => {
+        if (dialog !== this.cancellationDialogSequence || !this.isCurrentSession(generation, token)) return
+        const latest: OrderItem | undefined = this.orders.find((item: OrderItem) => item.id === orderId)
+        if (!latest || (latest.paymentState !== 'confirming' && latest.paymentState !== 'review') ||
+          latest.canCancel === false || !this.canUseOrder(orderId)) return
+        this.cancellationDialogSequence++
+        this.runOrderAction(orderId, 'cancel', (): Promise<OrderItem> => orderCancellation.confirm(orderId), '订单已取消')
+      } }
+    })
   }
 
   // 打开订单详情页，并把用户点击的订单号带过去；这里只跳转，不查询详情。
@@ -398,16 +432,18 @@ export struct OrderView {
           .fontColor($r('[ui_components].color.gray'))
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.border') })
-          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id) && order.canCancel !== false)
           .onClick(() => {
-            this.runOrderAction(order.id, 'cancel', (): Promise<OrderItem> => orderCancellation.confirm(order.id), '订单已取消')
+            this.requestCancelOrder(order)
           })
-        Button('去支付')
-          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
-          .height(32)
-          .fontSize(12)
-          .backgroundColor($r('[ui_components].color.red'))
-          .onClick(() => this.goPay(order.id))
+        if (canOpenPayment(order)) {
+          Button('去支付')
+            .enabled(!this.busyOrderId && this.canUseOrder(order.id))
+            .height(32)
+            .fontSize(12)
+            .backgroundColor($r('[ui_components].color.red'))
+            .onClick(() => this.goPay(order.id))
+        }
       }
       .width('100%')
       .padding({ bottom: 10 })
@@ -470,15 +506,36 @@ export struct OrderView {
             .fontSize(11)
             .fontColor($r('[ui_components].color.gray'))
           if (order.orderState === OrderState.AWAITING_PAYMENT) {
-            OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
+            if (shouldShowPaymentCountdown(order)) {
+              OrderCountdown({ countdown: order.countdown, baseAt: this.countdownBaseAt })
+            }
           }
           Blank()
-          Text(getDisplayOrderStateText(order.orderState, this.hasEvaluation(order)))
+          if (hasUnreadPaymentNotice(order)) {
+            Text('●').fontSize(10).fontColor('#D93025')
+          }
+          Text(getPaymentDisplayLabel(order))
             .fontSize(13)
             .fontColor($r('[ui_components].color.red'))
         }
         .width('100%')
         .padding({ top: 12, bottom: 2 })
+        if (order.paymentNotice) {
+          Text(order.paymentNotice)
+            .fontSize(12)
+            .fontColor($r('[ui_components].color.gray'))
+            .width('100%')
+            .padding({ top: 4, bottom: 4 })
+        }
+        if (order.refunds && order.refunds.length > 0) {
+          ForEach(order.refunds, (refund: OrderRefund) => {
+            Text(getRefundDisplayLine(refund))
+              .fontSize(12)
+              .fontColor($r('[ui_components].color.gray'))
+              .width('100%')
+              .padding({ top: 2, bottom: 2 })
+          }, (refund: OrderRefund) => refund.id)
+        }
         ForEach(order.skus, (sku: OrderSku) => {
           this.OrderSkuRow(sku)
         }, (sku: OrderSku) => sku.id)
@@ -496,7 +553,9 @@ export struct OrderView {
       }
       .width('100%')
       .onClick(() => this.openOrderDetail(order.id))
-      this.OrderActions(order)
+      if (this.hasOrderActions(order)) {
+        this.OrderActions(order)
+      }
     }
     .width('100%')
     .padding({ left: 12, right: 12 })

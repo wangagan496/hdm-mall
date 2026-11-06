@@ -36,6 +36,7 @@ test('亲友订单分页先限定可读范围，同时间翻页不重漏，解�
     f.add('can-receive', 3, 'other'); f.add('self-paid', 3, 'buyer')
     f.add('not-invited', 1, null, 'other'); f.add('cancelled', 6, null, 'friend')
     f.add('own', 1, null, null, null, 'friend')
+    f.add('cancelled-without-payment-record', 6, 'friend', null, 'friend')
     const ids: string[] = []
     for (let page = 1; page <= 3; page++) {
       const response = await f.get(`/member/family-orders/page?page=${page}&pageSize=10`)
@@ -56,6 +57,33 @@ test('亲友订单分页先限定可读范围，同时间翻页不重漏，解�
     assert.deepEqual(remaining.items.map((r: { id: string }) => r.id), ['paid', 'received'])
     assert.equal(remaining.counts, 2)
     assert.equal((await f.get('/member/family-orders/page', 'other')).json().result.counts, 2)
+  } finally { await f.app.close() }
+})
+
+test('买家全部分页包含本人的已取消订单，数量页数正确且其他栏目仍按状态筛选', async () => {
+  const f = await fixture()
+  try {
+    for (let index = 0; index < 12; index++) f.add(`cancelled-${String(index).padStart(2, '0')}`, 6)
+    for (let state = 1; state <= 5; state++) f.add(`active-${state}`, state)
+    f.add('foreign-cancelled', 6, null, null, null, 'other')
+    const ids: string[] = []
+    for (let page = 1; page <= 2; page++) {
+      const response = await f.get(`/member/order?orderState=0&page=${page}&pageSize=10`, 'buyer')
+      assert.equal(response.statusCode, 200)
+      const result = response.json().result
+      assert.equal(result.counts, 17); assert.equal(result.pages, 2)
+      ids.push(...result.items.map((order: { id: string }) => order.id))
+    }
+    assert.equal(new Set(ids).size, 17)
+    assert.equal(ids.filter(id => id.startsWith('cancelled-')).length, 12)
+    const buyer = f.accounts.authenticate(`Bearer ${f.users.buyer.token}`)
+    assert.equal(f.orders.list(buyer).length, 17)
+    for (let state = 1; state <= 5; state++) {
+      const result = (await f.get(`/member/order?orderState=${state}&page=1&pageSize=10`, 'buyer')).json().result
+      assert.equal(result.counts, 1); assert.equal(result.pages, 1)
+      assert.deepEqual(result.items.map((order: { id: string }) => order.id), [`active-${state}`])
+      assert.equal(f.orders.list(buyer, state).length, 1)
+    }
   } finally { await f.app.close() }
 })
 

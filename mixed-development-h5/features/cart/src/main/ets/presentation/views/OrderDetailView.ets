@@ -1,13 +1,14 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, LocalEvaluationItem, OrderItem, OrderSku } from 'models'
+import { HDMUser, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund } from 'models'
 import { demoOrderStore } from 'storage'
 import {
   remindShipmentAPI,
   getOrderDetailAPI,
   receiptOrderAPI
 } from '../../data/api'
-import { getDisplayOrderStateText, mergeOrderState, OrderState, readPhoneClockMillis } from '../utils/OrderPresentation'
+import { getPaymentDisplayLabel, getDisplayOrderStateText, getRefundDisplayLine, shouldShowPaymentCountdown, canOpenPayment,
+  mergeOrderState, OrderState, readPhoneClockMillis } from '../utils/OrderPresentation'
 import { getScoreLabel } from '../utils/EvaluationPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
@@ -24,9 +25,10 @@ export struct OrderDetailView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   private querySequence: number = 0
   private pageGeneration: number = 0
-  private pageActive: boolean = true
-  private detailToken: string = ''
-  private detailOrderId: string = ''
+  @State pageActive: boolean = true
+  @State detailToken: string = ''
+  @State detailOrderId: string = ''
+  private cancellationDialogSequence: number = 0
 
   private refreshAfterForeground(): void {
     this.loadOrderDetail()
@@ -180,6 +182,31 @@ export struct OrderDetailView {
     await orderCancellation.confirm(this.order.id, resume)
   }
 
+  private requestCancelOrder(): void {
+    if (!this.order || this.order.canCancel === false || this.busy || !this.canOperateOrder()) return
+    if (this.order.paymentState !== 'confirming' && this.order.paymentState !== 'review') {
+      this.run('cancel', (): Promise<void> => this.runCancelWithFallback(), '订单已取消')
+      return
+    }
+    const generation: number = this.pageGeneration
+    const token: string = this.detailToken
+    const orderId: string = this.orderId
+    const amount: number = this.order.payMoney
+    const dialog: number = ++this.cancellationDialogSequence
+    this.getUIContext().showAlertDialog({
+      title: '确认取消订单',
+      message: '付款可能已经成功。取消后，如已扣款，¥' + amount.toFixed(2) + '将原路退回付款账户。确定取消吗？',
+      primaryButton: { value: '再等等', action: () => { this.cancellationDialogSequence++ } },
+      secondaryButton: { value: '确认取消', action: () => {
+        if (dialog !== this.cancellationDialogSequence || !this.isCurrentDetail(generation, token, orderId) ||
+          !this.order || (this.order.paymentState !== 'confirming' && this.order.paymentState !== 'review') ||
+          this.order.canCancel === false) return
+        this.cancellationDialogSequence++
+        this.run('cancel', (): Promise<void> => this.runCancelWithFallback(), '订单已取消')
+      } }
+    })
+  }
+
   private async runConsignment(): Promise<void> {
     if (!this.order || !this.canOperateOrder()) {
       return
@@ -212,7 +239,7 @@ export struct OrderDetailView {
   }
 
   private openPayment(): void {
-    if (!this.order || this.busy || !this.canOperateOrder()) {
+    if (!this.order || this.busy || !this.canOperateOrder() || !canOpenPayment(this.order)) {
       return
     }
     this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: this.order.id })
@@ -225,7 +252,7 @@ export struct OrderDetailView {
       this.evaluation = null
       return
     }
-    if (this.order.serverManaged) {
+    if (this.order.serverManaged || !GlobalVariable.DEMO_ORDER_FLOW) {
       // 真实订单：状态和评价都使用服务端查询结果。
       const newOrderState = this.order.orderState // 本次查回来的订单状态。
       this.displayedOrderState = newOrderState // 用新状态替换页面原来显示的状态。
@@ -252,6 +279,7 @@ export struct OrderDetailView {
   }
 
   private displayStateText(): string {
+    if (this.order && (this.order.serverManaged || !GlobalVariable.DEMO_ORDER_FLOW)) return getPaymentDisplayLabel(this.order)
     return getDisplayOrderStateText(this.displayedOrderState, this.hasEvaluation())
   }
 
@@ -267,14 +295,16 @@ export struct OrderDetailView {
               .fontColor($r('[ui_components].color.gray'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.border') })
-              .enabled(!this.busy && this.canOperateOrder())
-              .onClick(() => this.run('cancel', (): Promise<void> => this.runCancelWithFallback(), '订单已取消'))
-            Button('去支付')
+              .enabled(!this.busy && this.canOperateOrder() && this.order.canCancel !== false)
+              .onClick(() => this.requestCancelOrder())
+            if (canOpenPayment(this.order)) {
+              Button('去支付')
               .height(36)
               .fontSize(13)
               .backgroundColor($r('[ui_components].color.red'))
-              .enabled(!this.busy && this.canOperateOrder())
+              .enabled(!this.busy && this.canOperateOrder() && canOpenPayment(this.order))
               .onClick(() => this.openPayment())
+            }
           }
           .width('100%')
         } else if (this.displayedOrderState === OrderState.AWAITING_SHIPMENT) { // 待发货：提醒发货。
@@ -329,7 +359,7 @@ export struct OrderDetailView {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: this.order ? this.displayStateText() : '订单详情',
+          title: this.order ? getPaymentDisplayLabel(this.order) : '订单详情',
           onLeftClick: () => this.stackPath.pop()
         })
         if (this.cancellationPending) {
@@ -370,21 +400,29 @@ export struct OrderDetailView {
                   Text(this.displayStateText())
                     .fontSize(18)
                     .fontWeight(500)
-                  if (this.displayedOrderState === OrderState.AWAITING_PAYMENT) {
+                  if (this.displayedOrderState === OrderState.AWAITING_PAYMENT && shouldShowPaymentCountdown(this.order)) {
                     OrderCountdown({ countdown: this.order.countdown, baseAt: this.countdownBaseAt, fontSize: 12 })
                   }
                 }
-                if (this.displayedOrderState === OrderState.AWAITING_PAYMENT) {
+                if (this.displayedOrderState === OrderState.AWAITING_PAYMENT && shouldShowPaymentCountdown(this.order)) {
                   Text('请在 ' + this.order.payLatestTime + ' 前完成支付，超时自动取消')
                     .fontSize(12)
                     .fontColor($r('[ui_components].color.gray'))
                 }
+                if (this.order.paymentNotice) {
+                  Text(this.order.paymentNotice).fontSize(13).fontColor($r('[ui_components].color.gray'))
+                }
                 Text('订单号 ' + this.order.id)
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
-                Text(this.order.createTime + ' 下单')
+                if (this.order.createTime) {
+                  Text(this.order.createTime + ' 下单')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
+                }
+                if (this.order.paymentState === 'review' || (this.order.paymentNotice || '').includes('人工')) {
+                  Button('帮助与客服').onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))
+                }
               }
               .width('100%')
               .padding(12)
@@ -392,6 +430,16 @@ export struct OrderDetailView {
               .borderRadius(8)
               .alignItems(HorizontalAlign.Start)
 
+              if (this.order.refunds && this.order.refunds.length > 0) {
+                Column({ space: 6 }) {
+                  ForEach(this.order.refunds, (refund: OrderRefund) => {
+                    Text(getRefundDisplayLine(refund)).fontSize(12).fontColor($r('[ui_components].color.gray'))
+                  }, (refund: OrderRefund) => refund.id)
+                }
+                .width('100%').padding(12).backgroundColor($r('[ui_components].color.white')).borderRadius(8)
+              }
+
+              if (this.order.payMoney !== undefined) {
               Column() {
                 ForEach(this.order.skus, (sku: OrderSku) => {
                   Row({ space: 10 }) {
@@ -435,7 +483,7 @@ export struct OrderDetailView {
               .padding(12)
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(8)
-
+              }
               if (this.hasEvaluation()) {
                 Column({ space: 10 }) {
                   Row() {
@@ -469,6 +517,7 @@ export struct OrderDetailView {
                 .alignItems(HorizontalAlign.Start)
               }
 
+              if (this.order.payMoney !== undefined) {
               Column({ space: 10 }) {
                 if (this.order.serverManaged) {
                   Text(this.order.payerAccount ? '实际付款人：' + this.order.payerAccount : '尚未付款').fontSize(13)
@@ -500,6 +549,7 @@ export struct OrderDetailView {
               .padding(12)
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(8)
+              }
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)

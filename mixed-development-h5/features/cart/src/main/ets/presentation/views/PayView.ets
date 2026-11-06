@@ -2,9 +2,12 @@ import { GlobalVariable, PAGE_PATH } from 'constants'
 import { FamilyRelationPage, HDMUser, OrderItem, PayResultParams } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { auth, demoOrderStore } from 'storage'
-import { getOrderDetailAPI, mockPayAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
+import { getOrderDetailAPI, startPaymentAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
 import { mergeOrderState, readPhoneClockMillis, secondsLeftToPay } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
+
+interface PaymentErrorResponse { status?: number }
+interface PaymentError { message?: string; httpStatus?: number; response?: PaymentErrorResponse }
 
 @Component
 struct PayView {
@@ -28,13 +31,13 @@ struct PayView {
   @State relativePage: number = 1
   @State relativePages: number = 0
   @State relativesLoadFailed: boolean = false
-  private active: boolean = true
+  @State active: boolean = true
   private pageGeneration: number = 0
-  private sessionToken: string = ''
-  private sessionOrderId: string = ''
-  private loadedToken: string = ''
+  @State sessionToken: string = ''
+  @State sessionOrderId: string = ''
+  @State loadedToken: string = ''
   @Consume stackPath: NavPathStack
-  private orderId: string = ''
+  @State orderId: string = ''
   private countdownBaseAt: number = 0
 
   aboutToAppear(): void {
@@ -94,7 +97,8 @@ struct PayView {
   private canManagePayment(): boolean {
     return this.isCurrentCashier(this.pageGeneration, this.sessionToken, this.orderId) &&
       this.loadedToken === this.sessionToken && !!this.order && this.order.id === this.orderId &&
-      !this.loading && !this.loadFailed && !this.paying && this.mergedState() === 1
+      !this.loading && !this.loadFailed && !this.paying && this.mergedState() === 1 &&
+      this.order.paymentState !== 'confirming' && this.order.paymentState !== 'review'
   }
 
   private openPaymentResult(orderId: string): void {
@@ -220,7 +224,7 @@ struct PayView {
   }
 
   // 演示支付：本地推进订单覆盖层，不产生真实扣款。开关与说明见 GlobalVariable.DEMO_ORDER_FLOW。
-  private async handleMockPay(): Promise<void> {
+  private async handlePayment(): Promise<void> {
     if (!this.order || !this.canManagePayment() || (this.order.serverManaged && !this.order.canPay)) {
       return
     }
@@ -240,18 +244,27 @@ struct PayView {
     const amount: number = this.order.payMoney
     try {
       if (serverManaged) {
-        await mockPayAPI(orderId, amount, token)
+        await startPaymentAPI(orderId, amount, token)
       } else {
         await demoOrderStore.setOverlay(orderId, 2)
       }
       if (!this.isCurrentCashier(generation, token, orderId)) return
       this.openPaymentResult(orderId)
-    } catch {
+    } catch (error) {
       if (this.isCurrentCashier(generation, token, orderId)) {
-        this.querySequence++
-        this.loading = false
-        this.loadFailed = true
-        this.safeToast(serverManaged ? '支付结果未确认，请刷新订单后重试' : '演示支付保存失败，请刷新后重试')
+        const failure = error as PaymentError
+        const status: number | undefined = failure.httpStatus || failure.response?.status
+        if (serverManaged && status !== undefined && status < 500 && status !== 408 && status !== 429) {
+          this.safeToast(failure.message || '付款未能发起，请刷新订单')
+          await this.load()
+        } else if (serverManaged) {
+          this.openPaymentResult(orderId)
+        } else {
+          this.querySequence++
+          this.loading = false
+          this.loadFailed = true
+          this.safeToast('演示支付保存失败，请刷新后重试')
+        }
       }
     } finally {
       if (this.isCurrentCashier(generation, token, orderId)) this.paying = false
@@ -292,16 +305,23 @@ struct PayView {
             Column({ space: 12 }) {
               Column({ space: 8 }) {
                 Row() {
-                  Text('需付款')
+                  Text(this.order.paymentState === 'review' ? '核实中' :
+                    this.order.paymentState === 'confirming' ? '确认中' : '需付款')
                     .fontSize(13)
                     .fontColor($r('[ui_components].color.gray'))
                   Blank()
-                  OrderCountdown({
-                    countdown: this.order.countdown,
-                    baseAt: this.countdownBaseAt,
-                    fontSize: 12,
-                    expiredText: this.order.countdown > 0 ? '已超时' : ''
-                  })
+                  if (this.order.paymentState === 'confirming' || this.order.paymentState === 'review') {
+                    Text(this.order.paymentState === 'review' ? '核实中' : '确认中')
+                      .fontSize(12)
+                      .fontColor($r('[ui_components].color.red'))
+                  } else {
+                    OrderCountdown({
+                      countdown: this.order.countdown,
+                      baseAt: this.countdownBaseAt,
+                      fontSize: 12,
+                      expiredText: this.order.countdown > 0 ? '已超时' : ''
+                    })
+                  }
                 }
                 .width('100%')
                 Text('¥' + this.order.payMoney.toFixed(2))
@@ -327,6 +347,16 @@ struct PayView {
               .padding(16)
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(12)
+
+              if (this.order.paymentState === 'confirming' || this.order.paymentState === 'review') {
+                Text(this.order.paymentNotice || '正在确认付款结果，请勿重复付款')
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.gray'))
+                  .width('100%')
+                  .padding(12)
+                  .backgroundColor($r('[ui_components].color.white'))
+                  .borderRadius(8)
+              }
 
               Column({ space: 0 }) {
                 Text('选择支付方式')
@@ -372,7 +402,8 @@ struct PayView {
                     .fontSize(11)
                     .fontColor($r('[ui_components].color.gray'))
                 }
-                Text('本页为演示支付，不产生真实扣款。点「确认支付」后订单进入待发货。')
+                Text(GlobalVariable.DEMO_ORDER_FLOW ? '本页为演示支付，不产生真实扣款。点「确认支付」后订单进入待发货。' :
+                  '模拟支付不产生真实扣款。提交后会确认付款结果，请勿重复付款。')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
                 Text('未完成支付的订单可在「我的订单-待付款」继续支付')
@@ -401,14 +432,16 @@ struct PayView {
                   .fontColor($r('[ui_components].color.red'))
               }
               .layoutWeight(1)
-              Button(this.paying ? '支付中...' : '确认支付 ¥' + this.order.payMoney.toFixed(2))
+              Button(this.paying ? '支付中...' :
+                this.order.paymentState === 'confirming' || this.order.paymentState === 'review' ? '付款结果确认中' :
+                  '确认支付 ¥' + this.order.payMoney.toFixed(2))
                 .height(44)
                 .fontSize(14)
                 .fontWeight(500)
                 .layoutWeight(1)
                 .backgroundColor($r('[ui_components].color.red'))
                 .enabled(this.canManagePayment() && (!this.order.serverManaged || this.order.canPay === true))
-                .onClick(() => this.handleMockPay())
+                .onClick(() => this.handlePayment())
             }
             .width('100%')
           }

@@ -1,5 +1,5 @@
-import { GlobalVariable } from 'constants'
-import { FamilyRelation, FamilyRelationPage, HDMUser, OrderItem, OrderPage, OrderState } from 'models'
+import { GlobalVariable, PAGE_PATH } from 'constants'
+import { FamilyRelation, FamilyRelationPage, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund } from 'models'
 import { HDMNavBar } from 'ui_components'
 import {
   getFamilyRelationsPageAPI,
@@ -8,7 +8,7 @@ import {
   getFamilyOrdersPageAPI,
   getMerchantOrdersPageAPI,
   receiveOrderAPI,
-  familyPayAPI,
+  startFamilyPaymentAPI,
   shipOrderAPI
 } from '../../data/api'
 
@@ -38,10 +38,10 @@ export struct FamilyView {
   @State isSubmitting: boolean = false
   @State errorText: string = ''
   private loadRequestId: number = 0
-  private isPageActive: boolean = true
+  @State isPageActive: boolean = true
   private pageGeneration: number = 0
-  private sessionToken: string = ''
-  private sessionRole: string = ''
+  @State sessionToken: string = ''
+  @State sessionRole: string = ''
   @State loadedToken: string = ''
   private dialogSequence: number = 0
 
@@ -262,7 +262,8 @@ export struct FamilyView {
   }
   private confirmFamilyPayment(order: OrderItem): void {
     const current: OrderItem | undefined = this.familyOrders.find((item: OrderItem) => item.id === order.id)
-    if (!this.canManageFamily() || !current?.canPay || current.orderState !== OrderState.AWAITING_PAYMENT) return
+    if (!this.canManageFamily() || !current?.canPay || current.orderState !== OrderState.AWAITING_PAYMENT ||
+      current.paymentState === 'confirming' || current.paymentState === 'review') return
     const orderId: string = current.id
     const amount: number = current.payMoney
     const generation: number = this.pageGeneration
@@ -277,13 +278,32 @@ export struct FamilyView {
         if (dialog !== this.dialogSequence || !this.isCurrentQuery(requestId, generation, token)) return
         const latest: OrderItem | undefined = this.familyOrders.find((item: OrderItem) => item.id === orderId)
         if (!latest?.canPay || latest.orderState !== OrderState.AWAITING_PAYMENT || latest.payMoney !== amount ||
+          latest.paymentState === 'confirming' || latest.paymentState === 'review' ||
           !this.canManageFamily()) return
         this.dialogSequence++
-        this.submitThenRefresh(async (session: string): Promise<void> => {
-          await familyPayAPI(orderId, amount, session)
-        }, '代付成功')
+        this.submitFamilyPayment(orderId, amount)
       } }
     })
+  }
+  private async submitFamilyPayment(orderId: string, amount: number): Promise<void> {
+    if (!this.canManageFamily()) return
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    this.isSubmitting = true
+    try {
+      const result = await startFamilyPaymentAPI(orderId, amount, token)
+      if (!this.isCurrentFamilySession(generation, token)) return
+      this.safeToast(result.state === 'succeeded' ? '代付成功' : '正在确认付款结果，请勿重复付款')
+    } catch {
+      if (!this.isCurrentFamilySession(generation, token)) return
+      this.safeToast('正在确认付款结果，请勿重复付款')
+    } finally {
+      if (this.isCurrentFamilySession(generation, token)) {
+        this.loadRequestId++
+        await this.loadFamilyCenter()
+        if (this.isCurrentFamilySession(generation, token)) this.isSubmitting = false
+      }
+    }
   }
   private getFamilyOrderStatus(orderState: number): string {
     switch (orderState) {
@@ -298,12 +318,55 @@ export struct FamilyView {
     }
   }
 
+  private refundDisplayLine(refund: OrderRefund): string {
+    const paidAt: string = refund.paidAt === null ? '付款时间待确认' : new Date(refund.paidAt).toLocaleString('zh-CN', { hour12: false })
+    return '¥' + refund.amount.toFixed(2) + ' · ' + refund.payerAccount + ' · ' + paidAt + ' · ' + refund.state
+  }
+
+  private familyOrderStatus(order: OrderItem): string {
+    if (order.orderState === OrderState.CANCELLED) {
+      const states: string[] = []
+      order.refunds?.forEach((refund: OrderRefund) => {
+        if (!states.includes(refund.state)) states.push(refund.state)
+      })
+      return '已取消' + (states.length > 0 ? ' · ' + states.join(' · ') : '')
+    }
+    return order.paymentState === 'review' ? '核实中' : order.paymentState === 'confirming' ? '确认中' :
+      this.getFamilyOrderStatus(order.orderState)
+  }
+
+  private hasFamilyOrderActions(order: OrderItem): boolean {
+    return order.orderState !== OrderState.CANCELLED
+  }
+
+  private openFamilyOrder(order: OrderItem): void {
+    if (!this.canManageFamily() || !this.familyOrders.some((item: OrderItem) => item.id === order.id)) return
+    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: order.id,
+      onPop: () => this.showFamilyCenter() })
+  }
+
   @Builder
   private OrderSummary(order: OrderItem) {
-    Text('下单人：' + order.ownerAccount).fontSize(16).fontColor('#1F2329')
+    if (order.ownerAccount) {
+      Text('下单人：' + order.ownerAccount).fontSize(16).fontColor('#1F2329')
+    }
     Text(order.skus.map((goods) => goods.name).join('、')).fontSize(14).maxLines(2).fontColor('#1F2329')
-    Text('¥' + order.payMoney.toFixed(2)).fontSize(18).fontColor('#B34D36')
-    Text(this.getFamilyOrderStatus(order.orderState)).fontSize(12).fontColor('#1F2329')
+    if (order.payMoney !== undefined) {
+      Text('¥' + order.payMoney.toFixed(2)).fontSize(18).fontColor('#B34D36')
+    }
+    Text(this.familyOrderStatus(order)).fontSize(12).fontColor('#1F2329')
+    if (order.needsAttention) {
+      Text('●').fontSize(10).fontColor('#D93025')
+    }
+    if (order.paymentNotice) {
+      Text(order.paymentNotice).fontSize(12).fontColor('#666666')
+    }
+    if (order.refunds && order.refunds.length > 0) {
+      ForEach(order.refunds, (refund: OrderRefund) => {
+        Text(this.refundDisplayLine(refund))
+          .fontSize(12).fontColor('#666666')
+      }, (refund: OrderRefund) => refund.id)
+    }
     if (order.receivedByAccount) {
       Text('收货确认人：' + order.receivedByAccount).fontSize(12).fontColor('#1F2329')
     }
@@ -321,16 +384,24 @@ export struct FamilyView {
   private FamilyOrderCard(order: OrderItem) {
     Column({ space: 8 }) {
       this.OrderSummary(order)
-      // 服务端决定当前亲友能否代付、代收，页面只按权限展示按钮。
-      if (order.canPay) {
-        Button('确认模拟代付')
-          .enabled(this.canManageFamily())
-          .onClick(() => this.confirmFamilyPayment(order))
-      }
-      if (order.canReceive) {
-        Button('确认代收')
-          .enabled(this.canManageFamily())
-          .onClick(() => this.confirmFamilyReceipt(order))
+      Button('查看付款与订单详情')
+        .enabled(this.canManageFamily())
+        .onClick(() => this.openFamilyOrder(order))
+      if (this.hasFamilyOrderActions(order)) {
+        if (order.paymentState === 'review' || (order.paymentNotice || '').includes('人工')) {
+          Button('帮助与客服').onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))
+        }
+        // 服务端决定当前亲友能否代付、代收，页面只按权限展示按钮。
+        if (order.canPay && order.paymentState !== 'confirming' && order.paymentState !== 'review') {
+          Button('确认模拟代付')
+            .enabled(this.canManageFamily())
+            .onClick(() => this.confirmFamilyPayment(order))
+        }
+        if (order.canReceive) {
+          Button('确认代收')
+            .enabled(this.canManageFamily())
+            .onClick(() => this.confirmFamilyReceipt(order))
+        }
       }
     }
     .orderCardStyle()

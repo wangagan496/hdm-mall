@@ -1,9 +1,9 @@
 import { test as nodeTest } from 'node:test'
 import assert from 'node:assert/strict'
-import { deferred, pageMethods, tick } from './native-harness.mjs'
+import { deferred, pageMethods, sourceOf, tick } from './native-harness.mjs'
 
 const test = (name, run) => nodeTest(name, { timeout: 2000 }, run)
-const OrderState = { AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3 }
+const OrderState = { AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, CANCELLED: 6 }
 const pageResult = (items, page = 1) => ({ items, page, pages: 3, counts: 21, pageSize: 10 })
 const payment = { id: 'pay', orderState: 1, canPay: true, payMoney: 19, ownerAccount: 'owner' }
 const receipt = { id: 'receipt', orderState: 3, canReceive: true, payMoney: 19 }
@@ -20,11 +20,12 @@ function fixture() {
   const write = (action, args) => { writes.push([action, ...args]); return mutation(action, args) }
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets', 'FamilyView', {}, {
     OrderState,
+    PAGE_PATH: { ORDER_DETAIL_PAGE: 'detail' },
     getFamilyRelationsPageAPI: (p, token) => { queries.push(['relations', p, token]); return api.relations(p, token) },
     getFamilyOrdersPageAPI: (p, token) => { queries.push(['family', p, token]); return api.family(p, token) },
     getMerchantOrdersPageAPI: (p, token) => { queries.push(['merchant', p, token]); return api.merchant(p, token) },
     inviteRelationAPI: (...args) => write('invite', args), updateRelationAPI: (...args) => write('relation', args),
-    receiveOrderAPI: (...args) => write('receipt', args), familyPayAPI: (...args) => write('pay', args),
+    receiveOrderAPI: (...args) => write('receipt', args), startFamilyPaymentAPI: (...args) => write('pay', args),
     shipOrderAPI: (...args) => write('ship', args),
   })
   const page = new View(); page.user = { token: 'token-a', account: 'member', role: 'merchant' }
@@ -162,4 +163,57 @@ test('隐藏后账号和角色变化清除旧列表，旧串行查询不继续�
     const visibleQueries = f.queries.length
     f.page.refreshAfterForeground(); await tick(); assert.equal(f.queries.length, visibleQueries + 2)
   }
+})
+
+test('亲友代付确认中不提示成功，不能再次提交，未知结果同样先确认', async () => {
+  for (const unknown of [false, true]) {
+    const f = fixture(); await f.page.loadFamilyCenter()
+    f.setMutation(async () => {
+      if (unknown) throw new Error('response lost')
+      return { orderId: 'pay', paymentId: 'payment-a', state: 'pending' }
+    })
+    f.api.family = async p => pageResult([{ ...payment, canPay: false, paymentState: 'confirming',
+      paymentNotice: '正在确认付款结果，请勿重复付款' }], p)
+    f.invoke('pay'); await tick()
+    assert.ok(!f.messages.includes('代付成功'))
+    assert.equal(f.page.familyOrders[0].paymentState, 'confirming')
+    f.invoke('pay'); await tick()
+    assert.equal(f.writes.length, 1)
+  }
+})
+
+test('亲友仅付款权限的退款逐笔显示，打开详情使用当前订单并刷新返回列表', async () => {
+  const f = fixture(), routes = []
+  f.page.stackPath = { pushPath: route => routes.push(route) }
+  const refund = { id: 'refund-a', amount: 19, payerAccount: 'member', paidAt: null, state: '退款失败重试中' }
+  f.api.family = async p => pageResult([{ id: 'refund-order', orderState: 2, skus: [], refunds: [refund] }], p)
+  await f.page.loadFamilyCenter()
+  assert.equal(f.page.refundDisplayLine(refund), '¥19.00 · member · 付款时间待确认 · 退款失败重试中')
+  f.page.openFamilyOrder(f.page.familyOrders[0])
+  assert.equal(routes[0].param, 'refund-order')
+  f.page.aboutToDisappear()
+  const count = f.queries.length; routes[0].onPop(); await tick()
+  assert.ok(f.queries.length > count)
+  assert.match(sourceOf('mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets'), /if \(order.payMoney !== undefined\)/)
+})
+
+test('亲友已取消代付卡片显示取消和退款，只能查看详情并在返回后清除红点', async () => {
+  const f = fixture(), routes = []
+  const cancelled = { id: 'cancelled', orderState: 6, skus: [], paymentState: 'confirming', needsAttention: true,
+    refunds: [{ id: 'refund', amount: 19, payerAccount: 'member', paidAt: null, state: '退款中' }], canPay: true, canReceive: true }
+  f.api.family = async p => pageResult([cancelled], p)
+  f.page.stackPath = { pushPath: route => routes.push(route) }
+  await f.page.loadFamilyCenter()
+  assert.equal(f.page.familyOrderStatus(cancelled), '已取消 · 退款中')
+  assert.equal(f.page.hasFamilyOrderActions(cancelled), false)
+  f.page.confirmFamilyPayment(cancelled); f.page.confirmFamilyReceipt(cancelled)
+  assert.equal(f.dialogs.length, 0); assert.equal(f.writes.length, 0)
+  f.page.openFamilyOrder(cancelled); assert.equal(routes[0].param, 'cancelled')
+  f.page.aboutToDisappear()
+  f.api.family = async p => pageResult([{ ...cancelled, needsAttention: false }], p)
+  routes[0].onPop(); await tick()
+  assert.equal(f.page.familyOrders[0].needsAttention, false)
+  const source = sourceOf('mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets')
+  assert.match(source, /if \(this.hasFamilyOrderActions\(order\)\)/)
+  assert.match(source, /Text\(this.familyOrderStatus\(order\)\)/)
 })

@@ -8,7 +8,7 @@ const test = (name, run) => nodeTest(name, { timeout: 1500 }, run)
 const row = (id = 'order-a', orderState = 3) => ({ id, orderState, serverManaged: true, skus: [], evaluation: { content: id } })
 
 function fixture() {
-  const queries = [], writes = [], messages = [], navigations = [], overlays = []
+  const queries = [], writes = [], messages = [], navigations = [], overlays = [], dialogs = []
   let pending = [], mutation = async () => {}, cancelling = async () => {}
   const flow = execute(sourceOf(base + 'utils/DemoOrderFlow.ets'), {
     constants: { GlobalVariable: { DEMO_ORDER_FLOW: false } },
@@ -26,13 +26,15 @@ function fixture() {
   page.user = { token: 'buyer-a' }
   page.orderId = 'order-a'
   page.safeToast = message => messages.push(message)
-  page.stackPath = { pushPath: path => navigations.push(path) }
+  page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog),
+    getPromptAction: () => ({ showToast: value => messages.push(value.message) }) })
+  page.stackPath = { pushPath: path => navigations.push(path), getParamByName: () => ['order-a'] }
   const load = async (value = row()) => {
     const task = page.loadOrderDetail()
     queries.at(-1).resolve(value)
     await task
   }
-  return { page, queries, writes, messages, navigations, overlays, load,
+  return { page, queries, writes, messages, navigations, overlays, dialogs, load,
     setMutation: fn => { mutation = fn }, setCancel: fn => { cancelling = fn }, setPending: ids => { pending = ids } }
 }
 
@@ -221,4 +223,20 @@ test('演示操作迟到结果不写入后来页面的本地覆盖层', async ()
     await flow.advanceOrderState('current-order', 4, async () => {}, () => current)
     assert.deepEqual(writes, [['current-order', 4]])
   }
+})
+
+test('详情确认中取消先弹退款提示，取消弹窗不提交，确认后才取消', async () => {
+  const f = fixture()
+  await f.load({ ...row(), orderState: 1, paymentState: 'confirming', canCancel: true, canPay: false, payMoney: 24.5 })
+  f.page.requestCancelOrder()
+  assert.equal(f.dialogs.length, 1)
+  assert.equal(f.dialogs[0].message, '付款可能已经成功。取消后，如已扣款，¥24.50将原路退回付款账户。确定取消吗？')
+  f.dialogs[0].primaryButton.action()
+  assert.equal(f.writes.length, 0)
+  f.dialogs[0].secondaryButton.action(); await tick()
+  assert.equal(f.writes.length, 0)
+  f.page.requestCancelOrder()
+  f.dialogs[1].secondaryButton.action(); await tick()
+  assert.equal(f.writes.length, 1)
+  assert.equal(f.writes[0].action, 'cancel')
 })

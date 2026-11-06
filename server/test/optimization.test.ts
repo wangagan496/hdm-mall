@@ -48,7 +48,7 @@ test('资料读写返回本次凭证和完整资料，不更新会话期限，�
     assert.equal((await f.app.inject({ method: 'GET', url: '/member/profile' })).statusCode, 401)
   } finally { await f.app.close() }
 })
-test('分页排除已取消订单，页数一致，只整理当前页且可明确查询取消状态', async () => {
+test('全部分页包含已取消订单，页数一致，只整理当前页且可明确查询取消状态', async () => {
   const f = await fixture()
   try {
     const ids = Array.from({ length: 8 }, () => f.create())
@@ -57,13 +57,14 @@ test('分页排除已取消订单，页数一致，只整理当前页且可明�
     const originalAll = f.db.all.bind(f.db)
     f.db.all = (<T>(sql: string, ...params: Parameters<typeof f.db.all>[1][]) => { queries.push(sql); return originalAll<T>(sql, ...params) }) as typeof f.db.all
     const first = f.orders.listPage(f.user, 0, 1, 2)
-    assert.equal(first.counts, 5); assert.equal(first.pages, 3); assert.equal(first.items.length, 2)
+    assert.equal(first.counts, 8); assert.equal(first.pages, 4); assert.equal(first.items.length, 2)
     assert.equal(queries.filter(query => query.includes('FROM order_items')).length, 2)
     assert.ok(queries.some(query => query.includes('LIMIT ? OFFSET ?')))
-    const all = [first, f.orders.listPage(f.user, 0, 2, 2), f.orders.listPage(f.user, 0, 3, 2)].flatMap(page => page.items)
-    assert.equal(new Set(all.map(order => order.id)).size, 5)
-    assert.ok(all.every(order => order.orderState !== 6))
-    assert.equal(f.orders.listPage(f.user, 0, 4, 2).items.length, 0)
+    const all = [first, f.orders.listPage(f.user, 0, 2, 2), f.orders.listPage(f.user, 0, 3, 2),
+      f.orders.listPage(f.user, 0, 4, 2)].flatMap(page => page.items)
+    assert.equal(new Set(all.map(order => order.id)).size, 8)
+    assert.equal(all.filter(order => order.orderState === 6).length, 3)
+    assert.equal(f.orders.listPage(f.user, 0, 5, 2).items.length, 0)
     assert.equal(f.orders.listPage(f.user, 6, 1, 10).counts, 3)
     const cancelled = await f.orders.cancel(f.user, ids[0]!)
     assert.equal(cancelled.orderState, 6); assert.ok(cancelled.skus.length)
@@ -131,7 +132,9 @@ test('订单读请求合并过期探测，首次读仍处理过期单且写请�
     }) as typeof f.db.one
 
     const firstRead = f.orders.list(f.user)
-    assert.equal(firstRead.length, 0)
+    assert.equal(firstRead.length, 1)
+    assert.equal(firstRead[0]!.id, expiredId)
+    assert.equal(firstRead[0]!.orderState, 6)
     assert.equal(f.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', expiredId)!.state, 6)
     assert.equal(f.catalog.sku('optimization-product-a').stock, beforeStock + 1)
     assert.equal(probes, 1)

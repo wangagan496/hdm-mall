@@ -3,7 +3,7 @@ import { isOrderStateInTab } from './OrderPresentation'
 
 /**
  * 订单列表分页流程：向服务端取一页 → 合并去重 → 去掉不属于当前栏目的订单 → 按下单时间排序。
- * 已取消的订单会被筛掉，一页可能剩不下几笔，所以不满一屏时会接着取下一页，直到凑满或服务端没有更多。
+ * 全部栏目保留已取消订单；其他栏目可能筛掉变更状态的订单，不满一屏时继续取页，直到凑满或服务端没有更多。
  */
 
 export interface OrderTabRequest {
@@ -72,7 +72,7 @@ export async function loadOrderTabPage(request: OrderTabRequest, api: OrderTabAP
     visibleOrders = mergeOrdersForTab(visibleOrders, serverOrders, request)
     page++
     // 是否取完只看服务端：这页是空的，或页码已超过总页数。
-    // 不能看筛选后的数量，一页全是已取消订单不代表后面没有订单。
+    // 不能看筛选后的数量，一页全是不属于当前栏目的订单不代表后面没有订单。
     finished = serverOrders.length === 0 || page > serverPage.pages
   } while (!finished && visibleOrders.length < request.pageSize)
   return { items: visibleOrders, nextPage: page, finished }

@@ -54,6 +54,74 @@ async function fixture(paymentChannel?: PaymentChannel) {
   return { ctx, clock, advance: (milliseconds: number) => { now += milliseconds }, buyer, merchant, payer, address, product, sku, call, createOrder }
 }
 
+test('订单提醒汇总只统计当前用户未读订单，查看详情后清除且匿名请求为 401', async () => {
+  const f = await fixture()
+  try {
+    const orderId = await f.createOrder()
+    await invitePayer(f, orderId)
+    f.ctx.testData.payments({ paymentId: 'next', preset: { outcome: 'fail' } })
+    const first = await f.call('POST', `/member/order/${orderId}/payments`, f.payer.token, { amountCents })
+    await f.call('PUT', `/member/order/${orderId}/payer`, f.buyer.token, { friendId: null })
+    f.ctx.testData.payments({ paymentId: 'next', preset: { outcome: 'success' } })
+    await f.call('POST', `/member/order/${orderId}/payments`, f.buyer.token, { amountCents })
+    f.ctx.testData.payments({ paymentId: first.body.result.paymentId, preset: { outcome: 'success' } })
+    await f.call('POST', '/payments/callback', '', f.ctx.payments.signedCallback(first.body.result.paymentId, { state: 'success' }))
+
+    assert.equal((await f.call('GET', '/member/order/attention')).status, 401)
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.buyer.token)).body.result, { count: 1 })
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.payer.token)).body.result, { count: 1 })
+    const stranger = f.ctx.testData.account({ account: `attention_${randomUUID().replaceAll('-', '').slice(0, 8)}`, password })
+    assert.deepEqual((await f.call('GET', '/member/order/attention', stranger.token)).body.result, { count: 0 })
+    await f.call('GET', `/member/order/${orderId}`, f.buyer.token)
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.buyer.token)).body.result, { count: 0 })
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.payer.token)).body.result, { count: 1 })
+    await f.call('GET', `/member/order/${orderId}`, f.payer.token)
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.payer.token)).body.result, { count: 0 })
+  } finally { await f.ctx.app.close() }
+})
+
+test('已取消代付订单保留买家和实际发起支付的亲友列表入口，各自查看后清除退款提醒', async () => {
+  const f = await fixture()
+  try {
+    const paidOrderId = await f.createOrder()
+    await invitePayer(f, paidOrderId)
+    f.ctx.testData.payments({ paymentId: 'next', preset: { outcome: 'close-paid' } })
+    assert.equal((await f.call('POST', `/member/order/${paidOrderId}/payments`, f.payer.token, { amountCents })).status, 200)
+    assert.equal((await f.call('PUT', `/member/order/${paidOrderId}/cancel`, f.buyer.token)).status, 200)
+    const invitedOrderId = await f.createOrder()
+    await f.call('PUT', `/member/order/${invitedOrderId}/payer`, f.buyer.token, { friendId: f.payer.id })
+    await f.call('PUT', `/member/order/${invitedOrderId}/cancel`, f.buyer.token)
+    const failedOrderId = await f.createOrder()
+    await f.call('PUT', `/member/order/${failedOrderId}/payer`, f.buyer.token, { friendId: f.payer.id })
+    f.ctx.testData.payments({ paymentId: 'next', preset: { outcome: 'fail' } })
+    await f.call('POST', `/member/order/${failedOrderId}/payments`, f.payer.token, { amountCents })
+    await f.call('PUT', `/member/order/${failedOrderId}/cancel`, f.buyer.token)
+    const buyerList = (await f.call('GET', '/member/order?orderState=0&pageSize=10', f.buyer.token)).body.result
+    assert.equal(buyerList.counts, 3)
+    assert.ok(buyerList.items.some((order: { id: string }) => order.id === paidOrderId))
+    for (const path of ['/member/family-orders', '/member/family-orders/page']) {
+      const result = (await f.call('GET', path, f.payer.token)).body.result
+      const items = Array.isArray(result) ? result : result.items
+      assert.deepEqual(items.map((order: { id: string }) => order.id).sort(), [paidOrderId, failedOrderId].sort())
+      const paid = items.find((order: { id: string }) => order.id === paidOrderId)
+      assert.equal(paid.orderState, 6); assert.equal(paid.needsAttention, true)
+      assert.equal(paid.refunds.length, 1); assert.equal(paid.refunds[0].payerAccount, f.payer.account)
+      assert.equal(paid.address, undefined)
+      if (!Array.isArray(result)) { assert.equal(result.counts, 2); assert.equal(result.pages, 1) }
+    }
+    for (const token of [f.buyer.token, f.payer.token]) {
+      assert.deepEqual((await f.call('GET', '/member/order/attention', token)).body.result, { count: 1 })
+    }
+    await f.call('GET', `/member/order/${paidOrderId}`, f.buyer.token)
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.buyer.token)).body.result, { count: 0 })
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.payer.token)).body.result, { count: 1 })
+    await f.call('GET', `/member/order/${paidOrderId}`, f.payer.token)
+    assert.deepEqual((await f.call('GET', '/member/order/attention', f.payer.token)).body.result, { count: 0 })
+    const refreshed = (await f.call('GET', '/member/family-orders/page', f.payer.token)).body.result
+    assert.equal(refreshed.items.find((order: { id: string }) => order.id === paidOrderId).needsAttention, false)
+  } finally { await f.ctx.app.close() }
+})
+
 test('B-42：确认中支付禁止重付并继续占用库存', async () => {
   const f = await fixture()
   try {

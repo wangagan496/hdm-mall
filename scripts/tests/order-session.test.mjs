@@ -4,17 +4,18 @@ import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness
 
 const test = (name, run) => nodeTest(name, { timeout: 2000 }, run)
 const base = 'mixed-development-h5/features/cart/src/main/ets/presentation/'
-const states = { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, AWAITING_REVIEW: 4 }
-const inTab = (state, tab) => state !== 6 && (!tab || state === tab)
-const row = (id = 'order-a', orderState = 3) => ({ id, orderState, skus: [], countdown: 0, createTime: id })
+const states = { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, AWAITING_REVIEW: 4, COMPLETED: 5, CANCELLED: 6 }
+const row = (id = 'order-a', orderState = 3, values = {}) => ({ id, orderState, skus: [], countdown: 0, createTime: id, ...values })
 const pageOf = (items = [row()], pages = 1) => ({ items, pages })
-const loader = execute(sourceOf(base + 'utils/OrderTabLoader.ets'), { './OrderPresentation': { isOrderStateInTab: inTab } })
+const presentation = execute(sourceOf(base + 'utils/OrderPresentation.ets'), { models: { OrderState: states } })
+const loader = execute(sourceOf(base + 'utils/OrderTabLoader.ets'), { './OrderPresentation': presentation })
 
 function fixture() {
-  const queries = [], writes = [], messages = [], navigations = []
+  const queries = [], writes = [], messages = [], navigations = [], dialogs = []
   let pending = [], mutation = async id => row(id, 4)
   const Page = pageMethods(base + 'views/OrderView.ets', 'OrderView', {}, {
-    ...loader, OrderState: states, isOrderStateInTab: inTab,
+    ...loader, OrderState: states,
+    ...presentation,
     readPhoneClockMillis: () => 0, secondsLeftToPay: remaining => remaining,
     PAGE_PATH: { ORDER_PAGE: 'orders', PAY_PAGE: 'pay', ORDER_DETAIL_PAGE: 'detail', EVALUATION_PAGE: 'evaluation' },
     getOrderListAPI: (params, token) => { const gate = deferred(); queries.push({ ...gate, params, token }); return gate.promise },
@@ -25,13 +26,15 @@ function fixture() {
   const page = new Page()
   page.user = { token: 'buyer-a' }
   page.safeToast = message => messages.push(message)
+  page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog),
+    getPromptAction: () => ({ showToast: value => messages.push(value.message) }) })
   page.stackPath = { pushPath: path => navigations.push(path), getParamByName: () => [] }
   const load = async (value = pageOf()) => {
     const task = page.reloadOrders()
     queries.at(-1).resolve(value)
     await task
   }
-  return { page, queries, writes, messages, navigations, load,
+  return { page, queries, writes, messages, navigations, dialogs, load,
     setMutation: fn => { mutation = fn }, setPending: ids => { pending = ids } }
 }
 
@@ -192,4 +195,87 @@ test('提醒发货绑定原会话且不改变状态，重复操作受锁保护',
   await action
   assert.equal(f.page.orders[0].orderState, 2)
   assert.deepEqual(f.messages, ['reminded'])
+})
+
+test('确认中列表保留待付款行，隐藏支付与倒计时并展示提示退款和未读红点', async () => {
+  const f = fixture()
+  const confirming = row('pending-payment', 1, { paymentState: 'confirming', canPay: false, countdown: 0,
+    paymentNotice: '正在确认付款结果，请勿重复付款', needsAttention: true,
+    refunds: [{ id: 'refund-a', amount: 19, payerAccount: 'payer-a', paidAt: 1793865600000, state: '退款中' }] })
+  await f.load(pageOf([confirming]))
+  assert.equal(f.page.orders[0].paymentState, 'confirming')
+  assert.equal(f.page.orders[0].needsAttention, true)
+  assert.equal(f.page.canUseOrder('pending-payment'), true)
+  assert.equal(f.page.goPay('pending-payment'), undefined)
+  assert.equal(f.navigations.length, 0)
+  const viewSource = sourceOf(base + 'views/OrderView.ets')
+  assert.match(viewSource, /if \(shouldShowPaymentCountdown\(order\)\)/)
+  assert.match(viewSource, /Text\(getPaymentDisplayLabel\(order\)\)/)
+  assert.match(viewSource, /Text\(getRefundDisplayLine\(refund\)\)/)
+  assert.match(viewSource, /if \(hasUnreadPaymentNotice\(order\)\)/)
+})
+
+test('列表确认中取消先弹退款提示，取消弹窗不提交，确认后才取消', async () => {
+  const f = fixture(), confirming = row('pending-payment', 1, { paymentState: 'confirming', canPay: false,
+    canCancel: true, payMoney: 24.5, paymentNotice: '正在确认付款结果，请勿重复付款' })
+  await f.load(pageOf([confirming]))
+  f.page.requestCancelOrder(confirming)
+  assert.equal(f.dialogs.length, 1)
+  assert.equal(f.dialogs[0].message, '付款可能已经成功。取消后，如已扣款，¥24.50将原路退回付款账户。确定取消吗？')
+  f.dialogs[0].primaryButton.action()
+  assert.equal(f.writes.length, 0)
+  f.dialogs[0].secondaryButton.action(); await tick()
+  assert.equal(f.writes.length, 0)
+  f.page.requestCancelOrder(confirming)
+  f.dialogs[1].secondaryButton.action(); await tick()
+  assert.equal(f.writes.length, 1)
+  assert.equal(f.writes[0].action, 'cancel')
+})
+
+test('B-53：多扣退款保留有效付款人，查看详情返回后列表红点消失', async () => {
+  const f = fixture(), paid = row('order-a', 2, { serverManaged: true, paymentState: 'paid', payerAccount: 'buyer-a',
+    needsAttention: true, paymentNotice: '多付的 ¥19.00 已原路退回付款账户。',
+    refunds: [{ id: 'refund-a', amount: 19, payerAccount: 'friend-a', paidAt: null, state: '已退款' }] })
+  await f.load(pageOf([paid]))
+  assert.equal(presentation.hasUnreadPaymentNotice(f.page.orders[0]), true)
+  assert.equal(presentation.getRefundDisplayLine(f.page.orders[0].refunds[0]), '¥19.00 · friend-a · 付款时间待确认 · 已退款')
+  f.page.openOrderDetail('order-a'); assert.equal(f.navigations[0].param, 'order-a')
+  f.page.hideOrders(); f.page.refreshOnReturn()
+  f.queries.at(-1).resolve(pageOf([{ ...paid, needsAttention: false }])); await tick()
+  assert.equal(presentation.hasUnreadPaymentNotice(f.page.orders[0]), false)
+  assert.equal(f.page.orders[0].payerAccount, 'buyer-a')
+  assert.equal(f.page.orders[0].orderState, 2)
+})
+
+test('全部取消后原位保留已取消卡片，待付款取消后移除且不再允许操作', async () => {
+  for (const tab of [0, 1]) {
+    const f = fixture(); f.page.selectedState = tab
+    const pending = row('order-a', 1, { canCancel: true, payMoney: 19 })
+    await f.load(pageOf([row('before', 1), pending, row('after', 1)]))
+    const beforeIds = Array.from(f.page.orders, order => order.id)
+    f.setMutation(async id => row(id, 6, { canCancel: false, canPay: false }))
+    f.page.requestCancelOrder(pending); await tick()
+    assert.deepEqual(Array.from(f.page.orders, order => order.id), tab === 0 ? beforeIds : beforeIds.filter(id => id !== 'order-a'))
+    if (tab === 0) {
+      const cancelled = f.page.orders.find(order => order.id === 'order-a')
+      assert.equal(cancelled.orderState, 6)
+      assert.equal(f.page.hasOrderActions(cancelled), false)
+      assert.equal(presentation.shouldShowPaymentCountdown(cancelled), false)
+      f.page.goPay('order-a'); f.page.requestCancelOrder(cancelled)
+      assert.equal(f.writes.length, 1); assert.equal(f.navigations.length, 0)
+      f.page.openOrderDetail('order-a'); assert.equal(f.navigations[0].param, 'order-a')
+    }
+  }
+  assert.match(sourceOf(base + 'views/OrderView.ets'), /if \(this.hasOrderActions\(order\)\)/)
+})
+
+test('已取消退款订单详情返回后仍可找到且红点消失', async () => {
+  const f = fixture(), cancelled = row('cancelled', 6, { needsAttention: true,
+    refunds: [{ id: 'refund', amount: 19, payerAccount: 'buyer', paidAt: null, state: '已退款' }] })
+  await f.load(pageOf([cancelled]))
+  assert.equal(f.page.orders.length, 1)
+  f.page.openOrderDetail('cancelled'); f.page.hideOrders(); f.page.refreshOnReturn()
+  f.queries.at(-1).resolve(pageOf([{ ...cancelled, needsAttention: false }])); await tick()
+  assert.equal(f.page.orders[0].needsAttention, false)
+  assert.equal(presentation.getPaymentDisplayLabel(f.page.orders[0]), '已取消 · 已退款')
 })

@@ -1,13 +1,13 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser } from 'models'
 import { HDMGuess, HDMNavCol } from 'ui_components'
-import { getGuessLikeAPI } from '../../data/api'
+import { getGuessLikeAPI, getOrderAttentionCountAPI } from '../../data/api'
 
 @Component
 export struct MineView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   safeTop: number = 0
-  @StorageProp(GlobalVariable.USER_INFO_KEY)
+  @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadAttentionForAccount')
   // user: HDMUser = {} as HDMUser
   // user: Partial<HDMUser> = {}
   user: HDMUser = {
@@ -18,15 +18,67 @@ export struct MineView {
   }
   @Consume
   stackPath: NavPathStack
+  @State attentionCount: number = 0
+  private attentionVisible: boolean = false
+  private attentionToken: string = ''
+  private attentionSequence: number = 0
+
+  aboutToAppear(): void {
+    this.attentionVisible = true
+    this.refreshOrderAttention()
+  }
+
+  aboutToDisappear(): void {
+    this.setAttentionVisible(false)
+  }
+
+  private setAttentionVisible(visible: boolean): void {
+    if (this.attentionVisible === visible) return
+    this.attentionVisible = visible
+    this.attentionSequence++
+    if (visible) this.refreshOrderAttention()
+  }
+
+  private reloadAttentionForAccount(): void {
+    this.attentionToken = ''
+    this.attentionSequence++
+    this.attentionCount = 0
+    this.refreshOrderAttention()
+  }
+
+  private refreshAttentionOnOrdersReturn(): void {
+    this.attentionVisible = true
+    this.refreshOrderAttention()
+  }
+
+  private async refreshOrderAttention(): Promise<void> {
+    const token: string = this.user.token || ''
+    const sequence: number = ++this.attentionSequence
+    this.attentionToken = token
+    if (!token || !this.attentionVisible) {
+      this.attentionCount = 0
+      return
+    }
+    try {
+      const result = await getOrderAttentionCountAPI(token)
+      if (sequence === this.attentionSequence && token === this.attentionToken && token === (this.user.token || '')) {
+        this.attentionCount = result.count
+      }
+    } catch {
+      if (sequence === this.attentionSequence && token === this.attentionToken) this.attentionCount = 0
+    }
+  }
 
   private openOrders(orderState: number): void {
     if (!this.user.token) {
       this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })
       return
     }
+    this.refreshOrderAttention()
     this.stackPath.pushPath({
       name: PAGE_PATH.ORDER_PAGE,
-      param: orderState
+      param: orderState,
+      onPop: () => this.refreshAttentionOnOrdersReturn()
     })
   }
 
@@ -178,13 +230,19 @@ export struct MineView {
             .borderRadius(10)
 
             Column() {
-              Text('我的订单')
-                .fontSize(14)
-                .width('100%')
-                .padding({ left: 8, top: 8 })
-                .lineHeight(22)
-                .fontWeight(500)
-                .fontColor($r('[ui_components].color.black'))
+              Row() {
+                Text('我的订单')
+                  .fontSize(14)
+                  .layoutWeight(1)
+                  .lineHeight(22)
+                  .fontWeight(500)
+                  .fontColor($r('[ui_components].color.black'))
+                if (this.attentionCount > 0) {
+                  Text('●').fontSize(10).fontColor('#D93025')
+                }
+              }
+              .width('100%')
+              .padding({ left: 8, right: 8, top: 8 })
               GridRow({ columns: 5 }) {
                 GridCol() {
                   HDMNavCol({
@@ -245,5 +303,6 @@ export struct MineView {
     .width('100%')
     .height('100%')
     .backgroundColor($r('[ui_components].color.under'))
+    .onVisibleAreaChange([0.0], (visible: boolean) => this.setAttentionVisible(visible))
   }
 }

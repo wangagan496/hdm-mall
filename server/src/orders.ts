@@ -163,16 +163,17 @@ export class Orders {
     return this.present(order, user)
   }
   private listFilter(user: User, state: number, family: boolean) {
-    const stateFilter = state ? 'o.state=?' : 'o.state<>?'
-    const values: (string | number)[] = [state || ORDER_STATE.CANCELLED, user.id]
+    const stateFilter = state ? 'o.state=?' : '1=1'
+    const values: (string | number)[] = state ? [state, user.id] : [user.id]
     if (!family) return { where: `${stateFilter} AND o.owner_id=?`, values }
     // 与 canRead 一致，把亲友可读范围直接交给数据库筛选。
     const bound = "EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')"
     values.push(user.id, user.id, user.id, user.id, user.id, user.id)
-    return { where: `${stateFilter} AND o.owner_id<>? AND (o.paid_by=? OR o.received_by=? OR
+    return { where: `${stateFilter} AND o.owner_id<>? AND (
       EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR
+      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR
       (o.state=1 AND o.invited_payer=? AND ${bound}) OR
-      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND ${bound}))`, values }
+      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND ${bound}))))`, values }
   }
   list(user: User, state = 0, family = false) {
     this.expireIfDue()

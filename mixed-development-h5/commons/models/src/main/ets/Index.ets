@@ -20,6 +20,10 @@ export {
   CreateOrderParams,
   CreateOrderResult,
   OrderItem,
+  OrderRefund,
+  PaymentStartResult,
+  PaymentFields,
+  OrderAttentionCount,
   OrderSku,
   Property,
   PayResultParams

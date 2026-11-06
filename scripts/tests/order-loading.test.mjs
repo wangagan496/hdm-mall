@@ -3,10 +3,30 @@ import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
 
 const base = 'mixed-development-h5/'
-const states = { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, AWAITING_REVIEW: 4 }
-const inTab = (state, tab) => !tab || state === tab
+const states = { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, AWAITING_REVIEW: 4, CANCELLED: 6 }
+const presentation = execute(sourceOf(base + 'features/cart/src/main/ets/presentation/utils/OrderPresentation.ets'), { models: { OrderState: states } })
+const inTab = presentation.isOrderStateInTab
 const loader = execute(sourceOf(base + 'features/cart/src/main/ets/presentation/utils/OrderTabLoader.ets'), {
   './OrderPresentation': { isOrderStateInTab: inTab },
+})
+
+test('全部分页把已取消订单计入一屏，末页和状态筛选后的拼页不提前结束', async () => {
+  const calls = []
+  const pages = [[row('cancelled', 6), row('pending', 1)], [row('last', 6)]]
+  const api = { isCurrent: () => true, getPage: async params => {
+    calls.push(params.page); return { items: pages[params.page - 1] || [], pages: 2 }
+  } }
+  const first = await loader.loadOrderTabPage({ page: 1, pageSize: 2, state: 0 }, api)
+  assert.deepEqual(calls, [1])
+  assert.equal(first.items.length, 2); assert.equal(first.nextPage, 2); assert.equal(first.finished, false)
+  const last = await loader.loadOrderTabPage({ page: first.nextPage, pageSize: 2, state: 0 }, api)
+  assert.deepEqual(Array.from(last.items, item => item.id), ['last'])
+  assert.equal(last.finished, true)
+  const merged = loader.mergeOrdersForTab(first.items, [row('pending', 6), ...last.items], { state: 0 })
+  assert.equal(merged.length, 3); assert.ok(merged.every(item => item.orderState === 6))
+  calls.length = 0
+  const filtered = await loader.loadOrderTabPage({ page: 1, pageSize: 2, state: 1 }, api)
+  assert.deepEqual(calls, [1, 2]); assert.equal(filtered.items.length, 1); assert.equal(filtered.finished, true)
 })
 
 function row(id, state = 1) {

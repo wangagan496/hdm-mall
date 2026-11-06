@@ -44,7 +44,8 @@ test('不同评价不冒充本次成功，换会话不能提交旧草稿，写�
 })
 
 const states = { ALL_TAB: 0, AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT: 3, AWAITING_REVIEW: 4, COMPLETED: 5, CANCELLED: 6 }
-const inTab = (state, tab) => state !== 6 && (!tab || state === tab)
+const presentation = execute(sourceOf(base + 'features/cart/src/main/ets/presentation/utils/OrderPresentation.ets'), { models: { OrderState: states } })
+const inTab = presentation.isOrderStateInTab
 const tabLogic = execute(sourceOf(base + 'features/cart/src/main/ets/presentation/utils/OrderTabLoader.ets'), { './OrderPresentation': { isOrderStateInTab: inTab } })
 function orderFixture() {
   let clock = 10000, fetch = async () => ({ items: [], pages: 0 })
@@ -69,8 +70,9 @@ test('订单操作原地替换或移出栏目，缺失返回才回退刷新', as
   let reloads = 0; f.page.reloadOrders = async () => { reloads++ }
   await f.page.runOrderAction('b', 'remind', async () => ({ id: 'b' }), 'ok'); assert.equal(reloads, 1)
 })
-test('删除订单后重读边界页，追加去重不漏单，旧翻页不会复活已取消订单', async () => {
+test('待付款栏目取消后重读边界页，追加去重不漏单，旧翻页不会复活已取消订单', async () => {
   const f = orderFixture()
+  f.page.selectedState = 1; f.page.loadedState = 1
   const orders = Array.from({ length: 21 }, (_, i) => ({ id: String(30 - i), orderState: 1, skus: [], countdown: 90, createTime: '2026-10-28' }))
   f.page.orders = orders.slice(0, 20); f.page.page = 3; f.page.countdownBaseAt = 10000
   const stale = deferred(); f.setFetch(() => stale.promise); const loading = f.page.loadMore()

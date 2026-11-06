@@ -1,11 +1,11 @@
-import { FamilyRelation, FamilyRelationPage, OrderItem, OrderPage } from 'models'
+import { FamilyRelation, FamilyRelationPage, OrderAttentionCount, OrderItem, OrderPage, PaymentStartResult } from 'models'
 import { RequestAxios } from 'network'
 
 interface InvitePayload { account: string }
 interface RelationPayload { action: string }
-interface PaymentPayload { amountCents: number }
 interface FamilyActionResult { id: string }
 interface EmptyPayload {}
+interface PaymentPayload { amountCents: number }
 const EMPTY_PAYLOAD: EmptyPayload = {}
 
 export const getFamilyRelationsAPI = (): Promise<FamilyRelation[]> => {
@@ -50,9 +50,13 @@ export const receiveOrderAPI = (id: string, token: string): Promise<FamilyAction
   return RequestAxios.putForSession<FamilyActionResult>(`/member/order/${id}/receipt`, EMPTY_PAYLOAD, token)
 }
 
-export const familyPayAPI = (id: string, amount: number, token: string): Promise<FamilyActionResult> => {
+export const startFamilyPaymentAPI = (id: string, amount: number, token: string): Promise<PaymentStartResult> => {
   const data: PaymentPayload = { amountCents: Math.round(amount * 100) }
-  return RequestAxios.postWithSession<FamilyActionResult>(`/member/order/${id}/mock-pay`, data, token)
+  return RequestAxios.postWithSession<PaymentStartResult>(`/member/order/${id}/payments`, data, token)
+}
+
+export const getOrderAttentionCountAPI = (token: string): Promise<OrderAttentionCount> => {
+  return RequestAxios.getForSession<OrderAttentionCount>('/member/order/attention', token)
 }
 
 export const shipOrderAPI = (id: string, token: string): Promise<FamilyActionResult> => {

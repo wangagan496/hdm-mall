@@ -182,6 +182,7 @@ export async function buildApp(options: AppOptions) {
     const query = pageSchema.parse(req.query)
     return orders.familyPage(user, query.page, query.pageSize)
   })
+  protectedRoute('GET', '/member/order/attention', (_req, user) => payments.attentionCount(user))
   protectedRoute('GET', '/member/order/:id', (req, user) => orders.detail(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/payer', (req, user) => orders.invitePayer(user, key(req), z.object({ friendId: idSchema.nullable() }).parse(req.body).friendId))
   protectedRoute('POST', '/member/order/:id/payments', (req, user) => payments.start(user, key(req), z.object({ amountCents: z.number().int().positive() }).parse(req.body).amountCents))

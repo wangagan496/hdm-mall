@@ -55,12 +55,12 @@ test('收银台邀请切回本人和模拟付款固定凭证，真实路由保�
     const self = api.invitePayerAPI(id, null, buyer.token); current = stranger; await self
     assert.equal((await detail()).canPay, true)
     count = requests.length
-    await assert.rejects(api.mockPayAPI(id, 18, buyer.token)); assert.equal(requests.length, count + 1)
+    await assert.rejects(api.startPaymentAPI(id, 18, buyer.token)); assert.equal(requests.length, count + 1)
     count = requests.length
-    await assert.rejects(api.mockPayAPI(id, 19, stranger.token)); assert.equal(requests.length, count + 1)
+    await assert.rejects(api.startPaymentAPI(id, 19, stranger.token)); assert.equal(requests.length, count + 1)
     assert.equal((await detail()).orderState, 1)
     current = buyer
-    const paying = api.mockPayAPI(id, 19, buyer.token); current = stranger; await paying
+    const paying = api.startPaymentAPI(id, 19, buyer.token); current = stranger; await paying
     const paid = await detail()
     assert.equal(paid.orderState, 2); assert.equal(paid.payerAccount, 'cashier_buyer')
     for (const index of [0, 2, 3, 5]) assert.equal(requests[index].headers.Authorization, `Bearer ${buyer.token}`)
@@ -71,6 +71,7 @@ test('收银台邀请切回本人和模拟付款固定凭证，真实路由保�
     assert.deepEqual(JSON.parse(requests[0].data), { friendId: friend.id })
     assert.deepEqual(JSON.parse(requests[2].data), { friendId: null })
     assert.deepEqual(JSON.parse(requests[5].data), { amountCents: 1900 })
+    assert.equal(requests[5].url, `/member/order/${id}/payments`)
   } finally { await f.app.close() }
 })
 

@@ -488,6 +488,12 @@ export class Payments {
     return this.fieldsForOrder(order, user)
   }
 
+  attentionCount(user: User) {
+    const count = this.db.one<{ count: number }>(`SELECT COUNT(DISTINCT order_id) AS count FROM payment_notices
+      WHERE recipient_id=? AND viewed_at IS NULL`, user.id)!.count
+    return { count }
+  }
+
   private fieldsForOrder(order: PaymentPresentationOrder, user: User) {
     const payments = this.db.all<PaymentRow>('SELECT * FROM payments WHERE order_id=? ORDER BY created,id', order.id)
     const visiblePayments = payments.filter(payment => user.id === order.owner_id || user.id === payment.payer_id)

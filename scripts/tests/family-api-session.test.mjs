@@ -66,10 +66,10 @@ test('亲友邀请确认解除、代付代收及商家发货固定凭证，真�
     assert.equal(invited.statusCode, 200)
     const detail = async () => (await f.app.inject({ method: 'GET', url: `/member/order/${id}`,
       headers: { authorization: `Bearer ${owner.token}` } })).json().result
-    await rejected(() => api.familyPayAPI(id, 19, stranger.token))
-    await rejected(() => api.familyPayAPI(id, 18, friend.token))
+    await rejected(() => api.startFamilyPaymentAPI(id, 19, stranger.token))
+    await rejected(() => api.startFamilyPaymentAPI(id, 18, friend.token))
     assert.equal((await detail()).orderState, 1)
-    await asUser(friend, token => api.familyPayAPI(id, 19, token), { amountCents: 1900 })
+    await asUser(friend, token => api.startFamilyPaymentAPI(id, 19, token), { amountCents: 1900 })
     assert.equal((await detail()).payerAccount, 'family_friend')
     await rejected(() => api.shipOrderAPI(id, owner.token))
     assert.equal((await detail()).orderState, 2)

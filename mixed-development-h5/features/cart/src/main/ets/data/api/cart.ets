@@ -10,6 +10,8 @@ import {
   OrderItem,
   OrderListParams,
   OrderPage,
+  PaymentStartResult,
+  PaymentFields,
   PreOrder,
   UpdateCartParams
 } from 'models'
@@ -80,6 +82,8 @@ interface CancelOrderParams {
 interface EmptyParams {
 }
 
+interface PaymentPayload { amountCents: number }
+
 const CANCEL_REASON_UNWANTED: CancelOrderParams = { cancelReason: '不想要了' }
 const EMPTY_PARAMS: EmptyParams = {}
 
@@ -148,12 +152,15 @@ export const commentOrderAPI = (orderId: string, data: EvaluationPayload, token?
 
 export { FamilyRelation } from 'models'
 
-interface PaymentPayload { amountCents: number }
 interface PayerPayload { friendId: string | null }
 
-export function mockPayAPI(orderId: string, amount: number, token: string): Promise<OrderStateResult> {
+export function startPaymentAPI(orderId: string, amount: number, token: string): Promise<PaymentStartResult> {
   const data: PaymentPayload = { amountCents: Math.round(amount * 100) }
-  return RequestAxios.postWithSession<OrderStateResult>(`/member/order/${orderId}/mock-pay`, data, token)
+  return RequestAxios.postWithSession<PaymentStartResult>(`/member/order/${orderId}/payments`, data, token)
+}
+
+export function refreshPaymentAPI(orderId: string, token: string): Promise<PaymentFields> {
+  return RequestAxios.postWithSession<PaymentFields>(`/member/order/${orderId}/payments/refresh`, EMPTY_PARAMS, token)
 }
 
 export function invitePayerAPI(orderId: string, friendId: string | null, token: string): Promise<OrderStateResult> {
