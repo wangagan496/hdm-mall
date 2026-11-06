@@ -205,6 +205,13 @@ export async function buildApp(options: AppOptions) {
       throw error
     }
   })
+  protectedRoute('GET', '/order-cancel-actions/by-request/:requestKey', (req, user) => orders.cancelActionReceipt(user,
+    z.object({ requestKey: z.string().uuid() }).parse(req.params).requestKey))
+  protectedRoute('POST', '/member/order/:id/cancel-requests', (req, user) => orders.requestCancel(user, key(req),
+    z.object({ requestKey: z.string().uuid() }).strict().parse(req.body).requestKey))
+  protectedRoute('POST', '/member/order/:id/cancel-requests/:cancelRequestId/withdraw', (req, user) => orders.withdrawCancel(user, key(req),
+    z.object({ cancelRequestId: z.string().uuid() }).parse(req.params).cancelRequestId,
+    z.object({ requestKey: z.string().uuid() }).strict().parse(req.body).requestKey))
   protectedRoute('PUT', '/member/order/:id/cancel', (req, user) => orders.cancel(user, key(req)))
   protectedRoute('POST', '/member/order/:id/reminder', (req, user) => orders.remind(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/receipt', (req, user) => orders.receive(user, key(req)))
@@ -238,9 +245,21 @@ export async function buildApp(options: AppOptions) {
     adjustStock(db, user, key(req), z.object({ requestKey: z.string().uuid(),
       delta: z.number().int().min(-1000000).max(1000000).refine(value => value !== 0),
       expectedStock: z.number().int().min(0).max(2147483647), reason: z.string().trim().min(5).max(200) }).parse(req.body), clock))
+  protectedRoute('POST', '/merchant/orders/:id/cancel-requests/:cancelRequestId/resolve', (req, user) => orders.resolveCancel(user, key(req),
+    z.object({ cancelRequestId: z.string().uuid() }).parse(req.params).cancelRequestId,
+    z.discriminatedUnion('decision', [
+      z.object({ requestKey: z.string().uuid(), decision: z.literal('approve') }).strict(),
+      z.object({ requestKey: z.string().uuid(), decision: z.literal('reject-and-ship'), reason: z.string().optional() }).strict()
+    ]).parse(req.body)))
   protectedRoute('POST', '/merchant/orders/:id/ship', (req, user) => orders.ship(user, key(req)))
+  const processCancelRequests = () => {
+    const result = orders.processDueCancelRequests(clock.now())
+    if (result.failed.length) app.log.error({ cancelRequestIds: result.failed }, 'Order cancellation processing failed')
+  }
+  processCancelRequests()
   const timer = setInterval(() => {
     try { orders.expire() } catch { app.log.error('Order expiration failed') }
+    try { processCancelRequests() } catch { app.log.error('Order cancellation scan failed') }
     void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
   }, 30_000).unref()
   app.addHook('onClose', async () => { clearInterval(timer); db.close() })

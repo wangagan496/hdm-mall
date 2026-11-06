@@ -251,6 +251,18 @@ export class Payments {
     if (expired.length) this.db.transaction(() => { for (const order of expired) this.releaseStock(order, now) })
   }
 
+  effectivePaymentId(orderId: string): string | undefined {
+    return this.db.one<{ id: string }>(`SELECT p.id FROM payments p JOIN orders o ON o.id=p.order_id
+      WHERE o.id=? AND p.state='succeeded' AND p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at
+      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)
+      ORDER BY p.created,p.id LIMIT 1`, orderId)?.id
+  }
+
+  createOrderCancellationRefund(orderId: string, paymentId: string, now: number) {
+    if (this.effectivePaymentId(orderId) !== paymentId) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
+    return this.createRefund(this.payment(paymentId)!, 'cancelled', now)
+  }
+
   private createRefund(payment: PaymentRow, reason: RefundRow['reason'], now: number) {
     const existing = this.db.one<{ id: string }>('SELECT id FROM refunds WHERE payment_id=?', payment.id)
     if (existing) return existing.id

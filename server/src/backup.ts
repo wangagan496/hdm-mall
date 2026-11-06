@@ -14,10 +14,11 @@ const issueSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('unsupported-avatar'), userId: z.string() }).strict(),
   z.object({ type: z.literal('missing-avatar'), userId: z.string() }).strict(),
   z.object({ type: z.literal('payment-mismatch'), orderId: z.string() }).strict(),
+  z.object({ type: z.literal('cancel-request-mismatch'), orderId: z.string() }).strict(),
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -64,6 +65,40 @@ async function fingerprint(root: string, path: string) {
   return { path, bytes: after.size, sha256: hash.digest('hex') }
 }
 
+function inspectCancellations(db: DatabaseSync) {
+  const invalid = new Set<string>()
+  for (const row of db.prepare("SELECT order_id FROM order_cancel_requests WHERE state='pending' GROUP BY order_id HAVING COUNT(*)>1").all()) invalid.add(String(row.order_id))
+  const requests = db.prepare("SELECT c.*,o.state AS order_state,o.owner_id,o.amount AS order_amount,o.paid_by,o.paid_at,o.shipped_at,p.order_id AS payment_order,p.payer_id,p.amount AS payment_amount,p.state AS payment_state,p.channel_paid_at,r.payment_id AS refund_payment,r.amount AS refund_amount,r.reason AS refund_reason,EXISTS(SELECT 1 FROM refunds existing WHERE existing.payment_id=c.payment_id) AS payment_refunded FROM order_cancel_requests c JOIN orders o ON o.id=c.order_id JOIN payments p ON p.id=c.payment_id LEFT JOIN refunds r ON r.id=c.refund_id").all()
+  for (const request of requests) {
+    const approved = request.state === 'approved' || request.state === 'auto-approved'
+    let valid = request.requested_by === request.owner_id && request.payment_order === request.order_id && request.payer_id === request.paid_by &&
+      request.payment_amount === request.order_amount && request.channel_paid_at === request.paid_at && request.payment_state === 'succeeded'
+    if (request.state === 'pending') valid &&= request.order_state === 2 && request.shipped_at === null && request.payment_refunded === 0
+    if (request.state === 'rejected-shipped') valid &&= [3, 4, 5].includes(Number(request.order_state)) && request.shipped_at === request.resolved_at && request.payment_refunded === 0
+    if (approved) valid &&= request.order_state === 6 && request.shipped_at === null && request.refund_payment === request.payment_id &&
+      request.refund_amount === request.payment_amount && request.refund_reason === 'cancelled'
+    const actions = db.prepare('SELECT a.*,u.role FROM order_cancel_actions a LEFT JOIN users u ON u.id=a.actor_id WHERE a.cancel_request_id=?').all(request.id!)
+    const terminalAction = request.state === 'withdrawn' ? 'withdraw' : request.state === 'approved' ? 'approve' : request.state === 'auto-approved' ? 'auto-approve' : 'reject-and-ship'
+    valid &&= actions.length === (request.state === 'pending' ? 1 : 2) && actions.filter(action => action.action === 'request').length === 1
+    for (const action of actions) {
+      const initial = action.action === 'request'
+      const actorValid = initial || action.action === 'withdraw' ? action.actor_id === request.requested_by :
+        action.action === 'auto-approve' ? action.actor_id === null : action.actor_id === request.resolved_by && action.role === 'merchant'
+      const expectedState = initial ? 'pending' : request.state
+      const expectedTime = initial ? request.created : request.resolved_at
+      const expectedRefund = !initial && approved ? request.refund_id : null
+      const body = JSON.stringify({ orderId: request.order_id, ...(initial ? {} : { cancelRequestId: request.id }), action: action.action,
+        ...(action.action === 'reject-and-ship' ? { reason: request.reject_reason } : {}) })
+      const result = JSON.parse(String(action.result)) as Record<string, unknown> | null
+      valid &&= actorValid && (initial || action.action === terminalAction) && action.order_id === request.order_id && action.created === expectedTime && action.request_body === body &&
+        result !== null && typeof result === 'object' && result.id === action.id && result.orderId === request.order_id && result.cancelRequestId === request.id &&
+        result.action === action.action && result.appliedState === expectedState && result.appliedAt === expectedTime && result.refundId === expectedRefund
+    }
+    if (!valid) invalid.add(String(request.order_id))
+  }
+  return [...invalid].sort()
+}
+
 function inspectDatabase(path: string) {
   const db = new DatabaseSync(path, { readOnly: true })
   try {
@@ -71,11 +106,12 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7) throw new Error('仅支持数据库版本 2、3、4、5、6 或 7')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8) throw new Error('仅支持数据库版本 2、3、4、5、6、7 或 8')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
-      ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions'] : [])]) {
+      ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions', 'payment_notices', 'payment_review_resolutions'] : []),
+      ...(version >= 8 ? ['order_cancel_requests', 'order_cancel_actions'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -87,13 +123,23 @@ function inspectDatabase(path: string) {
       }
     }
     if (version >= 7) {
-      for (const row of db.prepare(`SELECT o.id FROM orders o WHERE o.paid_by IS NOT NULL AND (
-        SELECT COUNT(*) FROM payments p WHERE p.order_id=o.id AND p.state='succeeded'
-          AND p.payer_id=o.paid_by AND p.amount=o.amount AND p.channel_paid_at=o.paid_at
-          AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)
-      )<>1 ORDER BY o.id`).iterate()) {
-        issues.push({ type: 'payment-mismatch', orderId: String(row.id) })
+      for (const order of db.prepare('SELECT id,state,shipped_at,paid_by,paid_at,amount FROM orders WHERE paid_by IS NOT NULL').all()) {
+        const effective = Number(db.prepare("SELECT COUNT(*) AS count FROM payments p WHERE p.order_id=? AND p.state='succeeded' AND p.payer_id=? AND p.amount=? AND p.channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)").get(order.id!, order.paid_by!, order.amount!, order.paid_at!)!.count)
+        let valid = effective === 1
+        if (version >= 8 && order.state === 6) {
+          const cancellation = db.prepare("SELECT c.payment_id,r.payment_id AS refund_payment,r.reason,r.amount,p.amount AS paid_amount,p.state AS payment_state,p.order_id,p.payer_id,p.channel_paid_at FROM order_cancel_requests c LEFT JOIN refunds r ON r.id=c.refund_id LEFT JOIN payments p ON p.id=c.payment_id WHERE c.order_id=? AND c.state IN ('approved','auto-approved')").all(order.id!)
+          if (cancellation.length) {
+            const request = cancellation[0]!
+            valid = cancellation.length === 1 && effective === 0 && order.shipped_at === null && request.payment_id === request.refund_payment &&
+              request.reason === 'cancelled' && request.amount === order.amount && request.paid_amount === order.amount && request.payment_state === 'succeeded' &&
+              request.order_id === order.id && request.payer_id === order.paid_by && request.channel_paid_at === order.paid_at
+          }
+        }
+        if (!valid) issues.push({ type: 'payment-mismatch', orderId: String(order.id) })
       }
+    }
+    if (version >= 8) {
+      for (const orderId of inspectCancellations(db)) issues.push({ type: 'cancel-request-mismatch', orderId })
     }
     const uploads = new Set<string>()
     const avatarUsers: { path: string; userId: string }[] = []
@@ -110,7 +156,7 @@ function inspectDatabase(path: string) {
       uploads.add(path.slice(1))
       avatarUsers.push({ path: path.slice(1), userId: String(row.id) })
     }
-    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 }
+    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 }
   } finally { db.close() }
 }
 

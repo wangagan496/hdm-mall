@@ -53,6 +53,29 @@ export interface CreateOrder {
   addressId: string
   goods: { skuId: string; count: number }[]
 }
+interface CancelRequest {
+  id: string
+  order_id: string
+  sequence: number
+  requested_by: string
+  payment_id: string
+  state: 'pending' | 'withdrawn' | 'approved' | 'rejected-shipped' | 'auto-approved'
+  created: number
+  deadline_at: number
+  resolved_at: number | null
+  resolved_by: string | null
+  reject_reason: string | null
+  refund_id: string | null
+}
+interface CancelReceipt {
+  id: string
+  orderId: string
+  cancelRequestId: string
+  action: 'request' | 'withdraw' | 'approve' | 'reject-and-ship' | 'auto-approve'
+  appliedState: CancelRequest['state']
+  appliedAt: number
+  refundId: string | null
+}
 export class Orders {
   db: Database
   accounts: Accounts
@@ -70,9 +93,9 @@ export class Orders {
     this.clock = clock
   }
   attachPayments(payments: Payments) { this.payments = payments }
-  private get(id: string): Order {
+  private get(id: string, reason?: string): Order {
     const order = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id)
-    ensure(order, 404, '订单不存在')
+    if (!order) throw new AppError(404, '订单不存在', reason)
     return order
   }
   private items(id: string) {
@@ -126,6 +149,35 @@ export class Orders {
     }
     return order.owner_id === user.id
   }
+  private cancelFields(order: Order, user: User, merchantShipment: boolean, paymentOnly: boolean) {
+    const serverNow = this.clock.now()
+    const disabled = { cancelRequest: null, canRequestCancel: false, canWithdrawCancel: false, canResolveCancel: false,
+      canShip: false, cancelRequestNotice: '', cancelConfirmation: null, serverNow }
+    if (paymentOnly) return disabled
+    const request = this.db.one<CancelRequest>('SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1', order.id)
+    const pending = request?.state === 'pending'
+    const effective = order.state === 2 ? this.payments?.effectivePaymentId(order.id) : undefined
+    const owner = order.owner_id === user.id
+    const merchant = merchantShipment && user.role === 'merchant'
+    const actionable = pending && serverNow < request.deadline_at && order.state === 2
+    const canRequestCancel = owner && order.state === 2 && !pending && Boolean(effective)
+    let cancelRequestNotice = ''
+    if (request) {
+      if (pending) cancelRequestNotice = serverNow >= request.deadline_at ? '已到自动处理时间，正在处理' :
+        (merchant ? '买家申请取消' : '取消申请审核中') + '；商家将在72小时内处理，超时自动同意'
+      else if (request.state === 'withdrawn') cancelRequestNotice = '已撤回取消申请'
+      else if (request.state === 'approved') cancelRequestNotice = '商家已同意取消申请'
+      else if (request.state === 'auto-approved') cancelRequestNotice = '商家超时未处理，系统已自动同意'
+      else cancelRequestNotice = '商家拒绝取消申请：' + request.reject_reason + '。如有问题请联系客服'
+    }
+    const destination = this.paymentMode(order) === 'family' ? '亲友 ' + this.account(order.paid_by) + ' 的付款账户' : '付款账户'
+    return { cancelRequest: request ? { id: request.id, sequence: request.sequence, state: request.state, createdAt: request.created,
+      deadlineAt: request.deadline_at, resolvedAt: request.resolved_at, rejectReason: request.reject_reason, refundId: request.refund_id } : null,
+      canRequestCancel, canWithdrawCancel: owner && Boolean(actionable), canResolveCancel: merchant && Boolean(actionable),
+      canShip: merchant && order.state === 2 && !pending && Boolean(effective), cancelRequestNotice,
+      cancelConfirmation: canRequestCancel ? { amountCents: order.amount, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
+        message: '取消申请提交后，商家同意即不再发货，¥' + (order.amount / 100).toFixed(2) + '将原路退回' + destination + '。确定申请取消吗？' } : null, serverNow }
+  }
   private present(order: Order, user: User, merchantShipment = false) {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
@@ -133,7 +185,8 @@ export class Orders {
     const paymentFields = this.payments?.orderFields(order, user)
     const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&
       !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
-    if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order), skus: [], ...paymentFields }
+    const cancelFields = this.cancelFields(order, user, merchantShipment, paymentOnly)
+    if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order), skus: [], ...paymentFields, ...cancelFields }
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
@@ -153,7 +206,8 @@ export class Orders {
       evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created } : null,
       ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
-        canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner })
+        canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner }),
+      ...cancelFields
     }
   }
   detail(user: User, id: string) {
@@ -317,6 +371,149 @@ export class Orders {
       }
     })
   }
+  cancelActionReceipt(user: User, requestKey: string): CancelReceipt {
+    const action = this.db.one<{ result: string }>('SELECT result FROM order_cancel_actions WHERE request_key=? AND actor_id=?', requestKey, user.id)
+    if (!action) throw new AppError(404, '未找到本次取消操作', 'CANCEL_ACTION_NOT_FOUND')
+    return JSON.parse(action.result) as CancelReceipt
+  }
+  private cancelTransaction<Result>(action: () => Result | AppError): Result {
+    const result = this.db.transaction(action)
+    if (result instanceof AppError) throw result
+    return result
+  }
+  private autoApproveIfDue(request: CancelRequest | undefined, now: number) {
+    if (!request || request.state !== 'pending' || now < request.deadline_at) return false
+    const body = JSON.stringify({ orderId: request.order_id, cancelRequestId: request.id, action: 'auto-approve' })
+    this.approveCancel(request, null, 'auto-approve:' + request.id, body, now)
+    return true
+  }
+  private cancelDeadlineError() {
+    return new AppError(409, '取消申请已超时自动同意，请刷新订单', 'CANCEL_REQUEST_EXPIRED')
+  }
+  processDueCancelRequests(now = this.clock.now()) {
+    let processed = 0
+    const failed: string[] = []
+    const due = this.db.all<{ id: string; order_id: string }>("SELECT id,order_id FROM order_cancel_requests WHERE state='pending' AND deadline_at<=? ORDER BY deadline_at,id", now)
+    for (const request of due) {
+      try {
+        if (this.db.transaction(() => this.autoApproveIfDue(this.getCancelRequest(request.order_id, request.id), now))) processed++
+      } catch { failed.push(request.id) }
+    }
+    return { processed, failed }
+  }
+  private cancelOwner(user: User, order: Order) {
+    if (user.id !== order.owner_id) throw new AppError(403, '只有下单人可以操作', 'CANCEL_OWNER_ONLY')
+  }
+  private pendingCancel(id: string) {
+    return this.db.one<CancelRequest>("SELECT * FROM order_cancel_requests WHERE order_id=? AND state='pending'", id)
+  }
+  private replayCancelAction(user: User, requestKey: string, body: string): CancelReceipt | undefined {
+    const existing = this.db.one<{ actor_id: string | null; request_body: string; result: string }>('SELECT actor_id,request_body,result FROM order_cancel_actions WHERE request_key=?', requestKey)
+    if (!existing) return undefined
+    if (existing.actor_id !== user.id || existing.request_body !== body) {
+      throw new AppError(409, '同一请求号不能用于不同的取消操作', 'CANCEL_REQUEST_KEY_CONFLICT')
+    }
+    return JSON.parse(existing.result) as CancelReceipt
+  }
+  private writeCancelAction(request: CancelRequest, user: User | null, action: CancelReceipt['action'], requestKey: string, body: string, now: number): CancelReceipt {
+    const result: CancelReceipt = { id: randomUUID(), orderId: request.order_id, cancelRequestId: request.id,
+      action, appliedState: request.state, appliedAt: now, refundId: request.refund_id }
+    this.db.run('INSERT INTO order_cancel_actions(id,order_id,cancel_request_id,actor_id,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?,?)',
+      result.id, request.order_id, request.id, user?.id ?? null, action, requestKey, body, JSON.stringify(result), now)
+    return result
+  }
+  requestCancel(user: User, id: string, requestKey: string) {
+    return this.cancelTransaction(() => {
+      const order = this.get(id, 'ORDER_NOT_FOUND')
+      this.cancelOwner(user, order)
+      const body = JSON.stringify({ orderId: id, action: 'request' })
+      const existing = this.replayCancelAction(user, requestKey, body)
+      if (existing) return existing
+      if (order.state === 6) throw new AppError(409, '订单已取消，请查看退款详情', 'ORDER_ALREADY_CANCELLED')
+      if (order.state >= 3) throw new AppError(409, '已发货，请联系售后', 'ORDER_ALREADY_SHIPPED')
+      if (order.state !== 2) throw new AppError(409, '仅已付款待发货订单可以申请取消', 'CANCEL_NOT_AVAILABLE')
+      const pending = this.pendingCancel(id)
+      if (this.autoApproveIfDue(pending, this.clock.now())) return new AppError(409, '订单已取消，请查看退款详情', 'ORDER_ALREADY_CANCELLED')
+      if (pending) throw new AppError(409, '取消申请审核中，请勿重复申请', 'CANCEL_REQUEST_PENDING')
+      const paymentId = this.payments?.effectivePaymentId(id)
+      if (!paymentId) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
+      const now = this.clock.now()
+      const sequence = this.db.one<{ next: number }>('SELECT COALESCE(MAX(sequence),0)+1 AS next FROM order_cancel_requests WHERE order_id=?', id)!.next
+      const requestId = randomUUID()
+      this.db.run("INSERT INTO order_cancel_requests(id,order_id,sequence,requested_by,payment_id,state,created,deadline_at) VALUES(?,?,?,?,?,'pending',?,?)",
+        requestId, id, sequence, user.id, paymentId, now, now + 72 * 3600_000)
+      return this.writeCancelAction(this.db.one<CancelRequest>('SELECT * FROM order_cancel_requests WHERE id=?', requestId)!, user, 'request', requestKey, body, now)
+    })
+  }
+  private getCancelRequest(orderId: string, requestId: string) {
+    const request = this.db.one<CancelRequest>('SELECT * FROM order_cancel_requests WHERE id=? AND order_id=?', requestId, orderId)
+    if (!request) throw new AppError(404, '取消申请不存在', 'CANCEL_REQUEST_NOT_FOUND')
+    return request
+  }
+  private assertCancelPending(request: CancelRequest) {
+    if (request.state === 'withdrawn') throw new AppError(409, '取消申请已撤回，请刷新订单', 'CANCEL_REQUEST_WITHDRAWN')
+    if (request.state !== 'pending') throw new AppError(409, '取消申请已处理，请刷新订单', 'CANCEL_REQUEST_RESOLVED')
+    ensure(this.get(request.order_id).state === 2, 409, '订单不在待发货状态')
+  }
+  withdrawCancel(user: User, id: string, requestId: string, requestKey: string) {
+    return this.cancelTransaction(() => {
+      this.cancelOwner(user, this.get(id, 'ORDER_NOT_FOUND'))
+      const request = this.getCancelRequest(id, requestId)
+      const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: 'withdraw' })
+      const existing = this.replayCancelAction(user, requestKey, body)
+      if (existing) return existing
+      const now = this.clock.now()
+      if (this.autoApproveIfDue(request, now)) return this.cancelDeadlineError()
+      this.assertCancelPending(request)
+      const changed = this.db.run("UPDATE order_cancel_requests SET state='withdrawn',resolved_at=?,resolved_by=? WHERE id=? AND state='pending'", now, user.id, requestId)
+      ensure(changed.changes === 1, 409, '取消申请已处理，请刷新订单')
+      return this.writeCancelAction(this.getCancelRequest(id, requestId), user, 'withdraw', requestKey, body, now)
+    })
+  }
+  private approveCancel(request: CancelRequest, user: User | null, requestKey: string, body: string, now: number) {
+    this.assertCancelPending(request)
+    if (!this.payments || this.payments.effectivePaymentId(request.order_id) !== request.payment_id) {
+      throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
+    }
+    const changed = this.db.run('UPDATE orders SET state=6 WHERE id=? AND state=2', request.order_id)
+    ensure(changed.changes === 1, 409, '订单不在待发货状态')
+    for (const item of this.items(request.order_id)) {
+      const restored = this.db.run('UPDATE skus SET stock=stock+? WHERE id=?', item.count, item.sku_id)
+      ensure(restored.changes === 1, 409, '库存释放失败')
+      recordStockMovement(this.db, user ?
+        { kind: 'cancel', skuId: item.sku_id, delta: item.count, orderId: request.order_id, actorId: user.id } :
+        { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: request.order_id }, this.clock)
+    }
+    const refundId = this.payments.createOrderCancellationRefund(request.order_id, request.payment_id, now)
+    const state = user ? 'approved' : 'auto-approved'
+    const resolved = this.db.run("UPDATE order_cancel_requests SET state=?,resolved_at=?,resolved_by=?,refund_id=? WHERE id=? AND state='pending'",
+      state, now, user?.id ?? null, refundId, request.id)
+    ensure(resolved.changes === 1, 409, '取消申请已处理，请刷新订单')
+    return this.writeCancelAction(this.getCancelRequest(request.order_id, request.id), user, user ? 'approve' : 'auto-approve', requestKey, body, now)
+  }
+  resolveCancel(user: User, id: string, requestId: string, data: { requestKey: string; decision: 'approve' | 'reject-and-ship'; reason?: string }) {
+    if (user.role !== 'merchant') throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
+    const reason = data.reason?.trim()
+    if (data.decision === 'reject-and-ship' && !reason) throw new AppError(400, '请填写拒绝原因', 'CANCEL_REASON_REQUIRED')
+    if (reason && Array.from(reason).length > 200) throw new AppError(400, '拒绝原因最多填写200字', 'CANCEL_REASON_TOO_LONG')
+    return this.cancelTransaction(() => {
+      this.get(id, 'ORDER_NOT_FOUND')
+      const request = this.getCancelRequest(id, requestId)
+      const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: data.decision, ...(data.decision === 'reject-and-ship' ? { reason } : {}) })
+      const existing = this.replayCancelAction(user, data.requestKey, body)
+      if (existing) return existing
+      const now = this.clock.now()
+      if (this.autoApproveIfDue(request, now)) return this.cancelDeadlineError()
+      if (data.decision === 'approve') return this.approveCancel(request, user, data.requestKey, body, now)
+      this.assertCancelPending(request)
+      if (this.payments?.effectivePaymentId(id) !== request.payment_id) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
+      const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', now, id)
+      ensure(shipped.changes === 1, 409, '订单不在待发货状态')
+      const resolved = this.db.run("UPDATE order_cancel_requests SET state='rejected-shipped',resolved_at=?,resolved_by=?,reject_reason=? WHERE id=? AND state='pending'", now, user.id, reason!, requestId)
+      ensure(resolved.changes === 1, 409, '取消申请已处理，请刷新订单')
+      return this.writeCancelAction(this.getCancelRequest(id, requestId), user, 'reject-and-ship', data.requestKey, body, now)
+    })
+  }
   cancel(user: User, id: string) {
     if (this.payments?.hasPending(id)) {
       return this.payments.cancelPending(user, id).then(() => this.present(this.get(id), user))
@@ -373,12 +570,16 @@ export class Orders {
   }
   ship(user: User, id: string) {
     ensure(user.role === 'merchant', 403, '只有商家可以发货')
-    return this.db.transaction(() => {
+    return this.cancelTransaction(() => {
       const order = this.get(id)
+      if (order.state === 6) throw new AppError(409, '买家已取消，不能发货', 'CANCELLED_ORDER_BLOCKS_SHIPMENT')
+      const pending = this.pendingCancel(id)
+      if (this.autoApproveIfDue(pending, this.clock.now())) return new AppError(409, '买家已取消，不能发货', 'CANCELLED_ORDER_BLOCKS_SHIPMENT')
+      if (pending) throw new AppError(409, '买家已申请取消，请先处理取消申请', 'CANCEL_REQUEST_BLOCKS_SHIPMENT')
       ensure(order.state === ORDER_STATE.AWAITING_SHIPMENT, 409, '订单不在待发货状态')
-      if (this.payments) ensure(this.db.one(`SELECT p.id FROM payments p WHERE p.order_id=? AND p.state='succeeded'
-        AND p.payer_id=? AND p.channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)`, id, order.paid_by, order.paid_at), 409, '订单没有有效支付，不能发货')
-      this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=?', this.clock.now(), id)
+      if (this.payments) ensure(this.payments.effectivePaymentId(id), 409, '订单没有有效支付，不能发货')
+      const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', this.clock.now(), id)
+      ensure(shipped.changes === 1, 409, '订单不在待发货状态')
       return { id }
     })
   }
