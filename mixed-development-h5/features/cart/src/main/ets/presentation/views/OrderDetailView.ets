@@ -1,6 +1,6 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund } from 'models'
+import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, formatBeijingTime } from 'models'
 import { demoOrderStore, cancelActions } from 'storage'
 import {
   remindShipmentAPI,
@@ -497,7 +497,7 @@ export struct OrderDetailView {
                   Text(this.order.cancelRequestNotice).fontSize(12).padding(4)
                 }
                 if (this.order.cancelRequest?.state === 'pending') {
-                  Text('处理截止：' + new Date(this.order.cancelRequest.deadlineAt).toLocaleString('zh-CN', { hour12: false }))
+                  Text('处理截止：' + formatBeijingTime(this.order.cancelRequest.deadlineAt))
                     .fontSize(12).padding(4)
                 }
                 if (this.order.paymentNotice) {
@@ -507,7 +507,7 @@ export struct OrderDetailView {
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
                 if (this.order.createTime) {
-                  Text(this.order.createTime + ' 下单')
+                  Text(formatBeijingTime(this.order.createTime) + ' 下单')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
                 }

@@ -1,4 +1,4 @@
-import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderRefund, OrderState } from 'models'
+import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderRefund, OrderState, formatBeijingTime } from 'models'
 import { systemDateTime } from '@kit.BasicServicesKit'
 
 /**
@@ -71,7 +71,7 @@ export function hasUnreadPaymentNotice(order: OrderItem): boolean {
 }
 
 export function getRefundDisplayLine(refund: OrderRefund): string {
-  const paidAt: string = refund.paidAt === null ? '付款时间待确认' : new Date(refund.paidAt).toLocaleString('zh-CN', { hour12: false })
+  const paidAt: string = refund.paidAt === null ? '付款时间待确认' : formatBeijingTime(refund.paidAt)
   return '¥' + refund.amount.toFixed(2) + ' · ' + refund.payerAccount + ' · ' + paidAt + ' · ' + refund.state
 }
 
