@@ -15,6 +15,7 @@ import {
   PreOrder,
   UpdateCartParams
 } from 'models'
+export { requestOrderCancelAPI, withdrawOrderCancelAPI, resolveOrderCancelAPI, getCancelActionReceiptAPI } from 'storage'
 
 // 获取购物车列表
 export const getCartListAPI = (token: string) => {

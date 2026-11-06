@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund } from 'models'
-import { demoOrderStore } from 'storage'
+import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund } from 'models'
+import { demoOrderStore, cancelActions } from 'storage'
 import {
   remindShipmentAPI,
   getOrderDetailAPI,
@@ -24,7 +24,7 @@ export struct OrderDetailView {
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   private querySequence: number = 0
-  private pageGeneration: number = 0
+  @State pageGeneration: number = 0
   @State pageActive: boolean = true
   @State detailToken: string = ''
   @State detailOrderId: string = ''
@@ -73,6 +73,7 @@ export struct OrderDetailView {
     this.displayedOrderState = 0
     this.countdownBaseAt = 0
     this.cancellationPending = false
+    this.cancelActionPending = false
     this.busy = ''
     this.loadFailed = false
   }
@@ -98,9 +99,10 @@ export struct OrderDetailView {
   @State loadFailed: boolean = false
   @State busy: string = ''
   @State cancellationPending: boolean = false
+  @State cancelActionPending: boolean = false
   @Consume stackPath: NavPathStack
 
-  private orderId: string = ''
+  @State orderId: string = ''
   private countdownBaseAt: number = 0
 
   private safeToast(message: string): void {
@@ -133,6 +135,7 @@ export struct OrderDetailView {
       this.countdownBaseAt = readPhoneClockMillis()
       this.updateOrderStatusAndEvaluation()
       this.cancellationPending = orderCancellation.pendingIds().includes(this.orderId)
+      this.cancelActionPending = cancelActions.pending().some(record => record.orderId === this.orderId)
     } catch {
       if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) {
         this.loadFailed = true
@@ -143,6 +146,10 @@ export struct OrderDetailView {
         this.loading = false
       }
     }
+    if (sequence === this.querySequence && this.canOperateOrder() && this.cancelActionPending && !this.busy) {
+      this.runCancelAction('request', true)
+      return
+    }
     // 查询完成后才恢复已有取消意图，普通详情查询不会创建取消操作。
     if (sequence === this.querySequence && this.canOperateOrder() && this.cancellationPending && !this.busy) {
       this.run('cancel', (): Promise<void> => this.runCancelWithFallback(true), '订单已取消')
@@ -150,10 +157,11 @@ export struct OrderDetailView {
   }
 
   private async run(action: string, task: () => Promise<void>, successText: string): Promise<void> {
-    if (this.busy || !this.canOperateOrder()) {
+    if (this.busy || this.cancelActionPending || !this.canOperateOrder()) {
       return
     }
     this.busy = action
+    const sequence: number = this.querySequence
     const generation: number = this.pageGeneration
     const token: string = this.detailToken
     const orderId: string = this.orderId
@@ -165,6 +173,14 @@ export struct OrderDetailView {
       await this.loadOrderDetail()
     } catch (error) {
       if (this.isCurrentDetail(generation, token, orderId)) {
+        if (action === 'cancel' && sequence === this.querySequence && !orderCancellation.pendingIds().includes(orderId)) {
+          await this.loadOrderDetail()
+          if (!this.isCurrentDetail(generation, token, orderId)) return
+          if (this.order?.orderState === OrderState.AWAITING_SHIPMENT) {
+            this.safeToast('付款已确认，请重新申请取消')
+            return
+          }
+        }
         this.safeToast((error as Error).message || '操作失败，请稍后重试')
       }
     } finally {
@@ -182,7 +198,58 @@ export struct OrderDetailView {
     await orderCancellation.confirm(this.order.id, resume)
   }
 
+  private async runCancelAction(action: 'request' | 'withdraw', resume: boolean = false): Promise<void> {
+    if (this.busy || !this.canOperateOrder() || !this.order) return
+    if (!resume && (this.cancelActionPending || (action === 'request' ? !this.order.canRequestCancel : !this.order.canWithdrawCancel))) return
+    const generation: number = this.pageGeneration
+    const token: string = this.detailToken
+    const orderId: string = this.orderId
+    const sequence: number = this.querySequence
+    this.busy = 'cancel-request'
+    try {
+      if (resume) await cancelActions.recover(orderId, token)
+      else {
+        const intent: CancelActionIntent = { orderId, cancelRequestId: action === 'withdraw' ? this.order.cancelRequest?.id || '' : '', action, reason: '' }
+        await cancelActions.confirm(intent, token)
+      }
+      if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) this.safeToast('取消操作已确认')
+    } catch (error) {
+      if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) this.safeToast((error as Error).message)
+    } finally {
+      if (this.isCurrentDetail(generation, token, orderId)) {
+        this.cancelActionPending = cancelActions.pending().some(record => record.orderId === orderId)
+        if (sequence === this.querySequence) await this.loadOrderDetail()
+        if (this.isCurrentDetail(generation, token, orderId)) this.busy = ''
+      }
+    }
+  }
+
+  private requestPaidCancellation(): void {
+    if (!this.order?.canRequestCancel || !this.order.cancelConfirmation || this.cancelActionPending || this.busy || !this.canOperateOrder()) return
+    const message: string = this.order.cancelConfirmation.message
+    const requestId: string = this.order.cancelRequest?.id || ''
+    const generation: number = this.pageGeneration
+    const token: string = this.detailToken
+    const orderId: string = this.orderId
+    const sequence: number = this.querySequence
+    const dialog: number = ++this.cancellationDialogSequence
+    this.getUIContext().showAlertDialog({ title: '申请取消订单', message,
+      primaryButton: { value: '再等等', action: () => { this.cancellationDialogSequence++ } },
+      secondaryButton: { value: '确定申请', action: () => {
+        if (dialog !== this.cancellationDialogSequence || sequence !== this.querySequence ||
+          !this.isCurrentDetail(generation, token, orderId) || !this.order?.canRequestCancel ||
+          this.order.cancelConfirmation?.message !== message || (this.order.cancelRequest?.id || '') !== requestId) return
+        this.cancellationDialogSequence++
+        this.runCancelAction('request')
+      } }
+    })
+  }
+
   private requestCancelOrder(): void {
+    if (this.order?.canRequestCancel && (this.order.serverManaged || !GlobalVariable.DEMO_ORDER_FLOW)) {
+      this.requestPaidCancellation()
+      return
+    }
     if (!this.order || this.order.canCancel === false || this.busy || !this.canOperateOrder()) return
     if (this.order.paymentState !== 'confirming' && this.order.paymentState !== 'review') {
       this.run('cancel', (): Promise<void> => this.runCancelWithFallback(), '订单已取消')
@@ -232,14 +299,14 @@ export struct OrderDetailView {
   }
 
   private async runComment(): Promise<void> {
-    if (!this.order || this.busy || !this.canOperateOrder()) {
+    if (!this.order || this.busy || this.cancelActionPending || !this.canOperateOrder()) {
       return
     }
     this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: this.order.id })
   }
 
   private openPayment(): void {
-    if (!this.order || this.busy || !this.canOperateOrder() || !canOpenPayment(this.order)) {
+    if (!this.order || this.busy || this.cancelActionPending || !this.canOperateOrder() || !canOpenPayment(this.order)) {
       return
     }
     this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: this.order.id })
@@ -295,29 +362,41 @@ export struct OrderDetailView {
               .fontColor($r('[ui_components].color.gray'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.border') })
-              .enabled(!this.busy && this.canOperateOrder() && this.order.canCancel !== false)
+              .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder() && this.order.canCancel !== false)
               .onClick(() => this.requestCancelOrder())
             if (canOpenPayment(this.order)) {
               Button('去支付')
               .height(36)
               .fontSize(13)
               .backgroundColor($r('[ui_components].color.red'))
-              .enabled(!this.busy && this.canOperateOrder() && canOpenPayment(this.order))
+              .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder() && canOpenPayment(this.order))
               .onClick(() => this.openPayment())
             }
           }
           .width('100%')
         } else if (this.displayedOrderState === OrderState.AWAITING_SHIPMENT) { // 待发货：提醒发货。
-          Row() {
+          Row({ space: 8 }) {
             Blank()
-            Button(this.busy === 'consignment' ? '处理中...' : '提醒发货')
-              .height(36)
-              .fontSize(13)
-              .fontColor($r('[ui_components].color.gray'))
-              .backgroundColor($r('[ui_components].color.white'))
-              .border({ width: 0.5, color: $r('[ui_components].color.border') })
-              .enabled(!this.busy && this.canOperateOrder())
-              .onClick(() => this.run('consignment', (): Promise<void> => this.runConsignment(), '已提醒商家发货'))
+            if (this.order.cancelRequest?.state === 'pending') {
+              if (this.order.canWithdrawCancel) {
+                Button('撤回申请').height(36).fontSize(13)
+                  .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder())
+                  .onClick(() => this.runCancelAction('withdraw'))
+              }
+            } else {
+              if (this.order.canRequestCancel && (this.order.serverManaged || !GlobalVariable.DEMO_ORDER_FLOW)) {
+                Button('取消订单').height(36).fontSize(13)
+                  .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder())
+                  .onClick(() => this.requestCancelOrder())
+              }
+              Button(this.busy === 'consignment' ? '处理中...' : '提醒发货')
+                .height(36).fontSize(13)
+                .fontColor($r('[ui_components].color.gray'))
+                .backgroundColor($r('[ui_components].color.white'))
+                .border({ width: 0.5, color: $r('[ui_components].color.border') })
+                .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder())
+                .onClick(() => this.run('consignment', (): Promise<void> => this.runConsignment(), '已提醒商家发货'))
+            }
           }
           .width('100%')
         } else if (this.displayedOrderState === OrderState.AWAITING_RECEIPT) { // 待收货：查看物流、确认收货。
@@ -333,7 +412,7 @@ export struct OrderDetailView {
               .height(36)
               .fontSize(13)
               .backgroundColor($r('[ui_components].color.red'))
-              .enabled(!this.busy && this.canOperateOrder())
+              .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder())
               .onClick(() => this.run('receipt', (): Promise<void> => this.runReceipt(), '已确认收货'))
           }
           .width('100%')
@@ -346,7 +425,7 @@ export struct OrderDetailView {
               .fontColor($r('[ui_components].color.red'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.red') })
-              .enabled(!this.busy && this.canOperateOrder())
+              .enabled(!this.busy && !this.cancelActionPending && this.canOperateOrder())
               .onClick(() => this.runComment())
           }
           .width('100%')
@@ -362,6 +441,11 @@ export struct OrderDetailView {
           title: this.order ? getPaymentDisplayLabel(this.order) : '订单详情',
           onLeftClick: () => this.stackPath.pop()
         })
+        if (this.cancelActionPending) {
+          Text('操作结果待确认，请重新查询').fontSize(12).padding(6)
+          Button('重新查询').enabled(!this.busy && this.canOperateOrder())
+            .onClick(() => this.runCancelAction('request', true))
+        }
         if (this.cancellationPending) {
           Text('取消结果待确认，请稍后查询').fontSize(12).padding(6)
           Button(this.busy === 'cancel' ? '正在确认取消结果' : '重新查询')
@@ -408,6 +492,13 @@ export struct OrderDetailView {
                   Text('请在 ' + this.order.payLatestTime + ' 前完成支付，超时自动取消')
                     .fontSize(12)
                     .fontColor($r('[ui_components].color.gray'))
+                }
+                if (this.order.cancelRequestNotice) {
+                  Text(this.order.cancelRequestNotice).fontSize(12).padding(4)
+                }
+                if (this.order.cancelRequest?.state === 'pending') {
+                  Text('处理截止：' + new Date(this.order.cancelRequest.deadlineAt).toLocaleString('zh-CN', { hour12: false }))
+                    .fontSize(12).padding(4)
                 }
                 if (this.order.paymentNotice) {
                   Text(this.order.paymentNotice).fontSize(13).fontColor($r('[ui_components].color.gray'))

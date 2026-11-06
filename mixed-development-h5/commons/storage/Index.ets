@@ -1,3 +1,5 @@
+export { CancelActions, cancelActions, cancelActionFailure, CANCEL_ACTION_UNKNOWN } from './src/main/ets/CancelActions'
+export { requestOrderCancelAPI, withdrawOrderCancelAPI, resolveOrderCancelAPI, getCancelActionReceiptAPI } from './src/main/ets/CancelActionAPI'
 export { Auth, auth } from './src/main/ets/Auth'
 export { StoreManager, storeManager } from './src/main/ets/StoreManager'
 export { AuthCart, authCart } from './src/main/ets/AuthCart'

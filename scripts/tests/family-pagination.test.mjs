@@ -1,3 +1,4 @@
+import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -11,6 +12,7 @@ function fixture() {
     merchant: async page => result(page, 3, 'shipment'),
   }
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets', 'FamilyView', {}, {
+    cancelActions: emptyCancelActions, cancelActionFailure,
     getFamilyRelationsPageAPI: (page, token) => { calls.push(['relations', page, token]); return api.relations(page, token) },
     getFamilyOrdersPageAPI: (page, token) => { calls.push(['family', page, token]); return api.family(page, token) },
     getMerchantOrdersPageAPI: (page, token) => { calls.push(['merchant', page, token]); return api.merchant(page, token) },

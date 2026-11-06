@@ -1,3 +1,4 @@
+import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -108,6 +109,7 @@ test('首页和分类使用轻量入口，推荐和代付选择发送固定页�
 test('亲友关系与订单页码独立，解除末页关系后回退，失败保留原页和数据', async () => {
   const calls = [], api = { relations: async p => pageResult(p, [{ id: `r${p}` }]) }
   const Family = pageMethods(base + 'features/mine/src/main/ets/presentation/views/FamilyView.ets', 'FamilyView', {}, {
+    cancelActions: emptyCancelActions, cancelActionFailure,
     getFamilyRelationsPageAPI: async (p, token) => { calls.push([p, token]); return api.relations(p) },
     getFamilyOrdersPageAPI: async p => pageResult(p, []), getMerchantOrdersPageAPI: async p => pageResult(p, []),
   })

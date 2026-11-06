@@ -1,3 +1,4 @@
+import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execute, sourceOf, deferred, tick, pageMethods } from './native-harness.mjs'
@@ -51,6 +52,7 @@ function orderFixture() {
   let clock = 10000, fetch = async () => ({ items: [], pages: 0 })
   const messages = []
   const Page = pageMethods(base + 'features/cart/src/main/ets/presentation/views/OrderView.ets', 'OrderView', {}, {
+    cancelActions: emptyCancelActions, cancelActionFailure,
     OrderState: states, isOrderStateInTab: inTab, readPhoneClockMillis: () => clock,
     secondsLeftToPay: (remaining, baseline) => Math.max(0, remaining - Math.floor((clock - baseline) / 1000)),
     ...tabLogic, getOrderListAPI: params => fetch(params), orderCancellation: { pendingIds: () => [] },

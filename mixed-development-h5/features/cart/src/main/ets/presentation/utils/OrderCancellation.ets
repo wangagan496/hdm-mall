@@ -10,6 +10,14 @@ interface CancellationFailure extends Error {
   response?: FailureResponse
 }
 
+export class CancellationStateChanged extends Error {
+  orderState: number
+  constructor(orderState: number) {
+    super('订单状态已变化，已停止取消，请刷新订单')
+    this.orderState = orderState
+  }
+}
+
 export const CANCELLATION_UNKNOWN: string = '取消结果待确认，请稍后重新查询'
 
 // 保存的只有用户点过取消的订单号；打开普通订单绝不产生新的取消意图。
@@ -64,7 +72,7 @@ export class OrderCancellation {
     this.assertSession(token)
     if (order.orderState !== OrderState.AWAITING_PAYMENT) {
       await this.remember(userId, orderId, false)
-      if (order.orderState !== OrderState.CANCELLED) throw new Error('订单状态已变化，已停止取消，请刷新订单')
+      if (order.orderState !== OrderState.CANCELLED) throw new CancellationStateChanged(order.orderState)
     }
     return order
   }
@@ -89,6 +97,14 @@ export class OrderCancellation {
         // inspect 已确认不再待付款时也必须停止，不把它当成断网。
         if (!this.pendingIds().includes(orderId)) throw error as Error
         if (!this.isUncertain(error as Error)) {
+          const failure = error as CancellationFailure
+          if ((failure.httpStatus || failure.response?.status) === 409) {
+            try { await this.inspect(userId, token, orderId) }
+            catch (inspectionError) {
+              this.assertSession(token)
+              if (inspectionError instanceof CancellationStateChanged) throw inspectionError
+            }
+          }
           await this.remember(userId, orderId, false)
           throw new Error('服务器已拒绝取消，请刷新订单确认当前状态')
         }

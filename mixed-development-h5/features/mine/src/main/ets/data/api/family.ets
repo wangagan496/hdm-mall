@@ -1,5 +1,6 @@
 import { FamilyRelation, FamilyRelationPage, OrderAttentionCount, OrderItem, OrderPage, PaymentStartResult } from 'models'
 import { RequestAxios } from 'network'
+export { requestOrderCancelAPI, withdrawOrderCancelAPI, resolveOrderCancelAPI, getCancelActionReceiptAPI } from 'storage'
 
 interface InvitePayload { account: string }
 interface RelationPayload { action: string }

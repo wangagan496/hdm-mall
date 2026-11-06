@@ -1,3 +1,4 @@
+import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
 import { test as nodeTest } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -14,6 +15,7 @@ function fixture() {
   const queries = [], writes = [], messages = [], navigations = [], dialogs = []
   let pending = [], mutation = async id => row(id, 4)
   const Page = pageMethods(base + 'views/OrderView.ets', 'OrderView', {}, {
+    cancelActions: emptyCancelActions, cancelActionFailure,
     ...loader, OrderState: states,
     ...presentation,
     readPhoneClockMillis: () => 0, secondsLeftToPay: remaining => remaining,

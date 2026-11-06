@@ -1,3 +1,4 @@
+import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
 import { test as nodeTest } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -7,7 +8,7 @@ const OrderState = { AWAITING_PAYMENT: 1, AWAITING_SHIPMENT: 2, AWAITING_RECEIPT
 const pageResult = (items, page = 1) => ({ items, page, pages: 3, counts: 21, pageSize: 10 })
 const payment = { id: 'pay', orderState: 1, canPay: true, payMoney: 19, ownerAccount: 'owner' }
 const receipt = { id: 'receipt', orderState: 3, canReceive: true, payMoney: 19 }
-const shipment = { id: 'shipment', orderState: 2 }
+const shipment = { id: 'shipment', orderState: 2, canShip: true }
 
 function fixture() {
   const queries = [], writes = [], messages = [], dialogs = []
@@ -19,6 +20,7 @@ function fixture() {
   }
   const write = (action, args) => { writes.push([action, ...args]); return mutation(action, args) }
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets', 'FamilyView', {}, {
+    cancelActions: emptyCancelActions, cancelActionFailure,
     OrderState,
     PAGE_PATH: { ORDER_DETAIL_PAGE: 'detail' },
     getFamilyRelationsPageAPI: (p, token) => { queries.push(['relations', p, token]); return api.relations(p, token) },

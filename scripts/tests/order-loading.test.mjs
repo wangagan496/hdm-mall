@@ -1,3 +1,4 @@
+import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -37,6 +38,7 @@ function fixture() {
   let fetch = async () => ({ items: [], pages: 0 })
   const messages = []
   const Page = pageMethods(base + 'features/cart/src/main/ets/presentation/views/OrderView.ets', 'OrderView', {}, {
+    cancelActions: emptyCancelActions, cancelActionFailure,
     GlobalVariable: { APP_FOREGROUND_SEQUENCE: 'foreground', USER_INFO_KEY: 'user' },
     PAGE_PATH: { ORDER_PAGE: 'orders', PAY_PAGE: 'pay' },
     OrderState: states,

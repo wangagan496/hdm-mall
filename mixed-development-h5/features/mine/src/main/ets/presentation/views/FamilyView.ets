@@ -1,5 +1,6 @@
+import { cancelActions, cancelActionFailure } from 'storage'
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { FamilyRelation, FamilyRelationPage, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund } from 'models'
+import { CancelActionIntent, FamilyRelation, FamilyRelationPage, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund } from 'models'
 import { HDMNavBar } from 'ui_components'
 import {
   getFamilyRelationsPageAPI,
@@ -37,9 +38,16 @@ export struct FamilyView {
   @State loading: boolean = false
   @State isSubmitting: boolean = false
   @State errorText: string = ''
+  @State pendingCancelActions: string[] = []
+  @State showCancelResolution: boolean = false
+  @State resolvingOrder: OrderItem | null = null
+  @State rejectReason: string = ''
+  private resolutionGeneration: number = 0
+  private resolutionQuery: number = 0
+  private resolutionToken: string = ''
   private loadRequestId: number = 0
   @State isPageActive: boolean = true
-  private pageGeneration: number = 0
+  @State pageGeneration: number = 0
   @State sessionToken: string = ''
   @State sessionRole: string = ''
   @State loadedToken: string = ''
@@ -51,6 +59,7 @@ export struct FamilyView {
   }
   aboutToDisappear(): void {
     this.isPageActive = false
+    this.closeCancelResolution()
     // 离开页面后，让正在等待的查询失效。
     this.loadRequestId++
     this.pageGeneration++
@@ -75,6 +84,8 @@ export struct FamilyView {
     this.sessionToken = token
     this.sessionRole = role
     this.loadedToken = ''
+    this.pendingCancelActions = []
+    this.closeCancelResolution()
     this.pageGeneration++
     this.dialogSequence++
     this.loadRequestId++
@@ -154,6 +165,7 @@ export struct FamilyView {
       this.merchantPage = merchantResult.page
       this.merchantPages = merchantResult.pages
       this.loadedToken = token
+      this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'approve' || record.action === 'reject-and-ship').map(record => record.orderId)
     } catch {
       if (this.isCurrentQuery(currentRequestId, generation, token)) {
         this.errorText = '加载失败，请重新登录或重试'
@@ -163,7 +175,99 @@ export struct FamilyView {
         this.loading = false
       }
     }
+    if (this.isCurrentQuery(currentRequestId, generation, token) && !this.isSubmitting && !this.errorText) this.recoverCancelActions()
   }
+  private async recoverCancelActions(): Promise<void> {
+    if (!this.canManageFamily() || this.sessionRole !== 'merchant') return
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    for (const orderId of this.pendingCancelActions.slice()) {
+      if (!this.isCurrentFamilySession(generation, token) || this.isSubmitting) return
+      await this.resolveCancellation(orderId, 'approve', true)
+    }
+  }
+
+  private closeCancelResolution(): void {
+    this.showCancelResolution = false
+    this.resolvingOrder = null
+    this.rejectReason = ''
+    this.dialogSequence++
+  }
+
+  private openCancelResolution(order: OrderItem): void {
+    const current = this.ordersToShip.find((item: OrderItem) => item.id === order.id)
+    if (!this.canManageFamily() || !current?.canResolveCancel || !current.cancelRequest || this.pendingCancelActions.includes(order.id)) return
+    this.resolvingOrder = current
+    this.rejectReason = ''
+    this.resolutionGeneration = this.pageGeneration
+    this.resolutionQuery = this.loadRequestId
+    this.resolutionToken = this.sessionToken
+    this.showCancelResolution = true
+  }
+
+  private currentResolution(): OrderItem | undefined {
+    if (!this.resolvingOrder || !this.canManageFamily() ||
+      !this.isCurrentQuery(this.resolutionQuery, this.resolutionGeneration, this.resolutionToken)) return undefined
+    const current = this.ordersToShip.find((item: OrderItem) => item.id === this.resolvingOrder?.id)
+    if (!current?.canResolveCancel || current.cancelRequest?.id !== this.resolvingOrder.cancelRequest?.id ||
+      this.pendingCancelActions.includes(current.id)) return undefined
+    return current
+  }
+
+  private approveCancellation(): void {
+    const current = this.currentResolution()
+    if (!current) { this.closeCancelResolution(); return }
+    const dialog: number = ++this.dialogSequence
+    const orderId: string = current.id
+    const destination: string = current.paymentMode === 'family' ? '亲友 ' + current.payerAccount + ' 的付款账户' : '付款账户'
+    this.getUIContext().showAlertDialog({ title: '同意取消订单',
+      message: '同意后不再发货，¥' + current.payMoney.toFixed(2) + '将原路退回' + destination + '。确定同意取消吗？',
+      primaryButton: { value: '再等等', action: () => { this.dialogSequence++ } },
+      secondaryButton: { value: '同意取消', action: () => {
+        if (dialog !== this.dialogSequence || this.currentResolution()?.id !== orderId) return
+        this.dialogSequence++
+        this.resolveCancellation(orderId, 'approve')
+      } }
+    })
+  }
+
+  private async rejectCancellation(): Promise<void> {
+    const current = this.currentResolution()
+    if (!current) { this.closeCancelResolution(); return }
+    const reason: string = this.rejectReason.trim()
+    if (!reason) { this.safeToast('请填写拒绝原因'); return }
+    if (reason.length > 200) { this.safeToast('拒绝原因最多填写200字'); return }
+    await this.resolveCancellation(current.id, 'reject-and-ship', false, reason)
+  }
+
+  private async resolveCancellation(orderId: string, action: 'approve' | 'reject-and-ship', resume: boolean = false, reason: string = ''): Promise<void> {
+    if (!this.canManageFamily() || this.sessionRole !== 'merchant') return
+    const current = resume ? undefined : this.currentResolution()
+    if (!resume && (!current || current.id !== orderId)) return
+    const generation: number = this.pageGeneration
+    const query: number = this.loadRequestId
+    const token: string = this.sessionToken
+    const cancelRequestId: string = current?.cancelRequest?.id || ''
+    this.closeCancelResolution()
+    this.isSubmitting = true
+    try {
+      if (resume) await cancelActions.recover(orderId, token)
+      else {
+        const intent: CancelActionIntent = { orderId, cancelRequestId, action, reason }
+        await cancelActions.confirm(intent, token)
+      }
+      if (this.isCurrentQuery(query, generation, token)) this.safeToast('取消操作已确认')
+    } catch (error) {
+      if (this.isCurrentQuery(query, generation, token)) this.safeToast((error as Error).message)
+    } finally {
+      if (this.isCurrentFamilySession(generation, token)) {
+        this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'approve' || record.action === 'reject-and-ship').map(record => record.orderId)
+        if (query === this.loadRequestId) await this.loadFamilyCenter()
+        if (this.isCurrentFamilySession(generation, token)) this.isSubmitting = false
+      }
+    }
+  }
+
   private isCurrentFamilySession(generation: number, token: string): boolean {
     return this.isPageActive && generation === this.pageGeneration && token.length > 0 &&
       token === this.sessionToken && token === (this.user.token || '') && this.sessionRole === (this.user.role || '')
@@ -196,8 +300,15 @@ export struct FamilyView {
       }
       this.safeToast(successMessage)
       await this.loadFamilyCenter()
-    } catch {
+    } catch (error) {
       if (this.isCurrentFamilySession(generation, submittingToken)) {
+        const failure = cancelActionFailure(error as Error)
+        if (['CANCEL_REQUEST_BLOCKS_SHIPMENT', 'CANCELLED_ORDER_BLOCKS_SHIPMENT', 'CANCEL_REQUEST_EXPIRED',
+          'CANCEL_REQUEST_WITHDRAWN', 'CANCEL_REQUEST_RESOLVED'].includes(failure.reason)) {
+          this.safeToast(failure.message)
+          await this.loadFamilyCenter()
+          return
+        }
         this.loadRequestId++
         this.loading = false
         this.errorText = '操作结果未确认，请刷新查看最新状态后重试'
@@ -231,7 +342,7 @@ export struct FamilyView {
 
   private shipOrder(order: OrderItem): void {
     const current: OrderItem | undefined = this.ordersToShip.find((item: OrderItem) => item.id === order.id)
-    if (this.user.role !== 'merchant' || !current || current.orderState !== OrderState.AWAITING_SHIPMENT) return
+    if (this.user.role !== 'merchant' || !current?.canShip || this.pendingCancelActions.includes(order.id) || current.orderState !== OrderState.AWAITING_SHIPMENT) return
     const orderId: string = current.id
     this.submitThenRefresh(async (token: string): Promise<void> => {
       await shipOrderAPI(orderId, token)
@@ -324,6 +435,7 @@ export struct FamilyView {
   }
 
   private familyOrderStatus(order: OrderItem): string {
+    if (order.cancelRequest?.state === 'pending') return '取消申请审核中'
     if (order.orderState === OrderState.CANCELLED) {
       const states: string[] = []
       order.refunds?.forEach((refund: OrderRefund) => {
@@ -346,6 +458,21 @@ export struct FamilyView {
   }
 
   @Builder
+  private CancelResolutionSheet() {
+    Column({ space: 12 }) {
+      Text('处理取消申请').fontSize(20)
+      Button('同意取消').enabled(!this.isSubmitting && !this.loading)
+        .onClick(() => this.approveCancellation())
+      Text('拒绝并发货：提交后订单将进入待收货').fontSize(14)
+      TextArea({ placeholder: '请填写拒绝原因（最多200字）', text: $$this.rejectReason })
+        .height(100).enabled(!this.isSubmitting && !this.loading)
+      Button('拒绝并发货').enabled(!this.isSubmitting && !this.loading)
+        .onClick(() => this.rejectCancellation())
+      Button('关闭').enabled(!this.isSubmitting).onClick(() => this.closeCancelResolution())
+    }.padding(20).width('100%')
+  }
+
+  @Builder
   private OrderSummary(order: OrderItem) {
     if (order.ownerAccount) {
       Text('下单人：' + order.ownerAccount).fontSize(16).fontColor('#1F2329')
@@ -357,6 +484,13 @@ export struct FamilyView {
     Text(this.familyOrderStatus(order)).fontSize(12).fontColor('#1F2329')
     if (order.needsAttention) {
       Text('●').fontSize(10).fontColor('#D93025')
+    }
+    if (order.cancelRequestNotice) {
+      Text(order.cancelRequestNotice).fontSize(12).fontColor('#666666')
+    }
+    if (order.cancelRequest?.state === 'pending') {
+      Text('处理截止：' + new Date(order.cancelRequest.deadlineAt).toLocaleString('zh-CN', { hour12: false }))
+        .fontSize(12).fontColor('#666666')
     }
     if (order.paymentNotice) {
       Text(order.paymentNotice).fontSize(12).fontColor('#666666')
@@ -416,9 +550,16 @@ export struct FamilyView {
         Text(order.address.receiver + ' · ' + order.address.contact).fontSize(14).fontColor('#1F2329')
         Text(order.address.fullLocation + ' ' + order.address.address).fontSize(14).fontColor('#1F2329')
       }
-      Button('确认发货')
-        .enabled(this.canManageFamily())
-        .onClick(() => this.shipOrder(order))
+      if (order.cancelRequest?.state === 'pending') { Text('买家申请取消').fontSize(14) }
+      if (order.canResolveCancel) {
+        Button('处理取消申请')
+          .enabled(this.canManageFamily() && !this.pendingCancelActions.includes(order.id))
+          .onClick(() => this.openCancelResolution(order))
+      } else if (order.canShip) {
+        Button('确认发货')
+          .enabled(this.canManageFamily() && !this.pendingCancelActions.includes(order.id))
+          .onClick(() => this.shipOrder(order))
+      }
     }
     .orderCardStyle()
     .alignItems(HorizontalAlign.Start)
@@ -470,6 +611,10 @@ export struct FamilyView {
             if (!this.loading && this.familyOrders.length === 0) { Text('暂无需要代付或代收的订单').fontSize(14).fontColor('#1F2329') }
             ForEach(this.familyOrders, (order: OrderItem) => { this.FamilyOrderCard(order) }, (order: OrderItem) => JSON.stringify(order))
             if (this.user.role === 'merchant') {
+              if (this.pendingCancelActions.length > 0) {
+                Text('操作结果待确认，请重新查询').fontSize(12)
+                Button('重新查询').enabled(this.canManageFamily()).onClick(() => this.recoverCancelActions())
+              }
               Text('商家待发货订单').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#1F2329')
               Row({ space: 8 }) {
                 Button('发货上一页').enabled(this.merchantPage > 1 && !this.loading && !this.isSubmitting)
@@ -484,6 +629,10 @@ export struct FamilyView {
         }.layoutWeight(1).width('100%')
       }.width('100%').height('100%').padding({ top: this.safeTop }).backgroundColor('#F6F5F3')
     }.hideTitleBar(true)
+    .bindSheet($$this.showCancelResolution, this.CancelResolutionSheet(), {
+      height: SheetSize.FIT_CONTENT,
+      onDisappear: () => this.closeCancelResolution()
+    })
     .onShown(() => this.showFamilyCenter())
     .onHidden(() => this.aboutToDisappear())
   }

@@ -207,6 +207,14 @@ export interface OrderItem {
   needsAttention?: boolean
   canPay?: boolean
   canCancel?: boolean
+  cancelRequest?: OrderCancelRequest | null
+  canRequestCancel?: boolean
+  canWithdrawCancel?: boolean
+  canResolveCancel?: boolean
+  canShip?: boolean
+  cancelRequestNotice?: string
+  cancelConfirmation?: CancelConfirmation | null
+  serverNow?: number
   canReceive?: boolean
   canEvaluate?: boolean
   canInvitePayer?: boolean
@@ -223,6 +231,46 @@ export interface OrderItem {
   skus: OrderSku[]
   totalMoney: number
   totalNum: number
+}
+
+export interface OrderCancelRequest {
+  id: string
+  sequence: number
+  state: 'pending' | 'withdrawn' | 'approved' | 'rejected-shipped' | 'auto-approved'
+  createdAt: number
+  deadlineAt: number
+  resolvedAt: number | null
+  rejectReason: string | null
+  refundId: string | null
+}
+
+export interface CancelConfirmation {
+  amountCents: number
+  payerAccount: string
+  paymentMode: string
+  message: string
+}
+
+export interface CancelActionIntent {
+  orderId: string
+  cancelRequestId: string
+  action: 'request' | 'withdraw' | 'approve' | 'reject-and-ship'
+  reason: string
+}
+
+export interface PendingCancelAction extends CancelActionIntent {
+  accountId: string
+  requestKey: string
+}
+
+export interface CancelActionReceipt {
+  id: string
+  orderId: string
+  cancelRequestId: string
+  action: string
+  appliedState: string
+  appliedAt: number
+  refundId: string | null
 }
 
 export interface OrderRefund {

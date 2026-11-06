@@ -40,6 +40,7 @@ export function getDisplayOrderStateText(orderState: number, evaluated: boolean)
 }
 
 export function getPaymentDisplayLabel(order: OrderItem): string {
+  if (order.cancelRequest?.state === 'pending') return '取消申请审核中'
   if (order.orderState === OrderState.CANCELLED) {
     const states: string[] = []
     order.refunds?.forEach((refund: OrderRefund) => {
