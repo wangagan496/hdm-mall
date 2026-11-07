@@ -12,6 +12,7 @@ import { getPaymentDisplayLabel, getRefundDisplayLine, hasUnreadPaymentNotice, s
 import { OrderCountdown } from '../components'
 import { loadOrderTabPage, mergeOrdersForTab, OrderTabAPI, OrderTabRequest } from '../utils/OrderTabLoader'
 import { orderCancellation, CancellationStateChanged } from '../utils/OrderCancellation'
+import { orderWriteFailure } from '../utils/OrderWriteFailure'
 
 interface OrderTab {
   label: string
@@ -48,6 +49,7 @@ export struct OrderView {
   @State busyAction: string = ''
   @State pendingCancellations: string[] = []
   @State pendingCancelActions: string[] = []
+  @State pendingReceipts: string[] = []
   /** 服务端已经没有更多订单；为 true 时滑到底也不再请求 */
   @State isFinished: boolean = false
   @Consume stackPath: NavPathStack
@@ -127,6 +129,7 @@ export struct OrderView {
     this.orders = []
     this.pendingCancellations = []
     this.pendingCancelActions = []
+    this.pendingReceipts = []
     this.busyOrderId = ''
     this.busyAction = ''
     this.loadedToken = ''
@@ -143,7 +146,8 @@ export struct OrderView {
   }
 
   private canUseOrder(orderId: string, allowPending: boolean = false): boolean {
-    return this.isOrderListReady() && !this.pendingCancelActions.includes(orderId) && (this.orders.some((order: OrderItem) => order.id === orderId) ||
+    return this.isOrderListReady() && !this.pendingCancelActions.includes(orderId) && !this.pendingReceipts.includes(orderId) &&
+      (allowPending || !this.pendingCancellations.includes(orderId)) && (this.orders.some((order: OrderItem) => order.id === orderId) ||
       (allowPending && this.pendingCancellations.includes(orderId)))
   }
 
@@ -220,6 +224,7 @@ export struct OrderView {
     const isLatestLoad = (): boolean => generation === this.requestGeneration &&
       this.isCurrentSession(pageGeneration, token)
     const replaceResult: boolean = this.replaceOnNextLoad
+    const pendingReceipts: string[] = this.pendingReceipts.slice()
     const request: OrderTabRequest = {
       page: this.page,
       pageSize: this.pageSize,
@@ -243,6 +248,7 @@ export struct OrderView {
       this.loadedState = request.state
       if (replaceResult) {
         this.replaceOnNextLoad = false
+        this.pendingReceipts = this.pendingReceipts.filter((orderId: string) => !pendingReceipts.includes(orderId))
       }
       this.page = result.nextPage
       this.isFinished = result.finished
@@ -319,6 +325,11 @@ export struct OrderView {
       }
     } catch (error) {
       if (this.isCurrentSession(pageGeneration, token)) {
+        if (action === 'receipt' && orderWriteFailure(error as Error).unknownResult) {
+          if (!this.pendingReceipts.includes(orderId)) this.pendingReceipts = [...this.pendingReceipts, orderId]
+          this.safeToast('确认收货结果待确认')
+          return
+        }
         if (action === 'cancel' && generation === this.requestGeneration && !orderCancellation.pendingIds().includes(orderId)) {
           if ((error as CancellationStateChanged).orderState === OrderState.AWAITING_SHIPMENT && this.selectedState === OrderState.AWAITING_PAYMENT) {
             this.selectedState = OrderState.AWAITING_SHIPMENT
@@ -561,6 +572,7 @@ export struct OrderView {
       Row({ space: 8 }) {
         Blank()
         Button('查看物流')
+          .enabled(!this.busyOrderId && this.canUseOrder(order.id))
           .height(32)
           .fontSize(12)
           .fontColor($r('[ui_components].color.gray'))
@@ -683,6 +695,12 @@ export struct OrderView {
           Button(this.busyAction === 'cancel' ? '正在确认取消结果' : '重新查询')
             .enabled(!this.busyOrderId && this.isOrderListReady())
             .onClick(() => this.recoverCancellations())
+        }
+        if (this.pendingReceipts.length > 0) {
+          Text('确认收货结果待确认').fontSize(12).padding(6)
+          Button('重新查询')
+            .enabled(!this.busyOrderId && !this.loading && this.isCurrentSession(this.pageGeneration, this.sessionToken))
+            .onClick(() => this.reloadOrders())
         }
         Row() {
           ForEach(this.tabs, (tab: OrderTab) => {

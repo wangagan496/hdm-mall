@@ -5,6 +5,7 @@ import { HDMUser, OrderItem, OrderSku } from 'models'
 import { validateEvaluation, auth, storeManager } from 'storage'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
 import { EvaluationSubmitActions, submitEvaluationFlow } from '../utils/EvaluationSubmitFlow'
+import { orderWriteFailure } from '../utils/OrderWriteFailure'
 import { EvaluationNavigationActions, returnEvaluationToOrders } from '../utils/EvaluationNavigation'
 import {
   EVALUATION_CONTENT_MAX_LENGTH,
@@ -329,7 +330,9 @@ export struct EvaluationView {
       await submitEvaluationFlow(actions)
     } catch (error) {
       if (this.isCurrentEvaluation(generation, token, orderId)) {
-        this.errorText = (error as Error).message || '提交失败，请重试'
+        const failure = orderWriteFailure(error as Error)
+        this.errorText = failure.unknownResult ? '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交' :
+          failure.message || '提交失败，请重试'
       }
     } finally {
       if (this.isCurrentEvaluation(generation, token, orderId)) this.submitting = false

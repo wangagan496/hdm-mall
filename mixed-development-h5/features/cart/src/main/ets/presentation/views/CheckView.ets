@@ -125,6 +125,8 @@ export struct CheckView {
     this.checkoutQuerySequence++
     this.isSubmittingOrder = false
     this.checkoutLoading = false
+    this.showSheet = false
+    this.activeSheet = CheckoutSheet.None
     if (!changedAccount) return
     this.requestSummary = ''
     this.recoveredOrderId = ''
@@ -133,8 +135,6 @@ export struct CheckView {
     this.addressId = ''
     this.addressManuallySelected = false
     this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
-    this.showSheet = false
-    this.activeSheet = CheckoutSheet.None
     this.isSubmittingOrder = false
     this.checkoutRefreshFailed = false
     this.checkoutLoading = false

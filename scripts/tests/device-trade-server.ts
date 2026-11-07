@@ -30,7 +30,8 @@ const product = f.testData.product({ name: '设备独立测试商品',
 const sku = product.skus[0]!
 const s1 = process.argv.includes('--s1')
 const s2 = process.argv.includes('--s2')
-const extra = s2 ? f.testData.product({ name: '购物车保留商品', skus: [{ spec: '保留款', priceCents: 1109, stock: 19 }] }) : undefined
+const loginProbe = process.argv.includes('--login-probe')
+const extra = s2 || loginProbe ? f.testData.product({ name: '购物车保留商品', skus: [{ spec: '保留款', priceCents: 1109, stock: 19 }] }) : undefined
 for (const account of ['device_buyer', 'device_friend', 'device_merchant']) {
   f.testData.account({ account, password: 'Device-trade-123', role: account === 'device_merchant' ? 'merchant' : 'buyer' })
 }
@@ -40,24 +41,42 @@ const address = s1 ? undefined : f.testData.address({ userId: user.id, receiver:
   provinceCode: 'test', cityCode: 'test', countyCode: 'test', address: '独立模拟器验收地址', isDefault: 0 })
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid,
   skuId: sku.id, productId: product.id, amountCents: sku.priceCents, initialStock: sku.stock,
-  extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : 'default' }))
-let responseBarrier: { kind: 'order' | 'payment'; received: boolean; response?: unknown; request?: unknown } | undefined
+  extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : loginProbe ? 'LoginProbe' : 'default' }))
+type ResponseKind = 'order' | 'payment' | 'cancel' | 'receipt' | 'evaluation'
+const responseRoutes: Record<ResponseKind, { method: string; route: string }> = {
+  order: { method: 'POST', route: '/member/order' },
+  payment: { method: 'POST', route: '/member/order/:id/payments' },
+  cancel: { method: 'PUT', route: '/member/order/:id/cancel' },
+  receipt: { method: 'PUT', route: '/member/order/:id/receipt' },
+  evaluation: { method: 'PUT', route: '/member/order/:id/evaluation' }
+}
+let responseBarrier: { kind: ResponseKind; received: boolean; response?: unknown; request?: unknown; orderId?: string } | undefined
 let responseGate: Promise<void> | undefined
 let releaseResponse: (() => void) | undefined
-const tradeRequests: { method: string; route: string; requestKey?: string; orderId?: string }[] = []
+type TradeRequest = { id: string; method: string; route: string; requestKey?: string; orderId?: string;
+  body?: unknown; status?: number; stateBefore?: number; stateAfter?: number }
+const tradeRequests: TradeRequest[] = []
 f.app.get('/device-fixture/trade-requests', async () => tradeRequests)
+f.app.post('/device-fixture/expire-buyer-session', async () => {
+  const before = f.db.all('SELECT digest FROM sessions WHERE user_id=?', user.id).length
+  f.db.run('DELETE FROM sessions WHERE user_id=?', user.id)
+  return { account: 'device_buyer', removed: before,
+    remaining: f.db.all('SELECT digest FROM sessions WHERE user_id=?', user.id).length }
+})
 f.app.addHook('preHandler', async req => {
   const route = req.routeOptions.url ?? ''
   if ((req.method === 'POST' && ['/member/order', '/member/cart', '/member/order/:id/payments'].includes(route)) ||
-    (req.method === 'GET' && route === '/member/order/by-request/:requestKey')) {
+    (req.method === 'GET' && route === '/member/order/by-request/:requestKey') ||
+    (req.method === 'PUT' && Object.values(responseRoutes).some(value => value.method === 'PUT' && value.route === route))) {
     const params = req.params as { id?: string; requestKey?: string }
     const body = req.body as { requestKey?: string } | undefined
-    tradeRequests.push({ method: req.method, route, requestKey: body?.requestKey ?? params.requestKey, orderId: params.id })
+    tradeRequests.push({ id: req.id, method: req.method, route, requestKey: body?.requestKey ?? params.requestKey,
+      orderId: params.id, body, stateBefore: params.id ? f.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', params.id)?.state : undefined })
   }
 })
-f.app.post<{ Body: { kind: 'order' | 'payment'; hold: boolean } }>('/device-fixture/response-barrier', {
+f.app.post<{ Body: { kind: ResponseKind; hold: boolean } }>('/device-fixture/response-barrier', {
   schema: { body: { type: 'object', required: ['kind', 'hold'], additionalProperties: false,
-    properties: { kind: { type: 'string', enum: ['order', 'payment'] }, hold: { type: 'boolean' } } } }
+    properties: { kind: { type: 'string', enum: Object.keys(responseRoutes) }, hold: { type: 'boolean' } } } }
 }, async (req, reply) => {
   if (req.body.hold) {
     if (responseBarrier) return reply.code(409).send({ error: 'Response barrier already armed' })
@@ -74,10 +93,16 @@ f.app.post<{ Body: { kind: 'order' | 'payment'; hold: boolean } }>('/device-fixt
 })
 f.app.get('/device-fixture/response-barrier', async () => responseBarrier ?? { received: false })
 f.app.addHook('onSend', async (req, reply, payload) => {
+  const recorded = tradeRequests.find(value => value.id === req.id)
+  if (recorded) {
+    recorded.status = reply.statusCode
+    if (recorded.orderId) recorded.stateAfter = f.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', recorded.orderId)?.state
+  }
   const barrier = responseBarrier
-  const matches = barrier?.kind === 'order' ? req.routeOptions.url === '/member/order' : req.routeOptions.url === '/member/order/:id/payments'
-  if (barrier && !barrier.received && req.method === 'POST' && reply.statusCode === 200 && matches) {
+  const expected = barrier ? responseRoutes[barrier.kind] : undefined
+  if (barrier && expected && !barrier.received && req.method === expected.method && reply.statusCode === 200 && req.routeOptions.url === expected.route) {
     barrier.received = true
+    barrier.orderId = (req.params as { id?: string }).id
     barrier.request = req.body
     barrier.response = typeof payload === 'string' ? JSON.parse(payload) : undefined
     await responseGate
@@ -122,9 +147,10 @@ f.app.post<{ Body: { orderId?: string; preset: unknown } }>('/device-fixture/pay
 })
 f.app.get<{ Params: { orderId: string } }>('/device-fixture/orders/:orderId/payments', async (req, reply) => {
   const orderId = req.params.orderId
-  const order = f.db.one('SELECT id,state,amount,request_key,request_body FROM orders WHERE id=?', orderId)
+  const order = f.db.one('SELECT id,state,amount,request_key,request_body,received_by,received_at FROM orders WHERE id=?', orderId)
   if (!order) return reply.code(404).send({ error: 'Fixture order not found' })
   return { order,
+    evaluations: f.db.all('SELECT * FROM evaluations WHERE order_id=?', orderId),
     payments: f.db.all(`SELECT payments.id,order_id,amount,state,created,channel_paid_at,next_query_at,payer_id,
       (SELECT account FROM users WHERE users.id=payments.payer_id) AS payerAccount
       FROM payments WHERE order_id=? ORDER BY created,id`, orderId),
@@ -140,7 +166,7 @@ f.app.addHook('onResponse', async (req, reply) => {
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
 })
 f.app.addHook('onError', async (_req, _reply, error) => { console.log(JSON.stringify({ errorCode: error.code })) })
-if (!s1) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
+if (!s1 && !loginProbe) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
 if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {

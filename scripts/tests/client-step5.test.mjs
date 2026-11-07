@@ -27,6 +27,23 @@ function checkoutFixture() {
   return { page, previews, paths, pending, lookups, writes, setPreview: fn => { preview = fn } }
 }
 
+test('L4-4/B-26: 同账号凭证变化关闭支付层且保留结算与原请求号', async () => {
+  for (const token of ['', 'renewed']) {
+    const f = checkoutFixture(); await f.page.loadCheckoutPreview()
+    f.page.addressManuallySelected = true
+    const request = JSON.stringify(f.page.buildOrderRequest()), summary = f.page.requestSummary
+    const goods = f.page.goodsList, addresses = f.page.addressList, quote = f.page.summary
+    f.page.showSheet = true; f.page.activeSheet = 1
+    f.page.user = { id: 'buyer-a', token }; f.page.reloadForCurrentAccount(); await tick()
+    assert.equal(f.page.showSheet, false)
+    assert.equal(f.page.activeSheet, 0)
+    assert.equal(f.page.goodsList, goods); assert.equal(f.page.addressList, addresses); assert.equal(f.page.summary, quote)
+    assert.equal(f.page.addressManuallySelected, true); assert.equal(f.page.requestSummary, summary)
+    assert.equal(JSON.stringify(f.page.buildOrderRequest()), request)
+    assert.equal(f.previews.length, 1)
+  }
+})
+
 test('B-26: 同账号换凭证保留结算及请求号', async () => {
   const f = checkoutFixture(); await f.page.loadCheckoutPreview()
   f.page.addressManuallySelected = true
