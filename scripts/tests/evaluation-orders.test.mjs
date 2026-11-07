@@ -3,7 +3,42 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execute, sourceOf, deferred, tick, pageMethods } from './native-harness.mjs'
 import { evaluationFixture } from './evaluation-harness.mjs'
+import { orderWriteFailure, BusinessError } from './order-write-boundaries.mjs'
 const base = 'mixed-development-h5/'
+test('L4-1: 评价连接错误显示待确认文案并保留输入草稿', async () => {
+  const f = evaluationFixture(), page = f.newPage(); page.aboutToAppear(); await tick()
+  page.content = '断网仍要保留的评价'; page.score = 4; page.saveDraft()
+  f.setSubmit(async () => { throw new Error('{"code":2300007,"message":"Failed to connect to the server"}') })
+  f.setLoad(async () => { throw new Error('offline') })
+  await page.submitEvaluation()
+  assert.equal(page.errorText, '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交')
+  assert.equal(page.content, '断网仍要保留的评价'); assert.equal(page.score, 4)
+  assert.equal(page.submitting, false); assert.equal(page.submitted, false)
+  assert.equal(f.saved.size, 1); assert.equal(f.navigations(), 0)
+})
+test('L4-1: 评价区分无响应、408、429、5xx、业务拒绝和普通异常', async () => {
+  const unknown = '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交'
+  const cases = [
+    [Object.assign(new Error('request failed'), { isAxiosError: true }), unknown],
+    [Object.assign(new Error('connect failed'), { code: 'ECONNREFUSED' }), unknown],
+    ...[408, 429, 500, 503].flatMap(status => [
+      [Object.assign(new Error('raw server failure'), { response: { status } }), unknown],
+      [new BusinessError('服务忙', status), unknown],
+    ]),
+    [new BusinessError('该订单不能评价', 400), '该订单不能评价'],
+    [new BusinessError('评价内容不符合要求', 200), '评价内容不符合要求'],
+    [Object.assign(new Error('raw HTTP error'), { response: { status: 403 } }), '提交失败，请重试'],
+    [new Error('internal details'), '提交失败，请重试'],
+  ]
+  for (const [error, expected] of cases) {
+    const f = evaluationFixture(), page = f.newPage(); page.aboutToAppear(); await tick()
+    page.content = '保留本次评价内容'; page.saveDraft()
+    f.setSubmit(async () => { throw error }); f.setLoad(async () => { throw new Error('offline') })
+    await page.submitEvaluation()
+    assert.equal(page.errorText, expected); assert.equal(f.saved.size, 1); assert.equal(f.navigations(), 0)
+  }
+})
+
 test('评价资格慢查或失败不丢输入，退出再进恢复且账号与订单隔离', async () => {
   const f = evaluationFixture(), gate = deferred(); f.setLoad(() => gate.promise)
   const page = f.newPage(); page.aboutToAppear()
@@ -52,6 +87,7 @@ function orderFixture() {
   let clock = 10000, fetch = async () => ({ items: [], pages: 0 })
   const messages = []
   const Page = pageMethods(base + 'features/cart/src/main/ets/presentation/views/OrderView.ets', 'OrderView', {}, {
+    orderWriteFailure,
     cancelActions: emptyCancelActions, cancelActionFailure,
     OrderState: states, isOrderStateInTab: inTab, readPhoneClockMillis: () => clock,
     secondsLeftToPay: (remaining, baseline) => Math.max(0, remaining - Math.floor((clock - baseline) / 1000)),

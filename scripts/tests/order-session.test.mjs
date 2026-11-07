@@ -1,4 +1,5 @@
 import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
+import { orderWriteFailure, BusinessError } from './order-write-boundaries.mjs'
 import { test as nodeTest } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -15,6 +16,7 @@ function fixture() {
   const queries = [], writes = [], messages = [], navigations = [], dialogs = []
   let pending = [], mutation = async id => row(id, 4)
   const Page = pageMethods(base + 'views/OrderView.ets', 'OrderView', {}, {
+    orderWriteFailure,
     cancelActions: emptyCancelActions, cancelActionFailure,
     ...loader, OrderState: states,
     ...presentation,
@@ -39,6 +41,67 @@ function fixture() {
   return { page, queries, writes, messages, navigations, dialogs, load,
     setMutation: fn => { mutation = fn }, setPending: ids => { pending = ids } }
 }
+
+test('L4-2: 确认收货响应未知锁定卡片，重新查询成功解除待确认', async () => {
+  const f = fixture(); f.page.selectedState = 3; await f.load()
+  f.setMutation(async () => { throw Object.assign(new Error('Failed to connect to the server'), { isAxiosError: true }) })
+  await f.page.runOrderAction('order-a', 'receipt', () => f.page.runReceipt('order-a'), 'received')
+  assert.deepEqual(Array.from(f.page.pendingReceipts || []), ['order-a'])
+  assert.equal(f.page.canUseOrder('order-a'), false)
+  assert.equal(f.page.canUseOrder('order-a', true), false)
+  await f.page.runOrderAction('order-a', 'receipt', () => f.page.runReceipt('order-a'), 'received')
+  assert.equal(f.writes.length, 1)
+  const retry = f.page.reloadOrders(); f.queries.at(-1).reject(new Error('offline')); await retry
+  assert.deepEqual(Array.from(f.page.pendingReceipts), ['order-a'])
+  await f.load(pageOf([]))
+  assert.equal(f.page.pendingReceipts.length, 0); assert.equal(f.page.orders.length, 0)
+})
+
+test('L4-3: 取消待确认禁止普通操作，恢复取消仍能执行', async () => {
+  const f = fixture(); await f.load(pageOf([row('order-a', 1, { canPay: true, countdown: 100 })]))
+  f.setPending(['order-a']); f.page.pendingCancellations = ['order-a']
+  assert.equal(f.page.canUseOrder('order-a'), false)
+  assert.equal(f.page.canUseOrder('order-a', true), true)
+  f.page.goPay('order-a'); assert.equal(f.navigations.length, 0)
+  f.setMutation(async id => { f.setPending([]); return row(id, 6) })
+  await f.page.recoverCancellations()
+  assert.equal(f.writes.length, 1); assert.equal(f.writes[0].resume, true)
+  assert.equal(f.page.pendingCancellations.length, 0); assert.equal(f.page.orders[0].orderState, 6)
+})
+
+test('L4-2: 收货未知状态分类、未变恢复可点及明确业务错误不锁定', async () => {
+  for (const status of [408, 429, 500, 503, 400, 200]) {
+    const f = fixture(); await f.load()
+    f.setMutation(async () => { throw new BusinessError('订单不能收货', status) })
+    await f.page.runOrderAction('order-a', 'receipt', () => f.page.runReceipt('order-a'), 'received')
+    assert.equal(f.page.pendingReceipts.length, [400, 200].includes(status) ? 0 : 1)
+    if ([400, 200].includes(status)) assert.deepEqual(f.messages, ['订单不能收货'])
+    await f.load()
+    assert.equal(f.page.pendingReceipts.length, 0); assert.equal(f.page.canUseOrder('order-a'), true)
+  }
+})
+
+test('L4-2: 收货迟到错误不跨会话写回，旧查询不清除新待确认', async () => {
+  for (const transition of ['account', 'hidden', 'refresh']) {
+    const f = fixture(); await f.load()
+    const gate = deferred(); f.setMutation(() => gate.promise)
+    const action = f.page.runOrderAction('order-a', 'receipt', () => f.page.runReceipt('order-a'), 'received')
+    if (transition === 'account') { f.page.user = { token: 'buyer-b' }; f.page.onUserChanged() }
+    if (transition === 'hidden') f.page.hideOrders()
+    const refresh = transition === 'refresh' ? f.page.reloadOrders() : null
+    gate.reject(Object.assign(new Error('offline'), { isAxiosError: true })); await action
+    if (transition === 'refresh') {
+      f.queries.at(-1).resolve(pageOf()); await refresh
+      assert.deepEqual(Array.from(f.page.pendingReceipts), ['order-a'])
+      await f.load(); assert.equal(f.page.pendingReceipts.length, 0)
+    } else {
+      assert.equal(f.page.pendingReceipts.length, 0); assert.equal(f.messages.length, 0)
+    }
+  }
+  const f = fixture(); await f.load(); f.page.pendingReceipts = ['order-a']
+  f.page.user = { token: 'buyer-b' }; f.page.onUserChanged()
+  assert.equal(f.page.pendingReceipts.length, 0)
+})
 
 test('订单查询固定发起凭证，账号监听前的旧结果不能写回或继续补取下一页', async () => {
   const f = fixture()

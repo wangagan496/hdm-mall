@@ -1,4 +1,5 @@
 import { execute, sourceOf, pageMethods } from './native-harness.mjs'
+import { orderWriteFailure } from './order-write-boundaries.mjs'
 
 const base = 'mixed-development-h5/'
 const evaluationFlow = execute(sourceOf(base + 'features/cart/src/main/ets/presentation/utils/EvaluationSubmitFlow.ets'))
@@ -14,6 +15,7 @@ export function evaluationFixture() {
   const store = { getSync: (key, fallback) => saved.get(key) ?? fallback, putSync: (key, value) => saved.set(key, value),
     deleteSync: key => saved.delete(key), flush: () => flush() }
   const Page = pageMethods(base + 'features/cart/src/main/ets/presentation/views/EvaluationView.ets', 'EvaluationView', {}, {
+    orderWriteFailure,
     ...validation, ...presentation, ...evaluationFlow, KeyboardAvoidMode: { RESIZE: 1 }, PAGE_PATH: { EVALUATION_PAGE: 'evaluation' },
     auth: { getUserInfo: () => user }, storeManager: { getStore: () => store },
     getOrderDetailAPI: (...args) => { queries.push(args); return load(...args) },

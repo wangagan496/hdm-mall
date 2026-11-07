@@ -107,11 +107,12 @@ test('隐藏评价页不查询或提交，重新显示后重读且资格恢复�
 test('当前评价确认期间保持提交锁，确认读取固定凭证并拒绝不同结果', async () => {
   const f = evaluationFixture(), page = f.newPage(), confirmation = deferred()
   page.aboutToAppear(); await tick(); fill(page)
-  f.setSubmit(async () => { throw new Error('response lost') }); f.setLoad(() => confirmation.promise)
+  f.setSubmit(async () => { throw Object.assign(new Error('response lost'), { isAxiosError: true }) }); f.setLoad(() => confirmation.promise)
   const pending = page.submitEvaluation(); await tick(); await page.submitEvaluation()
   assert.equal(f.submissions.length, 1); assert.equal(page.submitting, true)
   assert.equal(f.submissions[0][2], 'a-token'); assert.deepEqual(f.queries.at(-1), ['order-a', 'a-token'])
   confirmation.resolve({ id: 'order-a', evaluation: { score: 1, content: '另一条评价' } }); await pending
   assert.equal(page.submitted, false); assert.equal(page.submitting, false); assert.equal(f.navigations(), 0)
-  assert.equal(page.content, '这是当前账号的评价'); assert.match(page.errorText, /response lost/)
+  assert.equal(page.content, '这是当前账号的评价')
+  assert.equal(page.errorText, '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交')
 })
