@@ -1,11 +1,11 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe)
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe)
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 $StartedAt = Get-Date
-$Mode = if ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
+$Mode = if ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
-$Output = Join-Path $Root $(if ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
+$Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Base = 'http://127.0.0.1:3103'
 $Password = 'Device-trade-123'
@@ -644,6 +644,221 @@ function Restore-TestNetwork {
   $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103')
   $script:Mapped = $true
 }
+function Invoke-LoginProbe {
+  $script:BuyerChecks = [System.Collections.Generic.List[object]]::new()
+  $Before = @(Api 'device_buyer' '/member/cart')
+  if ($Before.Count -ne 1 -or $Before[0].skuId -ne $Identity.extraSkuId -or $Before[0].count -ne 1 -or -not $Before[0].selected) { throw 'LoginProbe requires only the other selected cart item' }
+  Login 'device_buyer'
+  Tap-Text '首页'
+  Search-Product
+  Wait-Text '1'
+  Save-BuyerCheckpoint '03-before-add-badge-one' @('B-16')
+  Tap-Text '加入购物袋'
+  Tap-Text '标准款'
+  Wait-Text ('库存 ' + $InitialStock)
+  Save-BuyerCheckpoint '04-logged-in-selected-spec' @('B-16')
+  $Actions = @(Read-Nodes | Where-Object { $_.text -eq '加入购物袋' -and $_.visible -ne 'false' })
+  Operate-Node $Actions[-1]
+  Wait-Text '去结算'
+  Wait-Text '设备独立测试商品'
+  Wait-Text '购物车保留商品'
+  Wait-Text '共2种商品'
+  Wait-Text '¥34.80'
+  $Cart = @(Api 'device_buyer' '/member/cart')
+  $Adds = @(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ } | Where-Object { $_.route -eq '/member/cart' })
+  if ($Cart.Count -ne 2 -or @($Cart | Where-Object { $_.skuId -eq $SkuId -and $_.count -eq 1 -and $_.selected }).Count -ne 1 -or @($Cart | Where-Object { $_.skuId -eq $Identity.extraSkuId -and $_.count -eq 1 -and $_.selected }).Count -ne 1 -or $Adds.Count -ne 1 -or -not $Adds[0].requestKey -or $Adds[0].status -ne 200) { throw 'B-16 did not preserve the other item and add exactly one keyed SKU' }
+  Save-BuyerCheckpoint '05-logged-in-standalone-cart' @('B-16')
+  Back
+  Wait-Text '加入购物袋'
+  Wait-Text '2'
+  Save-BuyerCheckpoint '06-product-badge-two' @('B-16')
+  $CartIcon = @(Read-Nodes | Where-Object { $_.type -eq 'Image' -and $_.clickable -eq 'true' -and $_.visible -ne 'false' } | Select-Object -Last 1)
+  Operate-Node $CartIcon[0]
+  Tap-Text '去结算'
+  Wait-Text '结算'
+  Tap-Text '独立模拟器验收地址'
+  Tap-Text '测试省 测试市 测试区 独立模拟器验收地址'
+  Back
+  Wait-Text '结算'
+  Wait-Text '独立模拟器验收地址'
+  Wait-Text '¥34.80'
+  Save-BuyerCheckpoint '07-checkout-before-expiry' @('B-26')
+  $Expired = Invoke-RestMethod "$Base/device-fixture/expire-buyer-session" -Method Post -ContentType 'application/json' -Body '{}'
+  $Tokens.Remove('device_buyer')
+  if ($Expired.removed -lt 1 -or $Expired.remaining -ne 0) { throw 'Fixture did not invalidate existing buyer sessions' }
+  $Expired | ConvertTo-Json | Set-Content "$Output/expired-session.json" -Encoding utf8
+  Tap-Text '提交订单'
+  Tap-Text '立即支付'
+  for ($Try = 0; $Try -lt 15; $Try++) {
+    $script:Nodes = Read-Nodes
+    if (Find-Text '重新登录后继续结算') { break }
+    if (Find-Text '账号密码登录') { Back }
+    Start-Sleep -Milliseconds 300
+  }
+  Wait-Text '重新登录后继续结算'
+  if ((Find-Text '立即支付') -or (Find-Text '支付方式')) { throw 'Expired checkout payment sheet is still open' }
+  $ExpiredWrites = @(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ } | Where-Object { $_.route -eq '/member/order' -and $_.method -eq 'POST' })
+  if ($ExpiredWrites.Count -ne 1 -or $ExpiredWrites[0].status -ne 401 -or -not $ExpiredWrites[0].requestKey -or (Orders).Count -ne 0) { throw 'Expired checkout did not reject exactly one original keyed request' }
+  Save-BuyerCheckpoint '08-expired-checkout-login-entry' @('B-26')
+  Tap-Text '重新登录后继续结算'
+  Wait-Text '账号密码登录'
+  Input-Type 'TextInput' 0 'device_buyer'
+  Input-Type 'TextInput' 1 $Password
+  Back
+  $Checkbox = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })
+  if ($Checkbox[0].checked -ne 'true') { Operate-Node $Checkbox[0] }
+  Tap-Text '登录'
+  Wait-Text '结算'
+  Wait-Text '设备独立测试商品'
+  Wait-Text '购物车保留商品'
+  Wait-Text '独立模拟器验收地址'
+  Wait-Text '¥34.80'
+  Save-BuyerCheckpoint '09-same-account-checkout-preserved' @('B-26')
+  Tap-Text '提交订单'
+  Tap-Text '立即支付'
+  Wait-Text '确认支付 ¥34.80'
+  $Order = @(Orders)[0]
+  $Proof = Payment-Proof $Order.id
+  $Requests = @(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ })
+  $Creates = @($Requests | Where-Object { $_.method -eq 'POST' -and $_.route -eq '/member/order' })
+  $Lookups = @($Requests | Where-Object { $_.route -eq '/member/order/by-request/:requestKey' })
+  if ((Orders).Count -ne 1 -or $Order.totalNum -ne 2 -or $Order.skus.Count -ne 2 -or $Proof.order.amount -ne 3480 -or $Order.address.address -ne '独立模拟器验收地址' -or $Creates.Count -ne 2 -or $Creates[1].status -ne 200 -or $Creates[1].requestKey -ne $Proof.order.request_key) { throw 'B-26 restored checkout did not create exactly one matching order' }
+  $KeyRecovery = 'original-key-preserved'
+  if ($Lookups.Count -lt 1 -or @($Lookups | Where-Object { $_.requestKey -ne $ExpiredWrites[0].requestKey }).Count -ne 0) { throw 'B-26 same-account recovery did not exclusively query the original checkout key' }
+  if ($Proof.order.request_key -ne $ExpiredWrites[0].requestKey) {
+    $ConfirmedAbsent = @($Lookups | Where-Object { $_.status -eq 404 })
+    if ($ConfirmedAbsent.Count -ne $Lookups.Count -or [array]::IndexOf($Requests, $ConfirmedAbsent[-1]) -ge [array]::IndexOf($Requests, $Creates[1])) { throw 'B-26 changed key without first confirming the original request was absent' }
+    $KeyRecovery = 'original-key-queried-404-before-explicit-new-submit'
+  }
+  $OriginalBody = $Creates[0].body | Select-Object * -ExcludeProperty requestKey | ConvertTo-Json -Depth 8 -Compress
+  $RestoredBody = $Creates[1].body | Select-Object * -ExcludeProperty requestKey | ConvertTo-Json -Depth 8 -Compress
+  if ($OriginalBody -ne $RestoredBody) { throw 'B-26 re-login changed the selected goods, address or confirmed quote' }
+  $KeyProof = @{originalRequestKey=$ExpiredWrites[0].requestKey;persistedRequestKey=$Proof.order.request_key;recovery=$KeyRecovery;lookups=$Lookups;originalBody=$Creates[0].body;restoredBody=$Creates[1].body;contract='client-step5 B-26 original-key recovery; buyer plan section 14 and checkout-submission B-32 permit a new explicit submit only after 404'}
+  $KeyProof | ConvertTo-Json -Depth 12 | Set-Content "$Output/checkout-key-recovery.json" -Encoding utf8
+  Save-BuyerCheckpoint '10-relogin-unique-order-key-recovery' @('B-26') $Order.id
+  Save-Result @{checkpoints=$script:BuyerChecks.ToArray();order=$Order;ledger=$Proof;requests=$Requests;keyRecovery=$KeyProof}
+  Write-Output "SCRIPT $PSCommandPath RESULT LoginProbe logged-in add and same-account expired checkout passed"
+}
+function Save-EvaluationDraftProof([string]$Name, [string]$OrderId, [string]$Content, [bool]$Present) {
+  $Preferences = [xml]((Invoke-Hdc @('shell','cat','/data/app/el2/100/base/com.hdm.mall/haps/phone/preferences/user_info_key')) -join "`n")
+  $Drafts = @($Preferences.SelectNodes('//*[@key]') | Where-Object { $_.GetAttribute('key') -like "evaluation-draft:*:${OrderId}" })
+  $Proof = @{orderId=$OrderId;expectedPresent=$Present;entries=@($Drafts | ForEach-Object { @{key=$_.GetAttribute('key');value=$_.InnerText} })}
+  $Proof | ConvertTo-Json -Depth 8 | Set-Content "$Output/$Name-draft.json" -Encoding utf8
+  if ($Present) {
+    if ($Drafts.Count -ne 1 -or ($Drafts[0].InnerText | ConvertFrom-Json).content -ne $Content) { throw 'Evaluation draft was not persisted with the submitted content' }
+  } elseif ($Drafts.Count -ne 0) { throw 'Confirmed evaluation left a local draft behind' }
+}
+function Assert-WriteTransition([string]$Kind, [string]$OrderId, [int]$Before, [int]$After) {
+  $Writes = @(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ } | Where-Object { $_.route -eq "/member/order/:id/$Kind" -and $_.orderId -eq $OrderId })
+  $Transitions = @($Writes | Where-Object { $_.status -eq 200 -and $_.stateBefore -eq $Before -and $_.stateAfter -eq $After })
+  if ($Transitions.Count -ne 1 -or @($Writes | Where-Object { $_.status -eq 200 }).Count -ne 1) { throw "$Kind did not have exactly one successful state transition" }
+  $Writes | ConvertTo-Json -Depth 12 | Set-Content "$Output/$Kind-writes.json" -Encoding utf8
+}
+function Invoke-WriteNetworkProbe {
+  $script:BuyerChecks = [System.Collections.Generic.List[object]]::new()
+  Login 'device_buyer'
+  Checkout
+  $CancelId = @(Orders)[0].id
+  Mine
+  Tap-Text '全部订单'
+  Wait-Text '取消订单'
+  $null = Response-Barrier 'cancel' $true
+  Tap-Text '取消订单'
+  Disconnect-AcceptedResponse 'cancel'
+  Wait-Text '取消结果待确认，请稍后查询'
+  foreach ($Text in @('取消订单','去支付')) {
+    $Button = Find-Text $Text
+    if (-not $Button -or $Button.enabled -ne 'false') { throw "Pending cancellation button is not disabled: $Text" }
+  }
+  if (Find-Text '已取消') { throw 'Offline cancellation prematurely displayed success' }
+  $null = Assert-State $CancelId 6
+  Assert-CancelInventory $CancelId 1 $InitialStock
+  Save-BuyerCheckpoint '01-cancel-offline-intent-preserved' @('B-61') $CancelId
+  Restore-TestNetwork
+  Tap-Text '重新查询'
+  Wait-Text '已取消'
+  Assert-NoPaymentAction
+  foreach ($Forbidden in @('取消订单','提醒发货','取消结果待确认，请稍后查询')) { if (Find-Text $Forbidden) { throw "Cancelled card still exposes $Forbidden" } }
+  Assert-CancelInventory $CancelId 1 $InitialStock
+  Assert-WriteTransition 'cancel' $CancelId 1 6
+  Save-BuyerCheckpoint '02-cancel-recovered-once' @('B-61') $CancelId
+  Tap-Text '待付款'
+  $script:Nodes = Read-Nodes
+  if ((Find-Text '设备独立测试商品') -or (Find-Text '已取消')) { throw 'Cancelled order remains in pending-payment tab' }
+  Save-BuyerCheckpoint '03-cancel-removed-from-unpaid' @('B-61') $CancelId
+  $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId;count=1;requestKey=[guid]::NewGuid().ToString()}
+  Mine
+  Checkout
+  $ReceiveId = @(Orders | Where-Object { $_.id -ne $CancelId })[0].id
+  Tap-Text $PaymentText
+  $null = Assert-State $ReceiveId 2
+  $null = Api 'device_merchant' "/merchant/orders/$ReceiveId/ship" 'Post' @{}
+  $null = Assert-State $ReceiveId 3
+  Mine
+  Tap-Text '待收货'
+  $null = Response-Barrier 'receipt' $true
+  Tap-Text '确认收货'
+  Disconnect-AcceptedResponse 'receipt'
+  Wait-Text '确认收货'
+  Wait-Text '确认收货结果待确认'
+  foreach ($Text in @('确认收货','查看物流')) {
+    $Button = Find-Text $Text
+    if (-not $Button -or $Button.enabled -ne 'false') { throw "Pending receipt button is not disabled: $Text" }
+  }
+  $null = Assert-State $ReceiveId 4
+  if (Find-Text '去评价') { throw 'Offline receipt prematurely displayed success' }
+  Save-BuyerCheckpoint '04-receipt-offline-response-lost' @('B-66') $ReceiveId
+  Restore-TestNetwork
+  Tap-Text '重新查询'
+  Wait-Text '暂时没有相关订单'
+  foreach ($Forbidden in @('确认收货结果待确认','确认收货','设备独立测试商品')) {
+    if (Find-Text $Forbidden) { throw "Receipt recovery left stale awaiting-receipt UI: $Forbidden" }
+  }
+  Tap-Text '待评价'
+  Wait-Text '去评价'
+  Assert-WriteTransition 'receipt' $ReceiveId 3 4
+  $Received = Payment-Proof $ReceiveId
+  if (-not $Received.order.received_by -or -not $Received.order.received_at) { throw 'Receipt actor or timestamp missing' }
+  Save-BuyerCheckpoint '05-receipt-recovered-once' @('B-66') $ReceiveId
+  Tap-Text '去评价'
+  $Content = 'step7 response lost evaluation'
+  Input-Type 'TextArea' 0 $Content
+  Back
+  $null = Response-Barrier 'evaluation' $true
+  Tap-Text '提交评价'
+  Disconnect-AcceptedResponse 'evaluation'
+  Wait-Text '提交评价'
+  Wait-Text '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交'
+  Wait-Text $Content
+  Save-EvaluationDraftProof '06-evaluation-offline' $ReceiveId $Content $true
+  Save-BuyerCheckpoint '06-evaluation-offline-draft-preserved' @('B-66') $ReceiveId
+  Restore-TestNetwork
+  Tap-Text '提交评价'
+  Wait-Text '全部'
+  Tap-Text '全部'
+  Wait-Text '已评价'
+  $Complete = Assert-State $ReceiveId 5
+  $Proof = Payment-Proof $ReceiveId
+  if ($Proof.evaluations.Count -ne 1 -or $Proof.evaluations[0].content -ne $Content -or $Complete.evaluation.content -ne $Content -or $Proof.order.received_at -ne $Received.order.received_at) { throw 'Evaluation or receipt exactly-once proof failed' }
+  Assert-WriteTransition 'evaluation' $ReceiveId 4 5
+  Save-EvaluationDraftProof '07-evaluation-recovered' $ReceiveId $Content $false
+  Save-BuyerCheckpoint '07-evaluation-recovered-once-draft-cleared' @('B-66') $ReceiveId
+  Tap-Text '已评价'
+  Wait-Text ('订单号 ' + $ReceiveId)
+  Scroll-Text $Content -ViewOnly
+  Save-BuyerCheckpoint '08-evaluation-visible-in-detail' @('B-66') $ReceiveId
+  Mine
+  Tap-Text '首页'
+  Search-Product
+  Tap-Text '评价'
+  Scroll-Text $Content -ViewOnly
+  Save-BuyerCheckpoint '09-evaluation-visible-on-product' @('B-66') $ReceiveId
+  $Inventory = Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $Movements = Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
+  if ((Orders).Count -ne 2 -or $Inventory.items[0].stock -ne ($InitialStock - 1) -or $Inventory.items[0].difference -ne 0 -or @($Movements.items | Where-Object { $_.kind -eq 'reserve' }).Count -ne 2 -or @($Movements.items | Where-Object { $_.kind -in @('cancel','expire') }).Count -ne 1) { throw 'WriteNetworkProbe final inventory or order cardinality failed' }
+  Save-Result @{checkpoints=$script:BuyerChecks.ToArray();cancelled=(Payment-Proof $CancelId);completed=$Proof;requests=@(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ })}
+  Write-Output "SCRIPT $PSCommandPath RESULT WriteNetworkProbe cancellation, receipt and evaluation response-loss recovery passed"
+}
 function Invoke-BuyerScenario {
   $script:BuyerChecks = [System.Collections.Generic.List[object]]::new()
   if ($S1) {
@@ -817,6 +1032,7 @@ if ($RelationsProbe) { $FixtureArguments += '--relations' }
 if ($CancelFamilyProbe) { $FixtureArguments += '--cancel-family' }
 if ($S1) { $FixtureArguments += '--s1' }
 if ($S2) { $FixtureArguments += '--s2' }
+if ($LoginProbe) { $FixtureArguments += '--login-probe' }
 $Fixture = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList $FixtureArguments -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput "$Output/server.stdout.log" -RedirectStandardError "$Output/server.stderr.log"
 $Mapped = $false
 $OriginalRemoved = $false
@@ -838,6 +1054,8 @@ try {
   if ($HadOriginal) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3000'); $OriginalRemoved=$true }
   $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103'); $Mapped=$true
   $null = Invoke-Hdc @('install','-r',"$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app")
+  if ($LoginProbe) { Invoke-LoginProbe; return }
+  if ($WriteNetworkProbe) { Invoke-WriteNetworkProbe; return }
   if ($S1 -or $S2 -or $NetworkProbe) { Invoke-BuyerScenario; return }
   if ($S3) { Invoke-S3; return }
   if ($CancelRejectProbe -or $CancelFamilyProbe) {
@@ -1006,7 +1224,14 @@ try {
   $Failure = $_
   try { Capture 'failure' } catch { Write-Warning 'Failure screenshot or layout could not be captured' }
   $FailureData = @{ error=$Failure.Exception.Message; scriptStackTrace=$Failure.ScriptStackTrace }
-  if (($S1 -or $S2 -or $NetworkProbe) -and $null -ne $script:BuyerChecks) { $FailureData.checkpoints = $script:BuyerChecks.ToArray() }
+  if (($S1 -or $S2 -or $NetworkProbe -or $LoginProbe -or $WriteNetworkProbe) -and $null -ne $script:BuyerChecks) { $FailureData.checkpoints = $script:BuyerChecks.ToArray() }
+  if ($LoginProbe -or $WriteNetworkProbe) {
+    try {
+      $FailureData.requests = @(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ })
+      $FailureData.orders = @(Orders)
+      $FailureData.ledgers = @($FailureData.orders | ForEach-Object { Payment-Proof $_.id })
+    } catch { Write-Warning 'Failure backend proof could not be captured' }
+  }
   Save-Result $FailureData 'failed'
   throw $Failure
 } finally {
