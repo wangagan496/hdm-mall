@@ -1,11 +1,22 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe)
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
+$listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
+$emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
+if ($emulator.Name -ne 'Emulator.exe' -or $emulator.CommandLine -notmatch '"Pura 90 API24"') { throw 'Target 5555 is not the allocated Pura 90 API24 instance.' }
 $StartedAt = Get-Date
 $Mode = if ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
+if ($ProductProbe) { $Mode = 'ProductProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
+if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
+if ($ArchiveSequence) {
+  if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
+  $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
+  if (Test-Path -LiteralPath $Output) { throw 'Archive already exists; use a new sequence.' }
+}
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Base = 'http://127.0.0.1:3103'
 $Password = 'Device-trade-123'
@@ -20,6 +31,7 @@ function Get-Nodes($Node) {
   foreach ($Child in $Node.children) { Get-Nodes $Child }
 }
 function Read-Nodes {
+  $null = Invoke-Hdc @('shell','power-shell','wakeup')
   $null = Invoke-Hdc @('shell','uitest','dumpLayout','-p','/data/local/tmp/hdm-regression.json')
   $null = Invoke-Hdc @('file','recv','/data/local/tmp/hdm-regression.json',"$Output/layout.json")
   return @(Get-Nodes (Get-Content -LiteralPath "$Output/layout.json" -Raw | ConvertFrom-Json))
@@ -128,8 +140,7 @@ function Checkout {
   Tap-Text '购物袋'
   Tap-Text '去结算'
   Wait-Text '结算'
-  Tap-Text '提交订单'
-  Tap-Text '立即支付'
+  Tap-Text '提交订单并付款'
   Wait-Text $PaymentText
 }
 function Ship {
@@ -445,8 +456,7 @@ function Invoke-S3 {
   Tap-Text $PaymentText
   Wait-Text '正在确认付款结果，请勿重复付款'
   Save-S3Checkpoint 'b6-confirming-result' @('B-59') $CancelId
-  Tap-Text '返回首页'
-  Tap-Text '我的'
+  Mine
   Wait-Text '编辑资料'
   Tap-Text '待付款'
   Wait-Text '确认中'
@@ -596,8 +606,7 @@ function Add-CheckoutAddress {
   Wait-Text '请填写收货地址'
   Save-BuyerCheckpoint '06-checkout-no-address' @('B-22')
   Tap-Text '请填写收货地址'
-  Tap-Text '管理收货地址'
-  Tap-Text '+ 新增地址'
+  Tap-Text '新增地址'
   Wait-Text '新增收货地址'
   Input-Type 'TextInput' 0 'StepSix'
   Input-Type 'TextInput' 1 '13800138000'
@@ -615,9 +624,7 @@ function Add-CheckoutAddress {
   }
   if ($Addresses.Count -ne 1 -or $Addresses[0].receiver -ne 'StepSix' -or $Addresses[0].address -ne 'StepSix address 6') { throw 'New address did not persist for buyer' }
   Save-BuyerCheckpoint '07-new-address-saved' @('B-22')
-  Back
-  Wait-Text '+ 新增地址'
-  Back
+  Tap-Text '保存并使用此地址'
   Wait-Text '结算'
   Wait-Text 'StepSix address 6'
   Tap-Text 'StepSix address 6'
@@ -659,6 +666,10 @@ function Invoke-LoginProbe {
   Save-BuyerCheckpoint '04-logged-in-selected-spec' @('B-16')
   $Actions = @(Read-Nodes | Where-Object { $_.text -eq '加入购物袋' -and $_.visible -ne 'false' })
   Operate-Node $Actions[-1]
+  Wait-Text '已加入购物车'
+  Wait-Text '去购物车'
+  Save-BuyerCheckpoint '04-added-stays-on-detail' @('B-16')
+  Tap-Text '去购物车'
   Wait-Text '去结算'
   Wait-Text '设备独立测试商品'
   Wait-Text '购物车保留商品'
@@ -687,8 +698,7 @@ function Invoke-LoginProbe {
   $Tokens.Remove('device_buyer')
   if ($Expired.removed -lt 1 -or $Expired.remaining -ne 0) { throw 'Fixture did not invalidate existing buyer sessions' }
   $Expired | ConvertTo-Json | Set-Content "$Output/expired-session.json" -Encoding utf8
-  Tap-Text '提交订单'
-  Tap-Text '立即支付'
+  Tap-Text '提交订单并付款'
   for ($Try = 0; $Try -lt 15; $Try++) {
     $script:Nodes = Read-Nodes
     if (Find-Text '重新登录后继续结算') { break }
@@ -714,8 +724,7 @@ function Invoke-LoginProbe {
   Wait-Text '独立模拟器验收地址'
   Wait-Text '¥34.80'
   Save-BuyerCheckpoint '09-same-account-checkout-preserved' @('B-26')
-  Tap-Text '提交订单'
-  Tap-Text '立即支付'
+  Tap-Text '提交订单并付款'
   Wait-Text '确认支付 ¥34.80'
   $Order = @(Orders)[0]
   $Proof = Payment-Proof $Order.id
@@ -724,7 +733,8 @@ function Invoke-LoginProbe {
   $Lookups = @($Requests | Where-Object { $_.route -eq '/member/order/by-request/:requestKey' })
   if ((Orders).Count -ne 1 -or $Order.totalNum -ne 2 -or $Order.skus.Count -ne 2 -or $Proof.order.amount -ne 3480 -or $Order.address.address -ne '独立模拟器验收地址' -or $Creates.Count -ne 2 -or $Creates[1].status -ne 200 -or $Creates[1].requestKey -ne $Proof.order.request_key) { throw 'B-26 restored checkout did not create exactly one matching order' }
   $KeyRecovery = 'original-key-preserved'
-  if ($Lookups.Count -lt 1 -or @($Lookups | Where-Object { $_.requestKey -ne $ExpiredWrites[0].requestKey }).Count -ne 0) { throw 'B-26 same-account recovery did not exclusively query the original checkout key' }
+  if (@($Lookups | Where-Object { $_.requestKey -ne $ExpiredWrites[0].requestKey }).Count -ne 0) { throw 'B-26 recovery queried a different checkout key' }
+  if ($Proof.order.request_key -ne $ExpiredWrites[0].requestKey -or $ExpiredWrites[0].status -ne 401) { throw 'B-26 definitive auth rejection must preserve original key for explicit re-login submission' }
   if ($Proof.order.request_key -ne $ExpiredWrites[0].requestKey) {
     $ConfirmedAbsent = @($Lookups | Where-Object { $_.status -eq 404 })
     if ($ConfirmedAbsent.Count -ne $Lookups.Count -or [array]::IndexOf($Requests, $ConfirmedAbsent[-1]) -ge [array]::IndexOf($Requests, $Creates[1])) { throw 'B-26 changed key without first confirming the original request was absent' }
@@ -801,7 +811,7 @@ function Invoke-WriteNetworkProbe {
   Disconnect-AcceptedResponse 'receipt'
   Wait-Text '确认收货'
   Wait-Text '确认收货结果待确认'
-  foreach ($Text in @('确认收货','查看物流')) {
+  foreach ($Text in @('确认收货','查看订单')) {
     $Button = Find-Text $Text
     if (-not $Button -or $Button.enabled -ne 'false') { throw "Pending receipt button is not disabled: $Text" }
   }
@@ -875,6 +885,10 @@ function Invoke-BuyerScenario {
     $Checkbox = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })
     if ($Checkbox[0].checked -ne 'true') { Operate-Node $Checkbox[0] }
     Tap-Text '登录'
+    Wait-Text '已加入购物车'
+    Wait-Text '去购物车'
+    Save-BuyerCheckpoint '05-auto-added-stays-on-detail' @('B-10')
+    Tap-Text '去购物车'
     Wait-Text '去结算'
     $Cart = @(Api 'device_buyer' '/member/cart')
     if ($Cart.Count -ne 1 -or $Cart[0].skuId -ne $SkuId -or $Cart[0].count -ne 1 -or -not $Cart[0].selected) { throw 'Guest login did not automatically add the selected SKU once' }
@@ -920,18 +934,17 @@ function Invoke-BuyerScenario {
     Wait-Text '结算'
     Save-BuyerCheckpoint '01-checkout-ready' @('B-31','B-32')
   }
-  Tap-Text '提交订单'
   if ($NetworkProbe) { $null = Response-Barrier 'order' $true }
-  Tap-Text '立即支付'
+  Tap-Text '提交订单并付款'
   if ($NetworkProbe) {
     Disconnect-AcceptedResponse 'order'
-    Wait-Text '正在确认订单'
+    Wait-Text '正在确认是否下单成功，请勿重复提交'
     $Order = @(Orders)[0]
     $OrderId = $Order.id
     $null = Assert-OneTrade $OrderId
     Save-BuyerCheckpoint '02-order-offline-confirming' @('B-31','B-32') $OrderId
     Restore-TestNetwork
-    Tap-Text '重新确认订单'
+    # 网络恢复监听或有限自动查询应直接打开原订单；保持断网期间与唯一订单证明。
   }
   Wait-Text $PaymentText
   $Order = @(Orders)[0]
@@ -1022,7 +1035,309 @@ function Invoke-BuyerScenario {
   Save-Result @{orderId=$OrderId;checkpoints=$script:BuyerChecks.ToArray();order=(Api 'device_buyer' "/member/order/$OrderId");ledger=$Proof;cart=@(Api 'device_buyer' '/member/cart');requests=$Requests}
   Write-Output "SCRIPT $PSCommandPath RESULT $Mode native buyer checkpoints and backend proofs passed"
 }
+function Product-Control([string]$Id, [string]$Value = '') {
+  for ($Try = 0; $Try -lt 9; $Try++) {
+    $Nodes = Read-Nodes
+    $Node = $Nodes | Where-Object { $_.id -eq $Id -and $_.visible -ne 'false' } | Select-Object -First 1
+    if ($Node) {
+      Operate-Node $Node
+      if ($Value) {
+        $null = Invoke-Hdc @('shell','uitest','uiInput','keyEvent','2072','2017')
+        $null = Invoke-Hdc @('shell','uitest','uiInput','text',$Value)
+        Back
+        $Actual = Read-Nodes | Where-Object { $_.id -eq $Id } | Select-Object -First 1
+        if ($Actual.text -ne $Value) { throw "Input did not replace existing text for $Id; got $($Actual.text)" }
+      }
+      return
+    }
+    $null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','2200','660','900','400')
+  }
+  throw "Product control not visible: $Id"
+}
+function Product-Search([string]$Name, [switch]$Absent) {
+  Mine
+  Tap-Text '首页'
+  Tap-Text '搜索...'
+  Wait-Text '搜索'
+  $Search = $script:Nodes | Where-Object { $_.type -eq 'SearchField' -and $_.visible -ne 'false' } | Select-Object -First 1
+  Operate-Node $Search $Name
+  Back
+  Tap-Text '搜索'
+  if ($Absent) { Wait-Text '暂找不到相关商品，请重新搜索对应商品'; Capture '08-off-search'; return }
+  for ($Try=0; $Try -lt 20; $Try++) {
+    $Goods = @(Read-Nodes | Where-Object { $_.type -eq 'Text' -and $_.text -eq $Name -and $_.visible -ne 'false' })
+    if ($Goods.Count -eq 1) { break }
+    Start-Sleep -Milliseconds 200
+  }
+  if ($Goods.Count -ne 1) { throw 'Product search result is not unique.' }
+  Capture '03-buyer-search'
+  Operate-Node $Goods[0]
+  Wait-Text '加入购物袋'
+}
+function Product-Select([string]$Action) {
+  Tap-Text '加入购物袋'
+  Tap-Text '标准款'
+  $Actions = @(Read-Nodes | Where-Object { $_.text -eq $Action -and $_.visible -ne 'false' })
+  Operate-Node $Actions[-1]
+}
+function Assert-ProductTop([string]$Title, [string]$First, [switch]$ById) {
+  $script:Nodes = Read-Nodes
+  $TitleNode = Find-Text $Title
+  $FirstNode = if ($ById) { $script:Nodes | Where-Object { $_.id -eq $First -and $_.visible -ne 'false' } | Select-Object -First 1 } else { Find-Text $First }
+  if (-not $TitleNode -or -not $FirstNode) { throw 'Product layout anchors missing.' }
+  $TitleBox = @([regex]::Matches($TitleNode.bounds, '\d+') | ForEach-Object { [int]$_.Value })
+  $FirstBox = @([regex]::Matches($FirstNode.bounds, '\d+') | ForEach-Object { [int]$_.Value })
+  $Gap = $FirstBox[1] - $TitleBox[3]
+  if ($Gap -lt 0 -or $Gap -gt 180) { throw "Unexpected product title/content gap: $Gap px" }
+  Write-Output "CHECK $Title content gap=$Gap px"
+}
+function Assert-UnavailableSpecification([string]$CaptureName) {
+  Scroll-Text '暂不可选' -ViewOnly
+  $script:Nodes = Read-Nodes
+  $Entry = $script:Nodes | Where-Object { $_.id -eq 'goods-specification' } | Select-Object -First 1
+  if (-not $Entry -or $Entry.enabled -ne 'false') { throw 'Unavailable specification entry is not disabled.' }
+  if (@($script:Nodes | Where-Object { $_.id -eq 'goods-specification-arrow' -and $_.visible -ne 'false' }).Count) { throw 'Unavailable specification arrow remains visible.' }
+  Operate-Node $Entry
+  $script:Nodes = Read-Nodes
+  if (Find-Text '请选择规格') { throw 'Unavailable specification opened a sheet.' }
+  if (-not (Find-Text '暂不可选')) { throw 'Unavailable specification text disappeared after tap.' }
+  Capture $CaptureName
+}
+function Assert-InvalidCart([string]$SkuId) {
+  $script:Nodes = Read-Nodes
+  $Spec = $script:Nodes | Where-Object { $_.id -eq ('cart-specification-' + $SkuId) } | Select-Object -First 1
+  $Delete = $script:Nodes | Where-Object { $_.id -eq ('cart-delete-' + $SkuId) } | Select-Object -First 1
+  $Quantity = $script:Nodes | Where-Object { $_.id -eq ('cart-quantity-' + $SkuId) } | Select-Object -First 1
+  if (-not $Spec -or $Spec.clickable -eq 'true') { throw 'Invalid cart specification remains interactive.' }
+  if (@($script:Nodes | Where-Object { $_.id -eq ('cart-specification-arrow-' + $SkuId) }).Count) { throw 'Invalid cart specification arrow remains.' }
+  if (-not $Delete -or $Delete.enabled -ne 'true' -or $Delete.clickable -ne 'true') { throw 'Invalid cart delete is not available.' }
+  if (-not $Quantity) { throw 'Invalid cart quantity control missing.' }
+  $Buttons = @($script:Nodes | Where-Object { $_.hierarchy -and $_.hierarchy.StartsWith($Quantity.hierarchy + ',') -and $_.type -eq 'Button' })
+  if ($Buttons.Count -ne 2 -or @($Buttons | Where-Object { $_.enabled -ne 'false' }).Count) { throw 'Invalid cart quantity buttons are not disabled.' }
+  $Before = @((Api 'device_buyer' '/member/cart') | Where-Object { $_.skuId -eq $SkuId })[0].count
+  foreach($Button in $Buttons) { Operate-Node $Button }
+  $After = @((Api 'device_buyer' '/member/cart') | Where-Object { $_.skuId -eq $SkuId })[0].count
+  if ($Before -ne $After) { throw 'Invalid cart quantity changed after disabled button taps.' }
+  Write-Output 'CHECK invalid cart plain specification, disabled quantity, available delete passed'
+}
+function Product-FormTop {
+  for($Try=0;$Try -lt 8;$Try++) {
+    $script:Nodes=Read-Nodes
+    if(@($script:Nodes|Where-Object {$_.id -eq 'product-label-name' -and $_.visible -ne 'false'}).Count){return}
+    $null=Invoke-Hdc @('shell','uitest','uiInput','swipe','660','900','660','2200','400')
+  }
+  throw 'Product name label did not return into view.'
+}
+function Assert-ProductFormStart {
+  $script:Nodes=Read-Nodes
+  if(@($script:Nodes|Where-Object {$_.text -in @('名称请填写1到100个字','请选择分类','价格须大于0，最多保留两位小数')}).Count){throw 'Untouched empty form displayed errors.'}
+  if(-not (Find-Text '测试分类 ✓ 已选')){throw 'Single category is not selected with visible mark.'}
+  $Save=$script:Nodes|Where-Object {$_.id -eq 'product-save'}|Select-Object -First 1
+  if(-not $Save){throw 'Fixed save button missing.'}
+  $SaveBounds=$Save.bounds
+  $Box=@([regex]::Matches($SaveBounds,'\d+')|ForEach-Object{[int]$_.Value})
+  if($Box[0] -gt 80 -or $Box[2] -lt 1240 -or $Box[1] -lt 2400){throw 'Save is not full-width at bottom.'}
+  $Primary=@($script:Nodes|Where-Object {$_.type -eq 'Button' -and $_.visible -ne 'false' -and $_.backgroundColor -eq $Save.backgroundColor -and $_.id -notlike 'product-category-*'})
+  if($Primary.Count -ne 1 -or $Primary[0].id -ne 'product-save'){throw 'Save is not the unique primary action.'}
+  Capture '01-empty-form'
+  # Exercise both cancelling and accepting clear, with real user input.
+  Product-Control 'product-name' 'ClearProbe'
+  Scroll-Text '清空'
+  Wait-Text '清空后已填写的内容不会保留'
+  Capture '01-clear-confirmation'
+  Tap-Text '继续填写'
+  Product-FormTop
+  $Value=Read-Nodes|Where-Object {$_.id -eq 'product-name'}|Select-Object -First 1
+  if($Value.text -ne 'ClearProbe'){throw 'Cancelling clear discarded input.'}
+  Scroll-Text '清空'
+  Tap-Text '确认清空'
+  Product-FormTop
+  $Value=Read-Nodes|Where-Object {$_.id -eq 'product-name'}|Select-Object -First 1
+  if($Value.text){throw 'Confirmed clear did not clear input.'}
+  Scroll-Text '添加规格' -ViewOnly
+  Product-Control 'product-save'
+  Wait-Text '名称请填写1到100个字'
+  $script:Nodes=Read-Nodes
+  if(-not @($script:Nodes|Where-Object {$_.id -eq 'product-label-name' -and $_.visible -ne 'false'}).Count){throw 'Save did not reveal first error.'}
+  Capture '01-save-errors'
+  Scroll-Text '价格须大于0，最多保留两位小数' -ViewOnly
+  Capture '01-save-price-error'
+  foreach($label in @('规格名称','价格（元）','库存','为 0 时买家看不到')) {Scroll-Text $label -ViewOnly}
+  $script:Nodes=Read-Nodes
+  $SaveAfter=$script:Nodes|Where-Object {$_.id -eq 'product-save'}|Select-Object -First 1
+  if($SaveAfter.bounds -ne $SaveBounds){throw 'Save moved with scroll content.'}
+  Product-FormTop
+  foreach($label in @('商品名称','分类','商品说明（选填）','商品图片')) {Wait-Text $label}
+  Write-Output 'CHECK empty/touched/submit errors, field labels, fixed primary save, clear confirm/cancel, selected category passed'
+}
+function Invoke-ProductProbe {
+  $Name = 'ProductProbe'
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Wait-Text '新建商品'
+  Assert-ProductTop '商品管理' '新建商品'
+  Capture '01-product-management'
+  Tap-Text '新建商品'
+  Wait-Text '商品名称'
+  Assert-ProductTop '新建商品' 'product-label-name' -ById
+  Capture '01-product-edit'
+  Assert-ProductFormStart
+  # Attempt a normal HDC import; no privileged media write or permission change.
+  $Jpeg = Join-Path $Output 'product-probe.jpg'
+  Add-Type -AssemblyName System.Drawing
+  $Bitmap = [System.Drawing.Bitmap]::new(80,80)
+  $Graphics = [System.Drawing.Graphics]::FromImage($Bitmap)
+  try { $Graphics.Clear([System.Drawing.Color]::OrangeRed); $Bitmap.Save($Jpeg,[System.Drawing.Imaging.ImageFormat]::Jpeg) }
+  finally { $Graphics.Dispose(); $Bitmap.Dispose() }
+  $Import = @(& $Hdc -t $Target file send $Jpeg '/storage/media/100/local/files/Pictures/hdm-product-probe.jpg' 2>&1)
+  $Import | Set-Content "$Output/image-import.txt"
+  Tap-Text '选择商品图片'
+  Capture '01-image-picker-attempt'
+  Back
+  Wait-Text '商品名称'
+  Product-Control 'product-name' $Name
+  Wait-Text '测试分类 ✓ 已选'
+  Product-Control 'product-price-0' '19.00'
+  Product-Control 'product-stock-0' '20'
+  Scroll-Text '添加规格'
+  Product-Control 'product-price-1' '24.00'
+  Product-Control 'product-stock-1' '10'
+  $script:Nodes=Read-Nodes
+  if(Find-Text '为 0 时买家看不到'){throw 'Zero stock hint remained after positive stock input.'}
+  Capture '01-filled-form'
+  Scroll-Text '保存'
+  Wait-Text '商品已保存'
+  Capture '02-created-once'
+  $Product = @((Api 'device_merchant' '/merchant/products?pageSize=100').items | Where-Object { $_.name -eq $Name })
+  if ($Product.Count -ne 1 -or $Product[0].skus.Count -ne 2) { throw 'UI did not create exactly one product with two SKUs.' }
+  $Product = $Product[0]
+  $ProductId = $Product.id
+  $FirstSku = $Product.skus[0].id
+  Login 'device_buyer'
+  Product-Search $Name
+  Product-Select '立即购买'
+  Wait-Text '结算'
+  Tap-Text '提交订单并付款'
+  Wait-Text '确认支付 ¥19.00'
+  Capture '04-original-order'
+  $OldOrder = @(Orders | Where-Object { $_.skus[0].id -eq $FirstSku })[0]
+  if (-not $OldOrder.id) { throw 'Original UI order not found.' }
+  $OldAmount = (Payment-Proof $OldOrder.id).order.amount
+  if ($OldAmount -ne 1900) { throw 'Original order amount is not 1900.' }
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Product-Control ('product-edit-' + $ProductId)
+  Wait-Text '编辑商品'
+  $script:Nodes=Read-Nodes
+  if(@($script:Nodes|Where-Object {$_.id -eq 'product-clear'}).Count){throw 'Existing product exposed destructive clear.'}
+  Wait-Text '分类创建后不可修改'
+  Product-Control 'product-price-0' '29.00'
+  Scroll-Text '保存'
+  Wait-Text '商品已保存'
+  Capture '05-price-saved'
+  Login 'device_buyer'
+  Product-Search $Name
+  Product-Select '立即购买'
+  Wait-Text '结算'
+  $script:Nodes = Read-Nodes
+  if (-not @($script:Nodes | Where-Object { $_.visible -ne 'false' -and $_.text -match '29\.00' }).Count) { throw 'New checkout price is not visible.' }
+  Capture '06-new-checkout-price'
+  $Quote = Api 'device_buyer' ('/member/order/pre?skuId=' + $FirstSku + '&count=1')
+  if ($Quote.summary.totalPayPrice -ne 29) { throw 'New checkout quote is incorrect.' }
+  if ((Payment-Proof $OldOrder.id).order.amount -ne 1900) { throw 'Editing price changed historical order amount.' }
+  $Current = Api 'device_merchant' ('/merchant/products/' + $ProductId)
+  if ($Current.skus[0].priceCents -ne 2900) { throw 'New price not persisted.' }
+  # Cart content is prepared through the actual add-to-cart UI.
+  Product-Search $Name
+  Product-Select '加入购物袋'
+  Wait-Text '已加入购物车'
+  Tap-Text '去购物车'
+  Wait-Text $Name
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Product-Control ('product-edit-' + $ProductId)
+  Wait-Text '编辑商品'
+  Product-Control 'product-enabled-1'
+  Scroll-Text '保存'
+  Wait-Text '商品已保存'
+  $script:Nodes=Read-Nodes
+  if(-not (Find-Text '¥29.00')){throw 'Single enabled SKU is not shown as one price.'}
+  if(@($script:Nodes|Where-Object {$_.text -match '¥29\.00\s*[~～]\s*¥29\.00'}).Count){throw 'Equal prices rendered as range.'}
+  Capture '05-single-price'
+  Login 'device_buyer'
+  Product-Search $Name
+  Tap-Text '加入购物袋'
+  Wait-Text '标准款'
+  $script:Nodes = Read-Nodes
+  $BuyerDetail = Api 'device_buyer' ('/goods?id=' + $ProductId)
+  if (@($BuyerDetail.skus | Where-Object { $_.id -eq $Product.skus[1].id }).Count) { throw 'Disabled SKU still returned as purchasable.' }
+  if (Find-Text '规格2') {
+    Operate-Node (Find-Text '规格2')
+    Wait-Text '请选择规格'
+  }
+  Tap-Text '标准款'
+  $script:Nodes = Read-Nodes
+  if (Find-Text '请选择规格') { throw 'Enabled SKU did not become selectable.' }
+  Capture '07-disabled-sku'
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Wait-Text $Name
+  $BeforeSale = Api 'device_merchant' ('/merchant/products/' + $ProductId)
+  $Addresses = @(Api 'device_buyer' '/member/address')
+  # A second buyer request is race setup while the merchant list remains open.
+  $RaceOrder = Api 'device_buyer' '/member/order' 'Post' @{requestKey=[guid]::NewGuid().ToString();source='buy-now';addressId=$Addresses[0].id;expectedAmountCents=2900;goods=@(@{skuId=$FirstSku;count=1})}
+  if (-not @((Api 'device_buyer' '/member/cart') | Where-Object { $_.skuId -eq $FirstSku }).Count) { throw 'Race setup unexpectedly consumed the cart product.' }
+  Product-Control ('product-toggle-' + $ProductId)
+  Wait-Text '已下架，买家暂时看不到'
+  Capture '08-one-click-off-after-order'
+  $Off = Api 'device_merchant' ('/merchant/products/' + $ProductId)
+  if ($Off.status -ne 'off' -or $Off.skus[0].stock -ne ($BeforeSale.skus[0].stock - 1)) { throw 'One-click off after buyer reservation failed.' }
+  Login 'device_buyer'
+  Product-Search $Name -Absent
+  Mine
+  Tap-Text '我的足迹'
+  Wait-Text $Name
+  Tap-Text $Name
+  Wait-Text '商品已下架，暂时无法购买'
+  Assert-UnavailableSpecification '09-off-specification'
+  Capture '09-off-detail'
+  Mine
+  Tap-Text '购物袋'
+  Wait-Text '清除失效商品'
+  Wait-Text $Name
+  Capture '10-invalid-cart'
+  Assert-InvalidCart $FirstSku
+  Tap-Text '清除失效商品'
+  for ($Try=0; $Try -lt 12; $Try++) {
+    $script:Nodes = Read-Nodes
+    if (-not (Find-Text '清除失效商品')) { break }
+    Start-Sleep -Milliseconds 200
+  }
+  if (Find-Text '清除失效商品') { throw 'Invalid cart row did not disappear after clearing.' }
+  Capture '10-cleared-invalid-cart'
+  $Cart = @(Api 'device_buyer' '/member/cart')
+  if (@($Cart | Where-Object { $_.skuId -eq $FirstSku }).Count) { throw 'Clear invalid products did not remove the unavailable row.' }
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Product-Control ('product-toggle-' + $ProductId)
+  Wait-Text '已重新上架'
+  Capture '11-back-on-sale'
+  Login 'device_buyer'
+  Product-Search $Name
+  Capture '12-restored-detail'
+  # All SKUs disabled is a separate availability state, set up through the fixture API.
+  $Latest = Api 'device_merchant' ('/merchant/products/' + $ProductId)
+  $null = Api 'device_merchant' ('/merchant/products/' + $ProductId) 'Put' @{requestKey=[guid]::NewGuid().ToString();expectedRevision=$Latest.revision;skus=@(@{id=$FirstSku;enabled=$false})}
+  Mine
+  Tap-Text '我的足迹'
+  Tap-Text $Name
+  Assert-UnavailableSpecification '13-all-skus-disabled'
+  Save-Result @{productId=$ProductId;oldOrderId=$OldOrder.id;oldAmountCents=$OldAmount;newPriceCents=2900;raceOrderId=$RaceOrder.id;createdBy='native-ui';imagePicker='not automated';uiRepairChecks=@('title-content-gap','off-specification-disabled','all-skus-disabled','invalid-cart-controls');product=(Api 'device_merchant' ('/merchant/products/' + $ProductId))}
+  Write-Output "SCRIPT $PSCommandPath RESULT ProductProbe native create/edit/buyer availability passed"
+}
 $Existing = @(& $Hdc -t $Target fport ls)
+$Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
+if (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) { throw 'Fixture port 3103 is already in use.' }
 $HadOriginal = ($Existing -join "`n") -match 'tcp:3000 tcp:3000\s+\[Reverse\]'
 if (($Existing -join "`n") -match 'tcp:3000 tcp:(?!3000\b)') { throw 'Device port 3000 has different forwarding.' }
 $FixturePath = Join-Path $PSScriptRoot 'tests/device-trade-server.ts'
@@ -1054,6 +1369,7 @@ try {
   if ($HadOriginal) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3000'); $OriginalRemoved=$true }
   $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103'); $Mapped=$true
   $null = Invoke-Hdc @('install','-r',"$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app")
+  if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }
   if ($WriteNetworkProbe) { Invoke-WriteNetworkProbe; return }
   if ($S1 -or $S2 -or $NetworkProbe) { Invoke-BuyerScenario; return }
@@ -1241,5 +1557,12 @@ try {
     } finally {
       if ($OriginalRemoved) { $null = Invoke-Hdc @('rport','tcp:3000','tcp:3000') }
     }
-  } finally { if (-not $Fixture.HasExited) { Stop-Process -Id $Fixture.Id } }
+  } finally {
+    if (-not $Fixture.HasExited) { Stop-Process -Id $Fixture.Id; $Fixture.WaitForExit() }
+    $After = @(& $Hdc -t $Target fport ls)
+    $After | Set-Content -LiteralPath "$Output/ports-after.txt"
+    $Clean = (($Existing -join "`n") -eq ($After -join "`n")) -and -not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) -and -not (Get-Process -Id $Fixture.Id -ErrorAction SilentlyContinue)
+    @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue))} | ConvertTo-Json | Set-Content "$Output/cleanup.json"
+    if (-not $Clean) { throw 'Port mapping or fixture cleanup verification failed.' }
+  }
 }
