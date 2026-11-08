@@ -9,23 +9,23 @@ import { Database } from '../src/database.ts'
 import { buildTestApp } from './helpers/fixtures.ts'
 import { createBackup, verifyBackup, restoreBackup } from '../src/backup.ts'
 
-test('009: 空库建到 9，重复启动不丢加购回执', () => {
+test('011: 空库建到 11，重复启动不丢加购回执', () => {
   const root = mkdtempSync(join(tmpdir(), 'cart-migrate-'))
   const path = join(root, 'mall.sqlite')
   try {
     const first = new Database(path)
-    assert.equal(first.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
+    assert.equal(first.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
     first.run("INSERT INTO users(id,account,password,nickname) VALUES('buyer','buyer','password','buyer')")
     first.run('INSERT INTO cart_requests VALUES(?,?,?,?,?)', 'buyer', 'key', '{}', '{}', 123)
     first.close()
     const next = new Database(path)
     assert.equal(next.one<{ created: number }>('SELECT created FROM cart_requests WHERE user_id=? AND request_key=?', 'buyer', 'key')!.created, 123)
-    assert.equal(next.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
+    assert.equal(next.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
     next.close()
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
 
-test('009: 版本 8 有数据升级，仅新建请求表', () => {
+test('009: 版本 8 有数据升级，保留账号并补齐新表', () => {
   const root = mkdtempSync(join(tmpdir(), 'cart-migrate-'))
   const path = join(root, 'mall.sqlite')
   try {
@@ -33,10 +33,10 @@ test('009: 版本 8 有数据升级，仅新建请求表', () => {
     first.run("INSERT INTO users(id,account,password,nickname) VALUES('buyer','buyer','password','buyer')")
     first.close()
     const legacy = new DatabaseSync(path)
-    legacy.exec('DROP TABLE cart_requests; PRAGMA user_version=8')
+    legacy.exec('DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; PRAGMA user_version=8')
     legacy.close()
     const migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
     assert.equal(migrated.one<{ account: string }>('SELECT account FROM users WHERE id=?', 'buyer')!.account, 'buyer')
     assert.equal(migrated.one<{ count: number }>('SELECT COUNT(*) count FROM cart_requests')!.count, 0)
     migrated.close()
@@ -49,7 +49,7 @@ test('009: 迁移失败整体回滚，旧库版本和哨兵保留', () => {
   try {
     new Database(path).close()
     const legacy = new DatabaseSync(path)
-    legacy.exec("DROP TABLE cart_requests; PRAGMA user_version=8; CREATE TABLE cart_requests(sentinel TEXT); INSERT INTO cart_requests VALUES('保留')")
+    legacy.exec("DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; PRAGMA user_version=8; CREATE TABLE cart_requests(sentinel TEXT); INSERT INTO cart_requests VALUES('保留')")
     legacy.close()
     assert.throws(() => new Database(path))
     const check = new DatabaseSync(path)
@@ -65,7 +65,7 @@ test('009: 建表及版本写入后故障也回滚整次迁移', context => {
   try {
     new Database(path).close()
     const legacy = new DatabaseSync(path)
-    legacy.exec("DROP TABLE cart_requests; PRAGMA user_version=8; INSERT INTO users(id,account,password,nickname) VALUES('buyer','buyer','unused','买家')")
+    legacy.exec("DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; PRAGMA user_version=8; INSERT INTO users(id,account,password,nickname) VALUES('buyer','buyer','unused','买家')")
     legacy.close()
     const exec = DatabaseSync.prototype.exec
     context.mock.method(DatabaseSync.prototype, 'exec', function (this: DatabaseSync, sql: string) {
@@ -80,7 +80,7 @@ test('009: 建表及版本写入后故障也回滚整次迁移', context => {
     assert.equal(check.prepare('SELECT account FROM users').get()!.account, 'buyer')
     check.close()
     const restored = new Database(path)
-    assert.equal(restored.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
+    assert.equal(restored.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
     restored.close()
   } finally { context.mock.restoreAll(); rmSync(root, { recursive: true, force: true }) }
 })
@@ -107,8 +107,8 @@ test('B-14: 30 秒任务按注入时钟清理 24 小时前回执', async context
   } finally { await f.app.close() }
 })
 
-for (const version of [2, 3, 4, 5, 6, 7, 8, 9]) {
-  test(`009: manifest ${version} 仍可验证恢复，启动升级到9并统计请求表`, async () => {
+for (const version of [2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+  test(`009: manifest ${version} 仍可验证恢复，启动升级到10并统计请求表`, async () => {
     const root = mkdtempSync(join(tmpdir(), 'cart-backup-'))
     mkdirSync(join(root, 'live'))
     const path = join(root, 'live', 'mall.sqlite')
@@ -119,22 +119,27 @@ for (const version of [2, 3, 4, 5, 6, 7, 8, 9]) {
         CREATE TABLE product_categories(product_id TEXT PRIMARY KEY REFERENCES products(id),category_id TEXT NOT NULL REFERENCES categories(id));
         PRAGMA user_version=2; INSERT INTO users(id,account,password,nickname) VALUES('buyer','buyer','unused','买家');`)
       for (const [target, file] of [[3, '003-inventory.sql'], [4, '004-stock-adjustment.sql'], [6, '006-address-autosave.sql'],
-        [7, '007-payments.sql'], [8, '008-order-cancellation.sql'], [9, '009-cart-requests.sql']] as const) {
+        [7, '007-payments.sql'], [8, '008-order-cancellation.sql'], [9, '009-cart-requests.sql'], [10, '010-product-management.sql']] as const) {
         if (target <= version) raw.exec(readFileSync(new URL('../src/migrations/' + file, import.meta.url), 'utf8'))
       }
       raw.exec(`PRAGMA user_version=${version}`)
-      if (version === 9) raw.prepare('INSERT INTO cart_requests VALUES(?,?,?,?,?)').run('buyer', 'key', '{}', '{}', 123)
+      if (version >= 9) raw.prepare('INSERT INTO cart_requests VALUES(?,?,?,?,?)').run('buyer', 'key', '{}', '{}', 123)
       raw.close()
       const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
       assert.equal(backup.manifest.schemaVersion, version)
       assert.equal((await verifyBackup(backup.root)).manifest.schemaVersion, version)
-      assert.equal(backup.counts.cart_requests, version === 9 ? 1 : undefined)
+      assert.equal(backup.counts.cart_requests, version >= 9 ? 1 : undefined)
       const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
       const upgraded = new Database(join(restored.root, 'mall.sqlite'))
-      assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
-      assert.equal(upgraded.one<{ count: number }>('SELECT COUNT(*) count FROM cart_requests')!.count, version === 9 ? 1 : 0)
+      assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
+      assert.equal(upgraded.one<{ count: number }>('SELECT COUNT(*) count FROM cart_requests')!.count, version >= 9 ? 1 : 0)
       assert.equal(upgraded.one<{ account: string }>('SELECT account FROM users')!.account, 'buyer')
       upgraded.close()
+      const reopened = new Database(join(restored.root, 'mall.sqlite'))
+      assert.equal(reopened.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
+      assert.equal(reopened.one<{ account: string }>('SELECT account FROM users')!.account, 'buyer')
+      assert.equal(reopened.one<{ count: number }>('SELECT COUNT(*) count FROM cart_requests')!.count, version >= 9 ? 1 : 0)
+      reopened.close()
     } finally { rmSync(root, { recursive: true, force: true }) }
   })
 }

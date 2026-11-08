@@ -47,7 +47,7 @@ async function fixture(databasePath = ':memory:') {
 test('B-80 RED1：空库迁移至8且取消两表为空', () => {
   const db = new Database(':memory:')
   try {
-    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
+    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_actions')!.count, 0)
   } finally { db.close() }
@@ -263,7 +263,7 @@ test('B-80 RED10：版本8备份统计、合法取消不误报并恢复到期申
     const pendingId = await f.create()
     await f.request(pendingId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 9)
+    assert.equal(backup.manifest.schemaVersion, 11)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.counts.order_cancel_requests, 2)
     assert.equal(backup.counts.order_cancel_actions, 3)
@@ -316,7 +316,7 @@ test('B-80：真实版本7数据升级8，不重建退款相关表且重启不�
   } finally { await f.ctx.app.close() }
   try {
     const raw = new DatabaseSync(path)
-    raw.exec('DROP TABLE cart_requests; DROP TABLE order_cancel_actions; DROP TABLE order_cancel_requests; PRAGMA user_version=7')
+    raw.exec('DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; DROP TABLE order_cancel_actions; DROP TABLE order_cancel_requests; PRAGMA user_version=7')
     const preserved = ['payments', 'refunds', 'payment_notices', 'refund_retry_actions', 'payment_review_resolutions']
     const before = Object.fromEntries(preserved.map(table => [table, raw.prepare('SELECT * FROM ' + table + ' ORDER BY id').all()]))
     const schemas = raw.prepare("SELECT name,sql FROM sqlite_master WHERE name IN ('refunds','payment_notices','refund_retry_actions') ORDER BY name").all()
@@ -326,7 +326,7 @@ test('B-80：真实版本7数据升级8，不重建退款相关表且重启不�
     for (let startup = 0; startup < 2; startup++) {
       const migrated = new Database(path)
       try {
-        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9)
+        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
         for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), before[table])
         assert.deepEqual(migrated.all("SELECT name,sql FROM sqlite_master WHERE name IN ('refunds','payment_notices','refund_retry_actions') ORDER BY name"), schemas)
         assert.equal(migrated.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
@@ -335,7 +335,7 @@ test('B-80：真实版本7数据升级8，不重建退款相关表且重启不�
     }
     const oldRestore = await restoreBackup({ backupPath: oldBackup.root, destination: join(root, 'old-restored') })
     const upgraded = new Database(join(oldRestore.root, 'mall.sqlite'))
-    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9) } finally { upgraded.close() }
+    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11) } finally { upgraded.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -345,7 +345,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
   try {
     new Database(path).close()
     const raw = new DatabaseSync(path)
-    raw.exec("DROP TABLE cart_requests; DROP TABLE order_cancel_actions; DROP TABLE order_cancel_requests; PRAGMA user_version=7; CREATE TABLE order_cancel_actions(sentinel TEXT); INSERT INTO order_cancel_actions VALUES('保留')")
+    raw.exec("DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; DROP TABLE order_cancel_actions; DROP TABLE order_cancel_requests; PRAGMA user_version=7; CREATE TABLE order_cancel_actions(sentinel TEXT); INSERT INTO order_cancel_actions VALUES('保留')")
     raw.close()
     assert.throws(() => new Database(path), /already exists/)
     const inspected = new DatabaseSync(path)
@@ -356,7 +356,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
       inspected.exec('DROP TABLE order_cancel_actions')
     } finally { inspected.close() }
     const recovered = new Database(path)
-    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 9) } finally { recovered.close() }
+    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11) } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

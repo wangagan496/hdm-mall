@@ -15,10 +15,14 @@ const issueSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('missing-avatar'), userId: z.string() }).strict(),
   z.object({ type: z.literal('payment-mismatch'), orderId: z.string() }).strict(),
   z.object({ type: z.literal('cancel-request-mismatch'), orderId: z.string() }).strict(),
+  z.object({ type: z.literal('missing-product-image'), path: z.string() }).strict(),
+  z.object({ type: z.literal('missing-order-image'), orderId: z.string(), path: z.string() }).strict(),
+  z.object({ type: z.literal('product-image-mismatch'), productId: z.string() }).strict(),
+  z.object({ type: z.literal('product-image-hash-mismatch'), imageId: z.string() }).strict(),
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -106,13 +110,13 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9) throw new Error('仅支持数据库版本 2 至 9')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11) throw new Error('仅支持数据库版本 2 至 11')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
       ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions', 'payment_notices', 'payment_review_resolutions'] : []),
       ...(version >= 8 ? ['order_cancel_requests', 'order_cancel_actions'] : []),
-      ...(version >= 9 ? ['cart_requests'] : [])]) {
+      ...(version >= 9 ? ['cart_requests'] : []), ...(version >= 10 ? ['product_images', 'product_changes'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -157,13 +161,44 @@ function inspectDatabase(path: string) {
       uploads.add(path.slice(1))
       avatarUsers.push({ path: path.slice(1), userId: String(row.id) })
     }
-    return { counts, uploads: [...uploads].sort(), avatarUsers, issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }
+    const productImages = new Set<string>()
+    const orderImages: { path: string; orderId: string }[] = []
+    const registeredImages: { path: string; imageId: string; sha256: string }[] = []
+    if (version >= 10) {
+      for (const row of db.prepare('SELECT image_id,path,sha256 FROM product_images ORDER BY image_id').iterate()) {
+        const path = localAvatarPath(row.path)
+        if (!path) throw new Error('商品图片登记路径无效')
+        productImages.add(path.slice(1))
+        registeredImages.push({ path: path.slice(1), imageId: String(row.image_id), sha256: String(row.sha256) })
+      }
+      for (const row of db.prepare('SELECT id,picture FROM products ORDER BY id').iterate()) {
+        const path = localAvatarPath(row.picture)
+        if (!path) continue
+        productImages.add(path.slice(1))
+        if (!db.prepare('SELECT image_id FROM product_images WHERE product_id=? AND path=?').get(row.id!, path)) {
+          issues.push({ type: 'product-image-mismatch', productId: String(row.id) })
+        }
+      }
+      for (const row of db.prepare('SELECT DISTINCT order_id,picture FROM order_items ORDER BY order_id,picture').iterate()) {
+        const path = localAvatarPath(row.picture)
+        if (path) orderImages.push({ path: path.slice(1), orderId: String(row.order_id) })
+      }
+      for (const path of productImages) uploads.add(path)
+      for (const row of orderImages) uploads.add(row.path)
+    }
+    return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages,
+      issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 }
   } finally { db.close() }
 }
 
-function snapshotIssues(database: ReturnType<typeof inspectDatabase>, images: string[]): BackupIssue[] {
+function snapshotIssues(database: ReturnType<typeof inspectDatabase>, files: Manifest['files']): BackupIssue[] {
+  const images = files.map(file => file.path)
   return [...database.issues, ...database.avatarUsers.filter(user => !images.includes(user.path))
-    .map(user => ({ type: 'missing-avatar' as const, userId: user.userId }))]
+    .map(user => ({ type: 'missing-avatar' as const, userId: user.userId })),
+    ...database.productImages.filter(path => !images.includes(path)).map(path => ({ type: 'missing-product-image' as const, path })),
+    ...database.orderImages.filter(row => !images.includes(row.path)).map(row => ({ type: 'missing-order-image' as const, ...row })),
+    ...database.registeredImages.filter(row => files.some(file => file.path === row.path && file.sha256 !== row.sha256))
+      .map(row => ({ type: 'product-image-hash-mismatch' as const, imageId: row.imageId }))]
 }
 
 // 备份文件不携带 WAL；恢复时只需要快照本身，不能混入旁边的旧日志。
@@ -196,8 +231,8 @@ async function checkFiles(root: string, manifest: Manifest) {
   const database = inspectDatabase(join(root, 'mall.sqlite'))
   if (database.schemaVersion !== manifest.schemaVersion) throw new Error('数据库版本与清单不一致')
   if (images.some(image => !database.uploads.includes(image))) throw new Error('数据库头像引用与备份文件不一致')
-  const actualIssues = snapshotIssues(database, images)
-  const issueKeys = (issues: BackupIssue[]) => JSON.stringify(issues.map(issue => JSON.stringify(issue)).sort())
+  const actualIssues = snapshotIssues(database, manifest.files)
+  const issueKeys = (issues: BackupIssue[]) => JSON.stringify(issues.map(issue => JSON.stringify(issueSchema.parse(issue))).sort())
   if (issueKeys(actualIssues) !== issueKeys(manifest.issues)) {
     throw new Error('库存与流水、支付或头像引用的不一致项与清单 issues 不符')
   }
@@ -248,7 +283,7 @@ export async function createBackup(options: { databasePath: string; uploadsPath:
   const files = []
   for (const path of ['mall.sqlite', ...copiedImages]) files.push(await fingerprint(destination, path))
   const manifest: Manifest = { format: 1, schemaVersion: database.schemaVersion, createdAt: new Date().toISOString(),
-    files, issues: snapshotIssues(database, copiedImages) }
+    files, issues: snapshotIssues(database, files) }
   // 清单最后写入；缺失、部分写入或文件哈希不符的目录不能通过校验。
   await writeFile(join(destination, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
   return verifyBackup(destination)

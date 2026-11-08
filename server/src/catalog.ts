@@ -1,11 +1,11 @@
 import { Database } from './database.ts'
 import { systemClock, type Clock } from './clock.ts'
-import { ensure } from './errors.ts'
+import { AppError, ensure } from './errors.ts'
 import type { User } from './accounts.ts'
 import { randomUUID } from 'node:crypto'
 import { recordStockMovement } from './inventory.ts'
 
-export interface Sku { id: string; product_id: string; spec: string; price: number; stock: number; name: string; picture: string }
+export interface Sku { id: string; product_id: string; spec: string; price: number; stock: number; name: string; picture: string; enabled: number; status: 'on' | 'off' }
 interface ProductSummary { id: string; name: string; picture: string; description: string; price: number }
 export class Catalog {
   db: Database
@@ -16,10 +16,10 @@ export class Catalog {
     this.db.transaction(() => {
       for (const [index, name, category, price] of [[1, '纯棉短袜', '服饰', 1900], [2, '轻便双肩包', '箱包', 9900], [3, '收纳包', '箱包', 2900], [4, '日常休闲鞋', '鞋靴', 15900]] as const) {
         const id = `hdm-${index}`
-        this.db.run('INSERT OR IGNORE INTO products VALUES(?,?,?,?,?)', id, name, category, '/assets/product.svg', '自营商品 · 服务端统一库存')
+        this.db.run('INSERT OR IGNORE INTO products(id,name,category,picture,description) VALUES(?,?,?,?,?)', id, name, category, '/assets/product.svg', '自营商品 · 服务端统一库存')
         for (const [suffix, spec, amount, stock] of [['a', '标准款', price, 20], ['b', '加大款', price + 500, 10]] as const) {
           const skuId = `${id}-${suffix}`
-          const inserted = this.db.run('INSERT OR IGNORE INTO skus VALUES(?,?,?,?,?)', skuId, id, spec, amount, stock)
+          const inserted = this.db.run('INSERT OR IGNORE INTO skus(id,product_id,spec,price,stock) VALUES(?,?,?,?,?)', skuId, id, spec, amount, stock)
           if (inserted.changes === 1) recordStockMovement(this.db, { kind: 'opening', skuId, delta: stock }, this.clock)
         }
       }
@@ -45,7 +45,7 @@ export class Catalog {
     })
   }
   sku(id: string): Sku {
-    const row = this.db.one<Sku>('SELECT s.*,p.name,p.picture FROM skus s JOIN products p ON p.id=s.product_id WHERE s.id=?', id)
+    const row = this.db.one<Sku>('SELECT s.*,p.name,p.picture,p.status FROM skus s JOIN products p ON p.id=s.product_id WHERE s.id=?', id)
     ensure(row, 404, '商品规格不存在')
     return { ...row, picture: this.publicUrl + row.picture }
   }
@@ -54,7 +54,7 @@ export class Catalog {
     const params = [keyword, keyword]
     // instr 保留原 includes 的大小写与字面量语义，百分号和下划线不是通配符。
     let from = `FROM products p JOIN skus s ON s.product_id=p.id
-      WHERE s.stock>0 AND (instr(p.name,?)>0 OR instr(p.category,?)>0)`
+      WHERE p.status='on' AND s.enabled=1 AND s.stock>0 AND (instr(p.name,?)>0 OR instr(p.category,?)>0)`
     if (categoryId) {
       from += ` AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id
         WHERE pc.product_id=p.id AND (c.id=? OR c.parent_id=?))`
@@ -87,16 +87,19 @@ export class Catalog {
     return { items: rows.map(p => this.presentProduct(p)), counts, pages: Math.ceil(counts / pageSize), page, pageSize }
   }
   detail(id: string) {
-    const product = this.db.one<{ id: string; name: string; picture: string; description: string }>('SELECT * FROM products WHERE id=?', id)
+    const product = this.db.one<{ id: string; name: string; picture: string; description: string; status: 'on' | 'off' }>('SELECT * FROM products WHERE id=?', id)
     ensure(product, 404, '商品不存在')
-    const skus = this.db.all<Sku>('SELECT * FROM skus WHERE product_id=?', id)
+    const allSkus = this.db.all<Sku>('SELECT * FROM skus WHERE product_id=?', id)
+    const skus = allSkus.filter(sku => sku.enabled === 1)
     const picture = this.publicUrl + product.picture
     const inventory = skus.reduce((total, s) => total + s.stock, 0)
     const available = skus.filter(s => s.stock > 0)
-    const price = Math.min(...(available.length ? available : skus).map(s => s.price)) / 100
+    const priced = available.length ? available : skus.length ? skus : allSkus
+    const price = priced.length ? Math.min(...priced.map(s => s.price)) / 100 : 0
     return { id, name: product.name, desc: product.description, picture, price, orderNum: 0, inventory,
+      status: product.status, available: product.status === 'on' && skus.length > 0,
       mainPictures: [picture], details: { pictures: [picture], properties: [{ name: '说明', value: product.description }] },
-      specs: [{ name: '规格', values: skus.map(s => ({ name: s.spec, picture, selected: false, disabled: s.stock === 0 })) }],
+      specs: [{ name: '规格', values: allSkus.map(s => ({ name: s.spec, picture, selected: false, disabled: !s.enabled || s.stock === 0 || product.status === 'off' })) }],
       skus: skus.map(s => ({ id: s.id, skuCode: s.id, price: String(s.price / 100), oldPrice: String(s.price / 100), inventory: s.stock, picture, specsText: s.spec, specs: [{ name: '规格', valueName: s.spec }] })) }
   }
   categorySummary() {
@@ -105,7 +108,7 @@ export class Catalog {
       SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc
         JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id
         WHERE (child.id=c.id OR child.parent_id=c.id)
-          AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.stock>0)
+          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)
         ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture
       FROM categories c ORDER BY c.rowid`)
     const children = new Map<string, { id: string; name: string; picture: string }[]>()
@@ -132,13 +135,23 @@ export class Catalog {
     })
   }
   cart(user: User, skuId?: string) {
-    const rows = this.db.all<{ sku_id: string; count: number; selected: number; product_id: string; spec: string; price: number; stock: number; name: string; picture: string }>(
-      `SELECT c.sku_id,c.count,c.selected,s.product_id,s.spec,s.price,s.stock,p.name,p.picture
+    const rows = this.db.all<{ sku_id: string; count: number; selected: number; product_id: string; spec: string; price: number; stock: number; name: string; picture: string; status: string; enabled: number }>(
+      `SELECT c.sku_id,c.count,c.selected,s.product_id,s.spec,s.price,s.stock,p.name,p.picture,p.status,s.enabled
        FROM carts c JOIN skus s ON s.id=c.sku_id JOIN products p ON p.id=s.product_id
        WHERE c.user_id=?${skuId === undefined ? '' : ' AND c.sku_id=?'} ORDER BY c.rowid`,
       ...(skuId === undefined ? [user.id] : [user.id, skuId]))
-    return rows.map(row => ({ id: row.product_id, skuId: row.sku_id, name: row.name, picture: this.publicUrl + row.picture,
-      price: row.price / 100, stock: row.stock, attrsText: row.spec, count: row.count, selected: !!row.selected }))
+    return rows.map(row => {
+      const available = row.status === 'on' && row.enabled === 1
+      if (!available && row.selected) this.db.run('UPDATE carts SET selected=0 WHERE user_id=? AND sku_id=?', user.id, row.sku_id)
+      return { id: row.product_id, skuId: row.sku_id, name: row.name, picture: this.publicUrl + row.picture,
+        price: row.price / 100, stock: row.stock, attrsText: row.spec, count: row.count, selected: available && !!row.selected,
+        available, unavailableReason: available ? '' : row.status === 'off' ? '已下架' : '规格已停用' }
+    })
+  }
+  clearInvalid(user: User) {
+    const result = this.db.run(`DELETE FROM carts WHERE user_id=? AND sku_id IN
+      (SELECT s.id FROM skus s JOIN products p ON p.id=s.product_id WHERE p.status='off' OR s.enabled=0)`, user.id)
+    return { count: Number(result.changes) }
   }
   cartCount(user: User) {
     // 角标统计件数，包含未勾选及售罄条目，无需读取商品资料。
@@ -154,6 +167,8 @@ export class Catalog {
         return JSON.parse(existing.result) as { count: number }
       }
       const sku = this.sku(skuId)
+      if (sku.status !== 'on' || sku.enabled !== 1) throw new AppError(409, '商品暂不可购买', 'PRODUCT_UNAVAILABLE',
+        { goods: [{ skuId, name: sku.name, reason: sku.status === 'off' ? '已下架' : '规格已停用' }] })
       const previous = this.db.one<{ count: number }>('SELECT count FROM carts WHERE user_id=? AND sku_id=?', user.id, skuId)?.count ?? 0
       ensure(sku.stock >= previous + count, 409, '该规格库存不足或已售罄')
       const result = { count: previous + count }
@@ -168,11 +183,14 @@ export class Catalog {
   updateCart(user: User, skuId: string, data: { count?: number; selected?: boolean }) {
     if (skuId === 'selected') {
       ensure(data.selected !== undefined, 400, '缺少勾选状态')
-      this.db.run('UPDATE carts SET selected=? WHERE user_id=?', data.selected ? 1 : 0, user.id)
+      this.db.run(`UPDATE carts SET selected=CASE WHEN ?=1 AND sku_id IN
+        (SELECT s.id FROM skus s JOIN products p ON p.id=s.product_id WHERE p.status='on' AND s.enabled=1) THEN 1 ELSE 0 END WHERE user_id=?`, data.selected ? 1 : 0, user.id)
       return null
     } else {
       const current = this.db.one<{ count: number; selected: number }>('SELECT * FROM carts WHERE user_id=? AND sku_id=?', user.id, skuId)
       ensure(current, 404, '购物车商品不存在')
+      const sku = this.sku(skuId)
+      if (data.selected === true || data.count !== undefined) ensure(sku.status === 'on' && sku.enabled === 1, 409, '商品暂不可购买')
       if (data.count !== undefined) ensure(data.count <= this.sku(skuId).stock, 409, '该规格库存不足或已售罄')
       this.db.run('UPDATE carts SET count=?,selected=? WHERE user_id=? AND sku_id=?', data.count ?? current.count, data.selected === undefined ? current.selected : Number(data.selected), user.id, skuId)
     }
