@@ -10,8 +10,8 @@ test('原生临时排序与数据库全量排序在大小写、标点及 Unicode
     const products = ids.map((id, i) => ({ id, name: '排序测试', price: i % 3 + 1, orderNum: 0 }))
     f.db.transaction(() => {
       for (const p of products) {
-        f.db.run('INSERT INTO products VALUES(?,?,?,?,?)', p.id, p.name, '测试', '/assets/product.svg', '')
-        f.db.run('INSERT INTO skus VALUES(?,?,?,?,?)', p.id + '-sku', p.id, '标准', p.price * 100, 1)
+        f.db.run('INSERT INTO products(id,name,category,picture,description) VALUES(?,?,?,?,?)', p.id, p.name, '测试', '/assets/product.svg', '')
+        f.db.run('INSERT INTO skus(id,product_id,spec,price,stock) VALUES(?,?,?,?,?)', p.id + '-sku', p.id, '标准', p.price * 100, 1)
       }
     })
     const { compareGoodsIds } = execute(sourceOf('mixed-development-h5/features/home/src/main/ets/data/api/searchPresentation.ets'))

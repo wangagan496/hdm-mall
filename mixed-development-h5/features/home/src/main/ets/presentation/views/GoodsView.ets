@@ -34,6 +34,7 @@ export struct GoodsView {
   @State goods: Goods = {} as Goods
   @State activeIndex: number = 0
   @State showSheet: boolean = false
+  @State cartAdded: boolean = false
   @State count: number = 1
   @State loading: boolean = false
   @State detailReady: boolean = false
@@ -140,7 +141,7 @@ export struct GoodsView {
   }
   private resetInteractions(): void {
     this.loading = false; this.favoriteSaving = false; this.detailReady = false; this.detailFailed = false
-    this.showSheet = false; this.showLoadingDialog = false; this.showPreview = false
+    this.showSheet = false; this.showLoadingDialog = false; this.showPreview = false; this.cartAdded = false
     this.previewUrls = []; this.previewIndex = 0; this.count = 1; this.sku = normalizeSkuSelection()
   }
   private isCurrentSession(generation: number, token: string): boolean {
@@ -203,7 +204,7 @@ export struct GoodsView {
       }
       if (detail.id !== goodsId) throw new Error('商品详情与入口商品不匹配')
       this.goods = detail
-      this.detailReady = !!detail.skus?.some(item => !isFallbackSkuId(item.id))
+      this.detailReady = detail.available === false || !!detail.skus?.some(item => !isFallbackSkuId(item.id))
       this.detailFailed = !this.detailReady
       if (loginSelection && (!token || loginSelection.token === token || loginSelection.action)) {
         const restored = restoreLoginSelection(loginSelection, detail, GlobalVariable.DEMO_ORDER_FLOW)
@@ -358,6 +359,7 @@ export struct GoodsView {
       this.safeToast(this.detailFailed ? '详情或规格未更新，请重试后再购买' : '正在更新商品资料，请稍候')
       return undefined
     }
+    if (!this.canPurchase()) { this.safeToast(this.unavailableText()); return undefined }
     if (!this.sku.id) {
       this.safeToast('请选择对应的产品规格')
       return undefined
@@ -367,6 +369,7 @@ export struct GoodsView {
       return undefined
     }
     const current: HDMSkuType | undefined = this.goods.skus?.find(item => item.id === this.sku.id)
+    if (!current) { this.safeToast('该规格暂不可购买，请选择其他规格'); return undefined }
     if (!current || current.inventory <= 0 || !Number.isInteger(this.count) || this.count < 1 ||
       this.count > 999 || this.count > current.inventory) {
       this.safeToast('请选择有库存的规格和有效购买数量')
@@ -410,7 +413,7 @@ export struct GoodsView {
     const key = requestKey || this.addRequestKey
     this.loadingTitle = "加入中..."
     this.loading = true
-    this.showLoadingDialog = true
+    // 加购仅锁定按钮；全屏遮罩会触发详情隐藏并清掉成功提示。
     try {
       try {
         await authCart.addCart({ skuId, count, requestKey: key }, token)
@@ -422,11 +425,9 @@ export struct GoodsView {
       }
       if (!this.isCurrentGoods(generation, token, sequence, goodsId)) return false
       this.addRequestKey = ''; this.addRequestSignature = ''
-      this.safeToast('加入购物车成功')
-      if (openCart && !GlobalVariable.DEMO_ORDER_FLOW) {
-        this.showSheet = false
-        this.stackPath.pushPath({ name: PAGE_PATH.CART_PAGE, param: true })
-      }
+      this.safeToast('已加入购物车')
+      this.showSheet = false
+      this.cartAdded = true
       return true
     } catch (error) {
       const status = checkoutFailure(error as Error).status
@@ -434,7 +435,11 @@ export struct GoodsView {
         this.addOutcomeUnknown = status === 0 || status >= 500
         if (status === 409) {
           this.addRequestKey = ''; this.addRequestSignature = ''
-          this.safeToast('库存不足，请重新选择数量')
+          if (checkoutFailure(error as Error).reason === 'PRODUCT_UNAVAILABLE') {
+            this.loading = false; this.showLoadingDialog = false; this.showSheet = false
+            await this.getDetailData()
+            if (this.isPageActive && this.sessionToken === token && this.goods.id === goodsId) this.safeToast(this.unavailableText() || '该规格暂不可购买，请选择其他规格')
+          } else this.safeToast('库存不足，请重新选择数量')
         } else this.safeToast('加入购物车失败，请稍后重试')
       }
       return false
@@ -500,6 +505,16 @@ export struct GoodsView {
     } finally {
       if (this.isCurrentGoods(generation, token, sequence, goodsId)) this.favoriteSaving = false
     }
+  }
+
+  private canPurchase(): boolean {
+    return this.detailReady && this.goods.status !== 'off' && this.goods.available !== false &&
+      !!this.goods.skus?.some(item => !isFallbackSkuId(item.id))
+  }
+  private unavailableText(): string {
+    if (this.goods.status === 'off') return '商品已下架，暂时无法购买'
+    if (this.goods.available === false || !this.goods.skus?.length) return '暂无可购买规格'
+    return ''
   }
 
   @Builder
@@ -595,14 +610,14 @@ export struct GoodsView {
       Row() {
         Button(this.loading ? '加入中...' : '加入购物袋')
           .buyButton($r('[ui_components].color.black'), true)
-          .enabled(!this.loading && this.detailReady)
+          .enabled(!this.loading && this.canPurchase())
           .onClick(async () => {
             // 实现加入购物车逻辑
             await this.addToCart()
           })
         Button('立即购买')
           .buyButton($r('[ui_components].color.red'), false)
-          .enabled(!this.loading && this.detailReady)
+          .enabled(!this.loading && this.canPurchase())
           .onClick(async () => {
             await this.buyQuickly() // 立刻购买
           })
@@ -634,6 +649,14 @@ export struct GoodsView {
         }) {
           this.CustomTitleBuilder()
         }
+        if (this.cartAdded) {
+          Row({ space: 12 }) {
+            Text('已加入购物车').fontSize(14)
+            Button('去购物车').fontSize(14).onClick(() => {
+              this.stackPath.pushPath({ name: PAGE_PATH.CART_PAGE, param: true })
+            })
+          }.padding(8).width('100%')
+        }
         if (!this.detailReady) {
           Text(this.detailFailed ? '详情更新失败，当前仅供浏览；点击重试' : '正在更新商品详情与规格')
             .fontSize(12)
@@ -644,6 +667,9 @@ export struct GoodsView {
                 this.getDetailData()
               }
             })
+        }
+        if (this.detailReady && this.unavailableText()) {
+          Text(this.unavailableText()).fontColor('#B34D36').padding(12)
         }
 
         Column() {
@@ -718,11 +744,11 @@ export struct GoodsView {
           Row() {
             Button('加入购物袋')
               .buyButton($r('[ui_components].color.black'), true)
-              .enabled(this.detailReady && !this.loading)
+              .enabled(this.canPurchase() && !this.loading)
               .onClick(() => this.showSheet = true)
             Button('立即购买')
               .buyButton($r('[ui_components].color.red'), false)
-              .enabled(this.detailReady && !this.loading)
+              .enabled(this.canPurchase() && !this.loading)
               .onClick(async () => {
                 if (this.sku.id) {
                   await this.buyQuickly()

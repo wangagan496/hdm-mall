@@ -163,8 +163,9 @@ test('选区县自动填回地区并排队保存，换省不立即保存未选�
   assert.equal(f.timers.size, 1)
 })
 
-test('页面不再提供完成、保存地址和保存中控件', () => {
+test('地址管理保留自动保存，结算编辑器提供保存并使用入口', () => {
   assert.equal(source.includes("Text('完成')"), false)
   assert.equal(source.includes("'保存地址'"), false)
-  assert.equal(source.includes('保存中'), false)
+  assert.equal(source.slice(source.indexOf("title: '收货地址管理'")).includes('保存中'), false)
+  assert.match(source, /if \(this\.checkoutEditor\)\s*\{[\s\S]*保存并使用此地址/)
 })

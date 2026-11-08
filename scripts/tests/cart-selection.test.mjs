@@ -12,6 +12,7 @@ function pageFixture(overrides = {}) {
     CartOperations: {
       checkIsAllSelected: CartOperationHelper.checkIsAllSelected,
       calculateTotalPrice: CartOperationHelper.calculateTotalPrice,
+      getSelectedCarts: CartOperationHelper.getSelectedCarts,
       toggleSelectAll: selected => { calls.push(selected); return pending.promise },
       updateCartSelection: async () => { throw new Error('unexpected item selection') },
       updateCartCount: async () => { throw new Error('unexpected item count') },

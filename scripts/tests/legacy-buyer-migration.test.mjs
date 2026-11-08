@@ -68,7 +68,8 @@ test('B-70/B-71 旧收藏足迹隔离及重新登录保留迁移到真实持久�
 })
 
 test('B-20 旧未勾选商品不能进入结算迁移到真实购物车方法', () => {
-  const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets', 'CartView')
+  const { CartOperationHelper } = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/CartOperations.ets'))
+  const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets', 'CartView', {}, { CartOperations: CartOperationHelper })
   const page = new Page(), messages = [], paths = []
   page.cartList = [{ skuId: 'isolated', count: 1, selected: false }]
   page.getUIContext = () => ({ getPromptAction: () => ({ showToast: value => messages.push(value.message) }) })
@@ -85,7 +86,7 @@ test('B-04/B-05 旧未选完整规格连续加购均拦截且无写入', async (
   const messages = [], writes = []
   const user = { account: 'isolated', token: 'token' }
   const { GoodsView } = execute(source, {}, {
-    normalizeSkuSelection: () => ({ id: '', specs: [] }), Scroller: class {},
+    normalizeSkuSelection: () => ({ id: '', specs: [] }), Scroller: class {}, isFallbackSkuId: id => id.startsWith('fallback'),
     auth: { getUserInfo: () => user }, authCart: { addCart: value => writes.push(value) },
     PAGE_PATH: { GOODS_PAGE: 'goods' }
   })

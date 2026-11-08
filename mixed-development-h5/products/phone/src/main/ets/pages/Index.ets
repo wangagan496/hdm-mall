@@ -63,12 +63,7 @@ struct Index {
       } catch (error) {
         if (!this.isCurrentRecovery(sequence, accountId, token)) return
         if (checkoutFailure(error as Error).status === 404) {
-          await storeManager.clearPendingOrder(accountId, record.requestKey)
-          if (this.isCurrentRecovery(sequence, accountId, token)) {
-            let buyNow: boolean = false
-            try { buyNow = (JSON.parse(record.summary) as CreateOrderParams).source === 'buy-now' } catch { }
-            this.getUIContext().getPromptAction().showToast({ message: buyNow ? '上次立即购买没有成功，请返回商品重新确认' : '上次提交没有成功，商品仍在购物车里' })
-          }
+          this.getUIContext().getPromptAction().showToast({ message: '正在确认是否下单成功，请勿重复提交' })
         }
       }
     } catch {

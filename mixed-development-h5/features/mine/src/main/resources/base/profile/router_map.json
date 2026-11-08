@@ -1,6 +1,16 @@
 {
   "routerMap": [
     {
+      "name": "ProductManageView",
+      "buildFunction": "ProductManageViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductManageView.ets"
+    },
+    {
+      "name": "ProductEditView",
+      "buildFunction": "ProductEditViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductEditView.ets"
+    },
+    {
       "name": "InventoryView",
       "buildFunction": "InventoryViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/InventoryView.ets"

@@ -18,6 +18,7 @@ function fixture() {
   const records = new Map(), lookups = []
   const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets', 'CheckView', {}, {
     CheckoutSheet: { None: 0, Payment: 1, Address: 2 },
+    setTimeout: () => 1, clearTimeout() {},
     GlobalVariable: { DEMO_ORDER_FLOW: false },
     AppStorage: { setOrCreate() {} },
     storeManager: {
@@ -112,19 +113,14 @@ test('旧结算查询成功或失败不能提前解除最新查询的提交限�
   }
 })
 
-test('结算刷新关闭旧金额的支付确认层，保留地址选择并在新资料确认后重开', async () => {
+test('结算一次提交直接建单去收银台，刷新保留地址选择', async () => {
   const f = fixture()
   await f.load(preview())
-  f.page.activeSheet = 1
+  await f.page.submitCheckout()
+  assert.equal(f.page.showSheet, false)
+  assert.equal(f.writes.length, 1)
+  assert.deepEqual(f.navigations, ['created-order'])
   f.page.showSheet = true
-  const loading = f.page.loadCheckoutPreview()
-  assert.equal(f.page.showSheet, false)
-  f.queries.at(-1).resolve(preview())
-  await loading
-  assert.equal(f.page.showSheet, false)
-  f.page.openPaymentSheet()
-  assert.equal(f.page.showSheet, true)
-  assert.equal(f.page.activeSheet, 1)
   f.page.activeSheet = 2
   const selecting = f.page.loadCheckoutPreview()
   assert.equal(f.page.showSheet, true)

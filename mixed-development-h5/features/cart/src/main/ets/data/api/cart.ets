@@ -37,6 +37,10 @@ export const updateCart = (skuId: string, data: UpdateCartParams) => {
   return RequestAxios.put<CartGoodsModel>(`/member/cart/${skuId}`, data)
 }
 
+export const updateCheckoutCartAPI = (skuId: string, data: UpdateCartParams, token: string) => {
+  return RequestAxios.putForSession<CartGoodsModel>(`/member/cart/${skuId}`, data, token)
+}
+
 // 全选或取消全选
 export const selectOrUnSelect = (data: UpdateCartParams) => {
   return RequestAxios.put<null>('/member/cart/selected', data)

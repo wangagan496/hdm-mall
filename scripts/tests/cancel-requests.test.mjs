@@ -1,4 +1,5 @@
 import { test } from 'node:test'
+import { orderWriteFailure } from './order-write-boundaries.mjs'
 import assert from 'node:assert/strict'
 import { execute, pageMethods, sourceOf, deferred, tick } from './native-harness.mjs'
 const cart = 'mixed-development-h5/features/cart/src/main/ets/'
@@ -11,7 +12,7 @@ function buyerFixture(demo = false) {
   const dialogs = [], writes = [], messages = []
   const legacy = { pendingIds: () => [], confirm: async () => { writes.push('old') } }
   const Page = pageMethods(cart + 'presentation/views/OrderView.ets', 'OrderView', {}, {
-    OrderState: states, GlobalVariable: { DEMO_ORDER_FLOW: demo },
+    OrderState: states, GlobalVariable: { DEMO_ORDER_FLOW: demo }, orderWriteFailure,
     cancelActions: { pending: () => [], confirm: async intent => { writes.push(intent) } },
     orderCancellation: legacy,
   })
@@ -141,7 +142,7 @@ function detailFixture(demo = false, coordinator) {
   const actions = { pending: () => api.pending, confirm: async value => { writes.push(value); await api.submit(value) }, recover: async id => { writes.push({ recover: id }); await api.submit() } }
   const legacy = { pendingIds: () => [], confirm: async () => {} }
   const Page = pageMethods(cart + 'presentation/views/OrderDetailView.ets', 'OrderDetailView', {}, {
-    OrderState: states, GlobalVariable: { DEMO_ORDER_FLOW: demo }, cancelActions: coordinator || actions, orderCancellation: legacy,
+    OrderState: states, GlobalVariable: { DEMO_ORDER_FLOW: demo }, orderWriteFailure, cancelActions: coordinator || actions, orderCancellation: legacy,
     readPhoneClockMillis: () => 1234,
     getOrderDetailAPI: async (...args) => { queries.push(args); return api.read(...args) },
   })
@@ -154,7 +155,7 @@ test('B-78 真实详情串联持久化网络：结果不明禁用，重进查404
   const network = managerFixture(); network.api.send = async () => { throw failure(503) }
   const fixture = detailFixture(false, network.manager)
   fixture.page.requestCancelOrder(); fixture.dialogs[0].secondaryButton.action(); await tick(); await tick()
-  assert.equal(fixture.page.cancelActionPending, true); assert.ok(fixture.messages.includes('操作结果待确认，请重新查询'))
+  assert.equal(fixture.page.cancelActionPending, true); assert.ok(fixture.messages.includes('取消结果还在确认，请刷新订单查看'))
   const controls = renderBuilder(cart + 'presentation/views/OrderDetailView.ets', 'DetailActions', fixture.page).controls
   assert.ok(controls.every(control => !control.enabled))
   const original = structuredClone(network.calls[0][2])

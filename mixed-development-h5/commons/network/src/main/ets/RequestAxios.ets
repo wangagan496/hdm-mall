@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from '@ohos/axios'
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig, FormData } from '@ohos/axios'
 import { GlobalVariable } from 'constants'
 import { window } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
@@ -134,6 +134,12 @@ instance.interceptors.response.use((response: AxiosResponse) => {
 })
 
 export class RequestAxios {
+  static postMultipartForSession<T>(url: string, bytes: ArrayBuffer, requestKey: string, token: string): Promise<T> {
+    const form = new FormData()
+    form.append('requestKey', requestKey)
+    form.append('file', bytes, { filename: 'product.jpg', type: 'image/jpeg' })
+    return instance.post<null, T>(url, form, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1', 'Content-Type': 'multipart/form-data' } })
+  }
   // 重试期间始终使用发起请求的会话，不借用后来登录的账号。
   static getForSession<T>(url: string, token: string): Promise<T> {
     return executeGetWithRetry<T>(() => instance.get<null, T>(url, {
@@ -150,7 +156,7 @@ export class RequestAxios {
   }
 
   static deleteForSession<T>(url: string, token: string): Promise<T> {
-    return instance.delete<null, T>(url, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+    return instance.delete<null, T>(url, { data: {}, headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
   }
 
   static setSessionExpiredHandler(handler: (token: string) => Promise<boolean>): void {

@@ -119,7 +119,7 @@ export class InventoryAdjustment {
       if (known) return this.confirm(userId, token, draft, known)
       if (status === 400 || status === 403 || status === 404 || status === 409 || status === 422) {
         await this.save(userId, null)
-        throw new Error((error as AdjustmentError).response?.data?.msg || '服务器已拒绝调整，请刷新库存后重新确认')
+        throw new Error(status === 409 ? '库存已变化，请刷新后重新确认' : '调整未完成，请刷新库存后核对再提交')
       }
       throw new Error('调整结果待确认，请使用“查询并重试本次调整”')
     }

@@ -342,7 +342,7 @@ export struct OrderView {
             return
           }
         }
-        this.safeToast((error as Error).message || '操作失败，请稍后重试')
+        this.safeToast(orderWriteFailure(error as Error).message || '操作结果还在确认，请刷新订单查看')
       }
     } finally {
       if (this.isCurrentSession(pageGeneration, token)) {
@@ -381,7 +381,7 @@ export struct OrderView {
       }
       if (query === this.requestGeneration && this.isCurrentSession(generation, token)) this.safeToast('取消操作已确认')
     } catch (error) {
-      if (query === this.requestGeneration && this.isCurrentSession(generation, token)) this.safeToast((error as Error).message)
+      if (query === this.requestGeneration && this.isCurrentSession(generation, token)) this.safeToast(orderWriteFailure(error as Error).message || '取消结果还在确认，请刷新订单查看')
     } finally {
       if (this.isCurrentSession(generation, token)) {
         this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'request' || record.action === 'withdraw').map(record => record.orderId)
@@ -571,7 +571,7 @@ export struct OrderView {
     } else if (order.orderState === OrderState.AWAITING_RECEIPT) {
       Row({ space: 8 }) {
         Blank()
-        Button('查看物流')
+        Button('查看订单')
           .enabled(!this.busyOrderId && this.canUseOrder(order.id))
           .height(32)
           .fontSize(12)

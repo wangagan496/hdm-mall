@@ -33,20 +33,24 @@ request.interceptors.request.use(
 
 // 统一的业务错误提示：按状态码映射为可读文案，避免裸错误信息弹出。
 const TOAST_BY_STATUS: Record<number, string> = {
-  400: '请求参数有误，请检查后重试',
-  401: '登录已过期，请重新登录',
+  400: '填写内容有误，请检查后重试',
+  401: '登录已过期，请重新登录后继续',
   403: '暂无权限执行此操作',
-  404: '请求的资源不存在',
-  409: '操作冲突，请刷新后重试',
-  500: '服务开小差了，请稍后重试',
-  502: '网关异常，请稍后重试',
-  503: '服务暂时不可用，请稍后重试',
+  404: '暂时找不到这份资料，请返回后重试',
+  409: '资料已更新，请核对后重试，输入已保留',
+  500: '还在确认保存结果，输入已保留，请稍后重试',
+  502: '还在确认保存结果，输入已保留，请稍后重试',
+  503: '还在确认保存结果，输入已保留，请稍后重试',
 }
 
 export const requestErrorMessage = (error: unknown): string => {
-  if (!axios.isAxiosError(error)) return error instanceof Error ? error.message : '资料保存失败，请重试'
+  if (!axios.isAxiosError(error)) {
+    const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : undefined
+    return typeof message === 'string' && message ? message : '暂时连不上服务，输入已保留'
+  }
+  if (error.response && error.response.status >= 500) return '还在确认保存结果，输入已保留，请稍后重试'
   if (error.response?.status) return TOAST_BY_STATUS[error.response.status] || '请求失败，请稍后重试'
-  return error.code === 'ECONNABORTED' ? '请求超时，结果待确认，请重试' : '网络异常，请检查网络后重试'
+  return '暂时连不上服务，输入已保留，请检查网络后重试'
 }
 
 request.interceptors.response.use(

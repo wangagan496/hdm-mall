@@ -14,12 +14,18 @@ export struct CartItem {
 
   }
 
+  private changeCount(delta: number): void {
+    if (!this.cart.available || this.cart.count + delta < 1) return
+    this.onChangeCount(this.cart.count + delta)
+  }
+
   build() {
     Row({ space: 12 }) {
       Checkbox()
         .selectedColor($r('[ui_components].color.red'))
         .size({ width: 18, height: 18 })
         .select(this.cart.selected)
+        .enabled(this.cart.available)
         .accessibilityText(this.cart.selected ? '取消选择商品' : '选择商品')
         .onClick(() => {
           // 选中状态等服务端更新成功后由父组件回写，避免接口失败时界面与服务端不一致导致结算少算
@@ -41,6 +47,7 @@ export struct CartItem {
             .fontColor($r('[ui_components].color.black'))
             .layoutWeight(1)
           Image($r('app.media.ic_cart_delete'))
+            .id('cart-delete-' + this.cart.skuId)
             .width(28)
             .height(28)
             .padding(6)
@@ -52,17 +59,21 @@ export struct CartItem {
         }
         .width('100%')
         Row() {
-          Text(this.cart.attrsText)
+          Text(this.cart.available ? this.cart.attrsText : this.cart.unavailableReason || '暂不可购买')
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .maxLines(1)
             .fontSize(12)
             .fontColor($r('[ui_components].color.text'))
             .layoutWeight(1)
-          Image($r('sys.media.ohos_ic_public_arrow_down'))
-            .fillColor($r('[ui_components].color.gray'))
-            .width(16)
-            .height(16)
+          if (this.cart.available) {
+            Image($r('sys.media.ohos_ic_public_arrow_down'))
+              .id('cart-specification-arrow-' + this.cart.skuId)
+              .fillColor($r('[ui_components].color.gray'))
+              .width(16)
+              .height(16)
+          }
         }
+        .id('cart-specification-' + this.cart.skuId)
         .padding({ left: 6, right: 4 })
         .constraintSize({ maxWidth: 140 })
         .height(24)
@@ -77,12 +88,14 @@ export struct CartItem {
             Text(this.cart.count.toString())
           }
           .height(28)
-          .enableDec(this.cart.count > 1)
+          .id('cart-quantity-' + this.cart.skuId)
+          .enableDec(this.cart.available && this.cart.count > 1)
+          .enableInc(this.cart.available)
           .onInc(() => {
-            this.onChangeCount(this.cart.count + 1)
+            this.changeCount(1)
           })
           .onDec(() => {
-            this.onChangeCount(this.cart.count - 1)
+            this.changeCount(-1)
           })
         }
         .width('100%')

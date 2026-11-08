@@ -37,7 +37,7 @@ export interface ICartOperations {
 export class CartOperationHelper {
   // 修改某件商品的购买数量，不是刷新购物袋图标上的数字。
   static async updateCartCount(cart: CartGoodsModel, requestedQuantity: number): Promise<void> {
-    if (requestedQuantity < 1) {
+    if (requestedQuantity < 1 || cart.available === false) {
       return
     }
     const requestedChange: UpdateCartParams = { count: requestedQuantity }
@@ -49,6 +49,7 @@ export class CartOperationHelper {
 
   // 勾选／取消勾选单件商品，不改变它的购买数量。
   static async updateCartSelection(cart: CartGoodsModel, selected: boolean): Promise<void> {
+    if (selected && cart.available === false) return
     const requestedChange: UpdateCartParams = { selected }
     await saveCartItemAPI(cart.skuId, requestedChange)
     cart.selected = selected
@@ -92,7 +93,7 @@ export class CartOperationHelper {
     selected: boolean
   ): CartGoodsModel[] {
     return carts.map(cart => {
-      cart.selected = selected
+      cart.selected = selected && cart.available !== false
       return cart
     })
   }
@@ -102,7 +103,7 @@ export class CartOperationHelper {
    */
   static calculateTotalPrice(carts: CartGoodsModel[]): number {
     return carts
-      .filter(cart => cart.selected)
+      .filter(cart => cart.selected && cart.available !== false)
       .reduce((total, cart) => {
         return total + Math.round(cart.price * 100) * cart.count
       }, 0) / 100
@@ -113,7 +114,7 @@ export class CartOperationHelper {
    */
   static calculateSelectedCount(carts: CartGoodsModel[]): number {
     return carts
-      .filter(cart => cart.selected)
+      .filter(cart => cart.selected && cart.available !== false)
       .reduce((total, cart) => total + cart.count, 0)
   }
 
@@ -124,14 +125,15 @@ export class CartOperationHelper {
     if (carts.length === 0) {
       return false
     }
-    return carts.every(cart => cart.selected)
+    const available = carts.filter(cart => cart.available !== false)
+    return available.length > 0 && available.every(cart => cart.selected)
   }
 
   /**
    * 获取选中的商品列表
    */
   static getSelectedCarts(carts: CartGoodsModel[]): CartGoodsModel[] {
-    return carts.filter(cart => cart.selected)
+    return carts.filter(cart => cart.selected && cart.available !== false)
   }
 
   static checkIsAllSelected(carts: CartGoodsModel[]): boolean {

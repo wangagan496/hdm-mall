@@ -56,6 +56,16 @@ export struct GoodsInfo {
     this.displayPictures = excludeFailedPicture(this.displayPictures, src)
   }
 
+  canSelectSpecification(): boolean {
+    return this.goods?.status !== 'off' && this.goods?.available !== false
+  }
+
+  specificationLabel(): string { return this.canSelectSpecification() ? '请选择' : '暂不可选' }
+
+  openSpecifications(): void {
+    if (this.canSelectSpecification()) this.showSheet = true
+  }
+
   build() {
     Column() {
       if (this.displayPictures.length > 0) {
@@ -112,18 +122,23 @@ export struct GoodsInfo {
               .fontSize(13)
               .fontWeight(500)
               .fontColor($r('[ui_components].color.black'))
-            Text('请选择')
+            Text(this.specificationLabel())
               .fontSize(13)
               .fontColor($r('[ui_components].color.gray'))
             Blank()
-            Image($r('[ui_components].media.ic_public_right'))
-              .width(20)
-              .aspectRatio(1)
-              .fillColor($r('[ui_components].color.gray'))
+            if (this.canSelectSpecification()) {
+              Image($r('[ui_components].media.ic_public_right'))
+                .id('goods-specification-arrow')
+                .width(20)
+                .aspectRatio(1)
+                .fillColor($r('[ui_components].color.gray'))
+            }
           }
           .width('100%')
           .height(40)
-          .onClick(() => this.showSheet = true)
+          .id('goods-specification')
+          .enabled(this.canSelectSpecification())
+          .onClick(() => this.openSpecifications())
 
           Row() {
             Text('无忧退货 · 快速退款 · 免费包邮')

@@ -5,6 +5,15 @@ import { deferred, execute, sourceOf, tick } from './native-harness.mjs'
 const test = (name, run) => nodeTest(name, { timeout: 3000 }, run)
 const goods = (id = 'goods-a') => ({ id, name: id, price: '19', mainPictures: [], specs: [],
   skus: [{ id: id + '-sku', inventory: 5, price: '19', specs: [] }] })
+
+test('加购不使用会隐藏详情的全屏加载层，成功后保留去购物车入口', async () => {
+  const f = fixture(); await f.page.getDetailData(); f.select()
+  f.api.add = async () => { if (f.page.showLoadingDialog) f.page.hideGoods() }
+  assert.equal(await f.page.addToCart(), true)
+  assert.equal(f.page.cartAdded, true)
+  assert.equal(f.page.isPageActive, true)
+  assert.deepEqual(f.navigations, [])
+})
 const normalize = sku => ({ id: '', inventory: 0, specs: [], ...sku })
 const presentation = execute(sourceOf('mixed-development-h5/features/home/src/main/ets/data/api/goodsPresentation.ets'))
 const loginSelection = execute(sourceOf('mixed-development-h5/features/home/src/main/ets/data/api/loginSkuSelection.ets'), {
@@ -22,7 +31,7 @@ function fixture(shared = { raw: '', now: 1000 }) {
     .replace('export struct', 'export class').replace(/@\w+\s*(?:\([^)]*\))?\s*/g, '') + '\n}'
   const { GoodsView } = execute(source, {}, {
     ...loginSelection,
-    checkoutFailure: error => ({ status: error.httpStatus || error.response?.status || 0 }),
+    checkoutFailure: error => ({ status: error.httpStatus || error.response?.status || 0, reason: error.response?.data?.reason || '' }),
     normalizeSkuSelection: normalize, isFallbackSkuId: id => id.startsWith('fallback'),
     generateFallbackGoods: value => ({ ...value, skus: [] }), Scroller: class {}, Logger: { info() {} },
     PAGE_PATH: { GOODS_PAGE: 'goods', LOGIN_PAGE: 'login', CHECK_ORDER_PAGE: 'check', CART_PAGE: 'cart' },
@@ -60,7 +69,8 @@ test('B-10/B-11: 游客意图持久化，登录后自动只执行一次', async 
     assert.ok(intent.requestKey)
     f.page.hideGoods(); f.setUser({ id: 'buyer-a', token: 'logged-in', account: 'buyer-a' })
     f.page.showGoods(); await tick()
-    assert.deepEqual(f.navigations, ['login', action === 'cart' ? 'cart' : 'check'])
+    assert.deepEqual(f.navigations, action === 'cart' ? ['login'] : ['login', 'check'])
+    if (action === 'cart') assert.equal(f.page.showSheet, false)
     assert.equal(f.writes.length, action === 'cart' ? 1 : 0)
     assert.equal(f.pendingTrade(), '')
   }
@@ -93,8 +103,30 @@ test('B-14/B-16: 加购超时自动同号重试，连点只提示一次并叠加
   gate.reject(new Error('timeout')); await adding
   assert.equal(f.writes.length, 2)
   assert.equal(f.writes[0][0].requestKey, f.writes[1][0].requestKey)
-  assert.equal(f.messages.filter(text => text === '加入购物车成功').length, 1)
-  assert.deepEqual(f.navigations, ['cart'])
+  assert.equal(f.messages.filter(text => text === '已加入购物车').length, 1)
+  assert.equal(f.page.showSheet, false)
+  assert.deepEqual(f.navigations, [])
+})
+
+test('详情已下架与无可售规格是成功读取，购买禁用且与加载失败分开', async () => {
+  for (const state of ['off', 'empty']) {
+    const f = fixture()
+    f.api.detail = async () => ({ ...goods(), status: state === 'off' ? 'off' : 'on', available: false, skus: [] })
+    await f.page.getDetailData()
+    assert.equal(f.page.detailReady, true); assert.equal(f.page.detailFailed, false)
+    assert.equal(f.page.canPurchase(), false)
+    assert.match(f.page.unavailableText(), state === 'off' ? /已下架/ : /暂无可购买规格/)
+    await f.page.addToCart(); assert.equal(f.writes.length, 0)
+  }
+})
+
+test('加购瞬间下架自动刷新详情，旧规格不会继续购买', async () => {
+  const f = fixture(); await f.page.getDetailData(); f.select()
+  f.api.add = async () => { throw { response: { status: 409, data: { reason: 'PRODUCT_UNAVAILABLE' } } } }
+  f.api.detail = async () => ({ ...goods(), status: 'off', available: false })
+  await f.page.addToCart()
+  assert.equal(f.writes.length, 1); assert.equal(f.page.goods.status, 'off'); assert.equal(f.page.canPurchase(), false)
+  assert.equal(f.page.loading, false); assert.equal(f.page.showLoadingDialog, false)
 })
 
 test('B-15: 服务端库存冲突不重试不导航，提示库存不足', async () => {
@@ -223,9 +255,9 @@ test('离页重进、换账号或换商品后旧加购成功失败不跳转提�
     f.messages.length = 0
     if (failed) old.reject(new Error('old')); else old.resolve()
     await previous
-    assert.equal(f.page.loading, true, change); assert.equal(f.page.showLoadingDialog, true, change)
+    assert.equal(f.page.loading, true, change); assert.equal(f.page.showLoadingDialog, false, change)
     assert.equal(f.navigations.length, 0); assert.equal(f.messages.length, 0)
-    current.resolve(); await next; assert.deepEqual(f.navigations, ['cart'])
+    current.resolve(); await next; assert.deepEqual(f.navigations, [])
   }
 })
 

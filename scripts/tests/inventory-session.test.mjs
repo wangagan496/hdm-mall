@@ -7,20 +7,64 @@ const item = { skuId: 'sku', name: '商品', spec: '规格', stock: 20, recorded
 const result = (items = [{ ...item }], page = 1) => ({ items, page, pages: 2, counts: 11, pageSize: 10 })
 const draft = { requestKey: 'request', skuId: 'sku', delta: 2, expectedStock: 20, reason: '盘点后增加库存' }
 function fixture() {
-  const queries = [], writes = [], dialogs = []
+  const queries = [], writes = [], dialogs = [], scrolls = [], timers = new Map()
   let mutation = async () => ({ balance: 22 }), pending = null
   const api = { read: async () => result(), getForSession: (...args) => { queries.push(args); return api.read(...args) } }
   const flow = { pending: () => pending,
     start: (...args) => { writes.push(['start', ...args]); return mutation() },
     resume: (...args) => { writes.push(['resume', ...args]); return mutation() } }
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/InventoryView.ets', 'InventoryView', {},
-    { RequestAxios: api, inventoryAdjustment: flow, Scroller: class { scrollEdge() {} }, Edge: { Top: 0 } })
+    { RequestAxios: api, inventoryAdjustment: flow, Scroller: class { scrollEdge(value) { scrolls.push(value) } }, Edge: { Top: 0 },
+      setTimeout: callback => { const id = timers.size + 1; timers.set(id, callback); return id }, clearTimeout: id => timers.delete(id) })
   const page = new View(); page.user = { id: 'merchant', role: 'merchant', token: 'token' }; page.active = true
   page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog) })
-  const edit = () => { page.select(page.items[0] || item); page.quantity = '2'; page.reason = draft.reason }
-  return { page, api, flow, queries, writes, dialogs, edit,
+  const edit = () => { page.select(page.items[0] || item); page.quantity = '2'; page.reasonCategory = '其他'; page.reason = draft.reason }
+  return { page, api, flow, queries, writes, dialogs, timers, scrolls, edit,
     setMutation: fn => { mutation = fn }, setPending: value => { pending = value } }
 }
+
+test('库存就地编辑不滚到顶部，必须选原因且实际提交文字满足五字下限', async () => {
+  const f = fixture(); await f.page.load(1)
+  for (const category of ['补货', '盘点更正', '损耗', '其他']) {
+    f.page.select(item); f.page.quantity = '2'
+    assert.equal(f.page.valid(), false)
+    f.page.chooseReason(category)
+    if (category === '其他') {
+      assert.equal(f.page.valid(), false)
+      f.page.reason = '其他特殊原因说明'
+    }
+    assert.equal(f.page.valid(), true)
+    assert.ok(f.page.reason.trim().length >= 5)
+    f.page.confirmAdjustment()
+    assert.match(f.dialogs.at(-1).message, /20 → 22/)
+  }
+  assert.deepEqual(f.scrolls, [])
+  assert.equal(f.writes.length, 0)
+})
+
+test('进入库存页自动恢复原待办，失败有限重试，离页取消后续恢复', async () => {
+  const f = fixture(); f.setPending(draft)
+  f.setMutation(async () => { throw new Error('offline') })
+  await f.page.load(1)
+  assert.deepEqual(f.writes, [['resume', 'token']])
+  assert.equal(f.page.message, '正在确认库存调整结果')
+  assert.equal(f.timers.size, 1)
+  const late = [...f.timers.values()][0]
+  f.page.aboutToDisappear(); late(); await tick()
+  assert.equal(f.writes.length, 1)
+  assert.equal(f.timers.size, 0)
+})
+
+test('库存自动恢复成功后不再重试，读取列表失败保留已确认结果', async () => {
+  const f = fixture(); f.setPending(draft)
+  f.setMutation(async () => { f.setPending(null); f.api.read = async () => { throw new Error('offline') }; return { balance: 22 } })
+  await f.page.load(1)
+  assert.equal(f.writes.length, 1)
+  assert.equal(f.page.pending, null)
+  assert.match(f.page.message, /调整已记录/)
+  assert.match(f.page.loadError, /刷新失败/)
+  assert.equal(f.timers.size, 0)
+})
 
 test('库存首次读取、刷新及失败保留列表时不能提交，重试成功恢复', async () => {
   const f = fixture(); f.edit(); f.page.confirmAdjustment()
