@@ -28,7 +28,7 @@ export struct CartItem {
         .enabled(this.cart.available)
         .accessibilityText(this.cart.selected ? '取消选择商品' : '选择商品')
         .onClick(() => {
-          // 选中状态等服务端更新成功后由父组件回写，避免接口失败时界面与服务端不一致导致结算少算
+          // 父组件立即显示目标值并串行保存，失败时只回滚当前行。
           this.onChangeSelected(!this.cart.selected)
         })
       Image(this.cart.picture)

@@ -244,7 +244,8 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('GET', '/member/family-orders', (_req, user) => orders.list(user, 0, true))
   protectedRoute('GET', '/member/family-orders/page', (req, user) => {
     const query = pageSchema.parse(req.query)
-    return orders.familyPage(user, query.page, query.pageSize)
+    const { group } = z.object({ group: z.enum(['pay', 'receipt', 'pending', 'all']).optional() }).parse(req.query)
+    return orders.familyPage(user, query.page, query.pageSize, group)
   })
   protectedRoute('GET', '/member/order/attention', (_req, user) => payments.attentionCount(user))
   protectedRoute('GET', '/member/order/:id', (req, user) => orders.detail(user, key(req)))

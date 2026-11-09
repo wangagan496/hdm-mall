@@ -24,6 +24,7 @@ export struct SettingsView {
   LogoutConfirmBuilder() {
     HDMConfirm({
       message: '确定要退出账号吗',
+      confirmText: '退出账号', busy: this.loggingOut,
       onConfirm: () => this.logoutAndCloseSettings(),
       onCancel: () => {
         if (!this.loggingOut) {

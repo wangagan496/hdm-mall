@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -12,10 +12,12 @@ $PackagePath = "$Root/mixed-development-h5/build/outputs/default/mixed-developme
 $PackageSha256 = (Get-FileHash $PackagePath -Algorithm SHA256).Hash
 if ($ProductProbe) { $Mode = 'ProductProbe' }
 if ($AfterSaleProbe) { $Mode = 'AfterSaleProbe' }
+if ($UxProbe) { $Mode = 'UxProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
 if ($AfterSaleProbe) { $Output = Join-Path $Root '_device_acceptance/after-sale-probe' }
+if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
@@ -89,6 +91,14 @@ function Input-Type([string]$Type, [int]$Index, [string]$Value) {
   Operate-Node $Inputs[$Index] $Value
 }
 function Back { $null = Invoke-Hdc @('shell','uitest','uiInput','keyEvent','Back') }
+function Select-FamilyAll {
+  for($Try=0;$Try -lt 12;$Try++) {
+    $Tab=@(Read-Nodes | Where-Object { $_.id -eq 'family-filter-all' -and $_.enabled -ne 'false' })
+    if($Tab.Count -eq 1){Operate-Node $Tab[0];return}
+    Start-Sleep -Milliseconds 300
+  }
+  throw 'Family all-orders filter is missing or disabled.'
+}
 function Mine {
   $null = Invoke-Hdc @('shell','aa','force-stop','com.hdm.mall')
   $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall')
@@ -109,7 +119,7 @@ function Login([string]$Account) {
     if ($Settings.Count -ne 1) { throw 'Settings image is not uniquely identified' }
     Operate-Node $Settings[0]
     Tap-CellArrow '退出登录'
-    Tap-Text '确定'
+    Tap-Text '退出账号'
   }
   Tap-Text '立即登录'
   Wait-Text '账号密码登录'
@@ -256,12 +266,14 @@ function Invoke-PaidCancellation {
   $OrderId = (Orders)[0].id
   if ($Family) {
     Scroll-Text '邀请 device_friend 代付'
-    Wait-Text '等待亲友 device_friend 代付'
+    Wait-Text '当前付款人：亲友 device_friend'
     Login 'device_friend'
     Tap-Text '亲友中心 · 代付与代收'
     Scroll-Text '确认模拟代付'
     Wait-Text '为 device_buyer 模拟代付'
     Operate-Node ($script:Nodes | Where-Object { $_.text -eq '确认模拟代付' -and $_.visible -ne 'false' } | Select-Object -Last 1)
+    $null = Wait-OrderState $OrderId 2
+    Select-FamilyAll
     Wait-Text '待发货'
   } else {
     $null = Set-PaymentPreset 'success'
@@ -390,7 +402,7 @@ function Invoke-PaidCancellation {
   # 即时退款响应在测试屏障释放前仍等待；保留挂起退款证据后，再验证商家最终卡片。
   Login 'device_merchant'
   Tap-Text '亲友中心 / 商家发货'
-  Wait-Text '刷新'
+  Wait-Text '关系管理'
   Scroll-Text '商家待发货订单' -ViewOnly
   $script:Nodes = Read-Nodes
   if ((Find-Text '处理取消申请') -or (Find-Text '买家申请取消')) { throw 'Approved cancellation remains visible on merchant card' }
@@ -549,7 +561,7 @@ function Guest {
     if ($Settings.Count -ne 1) { throw 'Guest logout settings image is not unique' }
     Operate-Node $Settings[0]
     Tap-CellArrow '退出登录'
-    Tap-Text '确定'
+    Tap-Text '退出账号'
     Wait-Text '立即登录'
   }
   Tap-Text '首页'
@@ -784,8 +796,8 @@ function Invoke-WriteNetworkProbe {
   $null = Response-Barrier 'cancel' $true
   Tap-Text '取消订单'
   Disconnect-AcceptedResponse 'cancel'
-  Wait-Text '取消结果待确认，请稍后查询'
-  foreach ($Text in @('取消订单','去支付')) {
+  Wait-Text '正在确认取消结果'
+  foreach ($Text in @('正在确认取消结果','去支付')) {
     $Button = Find-Text $Text
     if (-not $Button -or $Button.enabled -ne 'false') { throw "Pending cancellation button is not disabled: $Text" }
   }
@@ -794,10 +806,9 @@ function Invoke-WriteNetworkProbe {
   Assert-CancelInventory $CancelId 1 $InitialStock
   Save-BuyerCheckpoint '01-cancel-offline-intent-preserved' @('B-61') $CancelId
   Restore-TestNetwork
-  Tap-Text '重新查询'
   Wait-Text '已取消'
   Assert-NoPaymentAction
-  foreach ($Forbidden in @('取消订单','提醒发货','取消结果待确认，请稍后查询')) { if (Find-Text $Forbidden) { throw "Cancelled card still exposes $Forbidden" } }
+  foreach ($Forbidden in @('取消订单','提醒发货','正在确认取消结果')) { if (Find-Text $Forbidden) { throw "Cancelled card still exposes $Forbidden" } }
   Assert-CancelInventory $CancelId 1 $InitialStock
   Assert-WriteTransition 'cancel' $CancelId 1 6
   Save-BuyerCheckpoint '02-cancel-recovered-once' @('B-61') $CancelId
@@ -819,7 +830,7 @@ function Invoke-WriteNetworkProbe {
   Tap-Text '确认收货'
   Disconnect-AcceptedResponse 'receipt'
   Wait-Text '确认收货'
-  Wait-Text '确认收货结果待确认'
+  Wait-Text '正在确认收货结果'
   foreach ($Text in @('确认收货','查看订单')) {
     $Button = Find-Text $Text
     if (-not $Button -or $Button.enabled -ne 'false') { throw "Pending receipt button is not disabled: $Text" }
@@ -828,9 +839,8 @@ function Invoke-WriteNetworkProbe {
   if (Find-Text '去评价') { throw 'Offline receipt prematurely displayed success' }
   Save-BuyerCheckpoint '04-receipt-offline-response-lost' @('B-66') $ReceiveId
   Restore-TestNetwork
-  Tap-Text '重新查询'
   Wait-Text '暂时没有相关订单'
-  foreach ($Forbidden in @('确认收货结果待确认','确认收货','设备独立测试商品')) {
+  foreach ($Forbidden in @('正在确认收货结果','确认收货','设备独立测试商品')) {
     if (Find-Text $Forbidden) { throw "Receipt recovery left stale awaiting-receipt UI: $Forbidden" }
   }
   Tap-Text '待评价'
@@ -846,13 +856,18 @@ function Invoke-WriteNetworkProbe {
   $null = Response-Barrier 'evaluation' $true
   Tap-Text '提交评价'
   Disconnect-AcceptedResponse 'evaluation'
-  Wait-Text '提交评价'
-  Wait-Text '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交'
+  Wait-Text '核对评价结果'
+  Wait-Text '正在确认评价结果，输入已保留，恢复网络后会自动核对'
   Wait-Text $Content
   Save-EvaluationDraftProof '06-evaluation-offline' $ReceiveId $Content $true
   Save-BuyerCheckpoint '06-evaluation-offline-draft-preserved' @('B-66') $ReceiveId
   Restore-TestNetwork
-  Tap-Text '提交评价'
+  # Restoring a port mapping does not emit an OS network-change event; use the real foreground recovery trigger.
+  $null=Invoke-Hdc @('shell','uitest','uiInput','keyEvent','Home')
+  Start-Sleep -Milliseconds 600
+  $null=Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall')
+  Wait-Text '评价已发布'
+  Back
   Wait-Text '全部'
   Tap-Text '全部'
   Wait-Text '已评价'
@@ -964,7 +979,7 @@ function Invoke-BuyerScenario {
   Save-BuyerCheckpoint '09-cashier-unique-order' $(if ($NetworkProbe) { @('B-31','B-32') } elseif ($S2) { @('B-17','B-30') } else { @('B-22','B-30') }) $OrderId
   if ($S2) {
     Scroll-Text '邀请 device_friend 代付'
-    Wait-Text '等待亲友 device_friend 代付'
+    Wait-Text '当前付款人：亲友 device_friend'
     if ((Api 'device_buyer' "/member/order/$OrderId").invitedPayerAccount -ne 'device_friend') { throw 'Specified payer invitation not saved' }
     Save-BuyerCheckpoint '10-invited-family-payer' @('B-50') $OrderId
     Login 'device_friend'
@@ -976,6 +991,7 @@ function Invoke-BuyerScenario {
     $Dialog = @(Read-Nodes | Where-Object { $_.text -eq '确认模拟代付' -and $_.visible -ne 'false' })
     Operate-Node $Dialog[-1]
     $null = Assert-OneTrade $OrderId 'device_friend' 2
+    Select-FamilyAll
     Wait-Text '待发货'
     Save-BuyerCheckpoint '12-friend-paid' @('B-50','B-70') $OrderId
     Login 'device_buyer'
@@ -1072,7 +1088,7 @@ function Product-Search([string]$Name, [switch]$Absent) {
   Operate-Node $Search $Name
   Back
   Tap-Text '搜索'
-  if ($Absent) { Wait-Text '暂找不到相关商品，请重新搜索对应商品'; Capture '08-off-search'; return }
+  if ($Absent) { Wait-Text '没有找到相关商品，换个关键词试试'; Capture '08-off-search'; return }
   for ($Try=0; $Try -lt 20; $Try++) {
     $Goods = @(Read-Nodes | Where-Object { $_.type -eq 'Text' -and $_.text -eq $Name -and $_.visible -ne 'false' })
     if ($Goods.Count -eq 1) { break }
@@ -1508,6 +1524,160 @@ function Invoke-AfterSaleProbe {
   Save-Result @{returnRefundSeconds=$ReturnRefundSeconds;missingRefundSeconds=$MissingRefundSeconds;withdrawnSale=$Withdrawn;restoredQuantity=$Restored.skus[0].afterSaleRemaining;firstOrder=$FirstProof;secondOrder=$SecondProof;returnSale=$Refunded;missingSale=$MissingRefund;returns=$Returns;stock=$Inventory.items[0].stock;difference=$Inventory.items[0].difference;nativeActions=@('checkout','payment','shipment','partial-application','first-return-address','ship-back','partial-restock','missing-only-refund')}
   Write-Output "SCRIPT $PSCommandPath RESULT AfterSaleProbe native partial return and missing-only refund passed"
 }
+function Invoke-UxProbe {
+  Guest
+  Tap-Text '我的'
+  Tap-Text '立即登录'
+  Wait-Text '账号密码登录'
+  Input-Type 'TextInput' 0 'device_buyer'
+  Input-Type 'TextInput' 1 $Password
+  Back
+  Tap-Text '登录'
+  Wait-Text '请先阅读并勾选协议'
+  Capture '01-agreement-required'
+  $Checkbox = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })[0]
+  if ($Checkbox.checked -eq 'true') { throw 'Submitting without agreement silently checked terms.' }
+  # UiTest exports the native Span sequence as one Text; use its observed bounds.
+  $AgreementText=Find-Text '查看并同意《隐私政策》和《用户协议》'
+  $Box=[regex]::Matches($AgreementText.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$([int]($Box[0]+($Box[2]-$Box[0])*0.42))","$([int](($Box[1]+$Box[3])/2))")
+  Wait-Text '隐私政策'
+  Capture '02-privacy-draft'
+  Back
+  Wait-Text '账号密码登录'
+  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })[0].checked -eq 'true') { throw 'Privacy link toggled agreement.' }
+  $AgreementText=Find-Text '查看并同意《隐私政策》和《用户协议》'
+  $Box=[regex]::Matches($AgreementText.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$([int]($Box[0]+($Box[2]-$Box[0])*0.8))","$([int](($Box[1]+$Box[3])/2))")
+  Wait-Text '用户协议'
+  Capture '03-agreement-draft'
+  Back
+  Wait-Text '账号密码登录'
+  $Terms = @(Read-Nodes | Where-Object { $_.id -eq 'terms-row' })[0]
+  $Box = [regex]::Matches($Terms.bounds, '\d+') | ForEach-Object { [int]$_.Value }
+  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$($Box[2]-8)","$($Box[3]-8)")
+  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })[0].checked -ne 'true') { throw 'Agreement row blank area did not toggle.' }
+  Tap-Text '登录'
+  Wait-Text 'device_buyer'
+  Tap-Text '编辑资料'
+  Wait-Text '昵称'
+  Capture '04-profile-before'
+  $Inputs=@(Read-Nodes | Where-Object { $_.type -eq 'textField' -and $_.visible -ne 'false' })
+  if($Inputs.Count -lt 2){throw 'Profile nickname missing from accessibility tree.'}
+  # ArkWeb textField inputText appends at the caret; assert the whole resulting value.
+  $ExpectedNickname=$Inputs[1].text+'UX-final-input'
+  Operate-Node $Inputs[1] 'UX-final-input'
+  Back
+  $script:Nodes=Read-Nodes
+  if(Find-Text '昵称'){
+    # 软键盘若消耗第一次返回，只在仍处于编辑页时返回一次。
+    Back
+  }
+  Wait-Text '编辑资料'
+  $Profile=Api 'device_buyer' '/member/profile'
+  if($Profile.nickname -ne $ExpectedNickname){throw "Immediate profile return nickname mismatch: $($Profile.nickname)"}
+  Capture '05-profile-return-saved'
+  Wait-Text '亲友中心 · 代付与代收'
+  Tap-Text '亲友中心 · 代付与代收'
+  Wait-Text '关系管理'
+  Capture '06-family-groups'
+  $FamilyTabs=@(Read-Nodes | Where-Object {$_.id -like 'family-filter-*'})
+  $PayTab=@($FamilyTabs | Where-Object id -eq 'family-filter-pay')[0]
+  if(-not $PayTab -or $PayTab.text -notmatch '^待我付款 \d+$'){throw 'Family payment filter does not expose its count.'}
+  foreach($expected in @('待我收货','待处理','全部订单')){if(-not @($FamilyTabs | Where-Object {$_.text -match ('^'+$expected+' \d+$')}).Count){throw "Family filter count missing: $expected"}}
+  if($FamilyTabs.Count -ne 4 -or @($FamilyTabs | Where-Object {$_.backgroundColor -ne $FamilyTabs[0].backgroundColor}).Count -lt 1){throw 'Family filters are missing counts or distinct selected styling.'}
+  $GroupTop=[regex]::Matches($PayTab.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  if($GroupTop[1] -gt 600){throw 'Family filters are not aligned at page top.'}
+  $ReceiptTab=@($FamilyTabs | Where-Object id -eq 'family-filter-receipt')[0]
+  $PendingTab=@($FamilyTabs | Where-Object id -eq 'family-filter-pending')[0]
+  $ReceiptBox=@([regex]::Matches($ReceiptTab.bounds,'\d+')|ForEach-Object{[int]$_.Value})
+  $PendingBox=@([regex]::Matches($PendingTab.bounds,'\d+')|ForEach-Object{[int]$_.Value})
+  if(($GroupTop[2]-$GroupTop[0]) -lt 450 -or $ReceiptBox[1] -ne $GroupTop[1] -or $PendingBox[1] -le $GroupTop[3]){throw 'Family filters must have enough width for full labels and counts in two rows.'}
+  if(Find-Text '刷新'){throw 'Family page still exposes a manual refresh button.'}
+  $StatusNodes=@(Read-Nodes | Where-Object {$_.id -like 'StatusBar*' -and $_.visible -eq 'true'})
+  if($StatusNodes.Count -eq 0){throw 'Family page status bar is not visible in the captured hierarchy.'}
+  Operate-Node $PayTab
+  Wait-Text '暂时没有需要你付款的订单'
+  $SelectedPay=@(Read-Nodes | Where-Object id -eq 'family-filter-pay')[0]
+  if($SelectedPay.backgroundColor -eq $PayTab.backgroundColor){throw 'Selecting payment filter did not update its appearance.'}
+  Capture '06-family-payment-empty'
+  Back
+  Tap-Text '购物袋'
+  Wait-Text '去结算'
+  $Counter=@(Read-Nodes | Where-Object {$_.type -eq 'Counter'})[0]
+  $Box=[regex]::Matches($Counter.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  for($i=0;$i -lt 5;$i++){$null=Invoke-Hdc @('shell','uitest','uiInput','click',"$($Box[2]-12)","$([int](($Box[1]+$Box[3])/2))")}
+  Tap-Text '去结算'
+  Wait-Text '结算'
+  $Cart=@(Api 'device_buyer' '/member/cart')
+  if($Cart.Count -ne 1 -or $Cart[0].count -ne 6){throw 'Five cart increments did not persist quantity 6 before checkout.'}
+  Capture '07-cart-five-increments-checkout'
+  Back
+  Tap-Text '清空购物车'
+  Wait-Text '确定清空购物车中的全部商品吗？'
+  Capture '08-cart-clear-confirm'
+  Tap-Text '取消'
+  if(@(Api 'device_buyer' '/member/cart').Count -ne 1){throw 'Dismissing clear confirmation changed cart.'}
+  Mine
+  $Settings=@($script:Nodes | Where-Object {$_.type -eq 'Image' -and $_.clickable -eq 'true' -and $_.visible -ne 'false'})
+  if($Settings.Count -ne 1){throw 'Settings image is not uniquely identified'}
+  Operate-Node $Settings[0]
+  Tap-CellArrow '收货地址管理'
+  Wait-Text '收货地址管理'
+  Tap-Text '删除'
+  Wait-Text '删除地址'
+  Capture '09-address-delete-confirm'
+  Tap-Text '取消'
+  Wait-Text '+ 新增地址'
+  Back
+  Wait-Text '设置'
+  Back
+  Wait-Text '编辑资料'
+  Tap-Text '分类'
+  Wait-Text '设备独立测试商品'
+  $Product=Api 'device_merchant' ('/merchant/products/'+$Identity.productId)
+  $null=Api 'device_merchant' ('/merchant/products/'+$Identity.productId) 'Put' @{requestKey=[guid]::NewGuid().ToString();expectedRevision=$Product.revision;status='off'}
+  Tap-Text '设备独立测试商品'
+  Wait-Text '清除筛选'
+  Wait-Text '返回分类'
+  Capture '10-category-empty'
+  if(-not (Find-Text '这个分类下暂时没有商品')){throw 'Category empty-state copy does not describe the selected category.'}
+  $EmptyAction=Find-Text '清除筛选';$EmptyBack=Find-Text '返回分类'
+  $ActionBounds=[regex]::Matches($EmptyAction.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  $BackBounds=[regex]::Matches($EmptyBack.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  if($ActionBounds[1] -ne $BackBounds[1] -or [math]::Abs($ActionBounds[3]-$BackBounds[3]) -gt 8 -or $ActionBounds[0] -ge $BackBounds[0]){throw 'Category clear and back actions are not arranged as primary then secondary on one row.'}
+  Tap-Text '清除筛选'
+  Wait-Text '修改关键词'
+  Wait-Text '返回分类'
+  $Product=Api 'device_merchant' ('/merchant/products/'+$Identity.productId)
+  $null=Api 'device_merchant' ('/merchant/products/'+$Identity.productId) 'Put' @{requestKey=[guid]::NewGuid().ToString();expectedRevision=$Product.revision;status='on'}
+  Mine
+  Tap-Text '购物袋'
+  Tap-Text '去结算'
+  Tap-Text '提交订单并付款'
+  Wait-Text '确认付款'
+  $null=Set-PaymentPreset 'unknown'
+  $Pay=@(Read-Nodes | Where-Object {$_.type -eq 'Button' -and $_.text -like '确认支付 ¥*'})[0]
+  Operate-Node $Pay
+  Wait-Text '正在确认付款结果，请勿重复付款'
+  Start-Sleep -Seconds 31
+  Wait-Text '付款结果仍在确认中，可以先离开，结果会在订单里显示；请勿重复付款。'
+  Capture '11-payment-low-frequency'
+  $PayResultNodes=Read-Nodes
+  $OrderButton=@($PayResultNodes | Where-Object {$_.text -eq '查看本单' -and $_.type -eq 'Button'})[0]
+  $AllOrdersButton=@($PayResultNodes | Where-Object {$_.text -eq '全部订单' -and $_.type -eq 'Button'})[0]
+  $CancelButton=@($PayResultNodes | Where-Object {$_.text -eq '取消订单' -and $_.type -eq 'Button'})[0]
+  if(-not $OrderButton -or -not $AllOrdersButton -or -not $CancelButton){throw 'Payment result actions are missing.'}
+  $OrderBounds=[regex]::Matches($OrderButton.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  $CancelBounds=[regex]::Matches($CancelButton.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  if($CancelBounds[1] -le $OrderBounds[1]){throw 'Cancel action must appear below the result navigation actions.'}
+  if(@($PayResultNodes | Where-Object {$_.type -eq 'LoadingProgress' -and $_.visible -eq 'true'}).Count -eq 0){throw 'Unconfirmed payment result lacks a neutral waiting indicator.'}
+  $OrderId=@(Orders)[0].id
+  $Proof=Payment-Proof $OrderId
+  if($Proof.payments.Count -ne 1){throw 'Result polling repeated the payment write.'}
+  Save-Result @{profileNickname=$Profile.nickname;cartQuantity=$Cart[0].count;orderId=$OrderId;paymentCount=$Proof.payments.Count;checks=@('agreement-highlight','agreement-links-no-toggle','whole-row-checkbox','profile-return-flush','family-groups-selected-counts-no-refresh-status-bar','cart-five-increments','cart-clear-confirm','address-delete-confirm','category-empty-source-copy-actions','payment-low-frequency-pending-indicator-action-order')}
+  Write-Output "SCRIPT $PSCommandPath RESULT UxProbe passed"
+}
 $Existing = @(& $Hdc -t $Target fport ls)
 $Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
 if (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) { throw 'Fixture port 3103 is already in use.' }
@@ -1544,6 +1714,7 @@ try {
   if((Get-FileHash $PackagePath -Algorithm SHA256).Hash -ne $PackageSha256){throw 'Package changed before installation'}
   $null = Invoke-Hdc @('install','-r',$PackagePath)
   Write-Output "CHECK installed package SHA256 $PackageSha256"
+  if ($UxProbe) { Invoke-UxProbe; return }
   if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($AfterSaleProbe) { Invoke-AfterSaleProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }
@@ -1564,13 +1735,14 @@ try {
     Wait-Text '邀请 probe_00 代付'
     Capture 'payer-page-2'
     Tap-Text '邀请 probe_00 代付'
-    Wait-Text '等待亲友 probe_00 代付'
+    Wait-Text '当前付款人：亲友 probe_00'
     $Order = (Orders)[0]
     if ($Order.invitedPayerAccount -ne 'probe_00') { throw 'Payer page selection did not reach backend' }
     Write-Output 'CHECK native payer page 2 selection reached backend'
     Mine
     Wait-Text 'device_buyer'
     Tap-Text '亲友中心 · 代付与代收'
+    Tap-Text '关系管理'
     Tap-Text '关系下一页'
     Wait-Text '我的亲友：probe_00'
     Capture 'relations-page-2'
@@ -1581,12 +1753,14 @@ try {
     Capture 'relations-returned-to-page-1'
     Write-Output 'CHECK native relation page 2 revoke returned to page 1'
     $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3103'); $Mapped=$false
-    Tap-Text '刷新'
+    $null = Invoke-Hdc @('shell','uitest','uiInput','keyEvent','Home')
+    Start-Sleep -Milliseconds 600
+    $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall')
     Wait-Text '加载失败，请重新登录或重试'
     Wait-Text '我的亲友：probe_10'
     Capture 'relations-offline-preserved'
     $null = Invoke-Hdc @('rport','tcp:3000','tcp:3103'); $Mapped=$true
-    Tap-Text '刷新'
+    Tap-Text '重试加载'
     Wait-Text '我的亲友：probe_10'
     for ($Try = 0; $Try -lt 20; $Try++) {
       $script:Nodes = Read-Nodes
@@ -1597,6 +1771,7 @@ try {
     Mine
     Wait-Text 'device_buyer'
     Tap-Text '亲友中心 · 代付与代收'
+    Tap-Text '关系管理'
     Wait-Text '我的亲友：probe_10'
     Capture 'relations-after-restart'
     Save-Result @{ invitedPayer=$Order.invitedPayerAccount; relations=$Relations.counts; offlinePreserved=$true; restart=$true }
@@ -1656,12 +1831,14 @@ try {
   Write-Output 'CHECK native self checkout, payment, merchant shipment, receipt and review passed'
   Mine
   Tap-Text '亲友中心 · 代付与代收'
+  Tap-Text '关系管理'
   Input-Type 'TextInput' 0 'device_friend'
   Back
   Tap-Text '发送绑定邀请'
   Wait-Text '待确认'
   Login 'device_friend'
   Tap-Text '亲友中心 · 代付与代收'
+  Tap-Text '关系管理'
   Scroll-Text '同意绑定'
   Wait-Text '已绑定'
   $null = Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId; count=1; requestKey=[guid]::NewGuid().ToString()}
@@ -1669,26 +1846,33 @@ try {
   Login 'device_buyer'
   Checkout
   Scroll-Text '邀请 device_friend 代付'
-  Wait-Text '等待亲友 device_friend 代付'
+  Wait-Text '当前付款人：亲友 device_friend'
   $FamilyOrder = (Orders | Where-Object { $_.id -ne $SelfOrder })[0].id
   Login 'device_friend'
   Tap-Text '亲友中心 · 代付与代收'
+  Wait-Text '待我付款 1'
   Scroll-Text '确认模拟代付'
   Wait-Text '为 device_buyer 模拟代付'
   $DialogAction = $script:Nodes | Where-Object { $_.text -eq '确认模拟代付' -and $_.visible -ne 'false' } | Select-Object -Last 1
   Operate-Node $DialogAction
   $null = Assert-State $FamilyOrder 2
+  Select-FamilyAll
   Wait-Text '待发货'
+  Wait-Text '待我付款 0'
+  Wait-Text '全部订单 1'
   if (Find-Text '确认模拟代付') { throw 'Completed payment still shows payment action' }
   Capture 'family-paid'
   Ship
   $null = Assert-State $FamilyOrder 3
   Login 'device_friend'
   Tap-Text '亲友中心 · 代付与代收'
+  Wait-Text '待我收货 1'
   Scroll-Text '确认代收'
   Tap-Text '已收到，确认'
   $null = Assert-State $FamilyOrder 4
+  Select-FamilyAll
   Wait-Text '已收货'
+  Wait-Text '待我收货 0'
   if (Find-Text '确认代收') { throw 'Completed receipt still shows receipt action' }
   Capture 'family-received'
   Login 'device_buyer'

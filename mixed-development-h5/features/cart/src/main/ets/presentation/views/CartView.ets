@@ -1,5 +1,5 @@
 import { HDMConfirm, HDMEmpty, HDMGuess, HDMNavBar } from 'ui_components'
-import { CartGoods, CartGoodsModel, HDMUser } from 'models'
+import { CartGoods, CartGoodsModel, HDMUser, UpdateCartParams } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { getCartListAPI, getGuessLikeAPI } from '../../data/api'
 import { CartItem } from '../components'
@@ -8,6 +8,14 @@ import { excludeCartItems } from '../utils/CartPresentation'
 import { CartOperationHelper as CartOperations } from '../utils/CartOperations'
 import { RequestAxios } from 'network'
 import { authCart } from 'storage'
+
+interface CartRowSave {
+  count: number
+  selected: boolean
+  countDirty: boolean
+  selectedDirty: boolean
+  promise: Promise<void>
+}
 
 @Component
 export struct CartView {
@@ -42,8 +50,16 @@ export struct CartView {
   private isPageActive: boolean = true
   private cartToken: string = ''
   private pageVersion: number = 0
+  private rowSaves: Map<string,CartRowSave> = new Map()
+  @State private savingRows: number = 0
+  private saveFailure: number = 0
+  private reloadDeferred: boolean = false
+  @State checkoutWaiting: boolean = false
+  private readonly cartRefreshSource: string = 'cart-' + Date.now() + '-' + Math.random()
 
-  private reloadCartAfterChange: () => void = () => {
+  private reloadCartAfterChange: (source?: string) => void = (source?: string) => {
+    if(source === this.cartRefreshSource)return
+    if(this.rowSaves.size){this.reloadDeferred=true;return}
     this.loadCartList()
   }
 
@@ -57,6 +73,7 @@ export struct CartView {
     this.isPageActive = false
     this.loadRequestId++
     this.pageVersion++
+    this.rowSaves.clear();this.savingRows=0;this.checkoutWaiting=false;this.reloadDeferred=false
     this.loading = false
     this.updating = false
     this.deleting = false
@@ -91,6 +108,7 @@ export struct CartView {
     if (token !== this.cartToken) {
       this.cartToken = token
       this.pageVersion++
+      this.rowSaves.clear();this.savingRows=0;this.checkoutWaiting=false;this.reloadDeferred=false
       this.cartList = []
       this.recalculateCartSummary()
       this.loading = false
@@ -102,6 +120,7 @@ export struct CartView {
     if (!this.isPageActive || !token) {
       return
     }
+    if(this.rowSaves.size){this.reloadDeferred=true;return}
     this.loading = true
     this.loadFailed = false
     try {
@@ -129,53 +148,61 @@ export struct CartView {
     this.allPrice = CartOperations.calculateTotalPrice(this.cartList)
   }
 
-  // 单件勾选：先保存到服务端，成功后由 CartOperations 回写页面状态。
+  // 每行合并目标值并串行保存；其他行独立，迟到结果不得覆盖新账号。
   private async changeGoodsSelection(cart: CartGoodsModel, selected: boolean): Promise<void> {
-    if (this.updating || this.deleting || this.loading || this.loadFailed) {
-      return
-    }
-    const version = this.pageVersion
-    const token = this.user.token
-    this.updating = true
-    try {
-      await CartOperations.updateCartSelection(cart, selected)
-    } catch {
-      if (this.isCurrentPage(version, token)) {
-        this.getUIContext().getPromptAction().showToast({ message: '选中状态更新失败，请重试' })
-      }
-    } finally {
-      if (this.isCurrentPage(version, token)) {
-        this.updating = false
-        this.recalculateCartSummary()
-      }
-    }
+    if(!this.isPageActive||this.cartToken!==this.user.token||!this.cartList.includes(cart))return
+    if(this.updating||this.deleting||this.loading||this.loadFailed||!this.user.token||(selected&&cart.available===false))return
+    const job=this.prepareRow(cart);cart.selected=selected;job.selectedDirty=true;this.recalculateCartSummary();await job.promise
   }
 
-  // 修改数量：先保存到服务端；成功才显示新数量，失败保留原数量并提示。
+  // 数量立即显示目标值，合并后保存绝对数量；失败只回滚这一行。
   private async changeGoodsQuantity(cart: CartGoodsModel, requestedQuantity: number): Promise<void> {
-    if (this.updating || this.deleting || this.loading || this.loadFailed) {
-      return
-    }
-    const version = this.pageVersion
-    const token = this.user.token
-    this.updating = true
+    if(!this.isPageActive||this.cartToken!==this.user.token||!this.cartList.includes(cart))return
+    if(this.updating||this.deleting||this.loading||this.loadFailed||!this.user.token||cart.available===false||!Number.isInteger(requestedQuantity)||requestedQuantity<1)return
+    const job=this.prepareRow(cart);cart.count=requestedQuantity;job.countDirty=true;this.recalculateCartSummary();await job.promise
+  }
+  private prepareRow(cart:CartGoodsModel):CartRowSave {
+    const existing=this.rowSaves.get(cart.skuId);if(existing)return existing
+    const job:CartRowSave={count:cart.count,selected:cart.selected,countDirty:false,selectedDirty:false,promise:Promise.resolve()}
+    this.rowSaves.set(cart.skuId,job)
+    this.savingRows=this.rowSaves.size
+    job.promise=this.saveRow(cart,job,this.pageVersion,this.user.token||'')
+    return job
+  }
+  private async saveRow(cart:CartGoodsModel,job:CartRowSave,version:number,token:string):Promise<void> {
     try {
-      await CartOperations.updateCartCount(cart, requestedQuantity)
-    } catch {
-      if (this.isCurrentPage(version, token)) {
-        this.getUIContext().getPromptAction().showToast({ message: '数量更新失败，请重试' })
+      do {
+        await new Promise<void>((resolve)=>setTimeout(resolve,120))
+        if(!this.isCurrentPage(version,token)||this.rowSaves.get(cart.skuId)!==job)return
+        const body:UpdateCartParams={}
+        if(job.countDirty)body.count=cart.count
+        if(job.selectedDirty)body.selected=cart.selected
+        job.countDirty=false;job.selectedDirty=false
+        await RequestAxios.putForSession<CartGoodsModel>('/member/cart/'+encodeURIComponent(cart.skuId),body,token)
+        if(!this.isCurrentPage(version,token)||this.rowSaves.get(cart.skuId)!==job)return
+        if(body.count!==undefined)job.count=body.count
+        if(body.selected!==undefined)job.selected=body.selected
+      }while(job.countDirty||job.selectedDirty)
+    }catch {
+      if(this.isCurrentPage(version,token)&&this.rowSaves.get(cart.skuId)===job){
+        cart.count=job.count;cart.selected=job.selected;this.saveFailure++;this.recalculateCartSummary()
+        this.getUIContext().getPromptAction().showToast({message:'这件商品未保存，已恢复原值，请重试'})
       }
-    } finally {
-      if (this.isCurrentPage(version, token)) {
-        this.updating = false
-        this.recalculateCartSummary()
+    }finally {
+      if(this.isCurrentPage(version,token)&&this.rowSaves.get(cart.skuId)===job){
+        this.rowSaves.delete(cart.skuId)
+        this.savingRows=this.rowSaves.size
+        if(!this.rowSaves.size){
+          try {await authCart.updateCartCount(this.cartRefreshSource)}catch{}
+          if(this.isCurrentPage(version,token)&&this.reloadDeferred){this.reloadDeferred=false;await this.loadCartList()}
+        }
       }
     }
   }
 
   // 保存成功后再更新全选和金额；保存期间不并发修改或进入结算。
   private async toggleAllGoodsSelection(): Promise<void> {
-    if (this.updating || this.deleting || this.loading || this.loadFailed || !this.user.token || this.cartList.length === 0) {
+    if (this.rowSaves.size || this.updating || this.deleting || this.loading || this.loadFailed || !this.user.token || this.cartList.length === 0) {
       return
     }
     const selected = !this.isCheckAll
@@ -202,9 +229,18 @@ export struct CartView {
   }
 
   // 有选中商品才能去确认地址和金额；这里只跳转，不创建订单、不扣款。
-  private openCheckoutPage(): void {
+  private async openCheckoutPage(): Promise<void> {
+    if(!this.isPageActive||!this.user.token||this.cartToken!==this.user.token)return
+    if(this.checkoutWaiting)return
     if (this.updating || this.deleting || this.loading || this.loadFailed) {
       return
+    }
+    const version=this.pageVersion,token=this.user.token||'',failure=this.saveFailure
+    if(this.rowSaves.size){
+      this.checkoutWaiting=true
+      try {while(this.rowSaves.size&&this.isCurrentPage(version,token))await Promise.all(Array.from(this.rowSaves.values()).map((job:CartRowSave)=>job.promise))}
+      finally {if(this.isCurrentPage(version,token))this.checkoutWaiting=false}
+      if(!this.isCurrentPage(version,token)||this.saveFailure!==failure||this.loadFailed)return
     }
     const selectedGoodsCount = CartOperations.getSelectedCarts(this.cartList).length
     if (selectedGoodsCount === 0) {
@@ -218,7 +254,7 @@ export struct CartView {
 
   // 删除成功后移除页面商品并重算合计；单件删除和清空购物袋共用此流程。
   async deleteCartItems(skuIds: string[], clearAll: boolean = false): Promise<void> {
-    if (this.updating || this.deleting || this.loading || this.loadFailed || skuIds.length === 0) {
+    if (this.rowSaves.size || this.updating || this.deleting || this.loading || this.loadFailed || skuIds.length === 0) {
       return
     }
     const version = this.pageVersion
@@ -254,7 +290,7 @@ export struct CartView {
   private invalidCount(): number { return this.cartList.filter(item => !item.available).length }
   private async clearInvalid(): Promise<void> {
     const version = this.pageVersion, token = this.user.token
-    if (this.loading || this.updating || this.deleting || !token) return
+    if (this.rowSaves.size || this.loading || this.updating || this.deleting || !token) return
     this.deleting = true
     try {
       await RequestAxios.deleteForSession<object>('/member/cart/invalid', token)
@@ -286,8 +322,9 @@ export struct CartView {
   ClearCartConfirmBuilder() {
     HDMConfirm({
       message: '确定清空购物车中的全部商品吗？',
+      confirmText: '清空购物车', busy: this.deleting || this.updating || this.savingRows > 0,
       onConfirm: async () => {
-        if (this.updating || this.deleting || this.loading || this.loadFailed) {
+        if (this.savingRows > 0 || this.updating || this.deleting || this.loading || this.loadFailed) {
           return
         }
         await this.deleteCartItems(this.cartList.map((item: CartGoodsModel) => item.skuId), true)
@@ -323,7 +360,7 @@ export struct CartView {
               .fontColor($r('[ui_components].color.gray'))
             Blank()
             Text(this.deleting ? '处理中…' : '清空购物车')
-              .enabled(!this.updating && !this.deleting && !this.loading && !this.loadFailed)
+              .enabled(this.savingRows === 0 && !this.updating && !this.deleting && !this.loading && !this.loadFailed)
               .fontSize(13)
               .fontColor(this.deleting ? $r('[ui_components].color.gray') : $r('[ui_components].color.red'))
               .height(36)
@@ -345,7 +382,7 @@ export struct CartView {
             ListItem() {
               Column({ space: 8 }) {
                 Text('有 ' + this.invalidCount() + ' 件商品暂不可购买，已取消选择，其余商品可继续结算')
-                Button('清除失效商品').enabled(!this.loading && !this.deleting && !this.updating).onClick(() => this.clearInvalid())
+                Button('清除失效商品').enabled(this.savingRows === 0 && !this.loading && !this.deleting && !this.updating).onClick(() => this.clearInvalid())
               }.padding(12).width('100%')
             }
           }
@@ -447,7 +484,7 @@ export struct CartView {
               .selectedColor($r('[ui_components].color.red'))
               .size({ width: 20, height: 20 })
               .select(this.isCheckAll)
-              .enabled(!this.updating && !this.deleting && !this.loading && !this.loadFailed)
+              .enabled(this.savingRows === 0 && !this.updating && !this.deleting && !this.loading && !this.loadFailed)
               .accessibilityText(this.isCheckAll ? '取消全选' : '全选商品')
               .onClick(async () => {
                 await this.toggleAllGoodsSelection()
@@ -465,7 +502,7 @@ export struct CartView {
               .fontWeight(500)
               .fontColor($r('[ui_components].color.red'))
               .layoutWeight(1)
-            Button('去结算')
+            Button(this.checkoutWaiting ? '保存中…' : '去结算')
               .enabled(!this.updating && !this.deleting && !this.loading && !this.loadFailed && CartOperations.getSelectedCarts(this.cartList).length > 0)
               .fontSize(14)
               .width(88)

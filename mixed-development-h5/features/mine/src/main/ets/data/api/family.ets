@@ -27,6 +27,10 @@ export const getFamilyOrdersAPI = (): Promise<OrderItem[]> => {
   return RequestAxios.get<OrderItem[]>('/member/family-orders')
 }
 
+export const getFamilyOrderDetailAPI = (id: string, token: string): Promise<OrderItem> => {
+  return RequestAxios.getForSession<OrderItem>('/member/order/' + encodeURIComponent(id), token)
+}
+
 export const getMerchantOrdersAPI = (): Promise<OrderItem[]> => {
   return RequestAxios.get<OrderItem[]>('/merchant/orders')
 }
@@ -39,8 +43,9 @@ export const getFamilyRelationsPageAPI = (page: number, token: string): Promise<
   return RequestAxios.getForSession<FamilyRelationPage>('/member/relations/page?page=' + page + '&pageSize=10', token)
 }
 
-export const getFamilyOrdersPageAPI = (page: number, token: string): Promise<OrderPage> => {
-  return RequestAxios.getForSession<OrderPage>('/member/family-orders/page?page=' + page + '&pageSize=10', token)
+export const getFamilyOrdersPageAPI = (page: number, token: string, group: string = ''): Promise<OrderPage> => {
+  return RequestAxios.getForSession<OrderPage>('/member/family-orders/page?page=' + page + '&pageSize=10' +
+    (group ? '&group=' + encodeURIComponent(group) : ''), token)
 }
 
 export const getMerchantOrdersPageAPI = (page: number, token: string): Promise<OrderPage> => {

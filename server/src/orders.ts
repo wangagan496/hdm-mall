@@ -249,9 +249,34 @@ export class Orders {
     const filter = this.listFilter(user, state, false)
     return this.queryPage(user, filter, page, pageSize)
   }
-  familyPage(user: User, page: number, pageSize: number) {
+  familyPage(user: User, page: number, pageSize: number, group?: 'pay' | 'receipt' | 'pending' | 'all') {
     this.expireIfDue()
-    return this.queryPage(user, this.listFilter(user, 0, true), page, pageSize)
+    const readable = this.listFilter(user, 0, true)
+    if (!group) return this.queryPage(user, readable, page, pageSize)
+    // 与付款/代收展示权限一致；数据库先筛选、计数，仍只整理当前页商品明细。
+    const bound = "EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')"
+    const pending = "EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND (p.state='pending' OR (p.state='closed' AND p.next_query_at IS NOT NULL)))"
+    const effective = `EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.state='succeeded' AND
+      p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at AND NOT EXISTS(
+      SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled')))`
+    const paymentOnly = `o.paid_by IS NOT ? AND EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?)`
+    const filters = {
+      all: { where: '1=1', values: [] as (string | number)[] },
+      pay: { where: `o.state=1 AND o.expires>? AND o.invited_payer=? AND ${bound} AND NOT ${pending}`,
+        values: [this.clock.now(), user.id, user.id] },
+      receipt: { where: `o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND ${bound} AND NOT (${paymentOnly})`,
+        values: [user.id, user.id, user.id] },
+      pending: { where: `((${pending} AND NOT ${effective}) OR EXISTS(SELECT 1 FROM payment_notices n WHERE n.order_id=o.id AND n.recipient_id=? AND n.viewed_at IS NULL))`,
+        values: [user.id] }
+    }
+    const combine = (key: keyof typeof filters) => ({ where: `(${readable.where}) AND (${filters[key].where})`,
+      values: [...readable.values, ...filters[key].values] })
+    const count = (key: keyof typeof filters) => {
+      const filter = combine(key)
+      return this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM orders o WHERE ${filter.where}`, ...filter.values)!.count
+    }
+    const groupCounts = { pay: count('pay'), receipt: count('receipt'), pending: count('pending'), all: count('all') }
+    return { ...this.queryPage(user, combine(group), page, pageSize), groupCounts }
   }
   private queryPage(user: User, filter: { where: string; values: (string | number)[] }, page: number, pageSize: number, merchantShipment = false) {
     const counts = this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM orders o WHERE ${filter.where}`, ...filter.values)!.count

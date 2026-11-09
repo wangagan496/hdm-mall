@@ -7,6 +7,7 @@ import { huaweiLoginAPI, loginAPI, registerAPI, isAuthNetworkError, isAuthReques
 import { LoginParams } from '../../domain/models'
 import { loginComponentManager, LoginWithHuaweiIDButton } from '@kit.AccountKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+import { util } from '@kit.ArkTS'
 
 @Component
 export struct LoginView {
@@ -16,6 +17,11 @@ export struct LoginView {
     password: ''
   }
   @State hasAcceptedTerms: boolean = false
+  @State termsError: boolean = false
+  @State documentTitle: string = ''
+  @State documentText: string = ''
+  private documentGeneration: number = 0
+  private agreementScroller: Scroller | undefined = undefined
   @State submitting: boolean = false
   @State isRegistrationMode: boolean = false
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
@@ -47,7 +53,7 @@ export struct LoginView {
       return
     }
     if (!this.hasAcceptedTerms) {
-      this.safeToast('请先勾选协议')
+      this.showTermsError()
       return
     }
     if (!/^[a-zA-Z0-9_]{3,32}$/.test(this.loginForm.account)) {
@@ -156,6 +162,23 @@ export struct LoginView {
       .setEnabled(this.hasAcceptedTerms)
   }
 
+  aboutToAppear():void {this.agreementScroller=new Scroller()}
+  aboutToDisappear():void {this.closeAgreement()}
+  private showTermsError():void {this.termsError=true;this.agreementScroller?.scrollEdge(Edge.Bottom)}
+  private toggleTerms():void {
+    if(this.submitting)return
+    this.hasAcceptedTerms=!this.hasAcceptedTerms;this.termsError=false;this.updateHuaweiAgreementStatus()
+  }
+  private async openAgreement(kind:string):Promise<void> {
+    const generation=++this.documentGeneration
+    this.documentTitle=kind==='privacy'?'隐私政策':'用户协议';this.documentText='正在打开正文'
+    try {
+      const bytes=await this.getUIContext().getHostContext()!.resourceManager.getRawFileContent(kind==='privacy'?'privacy-policy.txt':'user-agreement.txt')
+      if(generation===this.documentGeneration)this.documentText=util.TextDecoder.create('utf-8').decodeToString(bytes)
+    }catch {if(generation===this.documentGeneration)this.documentText='正文暂时无法打开，请返回后重试'}
+  }
+  private closeAgreement():void {this.documentGeneration++;this.documentTitle='';this.documentText=''}
+
   @Styles
   form() {
     .width('100%')
@@ -170,6 +193,13 @@ export struct LoginView {
 
   build() {
     NavDestination() {
+      if(this.documentTitle) {
+        Column() {
+          HDMNavBar({title:this.documentTitle,onLeftClick:()=>this.closeAgreement()})
+          Scroll() {Text(this.documentText).id('agreement-body').width('100%').fontSize(16).fontColor($r('[ui_components].color.text')).padding(20)}.layoutWeight(1).width('100%')
+        }.height('100%').width('100%').backgroundColor($r('[ui_components].color.white'))
+      } else {
+      Scroll(this.agreementScroller) {
       GridRow({
         columns: {
           sm: 4,
@@ -217,26 +247,29 @@ export struct LoginView {
               Row({ space: 4 }) {
                 Checkbox()
                   .select(this.hasAcceptedTerms)
-                  .width(12)
+                  .width(24)
                   .aspectRatio(1)
                   .selectedColor($r('[ui_components].color.black'))
                   .mark({ size: 10, strokeWidth: 1 })
                   .onClick(() => {
-                    this.hasAcceptedTerms = !this.hasAcceptedTerms
-                    this.updateHuaweiAgreementStatus()
+                    this.toggleTerms()
                   })
                 Text() {
                   Span('查看并同意')
-                  Span('《隐私条款》')
+                  Span('《隐私政策》')
                     .fontColor('#007DFB')
+                    .onClick(()=>this.openAgreement('privacy'))
                   Span('和')
                   Span('《用户协议》')
                     .fontColor('#007DFB')
+                    .onClick(()=>this.openAgreement('terms'))
                 }
-                .width('100%')
-                .fontSize(12)
+                .layoutWeight(1)
+                .fontSize(14)
                 .fontColor($r('[ui_components].color.gray'))
-              }
+              }.id('terms-row').width('100%').constraintSize({minHeight:44}).padding(6)
+                .border({width:this.termsError?1:0,color:$r('[ui_components].color.red')}).borderRadius(8).onClick(()=>this.toggleTerms())
+              if(this.termsError){Text('请先阅读并勾选协议').id('terms-error').fontSize(14).fontColor($r('[ui_components].color.red')).width('100%')}
 
               Button(this.submitting ? '处理中...' : this.isRegistrationMode ? '注册并登录' : '登录')
                 .backgroundColor($r('[ui_components].color.black'))
@@ -294,15 +327,16 @@ export struct LoginView {
             .padding(30)
           }
           .width('100%')
-          .height('100%')
         }
       }
-
+      }.width('100%').height('100%')
+      }
     }
     .padding({
       top: this.topHeight
     })
     .hideTitleBar(true)
+    .onBackPressed(()=>{if(this.documentTitle){this.closeAgreement();return true}return false})
   }
 }
 

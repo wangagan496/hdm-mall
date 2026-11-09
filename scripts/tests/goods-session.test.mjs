@@ -340,7 +340,7 @@ test('刷新清除旧评价与规格，错误商品详情不冒充成功，加�
 
 function cartFixture() {
   let user = { token: 'token-a' }
-  const writes = [], reads = []
+  const writes = [], reads = [], events = []
   const api = { post: async () => {}, get: async () => ({ count: 1 }) }
   const { AuthCart } = execute(sourceOf('mixed-development-h5/commons/storage/src/main/ets/AuthCart.ets'), {
     constants: { BusinessVariable: { CART_COUNT: 'count', UPDATE_CART_LIST: 'update' } },
@@ -350,10 +350,10 @@ function cartFixture() {
       get: (...args) => { reads.push(['dynamic', ...args]); return api.get(...args) },
       getForSession: (...args) => { reads.push(['fixed', ...args]); return api.get(...args) },
     } }, './Auth': { auth: { getUserInfo: () => user } },
-    './StoreManager': { storeManager: { getFormId: () => [] } },
+    './StoreManager': { storeManager: { getFormId: () => [], ctx: { eventHub: { emit: (...args) => events.push(args) } } } },
     '@kit.FormKit': { formBindingData: { createFormBindingData: value => value } },
   }, { AppStorage: { setOrCreate() {} } })
-  return { cart: new AuthCart(), api, writes, reads, setUser: value => { user = value } }
+  return { cart: new AuthCart(), api, writes, reads, events, setUser: value => { user = value } }
 }
 
 test('加购拒绝过期调用凭证，固定发起凭证，旧加购完成不刷新新账号角标', async () => {
@@ -373,4 +373,10 @@ test('当前加购成功后查询原账号角标，写失败不重发也不读�
   f.api.post = async () => { throw new Error('offline') }
   await assert.rejects(f.cart.addCart({ skuId: 'sku', count: 2, requestKey: 'key-2' }, 'token-a'), /offline/)
   assert.equal(f.writes.length, 2); assert.equal(f.reads.length, 1)
+})
+test('购物袋角标保留广播来源，普通加购和退出仍通知全部页面',async()=>{
+ const f=cartFixture();await f.cart.updateCartCount('cart-instance')
+ assert.deepEqual(f.events,[['update','cart-instance']])
+ await f.cart.updateCartCount();f.cart.clearCartCount()
+ assert.deepEqual(f.events,[['update','cart-instance'],['update',''],['update','']])
 })

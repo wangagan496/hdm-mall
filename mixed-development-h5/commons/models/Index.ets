@@ -8,6 +8,7 @@ export {
   HDMUser,
   FamilyRelation,
   FamilyRelationPage,
+  FamilyGroupCounts,
   CartGoods,
   CartGoodsModel,
   AddCartParams,

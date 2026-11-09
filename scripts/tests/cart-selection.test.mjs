@@ -20,9 +20,12 @@ function pageFixture(overrides = {}) {
       ...overrides,
     },
     PAGE_PATH: { CHECK_ORDER_PAGE: 'checkout' },
+    RequestAxios:{putForSession:(_url,body)=>body.count!==undefined?overrides.updateCartCount?.():overrides.updateCartSelection?.()},
+    authCart:{updateCartCount:async()=>{}},
   })
   const page = new CartView()
   page.user = { token: 'buyer' }
+  page.cartToken = 'buyer'
   page.cartList = [
     { skuId: 'a', selected: true, price: 10, count: 2 },
     { skuId: 'b', selected: false, price: 5, count: 1 },
@@ -75,6 +78,7 @@ test('单件勾选或数量仍在保存时不并发全选，失败后释放操�
     const pending = deferred()
     const f = pageFixture({ updateCartSelection: () => pending.promise, updateCartCount: () => pending.promise })
     const save = f.page[method](f.page.cartList[0], method === 'changeGoodsSelection' ? false : 3)
+    await new Promise(resolve=>setTimeout(resolve,140))
     const toggle = f.page.toggleAllGoodsSelection()
     try {
       assert.deepEqual(f.calls, [])

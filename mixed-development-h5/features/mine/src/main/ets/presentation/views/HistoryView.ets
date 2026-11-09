@@ -42,6 +42,7 @@ export struct HistoryView {
   ClearHistoryBuilder() {
     HDMConfirm({
       message: '确定清空全部浏览足迹吗？',
+      confirmText: '清空浏览足迹', busy: this.clearing,
       onConfirm: this.createClearAction(),
       onCancel: this.createCancelClearAction()
     })
@@ -162,7 +163,7 @@ export struct HistoryView {
         })
         if (this.errorText) {
           Text(this.errorText).fontColor($r('[ui_components].color.red')).padding(12)
-          Button('重新读取足迹').onClick(() => this.loadLocalHistory())
+          Button('重新读取足迹').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).onClick(() => this.loadLocalHistory())
         }
         if (this.loaded && this.browsedGoods.length === 0) {
           Column() {

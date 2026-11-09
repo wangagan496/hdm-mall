@@ -28,6 +28,60 @@ async function fixture() {
   return { ...f, users, add, get }
 }
 
+test('亲友分组在分页前筛选且数量覆盖全部可读订单，权限与明细一致', async () => {
+  const f = await fixture()
+  try {
+    for (let i = 0; i < 23; i++) f.add(`group-pay-${String(i).padStart(2, '0')}`, 1, null, 'friend')
+    f.add('group-receipt', 3, 'friend')
+    f.add('group-private', 1, null, 'other')
+    const all = (await f.get('/member/family-orders')).json().result
+    const expected = { all: all.length, pay: all.filter((o: any) => o.canPay).length,
+      receipt: all.filter((o: any) => o.canReceive).length,
+      pending: all.filter((o: any) => o.needsAttention || ['confirming', 'review'].includes(o.paymentState)).length }
+    for (const group of ['pay', 'receipt', 'pending', 'all']) {
+      const result = (await f.get(`/member/family-orders/page?group=${group}&pageSize=10`)).json().result
+      assert.deepEqual(result.groupCounts, expected)
+      assert.equal(result.counts, expected[group as keyof typeof expected])
+      if (group === 'receipt') assert.deepEqual(result.items.map((o: any) => o.id), ['group-receipt'])
+    }
+    const last = (await f.get('/member/family-orders/page?group=pay&page=3&pageSize=10')).json().result
+    assert.equal(last.items.length, 3)
+    assert.equal((await f.get('/member/family-orders/page?group=invalid')).statusCode, 400)
+    f.db.run("UPDATE relations SET status='revoked' WHERE id='friend'")
+    const revoked = (await f.get('/member/family-orders/page?group=pay')).json().result
+    assert.equal(revoked.groupCounts.pay, 0)
+    assert.equal(revoked.groupCounts.all, 1)
+  } finally { await f.app.close() }
+})
+
+test('亲友分组与确认中、关闭后核对、人工核实和未读通知的展示字段一致', async () => {
+  const f = await fixture()
+  try {
+    const now = Date.now()
+    for (const [id, state, review, next] of [['pending', 'pending', null, now + 600000], ['closed', 'closed', null, now + 600000],
+      ['review', 'pending', now, now + 600000], ['failed', 'failed', null, null]] as const) {
+      f.add(id, 1, null, 'friend')
+      f.db.run(`INSERT INTO payments(id,order_id,payer_id,amount,state,created,grace_deadline,review_at,next_query_at)
+        VALUES(?,?,?,?,?,?,?,?,?)`, id, id, f.users.friend.id, priceCents, state, now, now + 900000, review, next)
+    }
+    f.add('notified', 2, 'friend')
+    f.db.run("INSERT INTO payment_notices(id,order_id,recipient_id,kind,created) VALUES('notice','notified',?,'review',?)", f.users.friend.id, now)
+    f.add('restricted-receipt', 3, 'other')
+    f.db.run(`INSERT INTO payments(id,order_id,payer_id,amount,state,created,grace_deadline)
+      VALUES('previous','restricted-receipt',?,?,'failed',?,?)`, f.users.friend.id, priceCents, now, now + 900000)
+    const all = (await f.get('/member/family-orders')).json().result
+    const predicates = { pay: (o: any) => o.canPay === true, receipt: (o: any) => o.canReceive === true,
+      pending: (o: any) => o.needsAttention || ['confirming', 'review'].includes(o.paymentState) }
+    for (const group of ['pay', 'receipt', 'pending'] as const) {
+      const expected = all.filter(predicates[group]).map((o: any) => o.id)
+      const result = (await f.get(`/member/family-orders/page?group=${group}`)).json().result
+      assert.deepEqual(result.items.map((o: any) => o.id), expected)
+      assert.equal(result.groupCounts[group], expected.length)
+    }
+    assert.equal((await f.get('/member/family-orders/page?group=pending', 'other')).json().result.groupCounts.pending, 0)
+  } finally { await f.app.close() }
+})
+
 test('亲友订单分页先限定可读范围，同时间翻页不重漏，解绑立即移除未参与订单', async () => {
   const f = await fixture()
   try {

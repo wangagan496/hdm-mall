@@ -11,13 +11,13 @@ test('L4-1: 评价连接错误显示待确认文案并保留输入草稿', async
   f.setSubmit(async () => { throw new Error('{"code":2300007,"message":"Failed to connect to the server"}') })
   f.setLoad(async () => { throw new Error('offline') })
   await page.submitEvaluation()
-  assert.equal(page.errorText, '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交')
+  assert.equal(page.errorText, '正在确认评价结果，输入已保留，恢复网络后会自动核对')
   assert.equal(page.content, '断网仍要保留的评价'); assert.equal(page.score, 4)
   assert.equal(page.submitting, false); assert.equal(page.submitted, false)
   assert.equal(f.saved.size, 1); assert.equal(f.navigations(), 0)
 })
 test('L4-1: 评价区分无响应、408、429、5xx、业务拒绝和普通异常', async () => {
-  const unknown = '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交'
+  const unknown = '正在确认评价结果，输入已保留，恢复网络后会自动核对'
   const cases = [
     [Object.assign(new Error('request failed'), { isAxiosError: true }), unknown],
     [Object.assign(new Error('connect failed'), { code: 'ECONNREFUSED' }), unknown],

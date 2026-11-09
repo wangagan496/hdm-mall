@@ -133,6 +133,9 @@ function payFixture() {
     .replace('struct PayView', 'export class PayView').replace(/@\w+(?:\([^)]*\))?\s*/g, '') + '\n}'
   const api = { user: { token: 'token' }, read: async p => pageResult(p, [{ id: `r${p}`, friendId: `f${p}` }]) }, calls = []
   const { PayView } = execute(body, {}, {
+    ...execute(sourceOf('mixed-development-h5/commons/storage/src/main/ets/RecoveryQuery.ets'), {}, {
+      setTimeout: (fn, ms) => { const timer = setTimeout(fn, ms); timer.unref(); return timer },
+    }),
     auth: { getUserInfo: () => api.user }, readPhoneClockMillis: () => 1,
     getOrderDetailAPI: async (_id, token) => { calls.push(['order', token]); return { id: 'order', orderState: 1, canInvitePayer: true } },
     getPayerRelationsPageAPI: async (p, token) => { calls.push(['relations', p, token]); return api.read(p) },

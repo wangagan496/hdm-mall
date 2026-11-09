@@ -16,6 +16,31 @@ const LOCAL_PAGES_ONLY: string =
 class HDMWebBridge {
   hasUnsavedProfile: boolean = false
   unsavedProfileReason: string = ''
+  profileDraftRetained: boolean = false
+  private flushId: number = 0
+  private flushToken: string = ''
+  private flushCallback: ((saved: boolean) => void) | undefined = undefined
+
+  beginProfileFlush(id: number, token: string, callback: (saved: boolean) => void): void {
+    this.flushId = id
+    this.flushToken = token
+    this.profileDraftRetained = false
+    this.flushCallback = callback
+  }
+
+  cancelProfileFlush(): void { this.flushCallback = undefined }
+
+  setProfileDraftRetained(token: string, retained: boolean): void {
+    if (token && token === this.flushToken && auth.getUserInfo()?.token === token) this.profileDraftRetained = retained
+  }
+
+  completeProfileFlush(id: number, token: string, saved: boolean): void {
+    if (id !== this.flushId || !token || token !== this.flushToken || auth.getUserInfo()?.token !== token) return
+    const callback = this.flushCallback
+    this.flushCallback = undefined
+    if (saved) this.hasUnsavedProfile = false
+    callback?.(saved)
+  }
 
   setProfileDirty(dirty: boolean, token: string, reason?: string): void {
     if (token && auth.getUserInfo()?.token === token) {
@@ -109,24 +134,50 @@ struct WebView {
   private readonly bridgeObject: HDMWebBridge = new HDMWebBridge()
   // 大于 0 表示网页内部还有上一页；否则返回鸿蒙页面。
   @State webHistoryIndex: number = 0
+  private leaveSequence: number = 0
+  private leaving: boolean = false
+  private leaveTimer: number = -1
 
   goBackOrCloseWebPage() {
     this.confirmLeave(() => this.goBackNow())
   }
 
   private confirmLeave(action: () => void): void {
+    if (this.leaving) return
     if (!this.bridgeObject.hasUnsavedProfile) {
       action()
       return
     }
+    const token: string = auth.getUserInfo()?.token || ''
+    const sequence: number = ++this.leaveSequence
+    this.leaving = true
+    const finish = (saved: boolean): void => {
+      if (sequence !== this.leaveSequence || auth.getUserInfo()?.token !== token) return
+      if (this.leaveTimer !== -1) clearTimeout(this.leaveTimer)
+      this.leaveTimer = -1
+      this.bridgeObject.cancelProfileFlush()
+      this.leaving = false
+      if (saved) { action(); return }
+      this.showRetainedDraftDialog(action, sequence, token)
+    }
+    this.bridgeObject.beginProfileFlush(sequence, token, finish)
+    this.leaveTimer = setTimeout(() => finish(false), 3000)
+    try {
+      this.controller.runJavaScript(`window.dispatchEvent(new CustomEvent('native-profile-flush',{detail:${sequence}}))`)
+        .catch(() => finish(false))
+    } catch { finish(false) }
+  }
+
+  private showRetainedDraftDialog(action: () => void, sequence: number, token: string): void {
     this.getUIContext().showAlertDialog({
       title: '还有未保存的资料',
-      message: this.bridgeObject.unsavedProfileReason
-        ? `${this.bridgeObject.unsavedProfileReason}，资料尚未全部保存或同步，是否放弃这些修改？`
-        : '资料尚未全部保存或同步，是否放弃这些修改？',
+      message: this.bridgeObject.profileDraftRetained ? '本次输入已保留为本机草稿，下次打开可继续编辑。' :
+        '暂时未能保留草稿，请继续编辑并重试保存。',
       primaryButton: { value: '继续编辑', action: () => {} },
-      secondaryButton: { value: '放弃并离开', action: () => {
+      secondaryButton: { value: this.bridgeObject.profileDraftRetained ? '保留草稿退出' : '继续编辑', action: () => {
+        if (sequence !== this.leaveSequence || auth.getUserInfo()?.token !== token || !this.bridgeObject.profileDraftRetained) return
         this.bridgeObject.hasUnsavedProfile = false
+        this.leaveSequence++
         action()
       } }
     })
@@ -159,6 +210,11 @@ struct WebView {
   }
 
   aboutToDisappear(): void {
+    this.leaveSequence++
+    this.leaving = false
+    if (this.leaveTimer !== -1) clearTimeout(this.leaveTimer)
+    this.leaveTimer = -1
+    this.bridgeObject.cancelProfileFlush()
     try {
       this.controller.deleteJavaScriptRegister(BRIDGE_NAME)
     } catch {
@@ -219,7 +275,8 @@ struct WebView {
               name: BRIDGE_NAME,
               methodList: [
                 'getUser', 'vibrator', 'getAreaColumns', 'getApiBaseUrl',
-                'updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto', 'expireSession', 'setProfileDirty'
+                'updateUser', 'removeUser', 'pickerCamera', 'pickerPhoto', 'expireSession', 'setProfileDirty',
+                'setProfileDraftRetained', 'completeProfileFlush'
               ],
               controller: this.controller,
               asyncMethodList: [],

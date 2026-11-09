@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { FamilyRelationPage, HDMUser, OrderItem, PayResultParams, formatBeijingTime } from 'models'
 import { HDMNavBar } from 'ui_components'
-import { auth, demoOrderStore } from 'storage'
+import { auth, demoOrderStore, RecoveryQuery } from 'storage'
 import { getOrderDetailAPI, startPaymentAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
 import { mergeOrderState, readPhoneClockMillis, secondsLeftToPay } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
@@ -15,10 +15,60 @@ struct PayView {
   user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   private querySequence: number = 0
+  private cashierCheck: RecoveryQuery | undefined = undefined
+  @State checkingCashier: boolean = false
+  @State invitationUnknown: boolean = false
+  private cashierCheckBusy: boolean = false
+
+  private stopCashierCheck(): void {
+    this.cashierCheck?.cancel()
+    this.cashierCheck = undefined
+    this.checkingCashier = false
+    this.cashierCheckBusy = false
+  }
+
+  private scheduleCashierCheck(): void {
+    if (this.cashierCheck || !this.isCurrentCashier(this.pageGeneration, this.sessionToken, this.orderId) ||
+      !(this.invitationUnknown || this.order?.paymentState === 'confirming' || this.order?.paymentState === 'review')) return
+    const job: RecoveryQuery = new RecoveryQuery()
+    this.cashierCheck = job
+    this.checkingCashier = true
+    job.start(() => this.checkCashierStatus(), () => {
+      if (this.cashierCheck === job) this.checkingCashier = false
+    }, [2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000,
+      10000, 30000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 50000], 600000)
+  }
+
+  private async checkCashierStatus(): Promise<boolean> {
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const id: string = this.orderId
+    if (!this.isCurrentCashier(generation, token, id)) return true
+    if (this.cashierCheckBusy || this.loading || this.paying) return false
+    this.cashierCheckBusy = true
+    const sequence: number = this.querySequence
+    try {
+      const order: OrderItem = await getOrderDetailAPI(id, token)
+      if (!this.isCurrentQuery(sequence, generation, token, id)) return true
+      if (order.id !== id) return false
+      this.order = order
+      this.loadedToken = token
+      this.loadFailed = false
+      this.invitationUnknown = false
+      this.countdownBaseAt = readPhoneClockMillis()
+      if (order.orderState >= 2 && order.orderState <= 5) { this.openPaymentResult(id); return true }
+      if (order.orderState === 6) { this.aboutToDisappear(); this.stackPath.pop(); return true }
+      const done: boolean = order.paymentState !== 'confirming' && order.paymentState !== 'review'
+      if (done) this.stopCashierCheck()
+      return done
+    } catch { return false }
+    finally { if (this.isCurrentCashier(generation, token, id)) this.cashierCheckBusy = false }
+  }
 
   private refreshAfterForeground(): void {
     if (this.active && !this.paying) {
-      this.load()
+      if (this.checkingCashier || this.invitationUnknown) void this.checkCashierStatus()
+      else this.load()
     }
   }
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
@@ -48,6 +98,7 @@ struct PayView {
   }
 
   aboutToDisappear(): void {
+    this.stopCashierCheck()
     this.active = false
     this.pageGeneration++
     this.querySequence++
@@ -68,6 +119,8 @@ struct PayView {
   private synchronizeCashierContext(): void {
     const token: string = auth.getUserInfo()?.token || ''
     if (token === this.sessionToken && this.orderId === this.sessionOrderId) return
+    this.stopCashierCheck()
+    this.invitationUnknown = false
     this.sessionToken = token
     this.sessionOrderId = this.orderId
     this.pageGeneration++
@@ -97,7 +150,7 @@ struct PayView {
   private canManagePayment(): boolean {
     return this.isCurrentCashier(this.pageGeneration, this.sessionToken, this.orderId) &&
       this.loadedToken === this.sessionToken && !!this.order && this.order.id === this.orderId &&
-      !this.loading && !this.loadFailed && !this.paying && this.mergedState() === 1 &&
+      !this.loading && !this.loadFailed && !this.paying && !this.invitationUnknown && this.mergedState() === 1 &&
       this.order.paymentState !== 'confirming' && this.order.paymentState !== 'review'
   }
 
@@ -127,10 +180,11 @@ struct PayView {
         this.querySequence++
         this.loading = false
         this.loadFailed = true
+        this.invitationUnknown = true
         this.safeToast('操作结果未确认，请刷新订单后重试')
       }
     } finally {
-      if (this.isCurrentCashier(generation, token, orderId)) this.paying = false
+      if (this.isCurrentCashier(generation, token, orderId)) { this.paying = false; this.scheduleCashierCheck() }
     }
   }
 
@@ -219,6 +273,7 @@ struct PayView {
     } finally {
       if (this.isCurrentQuery(sequence, generation, token, orderId)) {
         this.loading = false
+        this.scheduleCashierCheck()
       }
     }
   }
@@ -291,7 +346,8 @@ struct PayView {
           Column({ space: 12 }) {
             Text('订单状态待确认').fontSize(14).fontColor($r('[ui_components].color.black'))
             Text('请重新加载，确认最新状态后再操作').fontSize(12).fontColor($r('[ui_components].color.gray'))
-            Button('重新加载').onClick(() => this.load())
+            Button(this.invitationUnknown ? '核对邀请结果' : '重新加载').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
+              .onClick(() => { if (this.invitationUnknown) void this.checkCashierStatus(); else this.load() })
             Button('返回订单')
               .backgroundColor($r('[ui_components].color.white'))
               .fontColor($r('[ui_components].color.black'))
@@ -305,8 +361,7 @@ struct PayView {
             Column({ space: 12 }) {
               Column({ space: 8 }) {
                 Row() {
-                  Text(this.order.paymentState === 'review' ? '核实中' :
-                    this.order.paymentState === 'confirming' ? '确认中' : '需付款')
+                  Text(this.order.paymentState === 'review' || this.order.paymentState === 'confirming' ? '等待付款结果' : '需付款')
                     .fontSize(13)
                     .fontColor($r('[ui_components].color.gray'))
                   Blank()
@@ -365,30 +420,30 @@ struct PayView {
                   .width('100%')
                   .padding({ bottom: 4 })
                 Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-                Text(this.order.invitedPayerAccount ? '等待亲友 ' + this.order.invitedPayerAccount + ' 代付' : '本人模拟支付')
+                Text(this.order.invitedPayerAccount ? '当前付款人：亲友 ' + this.order.invitedPayerAccount : '当前付款人：本人')
                   .fontSize(14).padding(12)
                 if (this.order.canInvitePayer) {
-                  Button('本人付款').enabled(this.canManagePayment()).onClick(() => this.choosePayer(null))
+                  Button('本人付款').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(this.canManagePayment()).onClick(() => this.choosePayer(null))
                   Row({ space: 8 }) {
-                    Button('代付上一页').enabled(!this.paying && this.relativePage > 1)
+                    Button('代付上一页').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.paying && this.relativePage > 1)
                       .onClick(() => this.load(this.relativePage - 1))
                     Text(this.relativePage + ' / ' + Math.max(1, this.relativePages))
-                    Button('代付下一页').enabled(!this.paying && this.relativePage < this.relativePages)
+                    Button('代付下一页').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.paying && this.relativePage < this.relativePages)
                       .onClick(() => this.load(this.relativePage + 1))
                   }
                   if (this.relativesLoadFailed) {
                     Text('亲友列表加载失败，请重试').fontSize(12).fontColor('#B34D36')
-                    Button('重试亲友列表').enabled(!this.paying).onClick(() => this.load())
+                    Button('重试亲友列表').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.paying).onClick(() => this.load())
                   }
                   ForEach(this.relatives, (relative: FamilyRelation) => {
-                    Button('邀请 ' + relative.friendAccount + ' 代付')
+                    Button('邀请 ' + relative.friendAccount + ' 代付').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
                       .enabled(this.canManagePayment() && !this.relativesLoadFailed).onClick(() => this.choosePayer(relative.friendId))
                   }, (relative: FamilyRelation) => relative.id)
                   if (!this.relativesLoadFailed && this.relatives.length === 0) {
                     Text('请先到「我的 → 亲友中心」绑定亲友').fontSize(12).padding(8)
                   }
                 }
-                Button('刷新支付状态').enabled(!this.paying).onClick(() => this.load())
+                Button('刷新支付状态').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.paying && !this.cashierCheckBusy).onClick(() => this.checkCashierStatus())
               }
               .width('100%')
               .padding(16)
@@ -434,7 +489,7 @@ struct PayView {
               .layoutWeight(1)
               Button(this.paying ? '支付中...' :
                 this.order.paymentState === 'confirming' || this.order.paymentState === 'review' ? '付款结果确认中' :
-                  '确认支付 ¥' + this.order.payMoney.toFixed(2))
+                  '确认支付 ¥' + this.order.payMoney.toFixed(2)).fontColor($r('[ui_components].color.white'))
                 .height(44)
                 .fontSize(14)
                 .fontWeight(500)

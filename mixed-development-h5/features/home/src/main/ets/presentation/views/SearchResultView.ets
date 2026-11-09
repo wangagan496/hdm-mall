@@ -1,6 +1,6 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { BreakPointType, HDMGoodsItem, ListDataSource } from 'models'
-import { HDMEmpty, HDMGoods } from 'ui_components'
+import { HDMGoods } from 'ui_components'
 import { normalizeSearchGoodsPicturesAPI, searchGoodsAPI } from '../../data/api'
 import { compareGoodsIds, searchFailureMessage } from '../../data/api/searchPresentation'
 import { SearchParams, SearchRouterParam, SortCompAttr, SortField, SortMethod } from '../../domain/models'
@@ -25,6 +25,7 @@ export struct SearchResultView {
   @State failureMessage: string = ''
   @State searchInput: string = ''
   @State temporarySort: boolean = false
+  @State fromCategory: boolean = false
   // 查询参数
   @State
   params: SearchParams =
@@ -61,6 +62,7 @@ export struct SearchResultView {
   aboutToAppear(): void {
     const routeParams = this.stackPath.getParamByName(PAGE_PATH.SEARCH_RESULT_PAGE) as SearchRouterParam[]
     const routeParam = routeParams[routeParams.length - 1]
+    this.fromCategory=!!routeParam?.categoryId
     this.params.keyword = routeParam?.keyword || ''
     this.searchInput = this.params.keyword
     this.params.categoryId = routeParam?.categoryId
@@ -69,6 +71,13 @@ export struct SearchResultView {
   }
 
   // 取一页 → 筛选并去重 → 追加显示；整页都被筛掉时继续取下一页。
+  private backLabel():string {return this.fromCategory?'返回分类':'返回搜索'}
+  private emptyActionLabel():string {return this.params.categoryId?'清除筛选':'修改关键词'}
+  private emptyResultTip():string {return this.params.categoryId?'这个分类下暂时没有商品':'没有找到相关商品，换个关键词试试'}
+  private resolveEmpty():void {
+    if(this.params.categoryId){this.params.categoryId=undefined;this.restartSearch()}
+    else {this.searchInput='';try{this.getUIContext().getFocusController().requestFocus('search-keyword')}catch{}}
+  }
   private async loadNextSearchPage(): Promise<void> {
     if (this.loading || this.isFinished) {
       return
@@ -202,6 +211,7 @@ export struct SearchResultView {
               this.stackPath.pop()
             })
           Search({ placeholder: '商品关键字...', value: this.searchInput })
+            .id('search-keyword')
             .searchIcon({ src: $r('[ui_components].media.ic_public_search'), color: $r('[ui_components].color.gray') })
             .placeholderColor($r('[ui_components].color.gray'))
             .placeholderFont({ size: 14 })
@@ -256,18 +266,29 @@ export struct SearchResultView {
             })
         }
         if (!this.loading && this.resultCount === 0) {
-          HDMEmpty({
-            tip: this.loadFailed ? this.failureMessage : '暂找不到相关商品，请重新搜索对应商品',
-            buttonText: this.loadFailed ? '重新加载' : '返回分类',
-            onBtnClick: () => {
+          Column({ space: 16 }) {
+            Image($r('[ui_components].media.ic_public_empty')).width(120).aspectRatio(1)
+            Text(this.loadFailed ? this.failureMessage : this.emptyResultTip())
+              .fontSize(12).fontColor($r('[ui_components].color.text'))
+            Row({ space: 12 }) {
               if (this.loadFailed) {
-                this.restartSearch()
+                Button('重新加载').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.white'))
+                  .onClick(() => this.restartSearch())
               } else {
-                this.stackPath.pop()
+                Button(this.emptyActionLabel()).id('empty-action')
+                  .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.white'))
+                  .onClick(() => this.resolveEmpty())
               }
+              Button(this.backLabel()).id('empty-back')
+                .backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.red'))
+                .border({ width: 1, color: $r('[ui_components].color.red') })
+                .onClick(() => this.stackPath.pop())
             }
-          })
+          }
             .layoutWeight(1)
+            .width('100%')
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
         } else {
           Grid(this.scroller) {
             LazyForEach(this.lazyDataSource, (item: HDMGoodsItem) => {

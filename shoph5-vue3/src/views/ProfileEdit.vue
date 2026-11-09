@@ -11,10 +11,11 @@ const profileStore = useProfileStore()
 const { profileDraft, pageState, isSaving, hasUnsavedChanges, saveError, nicknameError } = storeToRefs(profileStore)
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let active = true
+let flushing = false
 
 const scheduleSave = () => {
   clearTimeout(saveTimer)
-  if (!active || pageState.value !== 'ready' || !hasUnsavedChanges.value || nicknameError.value) return
+  if (!active || flushing || pageState.value !== 'ready' || !hasUnsavedChanges.value || nicknameError.value) return
   saveTimer = setTimeout(saveProfile, 600)
 }
 
@@ -32,14 +33,32 @@ const loadProfile = async () => {
   closeToast()
 }
 
+const flushBeforeLeave = async (event: Event) => {
+  const requestId = (event as CustomEvent<number>).detail
+  if (!active || !Number.isInteger(requestId) || flushing) return
+  flushing = true
+  clearTimeout(saveTimer)
+  const token = profileDraft.value.token
+  window.nativeApp?.setProfileDraftRetained?.(token, profileStore.retainDraft())
+  try {
+    const saved = await profileStore.flushProfile()
+    if (active && profileDraft.value.token === token) {
+      window.nativeApp?.setProfileDraftRetained?.(token, profileStore.retainDraft())
+      window.nativeApp?.completeProfileFlush?.(requestId, token, saved)
+    }
+  } finally { flushing = false }
+}
+
 onMounted(() => {
   loadProfile()
   window.addEventListener('native-session-expired', loadProfile)
+  window.addEventListener('native-profile-flush', flushBeforeLeave)
 })
 onBeforeUnmount(() => {
   active = false
   clearTimeout(saveTimer)
   window.removeEventListener('native-session-expired', loadProfile)
+  window.removeEventListener('native-profile-flush', flushBeforeLeave)
 })
 
 const saveProfile = async () => {
@@ -75,7 +94,7 @@ const saveProfile = async () => {
           :loading="isSaving"
           @click="saveProfile"
         >
-          重试保存或同步
+          重试保存
         </van-button>
       </div>
     </template>

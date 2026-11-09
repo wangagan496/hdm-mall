@@ -4,10 +4,20 @@
 @Component
 export struct HDMConfirm {
   message: string = ""
-  onConfirm: () => void = () => {
+  confirmText: string = '确定'
+  cancelText: string = '取消'
+  @Prop busy: boolean = false
+  @State confirming: boolean = false
+  onConfirm: () => void | Promise<void> = () => {
   }
   onCancel: () => void = () => {
   }
+  private async confirm():Promise<void> {
+    if(this.busy||this.confirming)return
+    this.confirming=true
+    try {await this.onConfirm()} finally {this.confirming=false}
+  }
+  private cancel():void {if(!this.busy&&!this.confirming)this.onCancel()}
 
   build() {
     Column() {
@@ -27,7 +37,8 @@ export struct HDMConfirm {
             bottom: 50
           })
 
-        Text("取消")
+        Text(this.cancelText)
+          .enabled(!this.busy&&!this.confirming)
           .textAlign(TextAlign.Center)
           .height(50)
           .fontColor($r("app.color.gray"))
@@ -54,9 +65,10 @@ export struct HDMConfirm {
             }
           })
           .onClick(() => {
-            this.onCancel()
+            this.cancel()
           })
-        Text("确定")
+        Text(this.confirmText)
+          .enabled(!this.busy&&!this.confirming)
           .height(50)
           .textAlign(TextAlign.Center)
           .fontColor($r("app.color.red"))
@@ -81,7 +93,7 @@ export struct HDMConfirm {
             }
           })
           .onClick(() => {
-            this.onConfirm()
+            void this.confirm()
           })
       }
       .height(160)

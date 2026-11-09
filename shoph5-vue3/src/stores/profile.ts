@@ -13,6 +13,11 @@ export interface ProfileUpdatePayload {
   profession: string
   fullLocation: string
 }
+interface RetainedProfileDraft {
+  fields: ProfileUpdatePayload
+  avatarBase64: string
+  expiresAt: number
+}
 const buildProfileUpdate = (user: HDMUser): ProfileUpdatePayload => ({
   nickname: user.nickname, gender: user.gender, birthday: user.birthday,
   provinceCode: user.provinceCode, cityCode: user.cityCode, countyCode: user.countyCode,
@@ -36,6 +41,35 @@ export const useProfileStore = defineStore('profile', () => {
   let confirmedProfile: HDMUser | undefined
   let loadSequence = 0
   let pendingSave: Promise<boolean> | undefined
+  const draftKey = (id: string) => 'hdm-profile-draft:' + id
+  const retainDraft = (): boolean => {
+    const user = profileDraft.value
+    if (!user.id || !user.token || window.nativeApp?.getUser()?.token !== user.token) return false
+    try {
+      if (!hasUnsavedChanges.value) window.localStorage.removeItem(draftKey(user.id))
+      else window.localStorage.setItem(draftKey(user.id), JSON.stringify({
+        fields: buildProfileUpdate(user), avatarBase64: pendingAvatarBase64.value,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      } satisfies RetainedProfileDraft))
+      return true
+    } catch { return false }
+  }
+  const restoreDraft = (user: HDMUser) => {
+    try {
+      const text = window.localStorage.getItem(draftKey(user.id))
+      if (!text) return
+      const draft = JSON.parse(text) as RetainedProfileDraft
+      if (!draft.fields || draft.expiresAt < Date.now()) { window.localStorage.removeItem(draftKey(user.id)); return }
+      for (const key of Object.keys(buildProfileUpdate(user)) as (keyof ProfileUpdatePayload)[]) {
+        if (typeof draft.fields[key] === 'string') Object.assign(profileDraft.value, { [key]: draft.fields[key] })
+      }
+      if (typeof draft.avatarBase64 === 'string' && draft.avatarBase64) {
+        pendingAvatarBase64.value = draft.avatarBase64
+        profileDraft.value.avatar = 'data:image/jpeg;base64,' + draft.avatarBase64
+      }
+      pendingNativeProfile.value = { ...user }
+    } catch { /* A damaged local draft must not replace confirmed server data. */ }
+  }
   const nicknameError = computed(() => pageState.value === 'ready' && !profileDraft.value.nickname?.trim()
     ? '昵称不能为空' : '')
 
@@ -78,6 +112,7 @@ export const useProfileStore = defineStore('profile', () => {
       recordSavedProfile(loaded)
       saveError.value = ''
       pageState.value = 'ready'
+      restoreDraft(loaded)
     } catch {
       if (sequence === loadSequence) pageState.value = 'error'
     }
@@ -115,6 +150,7 @@ export const useProfileStore = defineStore('profile', () => {
         if (pendingAvatarBase64.value === avatarBase64) {
           pendingAvatarBase64.value = ''
           profileDraft.value.avatar = avatar
+          retainDraft()
         }
         await syncConfirmedProfile(token, sequence)
       }
@@ -133,6 +169,7 @@ export const useProfileStore = defineStore('profile', () => {
         pendingNativeProfile.value = { ...saved }
       }
       await syncConfirmedProfile(token, sequence)
+      retainDraft()
       return true
     } catch (error) {
       if (sequence === loadSequence) {
@@ -156,6 +193,19 @@ export const useProfileStore = defineStore('profile', () => {
     pendingSave = persistProfile().finally(() => { pendingSave = undefined })
     return pendingSave
   }
+  const flushProfile = async (): Promise<boolean> => {
+    const token = profileDraft.value.token
+    const sequence = loadSequence
+    retainDraft()
+    // Drain the active write and then the latest input, without overlapping uploads.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (!await saveProfile()) { retainDraft(); return false }
+      try { assertCurrentSession(token, sequence) } catch { return false }
+      if (!hasUnsavedChanges.value) { retainDraft(); return true }
+    }
+    retainDraft()
+    return false
+  }
   return { profileDraft, pageState, isSaving, saveError, nicknameError, pendingAvatarBase64,
-    hasProfileChanges, hasUnsavedChanges, recordSavedProfile, setAvatarPreview, loadProfile, saveProfile }
+    hasProfileChanges, hasUnsavedChanges, recordSavedProfile, setAvatarPreview, loadProfile, saveProfile, flushProfile, retainDraft }
 })

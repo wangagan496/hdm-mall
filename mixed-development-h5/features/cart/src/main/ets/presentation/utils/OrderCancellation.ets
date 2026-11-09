@@ -60,6 +60,13 @@ export class OrderCancellation {
     if (auth.getUserInfo()?.token !== token) throw new Error('登录状态已变化，取消结果请重新登录后查询')
   }
 
+  async inspectPending(orderId: string): Promise<void> {
+    const user = auth.getUserInfo()
+    if (!user?.id || !user.token || !this.pendingIds().includes(orderId)) return
+    // A read may clear a resolved intent; it never retries the cancellation write.
+    await this.inspect(user.id, user.token, orderId)
+  }
+
   private isUncertain(error: Error): boolean {
     const failure = error as CancellationFailure
     const status: number | undefined = failure.httpStatus || failure.response?.status

@@ -23,6 +23,7 @@ function fixture() {
     readPhoneClockMillis: () => 0, secondsLeftToPay: remaining => remaining,
     PAGE_PATH: { ORDER_PAGE: 'orders', PAY_PAGE: 'pay', ORDER_DETAIL_PAGE: 'detail', EVALUATION_PAGE: 'evaluation' },
     getOrderListAPI: (params, token) => { const gate = deferred(); queries.push({ ...gate, params, token }); return gate.promise },
+    getOrderDetailAPI: async id => row(id),
     remindShipmentAPI: (id, token) => { writes.push({ action: 'remind', id, token }); return mutation(id) },
     receiptOrderAPI: (id, token) => { writes.push({ action: 'receipt', id, token }); return mutation(id) },
     orderCancellation: { pendingIds: () => pending, confirm: (id, resume) => { writes.push({ action: 'cancel', id, resume }); return mutation(id) } },
@@ -54,6 +55,8 @@ test('L4-2: 确认收货响应未知锁定卡片，重新查询成功解除待�
   const retry = f.page.reloadOrders(); f.queries.at(-1).reject(new Error('offline')); await retry
   assert.deepEqual(Array.from(f.page.pendingReceipts), ['order-a'])
   await f.load(pageOf([]))
+  assert.equal(f.page.pendingReceipts.length, 1)
+  await f.page.checkPendingOrder('order-a')
   assert.equal(f.page.pendingReceipts.length, 0); assert.equal(f.page.orders.length, 0)
 })
 
@@ -77,6 +80,7 @@ test('L4-2: 收货未知状态分类、未变恢复可点及明确业务错误�
     assert.equal(f.page.pendingReceipts.length, [400, 200].includes(status) ? 0 : 1)
     if ([400, 200].includes(status)) assert.deepEqual(f.messages, ['订单不能收货'])
     await f.load()
+    await f.page.checkPendingOrder('order-a')
     assert.equal(f.page.pendingReceipts.length, 0); assert.equal(f.page.canUseOrder('order-a'), true)
   }
 })
@@ -93,7 +97,8 @@ test('L4-2: 收货迟到错误不跨会话写回，旧查询不清除新待确�
     if (transition === 'refresh') {
       f.queries.at(-1).resolve(pageOf()); await refresh
       assert.deepEqual(Array.from(f.page.pendingReceipts), ['order-a'])
-      await f.load(); assert.equal(f.page.pendingReceipts.length, 0)
+      await f.load(); assert.equal(f.page.pendingReceipts.length, 1)
+      await f.page.checkPendingOrder('order-a'); assert.equal(f.page.pendingReceipts.length, 0)
     } else {
       assert.equal(f.page.pendingReceipts.length, 0); assert.equal(f.messages.length, 0)
     }

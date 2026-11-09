@@ -2,7 +2,7 @@ import { GlobalVariable, PAGE_PATH } from 'constants'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
 import { HDMNavBar } from 'ui_components'
 import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, formatBeijingTime } from 'models'
-import { demoOrderStore, cancelActions } from 'storage'
+import { demoOrderStore, cancelActions, RecoveryQuery } from 'storage'
 import {
   remindShipmentAPI,
   getOrderDetailAPI,
@@ -32,6 +32,59 @@ export struct OrderDetailView {
   @State detailToken: string = ''
   @State detailOrderId: string = ''
   private cancellationDialogSequence: number = 0
+  @State receiptPending: boolean = false
+  @State checkingPending: boolean = false
+  private pendingCheck: RecoveryQuery | undefined = undefined
+
+  private stopPendingChecks(): void {
+    this.pendingCheck?.cancel()
+    this.pendingCheck = undefined
+    this.checkingPending = false
+  }
+
+  private schedulePendingChecks(): void {
+    if (this.pendingCheck || !this.isCurrentDetail(this.pageGeneration, this.detailToken, this.orderId) ||
+      !(this.receiptPending || this.cancellationPending || this.cancelActionPending)) return
+    const job: RecoveryQuery = new RecoveryQuery()
+    this.pendingCheck = job
+    this.checkingPending = true
+    job.start(() => this.checkPendingOrder(), () => {
+      if (this.pendingCheck === job) {
+        this.checkingPending = false
+        if (!this.receiptPending && !this.cancellationPending && !this.cancelActionPending) this.pendingCheck = undefined
+      }
+    })
+  }
+
+  private async checkPendingOrder(): Promise<boolean> {
+    const generation: number = this.pageGeneration
+    const query: number = this.querySequence
+    const token: string = this.detailToken
+    const id: string = this.orderId
+    if (!this.isCurrentDetail(generation, token, id)) return true
+    if (this.loading || this.busy) return false
+    if (this.cancelActionPending) await cancelActions.inspectPending(id, token)
+    if (!this.isCurrentDetail(generation, token, id)) return true
+    if (this.cancellationPending) {
+      try { await orderCancellation.inspectPending(id) } catch { }
+    }
+    if (!this.isCurrentDetail(generation, token, id)) return true
+    const order: OrderItem = await getOrderDetailAPI(id, token)
+    if (!this.isCurrentDetail(generation, token, id)) return true
+    if (query !== this.querySequence) return false
+    if (order.id !== id) return false
+    this.order = order
+    this.updateOrderStatusAndEvaluation()
+    this.receiptPending = false
+    this.cancellationPending = orderCancellation.pendingIds().includes(id)
+    this.cancelActionPending = cancelActions.pending().some(record => record.orderId === id)
+    return !this.cancellationPending && !this.cancelActionPending
+  }
+
+  private retryPendingOrder(): void {
+    this.stopPendingChecks()
+    this.schedulePendingChecks()
+  }
 
   private refreshAfterForeground(): void {
     this.loadOrderDetail()
@@ -42,6 +95,7 @@ export struct OrderDetailView {
   }
 
   private hideOrderDetail(): void {
+    this.stopPendingChecks()
     this.pageActive = false
     this.pageGeneration++
     this.querySequence++
@@ -68,6 +122,8 @@ export struct OrderDetailView {
       return
     }
     this.detailToken = token
+    this.stopPendingChecks()
+    this.receiptPending = false
     this.detailOrderId = this.orderId
     this.pageGeneration++
     this.querySequence++
@@ -157,10 +213,11 @@ export struct OrderDetailView {
     if (sequence === this.querySequence && this.canOperateOrder() && this.cancellationPending && !this.busy) {
       this.run('cancel', (): Promise<void> => this.runCancelWithFallback(true), '订单已取消')
     }
+    this.schedulePendingChecks()
   }
 
   private async run(action: string, task: () => Promise<void>, successText: string): Promise<void> {
-    if (this.busy || this.cancelActionPending || !this.canOperateOrder()) {
+    if (this.busy || this.cancelActionPending || this.receiptPending || !this.canOperateOrder()) {
       return
     }
     this.busy = action
@@ -176,6 +233,7 @@ export struct OrderDetailView {
       await this.loadOrderDetail()
     } catch (error) {
       if (this.isCurrentDetail(generation, token, orderId)) {
+        if (action === 'receipt' && orderWriteFailure(error as Error).unknownResult) this.receiptPending = true
         if (action === 'cancel' && sequence === this.querySequence && !orderCancellation.pendingIds().includes(orderId)) {
           await this.loadOrderDetail()
           if (!this.isCurrentDetail(generation, token, orderId)) return
@@ -190,6 +248,7 @@ export struct OrderDetailView {
       if (this.isCurrentDetail(generation, token, orderId)) {
         this.cancellationPending = orderCancellation.pendingIds().includes(orderId)
         this.busy = ''
+        this.schedulePendingChecks()
       }
     }
   }
@@ -222,7 +281,7 @@ export struct OrderDetailView {
       if (this.isCurrentDetail(generation, token, orderId)) {
         this.cancelActionPending = cancelActions.pending().some(record => record.orderId === orderId)
         if (sequence === this.querySequence) await this.loadOrderDetail()
-        if (this.isCurrentDetail(generation, token, orderId)) this.busy = ''
+        if (this.isCurrentDetail(generation, token, orderId)) { this.busy = ''; this.schedulePendingChecks() }
       }
     }
   }
@@ -443,16 +502,12 @@ export struct OrderDetailView {
           title: this.order ? getPaymentDisplayLabel(this.order) : '订单详情',
           onLeftClick: () => this.stackPath.pop()
         })
-        if (this.cancelActionPending) {
-          Text('操作结果待确认，请重新查询').fontSize(12).padding(6)
-          Button('重新查询').enabled(!this.busy && this.canOperateOrder())
-            .onClick(() => this.runCancelAction('request', true))
-        }
-        if (this.cancellationPending) {
-          Text('取消结果待确认，请稍后查询').fontSize(12).padding(6)
-          Button(this.busy === 'cancel' ? '正在确认取消结果' : '重新查询')
-            .enabled(!this.busy && this.canOperateOrder())
-            .onClick(() => this.run('cancel', (): Promise<void> => this.runCancelWithFallback(true), '订单已取消'))
+        if (this.cancelActionPending || this.cancellationPending || this.receiptPending) {
+          Text(this.receiptPending ? '正在确认收货结果' : '正在确认取消结果').fontSize(12).padding(6)
+          if (!this.checkingPending) {
+            Button('重新查询').enabled(!this.busy && !this.loading)
+              .onClick(() => this.retryPendingOrder())
+          }
         }
         if (this.loading) {
           Column() {
