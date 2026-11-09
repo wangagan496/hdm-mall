@@ -12,6 +12,7 @@ import { Catalog } from './catalog.ts'
 import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
 import { Payments } from './payments.ts'
+import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
 import { AppError, ensure } from './errors.ts'
 import { TestFixtures, registerFixtureRoutes } from './test-fixtures.ts'
@@ -42,6 +43,8 @@ export async function buildApp(options: AppOptions) {
   const payments = new Payments(db, accounts, paymentChannel, paymentCallbackSecret, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
   orders.attachPayments(payments)
+  const afterSales = new AfterSales(db, payments, clock)
+  orders.attachAfterSales(afterSales)
   if (!options.testFixtures) catalog.seed()
   const fixtures = options.testFixtures ? new TestFixtures(accounts, options.testFixtures.credential, payments) : undefined
   const app = Fastify({ logger: options.logger ?? false, logController: new LogController({ disableRequestLogging: true }),
@@ -73,6 +76,31 @@ export async function buildApp(options: AppOptions) {
     app.route({ method, url, handler: async req => ok(await handler(req, accounts.authenticate(req.headers.authorization))) })
   }
   if (fixtures) registerFixtureRoutes(app, fixtures)
+  protectedRoute('POST', '/member/order/:id/after-sales', (req, user) => afterSales.request(user, key(req), afterSaleRequestSchema.parse(req.body)))
+  for (const action of ['withdraw','ship-back']) protectedRoute('POST', `/member/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
+  for (const action of ['approve','reject','inspect','refund-reject']) protectedRoute('POST', `/merchant/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
+  protectedRoute('GET', '/merchant/after-sales', (req,user) => {
+    const query = pageSchema.pick({page:true,pageSize:true}).extend({state:z.enum(['pending','returned','all']).default('all')}).parse(req.query)
+    return afterSales.list(user,query.state,query.page,query.pageSize)
+  })
+  protectedRoute('GET', '/merchant/settings/return-address', (_req,user) => afterSales.getAddress(user))
+  protectedRoute('PUT', '/merchant/settings/return-address', (req,user) => afterSales.setAddress(user,returnAddressSchema.parse(req.body)))
+  protectedRoute('POST', '/member/after-sales/images', async (req,user) => {
+    let image: Buffer | undefined
+    const fields: Record<string,string> = {}
+    for await (const part of req.parts({limits:{fileSize:512*1024,files:1,fields:3,parts:4,fieldSize:100}})) {
+      if (part.type === 'file') {
+        ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg',400,'请选择JPEG照片')
+        image = await part.toBuffer(); ensure(!part.file.truncated,413,'图片过大，请换一张')
+      } else {
+        ensure(['orderId','applicationKey','requestKey'].includes(part.fieldname) && fields[part.fieldname] === undefined,400,'上传参数不正确')
+        fields[part.fieldname] = z.string().min(1).max(100).parse(part.value)
+      }
+    }
+    const data = z.object({orderId:idSchema,applicationKey:z.string().uuid(),requestKey:z.string().uuid()}).parse(fields)
+    ensure(image,400,'请选择照片')
+    return afterSales.uploadImage(user,data.orderId,data.applicationKey,data.requestKey,image,options.uploadsPath)
+  })
   protectedRoute('GET', '/merchant/products/categories', (_req, user) => products.categories(user))
   protectedRoute('GET', '/merchant/products', (req, user) => {
     const query = pageSchema.extend({ status: z.enum(['on', 'off']).optional() }).parse(req.query)
@@ -126,6 +154,7 @@ export async function buildApp(options: AppOptions) {
   })
   app.get('/uploads/:name', async (req, reply) => {
     const { name } = z.object({ name: z.string().uuid().transform(v => v) }).parse({ name: (req.params as { name: string }).name.replace(/\.jpg$/, '') })
+    if (db.one('SELECT image_id FROM after_sale_images WHERE image_id=?', name)) afterSales.canReadImage(accounts.authenticate(req.headers.authorization),name)
     try { return reply.type('image/jpeg').send(await readFile(join(options.uploadsPath, name + '.jpg'))) }
     catch { throw new AppError(404, '图片不存在') }
   })
@@ -284,17 +313,20 @@ export async function buildApp(options: AppOptions) {
       z.object({ requestKey: z.string().uuid(), decision: z.literal('reject-and-ship'), reason: z.string().optional() }).strict()
     ]).parse(req.body)))
   protectedRoute('POST', '/merchant/orders/:id/ship', (req, user) => orders.ship(user, key(req)))
-  const processCancelRequests = () => {
-    const result = orders.processDueCancelRequests(clock.now())
+  const processCancelRequests = async () => {
+    const result = await orders.processDueCancelRequests(clock.now())
     if (result.failed.length) app.log.error({ cancelRequestIds: result.failed }, 'Order cancellation processing failed')
   }
-  processCancelRequests()
+  await processCancelRequests().catch(() => app.log.error('Order cancellation startup scan failed'))
+  const processAfterSales = async () => { const result = await afterSales.processDue(); if (result.failed.length) app.log.error({ afterSaleIds: result.failed }, 'After-sale processing failed') }
+  await processAfterSales().catch(() => app.log.error('After-sale startup scan failed'))
   const timer = setInterval(() => {
     try { orders.expire() } catch { app.log.error('Order expiration failed') }
     try { catalog.cleanupCartRequests() } catch { app.log.error('Cart request cleanup failed') }
-    try { processCancelRequests() } catch { app.log.error('Order cancellation scan failed') }
+    void processCancelRequests().catch(() => app.log.error('Order cancellation scan failed'))
+    void processAfterSales().catch(() => app.log.error('After-sale scan failed'))
     void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
   }, 30_000).unref()
   app.addHook('onClose', async () => { clearInterval(timer); db.close() })
-  return { app, db, accounts, catalog, orders, payments, clock, fixtures }
+  return { app, db, accounts, catalog, orders, payments, afterSales, clock, fixtures }
 }

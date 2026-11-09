@@ -5,6 +5,7 @@ import { constants, copyFile, lstat, mkdir, readFile, readdir, realpath, writeFi
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import { avatarFileName, localAvatarPath } from './avatar.ts'
+import { inspectAfterSales } from './after-sale-backup.ts'
 
 const imageName = avatarFileName
 const tables = ['users', 'sessions', 'relations', 'products', 'skus', 'carts', 'addresses',
@@ -19,10 +20,13 @@ const issueSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('missing-order-image'), orderId: z.string(), path: z.string() }).strict(),
   z.object({ type: z.literal('product-image-mismatch'), productId: z.string() }).strict(),
   z.object({ type: z.literal('product-image-hash-mismatch'), imageId: z.string() }).strict(),
+  z.object({ type: z.literal('after-sale-mismatch'), orderId: z.string() }).strict(),
+  z.object({ type: z.literal('missing-after-sale-image'), path: z.string() }).strict(),
+  z.object({ type: z.literal('after-sale-image-hash-mismatch'), imageId: z.string() }).strict(),
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -69,10 +73,10 @@ async function fingerprint(root: string, path: string) {
   return { path, bytes: after.size, sha256: hash.digest('hex') }
 }
 
-function inspectCancellations(db: DatabaseSync) {
+function inspectCancellations(db: DatabaseSync, version: number) {
   const invalid = new Set<string>()
   for (const row of db.prepare("SELECT order_id FROM order_cancel_requests WHERE state='pending' GROUP BY order_id HAVING COUNT(*)>1").all()) invalid.add(String(row.order_id))
-  const requests = db.prepare("SELECT c.*,o.state AS order_state,o.owner_id,o.amount AS order_amount,o.paid_by,o.paid_at,o.shipped_at,p.order_id AS payment_order,p.payer_id,p.amount AS payment_amount,p.state AS payment_state,p.channel_paid_at,r.payment_id AS refund_payment,r.amount AS refund_amount,r.reason AS refund_reason,EXISTS(SELECT 1 FROM refunds existing WHERE existing.payment_id=c.payment_id) AS payment_refunded FROM order_cancel_requests c JOIN orders o ON o.id=c.order_id JOIN payments p ON p.id=c.payment_id LEFT JOIN refunds r ON r.id=c.refund_id").all()
+  const requests = db.prepare(`SELECT c.*,o.state AS order_state,o.owner_id,o.amount AS order_amount,o.paid_by,o.paid_at,o.shipped_at,p.order_id AS payment_order,p.payer_id,p.amount AS payment_amount,p.state AS payment_state,p.channel_paid_at,r.payment_id AS refund_payment,r.amount AS refund_amount,r.reason AS refund_reason,EXISTS(SELECT 1 FROM refunds existing WHERE existing.payment_id=c.payment_id ${version>=12?"AND existing.reason IN ('late','duplicate','cancelled')":''}) AS payment_refunded FROM order_cancel_requests c JOIN orders o ON o.id=c.order_id JOIN payments p ON p.id=c.payment_id LEFT JOIN refunds r ON r.id=c.refund_id`).all()
   for (const request of requests) {
     const approved = request.state === 'approved' || request.state === 'auto-approved'
     let valid = request.requested_by === request.owner_id && request.payment_order === request.order_id && request.payer_id === request.paid_by &&
@@ -110,13 +114,14 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11) throw new Error('仅支持数据库版本 2 至 11')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12) throw new Error('仅支持数据库版本 2 至 12')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
       ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions', 'payment_notices', 'payment_review_resolutions'] : []),
       ...(version >= 8 ? ['order_cancel_requests', 'order_cancel_actions'] : []),
-      ...(version >= 9 ? ['cart_requests'] : []), ...(version >= 10 ? ['product_images', 'product_changes'] : [])]) {
+      ...(version >= 9 ? ['cart_requests'] : []), ...(version >= 10 ? ['product_images', 'product_changes'] : []),
+      ...(version >= 12 ? ['after_sales','after_sale_items','after_sale_images','after_sale_actions','merchant_settings'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -129,7 +134,7 @@ function inspectDatabase(path: string) {
     }
     if (version >= 7) {
       for (const order of db.prepare('SELECT id,state,shipped_at,paid_by,paid_at,amount FROM orders WHERE paid_by IS NOT NULL').all()) {
-        const effective = Number(db.prepare("SELECT COUNT(*) AS count FROM payments p WHERE p.order_id=? AND p.state='succeeded' AND p.payer_id=? AND p.amount=? AND p.channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)").get(order.id!, order.paid_by!, order.amount!, order.paid_at!)!.count)
+        const effective = Number(db.prepare(`SELECT COUNT(*) AS count FROM payments p WHERE p.order_id=? AND p.state='succeeded' AND p.payer_id=? AND p.amount=? AND p.channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id ${version>=12?"AND r.reason IN ('late','duplicate','cancelled')":''})`).get(order.id!, order.paid_by!, order.amount!, order.paid_at!)!.count)
         let valid = effective === 1
         if (version >= 8 && order.state === 6) {
           const cancellation = db.prepare("SELECT c.payment_id,r.payment_id AS refund_payment,r.reason,r.amount,p.amount AS paid_amount,p.state AS payment_state,p.order_id,p.payer_id,p.channel_paid_at FROM order_cancel_requests c LEFT JOIN refunds r ON r.id=c.refund_id LEFT JOIN payments p ON p.id=c.payment_id WHERE c.order_id=? AND c.state IN ('approved','auto-approved')").all(order.id!)
@@ -144,7 +149,7 @@ function inspectDatabase(path: string) {
       }
     }
     if (version >= 8) {
-      for (const orderId of inspectCancellations(db)) issues.push({ type: 'cancel-request-mismatch', orderId })
+      for (const orderId of inspectCancellations(db, Number(version))) issues.push({ type: 'cancel-request-mismatch', orderId })
     }
     const uploads = new Set<string>()
     const avatarUsers: { path: string; userId: string }[] = []
@@ -186,8 +191,18 @@ function inspectDatabase(path: string) {
       for (const path of productImages) uploads.add(path)
       for (const row of orderImages) uploads.add(row.path)
     }
-    return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages,
-      issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 }
+    const afterSaleImages: { path: string; imageId: string; sha256: string }[] = []
+    if (version >= 12) {
+      for (const orderId of inspectAfterSales(db)) issues.push({ type: 'after-sale-mismatch', orderId })
+      for (const row of db.prepare('SELECT image_id,path,sha256 FROM after_sale_images').all()) {
+        const path = localAvatarPath(row.path)
+        if (!path || !/^[a-f0-9]{64}$/.test(String(row.sha256))) throw new Error('售后图片登记无效')
+        afterSaleImages.push({path:path.slice(1),imageId:String(row.image_id),sha256:String(row.sha256)})
+        uploads.add(path.slice(1))
+      }
+    }
+    return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages,
+      issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 }
   } finally { db.close() }
 }
 
@@ -198,7 +213,9 @@ function snapshotIssues(database: ReturnType<typeof inspectDatabase>, files: Man
     ...database.productImages.filter(path => !images.includes(path)).map(path => ({ type: 'missing-product-image' as const, path })),
     ...database.orderImages.filter(row => !images.includes(row.path)).map(row => ({ type: 'missing-order-image' as const, ...row })),
     ...database.registeredImages.filter(row => files.some(file => file.path === row.path && file.sha256 !== row.sha256))
-      .map(row => ({ type: 'product-image-hash-mismatch' as const, imageId: row.imageId }))]
+      .map(row => ({ type: 'product-image-hash-mismatch' as const, imageId: row.imageId })),
+    ...database.afterSaleImages.filter(row => !images.includes(row.path)).map(row => ({type:'missing-after-sale-image' as const,path:row.path})),
+    ...database.afterSaleImages.filter(row => files.some(file => file.path===row.path && file.sha256!==row.sha256)).map(row => ({type:'after-sale-image-hash-mismatch' as const,imageId:row.imageId}))]
 }
 
 // 备份文件不携带 WAL；恢复时只需要快照本身，不能混入旁边的旧日志。

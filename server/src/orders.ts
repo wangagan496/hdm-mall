@@ -6,6 +6,7 @@ import { Catalog } from './catalog.ts'
 import { AppError, ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
 import type { Payments } from './payments.ts'
+import type { AfterSales } from './after-sales.ts'
 import { localAvatarPath } from './avatar.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
@@ -87,6 +88,7 @@ export class Orders {
   private nextExpirationReadCheck = Number.NEGATIVE_INFINITY
   readonly clock: Clock
   private payments?: Payments
+  private afterSales?: AfterSales
   constructor(db: Database, accounts: Accounts, catalog: Catalog, mockPayments: boolean, clock: Clock = accounts.clock) {
     this.db = db
     this.accounts = accounts
@@ -95,6 +97,7 @@ export class Orders {
     this.clock = clock
   }
   attachPayments(payments: Payments) { this.payments = payments }
+  attachAfterSales(afterSales: AfterSales) { this.afterSales = afterSales }
   private get(id: string, reason?: string): Order {
     const order = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id)
     if (!order) throw new AppError(404, '订单不存在', reason)
@@ -188,6 +191,7 @@ export class Orders {
     const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&
       !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
     const cancelFields = this.cancelFields(order, user, merchantShipment, paymentOnly)
+    const afterSaleFields = this.afterSales?.orderFields(order.id, user)
     if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order), skus: [], ...paymentFields, ...cancelFields }
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
@@ -205,12 +209,13 @@ export class Orders {
       skus: items.map(item => ({ id: item.sku_id, spuId: item.product_id, name: item.name,
         image: localAvatarPath(item.picture) ? this.catalog.publicUrl + localAvatarPath(item.picture) : item.picture,
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
-        quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100 })),
+        quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
+        afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
       evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created } : null,
       ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
         canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner }),
-      ...cancelFields
+      ...cancelFields, ...afterSaleFields
     }
   }
   detail(user: User, id: string) {
@@ -396,29 +401,33 @@ export class Orders {
     if (!action) throw new AppError(404, '未找到本次取消操作', 'CANCEL_ACTION_NOT_FOUND')
     return JSON.parse(action.result) as CancelReceipt
   }
-  private cancelTransaction<Result>(action: () => Result | AppError): Result {
-    const result = this.db.transaction(action)
+  private async cancelTransaction<Result>(action: (refundIds: string[]) => Result | AppError): Promise<Result> {
+    const refundIds: string[] = []
+    const result = this.db.transaction(() => action(refundIds))
+    if (refundIds.length) await this.payments!.reconcile(this.clock.now(), { refundIds })
     if (result instanceof AppError) throw result
     return result
   }
-  private autoApproveIfDue(request: CancelRequest | undefined, now: number) {
+  private autoApproveIfDue(request: CancelRequest | undefined, now: number, refundIds: string[]) {
     if (!request || request.state !== 'pending' || now < request.deadline_at) return false
     const body = JSON.stringify({ orderId: request.order_id, cancelRequestId: request.id, action: 'auto-approve' })
-    this.approveCancel(request, null, 'auto-approve:' + request.id, body, now)
+    this.approveCancel(request, null, 'auto-approve:' + request.id, body, now, refundIds)
     return true
   }
   private cancelDeadlineError() {
     return new AppError(409, '取消申请已超时自动同意，请刷新订单', 'CANCEL_REQUEST_EXPIRED')
   }
-  processDueCancelRequests(now = this.clock.now()) {
+  async processDueCancelRequests(now = this.clock.now()) {
     let processed = 0
+    const refundIds: string[] = []
     const failed: string[] = []
     const due = this.db.all<{ id: string; order_id: string }>("SELECT id,order_id FROM order_cancel_requests WHERE state='pending' AND deadline_at<=? ORDER BY deadline_at,id", now)
     for (const request of due) {
       try {
-        if (this.db.transaction(() => this.autoApproveIfDue(this.getCancelRequest(request.order_id, request.id), now))) processed++
+        if (this.db.transaction(() => this.autoApproveIfDue(this.getCancelRequest(request.order_id, request.id), now, refundIds))) processed++
       } catch { failed.push(request.id) }
     }
+    if (refundIds.length) await this.payments!.reconcile(this.clock.now(), { refundIds })
     return { processed, failed }
   }
   private cancelOwner(user: User, order: Order) {
@@ -443,7 +452,7 @@ export class Orders {
     return result
   }
   requestCancel(user: User, id: string, requestKey: string) {
-    return this.cancelTransaction(() => {
+    return this.cancelTransaction((refundIds) => {
       const order = this.get(id, 'ORDER_NOT_FOUND')
       this.cancelOwner(user, order)
       const body = JSON.stringify({ orderId: id, action: 'request' })
@@ -453,7 +462,7 @@ export class Orders {
       if (order.state >= 3) throw new AppError(409, '已发货，请联系售后', 'ORDER_ALREADY_SHIPPED')
       if (order.state !== 2) throw new AppError(409, '仅已付款待发货订单可以申请取消', 'CANCEL_NOT_AVAILABLE')
       const pending = this.pendingCancel(id)
-      if (this.autoApproveIfDue(pending, this.clock.now())) return new AppError(409, '订单已取消，请查看退款详情', 'ORDER_ALREADY_CANCELLED')
+      if (this.autoApproveIfDue(pending, this.clock.now(), refundIds)) return new AppError(409, '订单已取消，请查看退款详情', 'ORDER_ALREADY_CANCELLED')
       if (pending) throw new AppError(409, '取消申请审核中，请勿重复申请', 'CANCEL_REQUEST_PENDING')
       const paymentId = this.payments?.effectivePaymentId(id)
       if (!paymentId) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
@@ -476,21 +485,21 @@ export class Orders {
     ensure(this.get(request.order_id).state === 2, 409, '订单不在待发货状态')
   }
   withdrawCancel(user: User, id: string, requestId: string, requestKey: string) {
-    return this.cancelTransaction(() => {
+    return this.cancelTransaction((refundIds) => {
       this.cancelOwner(user, this.get(id, 'ORDER_NOT_FOUND'))
       const request = this.getCancelRequest(id, requestId)
       const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: 'withdraw' })
       const existing = this.replayCancelAction(user, requestKey, body)
       if (existing) return existing
       const now = this.clock.now()
-      if (this.autoApproveIfDue(request, now)) return this.cancelDeadlineError()
+      if (this.autoApproveIfDue(request, now, refundIds)) return this.cancelDeadlineError()
       this.assertCancelPending(request)
       const changed = this.db.run("UPDATE order_cancel_requests SET state='withdrawn',resolved_at=?,resolved_by=? WHERE id=? AND state='pending'", now, user.id, requestId)
       ensure(changed.changes === 1, 409, '取消申请已处理，请刷新订单')
       return this.writeCancelAction(this.getCancelRequest(id, requestId), user, 'withdraw', requestKey, body, now)
     })
   }
-  private approveCancel(request: CancelRequest, user: User | null, requestKey: string, body: string, now: number) {
+  private approveCancel(request: CancelRequest, user: User | null, requestKey: string, body: string, now: number, refundIds: string[]) {
     this.assertCancelPending(request)
     if (!this.payments || this.payments.effectivePaymentId(request.order_id) !== request.payment_id) {
       throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
@@ -509,6 +518,7 @@ export class Orders {
     const resolved = this.db.run("UPDATE order_cancel_requests SET state=?,resolved_at=?,resolved_by=?,refund_id=? WHERE id=? AND state='pending'",
       state, now, user?.id ?? null, refundId, request.id)
     ensure(resolved.changes === 1, 409, '取消申请已处理，请刷新订单')
+    refundIds.push(refundId)
     return this.writeCancelAction(this.getCancelRequest(request.order_id, request.id), user, user ? 'approve' : 'auto-approve', requestKey, body, now)
   }
   resolveCancel(user: User, id: string, requestId: string, data: { requestKey: string; decision: 'approve' | 'reject-and-ship'; reason?: string }) {
@@ -516,15 +526,15 @@ export class Orders {
     const reason = data.reason?.trim()
     if (data.decision === 'reject-and-ship' && !reason) throw new AppError(400, '请填写拒绝原因', 'CANCEL_REASON_REQUIRED')
     if (reason && Array.from(reason).length > 200) throw new AppError(400, '拒绝原因最多填写200字', 'CANCEL_REASON_TOO_LONG')
-    return this.cancelTransaction(() => {
+    return this.cancelTransaction((refundIds) => {
       this.get(id, 'ORDER_NOT_FOUND')
       const request = this.getCancelRequest(id, requestId)
       const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: data.decision, ...(data.decision === 'reject-and-ship' ? { reason } : {}) })
       const existing = this.replayCancelAction(user, data.requestKey, body)
       if (existing) return existing
       const now = this.clock.now()
-      if (this.autoApproveIfDue(request, now)) return this.cancelDeadlineError()
-      if (data.decision === 'approve') return this.approveCancel(request, user, data.requestKey, body, now)
+      if (this.autoApproveIfDue(request, now, refundIds)) return this.cancelDeadlineError()
+      if (data.decision === 'approve') return this.approveCancel(request, user, data.requestKey, body, now, refundIds)
       this.assertCancelPending(request)
       if (this.payments?.effectivePaymentId(id) !== request.payment_id) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
       const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', now, id)
@@ -590,11 +600,11 @@ export class Orders {
   }
   ship(user: User, id: string) {
     ensure(user.role === 'merchant', 403, '只有商家可以发货')
-    return this.cancelTransaction(() => {
+    return this.cancelTransaction((refundIds) => {
       const order = this.get(id)
       if (order.state === 6) throw new AppError(409, '买家已取消，不能发货', 'CANCELLED_ORDER_BLOCKS_SHIPMENT')
       const pending = this.pendingCancel(id)
-      if (this.autoApproveIfDue(pending, this.clock.now())) return new AppError(409, '买家已取消，不能发货', 'CANCELLED_ORDER_BLOCKS_SHIPMENT')
+      if (this.autoApproveIfDue(pending, this.clock.now(), refundIds)) return new AppError(409, '买家已取消，不能发货', 'CANCELLED_ORDER_BLOCKS_SHIPMENT')
       if (pending) throw new AppError(409, '买家已申请取消，请先处理取消申请', 'CANCEL_REQUEST_BLOCKS_SHIPMENT')
       ensure(order.state === ORDER_STATE.AWAITING_SHIPMENT, 409, '订单不在待发货状态')
       if (this.payments) ensure(this.payments.effectivePaymentId(id), 409, '订单没有有效支付，不能发货')
