@@ -13,7 +13,7 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 function fixture() {
   let user = { id: 'user-a', account: 'account-a', token: 'session-a', nickname: '原昵称', avatar: '', birthday: '', gender: '未知', provinceCode: '', cityCode: '', countyCode: '', profession: '', fullLocation: '', mobile: '' }
   let server = { ...user }
-  const writes = [], synced = []
+  const writes = [], synced = [], drafts = new Map()
   let put = async data => ({ data: { result: server = { ...server, ...data } } })
   let get = async () => ({ data: { result: { ...server } } })
   let post = async () => ({ data: { result: { avatar: 'https://example.test/avatar.jpg' } } })
@@ -25,14 +25,27 @@ function fixture() {
     post: async (...args) => { uploads++; return post(...args) },
   }
   const context = vm.createContext({ exports: {}, require: name => name === '@/api' ? { request, requestErrorMessage: () => '保存失败' } : requireH5(name),
-    window: { nativeApp: { getUser: () => user, updateUser: data => sync(data) }, atob: value => Buffer.from(value, 'base64').toString('binary') },
+    window: { localStorage: { getItem: key => drafts.get(key) ?? null, setItem: (key,value) => drafts.set(key,value), removeItem: key => drafts.delete(key) }, nativeApp: { getUser: () => user, updateUser: data => sync(data) }, atob: value => Buffer.from(value, 'base64').toString('binary') },
     FormData, File, Uint8Array, setTimeout, clearTimeout, console })
   pinia.setActivePinia(pinia.createPinia())
   vm.runInContext(compiled, context)
   const store = context.exports.useProfileStore()
-  return { store, writes, synced, setUser: value => { user = value }, user: () => user, setGet: fn => { get = fn }, setPut: fn => { put = fn },
+  return { store, writes, synced, drafts, setUser: value => { user = value }, user: () => user, setGet: fn => { get = fn }, setPut: fn => { put = fn },
     setPost: fn => { post = fn }, setSync: fn => { sync = fn }, uploads: () => uploads, tick: vue.nextTick }
 }
+
+test('UX12 返回时串行补存最后输入，失败草稿可恢复且不保存凭据', async () => {
+  const f=fixture();await f.store.loadProfile();f.store.profileDraft.nickname='第一份'
+  const gate=deferred();f.setPut(async data=>{await gate.promise;return {data:{result:{...f.user(),...data}}}})
+  const first=f.store.saveProfile();f.store.profileDraft.nickname='最后一字'
+  const flush=f.store.flushProfile();gate.resolve();await first;assert.equal(await flush,true)
+  assert.deepEqual(f.writes.map(x=>x.nickname),['第一份','最后一字']);assert.equal(f.drafts.size,0)
+  f.store.profileDraft.nickname='离线草稿';f.setPut(async()=>{throw new Error('offline')})
+  assert.equal(await f.store.flushProfile(),false);assert.equal(f.store.retainDraft(),true)
+  assert.ok([...f.drafts.values()].every(value=>!value.includes('session-a')))
+  await f.store.loadProfile();assert.equal(f.store.profileDraft.nickname,'离线草稿')
+  f.store.$dispose()
+})
 test('空昵称和纯空白不保存或上传，保留草稿并说明未保存原因，改正后可保存', async () => {
   const f = fixture(); await f.store.loadProfile()
   for (const nickname of ['', '   ']) {

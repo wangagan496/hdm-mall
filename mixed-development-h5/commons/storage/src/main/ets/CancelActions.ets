@@ -99,6 +99,16 @@ export class CancelActions {
     return task
   }
 
+  async inspectPending(orderId: string, token: string): Promise<void> {
+    const accountId: string = auth.getUserInfo()?.id || ''
+    this.assertSession(accountId, token)
+    const record = this.read(accountId).find((item: PendingCancelAction) => item.orderId === orderId)
+    if (!record) return
+    await getCancelActionReceiptAPI(record.requestKey, token)
+    this.assertSession(accountId, token)
+    await this.save(record, true)
+  }
+
   private async perform(record: PendingCancelAction, token: string, recover: boolean): Promise<void> {
     try {
       this.assertSession(record.accountId, token)

@@ -113,6 +113,8 @@ export struct AddressView {
   // Invalidates detail responses after the user switches editor targets or closes the sheet.
   private editorRequestSequence: number = 0
   private addressSaveTimer: number = -1
+  private addressRetryTimer: number = -1
+  private addressRetryCount: number = 0
   private savedAddressData: string = ''
   private addressRequestKey: string = ''
   private addressRevision: number = 0
@@ -127,6 +129,7 @@ export struct AddressView {
   DeleteConfirmBuilder() {
     HDMConfirm({
       message: '确定删除这个收货地址吗？',
+      confirmText: '删除地址', busy: this.deleting,
       onConfirm: async () => {
         await this.confirmDelete()
       },
@@ -428,6 +431,9 @@ export struct AddressView {
   }
 
   private cancelScheduledSave(): void {
+    if (this.addressRetryTimer !== -1) clearTimeout(this.addressRetryTimer)
+    this.addressRetryTimer = -1
+    this.addressRetryCount = 0
     if (this.addressSaveTimer !== -1) {
       clearTimeout(this.addressSaveTimer)
       this.addressSaveTimer = -1
@@ -457,6 +463,8 @@ export struct AddressView {
     const generation: number = this.pageGeneration
     const token: string = this.sessionToken
     if (!this.isCurrentEditor(sequence, generation, token)) return
+    if (this.addressRetryTimer !== -1) clearTimeout(this.addressRetryTimer)
+    this.addressRetryTimer = -1
     if (this.pendingAddressSave) {
       await this.pendingAddressSave
       return
@@ -473,6 +481,14 @@ export struct AddressView {
     await task
     if (!this.isCurrentEditor(sequence, generation, token) || this.pendingAddressSave !== task) return
     this.pendingAddressSave = undefined
+    if (this.saveError && !this.closingEditor && this.addressRetryCount < 3) {
+      const delay: number = [2000, 5000, 10000][this.addressRetryCount++]
+      this.saveError = '修改尚未确认保存，输入已保留，正在自动重试'
+      this.addressRetryTimer = setTimeout(() => {
+        this.addressRetryTimer = -1
+        if (this.isCurrentEditor(sequence, generation, token)) void this.saveAddress()
+      }, delay)
+    }
     // 请求期间仍可继续输入；上一份保存成功后再提交最新修改。
     if (!this.saveError && JSON.stringify(this.buildAddressData()) !== this.savedAddressData) {
       this.scheduleAddressSave()
@@ -862,7 +878,7 @@ export struct AddressView {
             Text('地址加载失败，请返回后重试')
           } else {
             this.AddressEditorBuilder()
-            Button(this.submitting ? '保存中…' : '保存并使用此地址')
+            Button(this.submitting ? '保存中…' : '保存并使用此地址').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
               .enabled(!this.closingEditor && !this.editorLoading && !this.selectingArea)
               .onClick(() => this.useCheckoutAddress())
           }

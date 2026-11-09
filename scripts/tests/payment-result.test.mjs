@@ -165,7 +165,7 @@ test('演示兜底不把已取消当支付成功，服务端失败仍为待确�
   assert.equal(f.page.paymentSucceeded, false); assert.equal(f.page.paymentResultUnconfirmed, true)
 })
 
-test('确认中结果每两秒刷新，30秒后停止自动请求', async () => {
+test('确认中结果每两秒刷新，30秒后低频核对且10分钟停止', async () => {
   const f = fixture(), confirming = row(1)
   confirming.paymentState = 'confirming'; confirming.paymentNotice = '正在确认付款结果，请勿重复付款'; confirming.canPay = false
   f.start(); await f.finish(confirming)
@@ -179,7 +179,14 @@ test('确认中结果每两秒刷新，30秒后停止自动请求', async () => 
   assert.equal(f.page.paymentResultUnconfirmed, true)
   const refreshCount = f.refreshes.length
   f.timers.advance(10000); await tick()
-  assert.equal(f.refreshes.length, refreshCount)
+  assert.equal(f.refreshes.length, refreshCount + 1)
+  f.refreshes.at(-1).resolve({paymentState:'confirming'}); await tick()
+  f.timers.advance(30000); await tick()
+  assert.equal(f.refreshes.length, refreshCount + 2)
+  f.refreshes.at(-1).resolve({paymentState:'confirming'}); await tick()
+  f.timers.advance(530000); await tick()
+  assert.equal(f.page.automaticRefreshExpired,true)
+  assert.equal(f.timers.size(),0)
 })
 
 test('离开结果页后清除自动刷新，迟到刷新不能回写当前结果', async () => {
@@ -279,18 +286,17 @@ test('换订单立即清除旧定时器，旧刷新返回不能覆盖新订单',
   assert.equal(f.refreshes.length, 1)
 })
 
-test('30秒后的手动刷新可替换挂起请求，自动刷新不再启动', async () => {
+test('30秒后保留低频核对，手动与自动查询单飞且终态停止', async () => {
   const f = fixture(); f.start(); await f.finish({ ...row(), paymentState: 'confirming' })
   f.timers.advance(30000); await tick()
-  assert.equal(f.page.automaticRefreshExpired, true)
-  assert.equal(f.page.getPaymentResultHint(), '付款结果仍在确认中，可能需要几分钟。不会重复扣款，确认后订单会自动更新。')
+  assert.equal(f.page.automaticRefreshExpired, false)
+  assert.match(f.page.getPaymentResultHint(), /可以先离开/)
   f.page.refreshPaymentStatus(true); await tick()
-  assert.equal(f.refreshes.length, 2)
-  f.refreshes[1].resolve({ paymentState: 'paid' }); await tick()
+  assert.equal(f.refreshes.length, 1)
+  f.refreshes[0].resolve({ paymentState: 'paid' }); await tick()
   await f.finish({ ...row(2), paymentState: 'paid' })
-  f.refreshes[0].resolve({ paymentState: 'confirming' }); await tick()
   assert.equal(f.page.paymentSucceeded, true)
-  f.timers.advance(32000); await tick(); assert.equal(f.refreshes.length, 2)
+  f.timers.advance(32000); await tick(); assert.equal(f.refreshes.length, 1)
 })
 
 test('B-41/B-54：确认结果失败恢复支付入口，重进确认中后成功则停止刷新', async () => {

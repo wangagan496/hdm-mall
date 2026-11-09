@@ -47,6 +47,7 @@ test('购物袋重新加载相同 SKU 也重绑对象，本地勾选数量修改
   }).Page
   const page = new Page()
   Object.assign(page, { user: { token: 'same-token' }, cartToken: 'same-token', loadRequestId: 0, cartListRevision: 0,
+    rowSaves: new Map(),
     isPageActive: true, isCurrentQuery: () => true, recalculateCartSummary: () => {} })
   await page.loadCartList()
   const previous = page.cartList[0], initial = key.call(page, previous)

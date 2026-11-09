@@ -1,4 +1,5 @@
 import { KeyboardAvoidMode } from '@kit.ArkUI'
+import { connection } from '@kit.NetworkKit'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
 import { HDMUser, OrderItem, OrderSku } from 'models'
@@ -23,7 +24,9 @@ function EvaluationViewBuilder() {
 interface EvaluationDraft {
   score: number
   content: string
+  pending?: EvaluationSnapshot
 }
+interface EvaluationSnapshot {score:number;content:string}
 
 @Component
 export struct EvaluationView {
@@ -39,6 +42,10 @@ export struct EvaluationView {
   @State score: number = 5
   @State content: string = ''
   @State errorText: string = ''
+  @State resultUnknown: boolean = false
+  @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshEvaluationResult') foregroundSequence:number=0
+  private pendingEvaluation:EvaluationSnapshot | undefined=undefined
+  private evaluationMonitor:connection.NetConnection | undefined=undefined
   @Consume stackPath: NavPathStack
 
   private orderId: string = ''
@@ -101,6 +108,7 @@ export struct EvaluationView {
     this.content = ''
     this.errorText = ''
     this.submitted = false
+    this.pendingEvaluation=undefined;this.resultUnknown=false;this.stopEvaluationMonitor()
     this.submitting = false
     this.loading = false
     this.loadFailed = false
@@ -111,6 +119,7 @@ export struct EvaluationView {
         const draft = JSON.parse(raw) as EvaluationDraft
         this.score = draft.score >= 1 && draft.score <= 5 ? draft.score : 5
         this.content = typeof draft.content === 'string' ? draft.content.slice(0, EVALUATION_CONTENT_MAX_LENGTH) : ''
+        this.pendingEvaluation=draft.pending;this.resultUnknown=!!draft.pending
       }
     } catch {}
     return true
@@ -129,6 +138,7 @@ export struct EvaluationView {
   aboutToDisappear(): void {
     if (!this.pageActive) return
     this.pageActive = false
+    this.stopEvaluationMonitor()
     this.leaving = true
     this.pageGeneration++
     this.querySequence++
@@ -173,7 +183,7 @@ export struct EvaluationView {
       const store = storeManager.getStore()
       if (this.submitted) store.deleteSync(key)
       else {
-        const draft: EvaluationDraft = { score: this.score, content: this.content }
+        const draft: EvaluationDraft = { score: this.score, content: this.content, pending:this.pendingEvaluation }
         store.putSync(key, JSON.stringify(draft))
       }
       void store.flush().catch(failed)
@@ -228,7 +238,14 @@ export struct EvaluationView {
         return
       }
       this.order = orderToReview
-      if (orderToReview.evaluation) {
+      if(this.pendingEvaluation) {
+        const snapshot=this.pendingEvaluation,evaluation=orderToReview.evaluation
+        this.resultUnknown=false;this.stopEvaluationMonitor()
+        if(evaluation&&evaluation.score===snapshot.score&&evaluation.content===snapshot.content.trim()){
+          this.submitted=true;this.pendingEvaluation=undefined;this.errorText='评价已发布';this.saveDraft()
+        }else if(evaluation){this.errorText='订单已有不同评价，本次输入已保留';this.pendingEvaluation=undefined;this.saveDraft()}
+        else {this.errorText='尚未查到本次评价，可以继续提交';this.pendingEvaluation=undefined;this.saveDraft()}
+      } else if (orderToReview.evaluation) {
         this.errorText = '该订单已评价，当前输入保留为本机草稿'
       } else if (!orderToReview.canEvaluate) {
         this.errorText = '当前订单暂不能评价，输入已保留，请确认收货后重试'
@@ -242,8 +259,26 @@ export struct EvaluationView {
     } finally {
       if (sequence === this.querySequence && this.isCurrentEvaluation(generation, token, orderId)) {
         this.loading = false
+        if(this.resultUnknown)this.watchEvaluationNetwork()
       }
     }
+  }
+
+  private async refreshEvaluationResult():Promise<void> {
+    if(!this.pageActive||this.leaving||this.loading||this.submitting||!this.pendingEvaluation)return
+    await this.loadOrderForEvaluation()
+  }
+  private stopEvaluationMonitor():void {
+    const monitor=this.evaluationMonitor;this.evaluationMonitor=undefined
+    try {monitor?.unregister(()=>{})}catch{}
+  }
+  private watchEvaluationNetwork():void {
+    if(this.evaluationMonitor||!this.pageActive||!this.resultUnknown)return
+    try {
+      const monitor=connection.createNetConnection();this.evaluationMonitor=monitor
+      monitor.on('netAvailable',()=>{if(this.evaluationMonitor===monitor)void this.refreshEvaluationResult()})
+      monitor.register((error)=>{if(error&&this.evaluationMonitor===monitor)this.stopEvaluationMonitor();else if(this.evaluationMonitor!==monitor){try{monitor.unregister(()=>{})}catch{}}})
+    }catch{this.evaluationMonitor=undefined}
   }
 
   private setScore(value: number): void {
@@ -282,7 +317,7 @@ export struct EvaluationView {
   }
 
   private async submitEvaluation(): Promise<void> {
-    if (this.submitting || this.submitted || !this.pageActive || this.leaving || this.loading || this.loadFailed ||
+    if (this.resultUnknown || this.submitting || this.submitted || !this.pageActive || this.leaving || this.loading || this.loadFailed ||
       !this.order || this.order.id !== this.orderId || this.orderId !== this.readEvaluationOrderId()) {
       return
     }
@@ -307,6 +342,7 @@ export struct EvaluationView {
     try {
       const score: number = this.score
       const content: string = this.content
+      this.pendingEvaluation={score,content};this.saveDraft()
       const actions: EvaluationSubmitActions = {
         submitRemote: async (): Promise<void> => {
           try {
@@ -321,6 +357,7 @@ export struct EvaluationView {
           }
           if (!this.isCurrentEvaluation(generation, token, orderId)) return
           this.submitted = true
+          this.pendingEvaluation=undefined;this.resultUnknown=false;this.stopEvaluationMonitor()
           clearTimeout(this.draftTimer)
           this.saveDraft()
         },
@@ -331,7 +368,10 @@ export struct EvaluationView {
     } catch (error) {
       if (this.isCurrentEvaluation(generation, token, orderId)) {
         const failure = orderWriteFailure(error as Error)
-        this.errorText = failure.unknownResult ? '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交' :
+        this.resultUnknown=failure.unknownResult
+        if(!this.resultUnknown)this.pendingEvaluation=undefined
+        this.saveDraft();if(this.resultUnknown)this.watchEvaluationNetwork()
+        this.errorText = failure.unknownResult ? '正在确认评价结果，输入已保留，恢复网络后会自动核对' :
           failure.message || '提交失败，请重试'
       }
     } finally {
@@ -371,7 +411,7 @@ export struct EvaluationView {
     .height(32)
     .justifyContent(FlexAlign.Center)
     .borderRadius(16)
-    .backgroundColor(hasEvaluationTag(this.content, tag) ? '#FFF0F0' : $r('[ui_components].color.under'))
+    .backgroundColor($r('[ui_components].color.under'))
     .border({
       width: 0.5,
       color: hasEvaluationTag(this.content, tag) ? $r('[ui_components].color.red') :
@@ -452,7 +492,7 @@ export struct EvaluationView {
             Text('订单加载失败，请稍后重试')
               .fontSize(14)
               .fontColor($r('[ui_components].color.gray'))
-            Button('重新加载')
+            Button('重新加载').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
               .onClick(() => this.loadOrderForEvaluation())
           }
         }
@@ -555,15 +595,15 @@ export struct EvaluationView {
 
           Column() {
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-            Button(this.submitting ? '提交中...' : '提交评价')
+            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':'提交评价').fontColor($r('[ui_components].color.white'))
               .width('100%')
               .height(44)
               .fontSize(15)
               .fontWeight(500)
               .backgroundColor($r('[ui_components].color.red'))
               .constraintSize({ minHeight: 44 })
-              .enabled(this.canEditEvaluation() && !this.loading && !this.loadFailed && !!this.order?.canEvaluate)
-              .onClick(() => this.submitEvaluation())
+              .enabled(!this.submitted&&!this.loading&&!this.submitting&&(this.resultUnknown||this.canEditEvaluation()&&!this.loadFailed&&!!this.order?.canEvaluate))
+              .onClick(() => {if(this.resultUnknown)void this.refreshEvaluationResult();else void this.submitEvaluation()})
           }
           .width('100%')
           .padding({ left: 16, right: 16, top: 8, bottom: 8 + this.bottomHeight })

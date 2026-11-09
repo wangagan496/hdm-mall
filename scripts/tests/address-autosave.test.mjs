@@ -1,7 +1,7 @@
 // 执行真实页面方法，替换平台 UI、计时器和网络；不代替设备交互验收。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sourceOf } from './native-harness.mjs'
+import { sourceOf, tick } from './native-harness.mjs'
 import { addressPage } from './address-harness.mjs'
 
 const source = sourceOf('mixed-development-h5/features/mine/src/main/ets/presentation/views/AddressView.ets')
@@ -77,7 +77,16 @@ test('保存失败保留内容且无无限重试，手动重试沿用新增标�
   assert.ok(f.page.saveError)
   assert.equal(f.page.form.address, '一号楼')
   assert.equal(f.page.showEditor, true)
+  assert.equal(f.timers.size, 1)
+  for (let i = 0; i < 3; i++) {
+    const [id, callback] = f.timers.entries().next().value
+    f.timers.delete(id); callback(); await tick()
+  }
   assert.equal(f.timers.size, 0)
+  assert.equal(f.requests.length, 4)
+  assert.ok(f.requests.every(request => request.key === 'fixed-draft-key'))
+  assert.deepEqual(f.requests.map(request => request.revision), [1, 2, 3, 4])
+  assert.equal(f.page.form.address, '一号楼')
   f.setCreate(async () => ({ id: 'A100' }))
   await f.page.saveAddress()
   assert.equal(f.requests[0].key, f.requests[1].key)
@@ -85,6 +94,27 @@ test('保存失败保留内容且无无限重试，手动重试沿用新增标�
   assert.equal(f.requests[1].revision, 2)
   assert.equal(f.page.saveError, '')
   assert.equal(f.page.form.id, 'A100')
+})
+
+test('地址自动重试成功即停止，离页和切账号取消旧重试且不写新会话', async () => {
+  for (const stop of ['success', 'leave', 'account']) {
+    const f = fixture()
+    f.setCreate(async () => { throw new Error('offline') })
+    await f.page.saveAddress()
+    assert.equal(f.timers.size, 1)
+    const [id, callback] = f.timers.entries().next().value
+    if (stop === 'success') {
+      f.setCreate(async () => ({ id: 'A100' }))
+      f.timers.delete(id); callback(); await tick()
+      assert.equal(f.page.form.id, 'A100'); assert.equal(f.requests.length, 2)
+    } else {
+      if (stop === 'leave') f.page.aboutToDisappear()
+      else { f.page.user = { token: 'other' }; f.page.synchronizeAddressSession() }
+      callback(); await tick()
+      assert.equal(f.requests.length, 1)
+    }
+    assert.equal(f.timers.size, 0)
+  }
 })
 
 test('关闭时补存最新输入，正在保存时等待后再关闭', async () => {

@@ -23,7 +23,7 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
   return completion
 } })
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
-  paymentChannel: channel, paymentCallbackSecret,
+  paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'],
   publicUrl: 'http://127.0.0.1:3000', uploadsPath: join(tmpdir(), 'hdm-device-trade-uploads') })
 const product = f.testData.product({ name: '设备独立测试商品',
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })

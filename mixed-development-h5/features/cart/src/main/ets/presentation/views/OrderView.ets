@@ -1,10 +1,11 @@
-import { cancelActions } from 'storage'
+import { cancelActions, RecoveryQuery } from 'storage'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser, CancelActionIntent, OrderItem, OrderListParams, OrderPage, OrderSku, OrderRefund, formatBeijingTime } from 'models'
 import { HDMEmpty, HDMNavBar } from 'ui_components'
 import {
   remindShipmentAPI,
   getOrderListAPI,
+  getOrderDetailAPI,
   receiptOrderAPI
 } from '../../data/api'
 import { getPaymentDisplayLabel, getRefundDisplayLine, hasUnreadPaymentNotice, shouldShowPaymentCountdown, canOpenPayment,
@@ -50,6 +51,66 @@ export struct OrderView {
   @State pendingCancellations: string[] = []
   @State pendingCancelActions: string[] = []
   @State pendingReceipts: string[] = []
+  @State checkingOrders: string[] = []
+  private pendingChecks: Map<string, RecoveryQuery> = new Map<string, RecoveryQuery>()
+
+  private pendingOrderIds(): string[] {
+    return Array.from(new Set<string>([...this.pendingCancellations, ...this.pendingCancelActions, ...this.pendingReceipts]))
+  }
+
+  private isCheckingOrder(id: string): boolean { return this.checkingOrders.includes(id) }
+
+  private stopPendingChecks(): void {
+    this.pendingChecks.forEach((job: RecoveryQuery) => job.cancel())
+    this.pendingChecks.clear()
+    this.checkingOrders = []
+  }
+
+  private schedulePendingChecks(): void {
+    if (!this.isCurrentSession(this.pageGeneration, this.sessionToken)) return
+    for (const id of this.pendingOrderIds()) {
+      if (this.pendingChecks.has(id)) continue
+      const job: RecoveryQuery = new RecoveryQuery()
+      this.pendingChecks.set(id, job)
+      this.checkingOrders = [...this.checkingOrders, id]
+      job.start(() => this.checkPendingOrder(id), () => {
+        if (this.pendingChecks.get(id) === job) {
+          this.checkingOrders = this.checkingOrders.filter(value => value !== id)
+          if (!this.pendingOrderIds().includes(id)) this.pendingChecks.delete(id)
+        }
+      })
+    }
+  }
+
+  private async checkPendingOrder(id: string): Promise<boolean> {
+    const generation: number = this.pageGeneration
+    const query: number = this.requestGeneration
+    const token: string = this.sessionToken
+    if (!this.isCurrentSession(generation, token)) return true
+    if (this.busyOrderId || this.loading) return false
+    if (this.pendingCancelActions.includes(id)) await cancelActions.inspectPending(id, token)
+    if (!this.isCurrentSession(generation, token)) return true
+    if (this.pendingCancellations.includes(id)) {
+      try { await orderCancellation.inspectPending(id) } catch { }
+    }
+    if (!this.isCurrentSession(generation, token)) return true
+    const order: OrderItem = await getOrderDetailAPI(id, token)
+    if (!this.isCurrentSession(generation, token)) return true
+    if (query !== this.requestGeneration) return false
+    if (order.id !== id) return false
+    this.pendingCancellations = orderCancellation.pendingIds()
+    this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'request' || record.action === 'withdraw').map(record => record.orderId)
+    this.pendingReceipts = this.pendingReceipts.filter(value => value !== id)
+    this.orders = this.orders.map(item => item.id === id ? order : item)
+      .filter(item => isOrderStateInTab(item.orderState, this.selectedState))
+    return !this.pendingOrderIds().includes(id)
+  }
+
+  private retryPendingOrder(id: string): void {
+    this.pendingChecks.get(id)?.cancel()
+    this.pendingChecks.delete(id)
+    this.schedulePendingChecks()
+  }
   /** 服务端已经没有更多订单；为 true 时滑到底也不再请求 */
   @State isFinished: boolean = false
   @Consume stackPath: NavPathStack
@@ -110,6 +171,7 @@ export struct OrderView {
   }
 
   private hideOrders(): void {
+    this.stopPendingChecks()
     this.pageActive = false
     this.pageGeneration++
     this.requestGeneration++
@@ -122,6 +184,7 @@ export struct OrderView {
   private synchronizeOrderSession(): void {
     const token: string = this.user.token || ''
     if (token === this.sessionToken) return
+    this.stopPendingChecks()
     this.sessionToken = token
     this.pageGeneration++
     this.requestGeneration++
@@ -224,7 +287,6 @@ export struct OrderView {
     const isLatestLoad = (): boolean => generation === this.requestGeneration &&
       this.isCurrentSession(pageGeneration, token)
     const replaceResult: boolean = this.replaceOnNextLoad
-    const pendingReceipts: string[] = this.pendingReceipts.slice()
     const request: OrderTabRequest = {
       page: this.page,
       pageSize: this.pageSize,
@@ -248,7 +310,6 @@ export struct OrderView {
       this.loadedState = request.state
       if (replaceResult) {
         this.replaceOnNextLoad = false
-        this.pendingReceipts = this.pendingReceipts.filter((orderId: string) => !pendingReceipts.includes(orderId))
       }
       this.page = result.nextPage
       this.isFinished = result.finished
@@ -264,6 +325,7 @@ export struct OrderView {
     }
     // 包括失败后的“加载更多”重试；只在最新列表确认后恢复已有取消意图。
     if (isLatestLoad() && this.isOrderListReady() && !this.busyOrderId) this.recoverAllCancellations()
+    if (isLatestLoad()) this.schedulePendingChecks()
   }
 
   private hasEvaluation(order: OrderItem): boolean {
@@ -349,6 +411,7 @@ export struct OrderView {
         this.pendingCancellations = orderCancellation.pendingIds()
         this.busyOrderId = ''
         this.busyAction = ''
+        this.schedulePendingChecks()
       }
     }
   }
@@ -386,7 +449,9 @@ export struct OrderView {
       if (this.isCurrentSession(generation, token)) {
         this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'request' || record.action === 'withdraw').map(record => record.orderId)
         if (query === this.requestGeneration) await this.reloadOrders()
-        if (this.isCurrentSession(generation, token)) { this.busyOrderId = ''; this.busyAction = '' }
+        if (this.isCurrentSession(generation, token)) {
+          this.busyOrderId = ''; this.busyAction = ''; this.schedulePendingChecks()
+        }
       }
     }
   }
@@ -532,7 +597,7 @@ export struct OrderView {
             this.requestCancelOrder(order)
           })
         if (canOpenPayment(order)) {
-          Button('去支付')
+          Button('去支付').fontColor($r('[ui_components].color.white'))
             .enabled(!this.busyOrderId && this.canUseOrder(order.id))
             .height(32)
             .fontSize(12)
@@ -547,13 +612,13 @@ export struct OrderView {
         Blank()
         if (order.cancelRequest?.state === 'pending') {
           if (order.canWithdrawCancel) {
-            Button('撤回申请').height(32).fontSize(12)
+            Button('撤回申请').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).height(32).fontSize(12)
               .enabled(!this.busyOrderId && this.canUseOrder(order.id))
               .onClick(() => this.runCancelAction(order.id, 'withdraw'))
           }
         } else {
           if (order.canRequestCancel && (order.serverManaged || !GlobalVariable.DEMO_ORDER_FLOW)) {
-            Button('取消订单').height(32).fontSize(12)
+            Button('取消订单').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).height(32).fontSize(12)
               .enabled(!this.busyOrderId && this.canUseOrder(order.id))
               .onClick(() => this.requestCancelOrder(order))
           }
@@ -579,7 +644,7 @@ export struct OrderView {
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.border') })
           .onClick(() => this.openOrderDetail(order.id))
-        Button(this.isBusy(order.id) ? '确认中...' : '确认收货')
+        Button(this.isBusy(order.id) ? '确认中...' : '确认收货').fontColor($r('[ui_components].color.white'))
           .height(32)
           .fontSize(12)
           .backgroundColor($r('[ui_components].color.red'))
@@ -670,7 +735,7 @@ export struct OrderView {
       .onClick(() => this.openOrderDetail(order.id))
       if(order.afterSaleActive){Text('售后中').fontColor($r('[ui_components].color.red')).fontSize(13)}
       if(order.canApplyAfterSale) {
-        Button('申请售后').id('order-apply-after-sale-'+order.id).height(36).enabled(!this.busyOrderId&&this.canUseOrder(order.id))
+        Button('申请售后').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).id('order-apply-after-sale-'+order.id).height(36).enabled(!this.busyOrderId&&this.canUseOrder(order.id))
           .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:order.id}))
       }
       if (this.hasOrderActions(order)) {
@@ -690,23 +755,16 @@ export struct OrderView {
           title: '我的订单',
           onLeftClick: () => this.stackPath.pop()
         })
-        if (this.pendingCancelActions.length > 0) {
-          Text('操作结果待确认，请重新查询').fontSize(12).padding(6)
-          Button('重新查询').enabled(!this.busyOrderId && this.isOrderListReady())
-            .onClick(() => this.recoverAllCancellations())
-        }
-        if (this.pendingCancellations.length > 0) {
-          Text('取消结果待确认，请稍后查询').fontSize(12).padding(6)
-          Button(this.busyAction === 'cancel' ? '正在确认取消结果' : '重新查询')
-            .enabled(!this.busyOrderId && this.isOrderListReady())
-            .onClick(() => this.recoverCancellations())
-        }
-        if (this.pendingReceipts.length > 0) {
-          Text('确认收货结果待确认').fontSize(12).padding(6)
-          Button('重新查询')
-            .enabled(!this.busyOrderId && !this.loading && this.isCurrentSession(this.pageGeneration, this.sessionToken))
-            .onClick(() => this.reloadOrders())
-        }
+        ForEach(this.pendingOrderIds(), (id: string) => {
+          Column() {
+            Text(this.pendingReceipts.includes(id) ? '正在确认收货结果' : '正在确认取消结果').fontSize(12).padding(6)
+            Text('订单 ' + id).fontSize(11)
+            if (!this.isCheckingOrder(id)) {
+              Button('重新查询').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.busyOrderId && !this.loading)
+                .onClick(() => this.retryPendingOrder(id))
+            }
+          }
+        }, (id: string) => id)
         Row() {
           ForEach(this.tabs, (tab: OrderTab) => {
             Text(tab.label)
@@ -749,9 +807,9 @@ export struct OrderView {
               if (this.loading) {
                 LoadingProgress().width(32).height(32)
               } else if (this.loadFailed) {
-                Button('加载失败，点击重试').onClick(() => this.loadMore())
+                Button('加载失败，点击重试').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).onClick(() => this.loadMore())
               } else if (!this.isFinished) {
-                Button('加载更多').onClick(() => this.loadMore())
+                Button('加载更多').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).onClick(() => this.loadMore())
               }
             }
           }

@@ -20,6 +20,9 @@ function fixture() {
     '@kit.BasicServicesKit': { systemDateTime: { TimeType: { STARTUP: 0 }, getUptime: () => now } },
   })
   const { PayView } = execute(body, {}, {
+    ...execute(sourceOf('mixed-development-h5/commons/storage/src/main/ets/RecoveryQuery.ets'), {}, {
+      setTimeout: (fn, ms) => { const timer = setTimeout(fn, ms); timer.unref(); return timer },
+    }),
     GlobalVariable: config, PAGE_PATH: { PAY_PAGE: 'pay', PAY_RESULT_PAGE: 'result' },
     auth: { getUserInfo: () => user }, ...presentation,
     demoOrderStore: { getOverlay: () => null, getEvaluation: () => null,

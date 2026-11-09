@@ -24,7 +24,7 @@ test('B-10/B-70 旧登录成功、错误密码及协议拦截迁移到真实登�
   page.stackPath = { getAllPathName: () => paths, pop: () => paths.pop() }
   page.loginForm = { account: 'isolated_buyer', password: 'wrong_password' }
   await page.submitAccountLogin()
-  assert.equal(requests, 0); assert.equal(messages.at(-1), '请先勾选协议')
+  assert.equal(requests, 0); assert.equal(messages.length, 0); assert.equal(page.termsError, true); assert.equal(page.hasAcceptedTerms, false)
   page.hasAcceptedTerms = true
   await page.submitAccountLogin()
   assert.equal(requests, 1); assert.equal(saved.length, 0); assert.equal(current, undefined)
@@ -71,6 +71,7 @@ test('B-20 旧未勾选商品不能进入结算迁移到真实购物车方法', 
   const { CartOperationHelper } = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/CartOperations.ets'))
   const Page = pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets', 'CartView', {}, { CartOperations: CartOperationHelper })
   const page = new Page(), messages = [], paths = []
+  page.user = { token: 'buyer' }; page.cartToken = 'buyer'
   page.cartList = [{ skuId: 'isolated', count: 1, selected: false }]
   page.getUIContext = () => ({ getPromptAction: () => ({ showToast: value => messages.push(value.message) }) })
   page.stackPath = { pushPath: value => paths.push(value) }

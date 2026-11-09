@@ -1,4 +1,5 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
+import { connection } from '@kit.NetworkKit'
 import { HDMGuess, HDMNavBar } from 'ui_components'
 import { HDMUser, OrderItem, PayResultParams } from 'models'
 import { demoOrderStore } from 'storage'
@@ -41,7 +42,9 @@ export struct PayResultView {
   @State sessionToken: string = ''
   private navigationPayResult: boolean = false
   private paymentRefreshTimer: number = -1
-  private paymentRefreshElapsed: number = 0
+  @State private paymentRefreshElapsed: number = 0
+  private paymentRefreshStarted: number = 0
+  private paymentNetwork: connection.NetConnection | undefined = undefined
   private paymentRefreshSequence: number = 0
   private cancellationDialogSequence: number = 0
   @Consume
@@ -87,20 +90,23 @@ export struct PayResultView {
     this.paymentNotice = ''
     this.canCancelOrder = false
     this.paymentAmount = 0
-    this.automaticRefreshExpired = this.paymentRefreshElapsed >= 30000
+    this.automaticRefreshExpired = this.paymentRefreshElapsed >= 600000
     this.refreshingPayment = false
     this.cancelling = false
   }
 
   private stopPaymentRefresh(resetElapsed: boolean = false): void {
     if (this.paymentRefreshTimer >= 0) {
-      clearInterval(this.paymentRefreshTimer)
+      clearTimeout(this.paymentRefreshTimer)
       this.paymentRefreshTimer = -1
     }
     this.paymentRefreshSequence++
+    try { this.paymentNetwork?.unregister(() => {}) } catch { }
+    this.paymentNetwork = undefined
     this.refreshingPayment = false
     if (resetElapsed) {
       this.paymentRefreshElapsed = 0
+      this.paymentRefreshStarted = 0
       this.automaticRefreshExpired = false
     }
   }
@@ -218,23 +224,44 @@ export struct PayResultView {
     if (GlobalVariable.DEMO_ORDER_FLOW) return
     if (this.paymentRefreshTimer >= 0 || this.automaticRefreshExpired || !this.pageActive ||
       !this.isCurrentPaymentContext(this.pageGeneration, this.sessionToken, this.orderId)) return
-    this.paymentRefreshTimer = setInterval(() => {
+    if (!this.paymentRefreshStarted) this.paymentRefreshStarted = Date.now()
+    if (!this.paymentNetwork) {
+      try {
+        const monitor = connection.createNetConnection()
+        this.paymentNetwork = monitor
+        monitor.on('netAvailable', () => {
+          if (this.paymentNetwork === monitor && this.pageActive && !this.automaticRefreshExpired) void this.refreshPaymentStatus(false)
+        })
+        monitor.register(() => {})
+      } catch { this.paymentNetwork = undefined }
+    }
+    if (this.paymentRefreshElapsed >= 600000 || Date.now() - this.paymentRefreshStarted >= 600000) {
+      this.automaticRefreshExpired = true
+      this.stopPaymentRefresh()
+      return
+    }
+    const interval: number = this.paymentRefreshElapsed < 30000 ? 2000 : this.paymentRefreshElapsed < 40000 ? 10000 :
+      this.paymentRefreshElapsed < 70000 ? 30000 : 60000
+    const delay: number = Math.min(interval, 600000 - this.paymentRefreshElapsed)
+    this.paymentRefreshTimer = setTimeout(() => {
+      this.paymentRefreshTimer = -1
       if (!this.pageActive || !this.isCurrentPaymentContext(this.pageGeneration, this.sessionToken, this.orderId)) {
         this.stopPaymentRefresh()
         return
       }
-      this.paymentRefreshElapsed += 2000
-      if (this.paymentRefreshElapsed >= 30000) {
-        clearInterval(this.paymentRefreshTimer)
-        this.paymentRefreshTimer = -1
+      this.paymentRefreshElapsed += delay
+      if (this.paymentRefreshElapsed >= 600000) {
         this.automaticRefreshExpired = true
+        this.stopPaymentRefresh()
+        return
       }
       this.refreshPaymentStatus(false)
-    }, 2000)
+      this.startPaymentRefresh()
+    }, delay)
   }
 
   private async refreshPaymentStatus(manual: boolean): Promise<void> {
-    if (!this.pageActive || (this.refreshingPayment && !manual) ||
+    if (!this.pageActive || this.refreshingPayment ||
       !this.isCurrentPaymentContext(this.pageGeneration, this.sessionToken, this.orderId)) return
     if (this.isCheckingPayment) {
       this.querySequence++
@@ -319,7 +346,7 @@ export struct PayResultView {
     if (this.displayedOrderState === OrderState.CANCELLED) return this.paymentNotice || this.getOrderProgressHint()
     if (this.paymentState === 'review') return this.paymentNotice || '我们正在核实这笔付款。如已扣款，核实后会原路退回或完成订单。'
     if (this.paymentState === 'confirming' || this.paymentResultUnconfirmed) {
-      if (this.automaticRefreshExpired) return '付款结果仍在确认中，可能需要几分钟。不会重复扣款，确认后订单会自动更新。'
+      if (this.paymentRefreshElapsed >= 30000) return '付款结果仍在确认中，可以先离开，结果会在订单里显示；请勿重复付款。'
       return '正在确认付款结果，请勿重复付款'
     }
     return this.paymentNotice || this.getOrderProgressHint()
@@ -407,21 +434,22 @@ export struct PayResultView {
         List() {
           ListItem() {
             Column({ space: 20 }) {
-              if (this.isCheckingPayment) {
+              if (this.isCheckingPayment || this.paymentResultUnconfirmed) {
                 LoadingProgress()
                   .width(60)
                   .height(60)
-                  .color($r('[ui_components].color.red'))
+                  .color($r('[ui_components].color.gray'))
               } else {
                 Image(this.paymentSucceeded ? $r('[ui_components].media.ic_public_check_filled') :
-                $r('[ui_components].media.ic_public_close_filled'))
+                $r('[ui_components].media.ic_public_empty'))
                   .width(60)
                   .height(60)
-                  .fillColor(this.paymentSucceeded ? '#07C160' : '#B0171F')
-                Text(this.getPaymentResultTitle())
-                  .fontSize(20)
-                  .fontWeight(600)
+                  .fillColor(this.paymentSucceeded ? '#07C160' : $r('[ui_components].color.gray'))
               }
+              Text(this.isCheckingPayment ? '正在查询支付结果' : this.getPaymentResultTitle())
+                .fontSize(20)
+                .fontWeight(600)
+                .fontColor($r('[ui_components].color.text'))
               if (this.isCheckingPayment) {
                 Text(this.getPaymentResultHint())
                   .fontSize(13)
@@ -431,9 +459,9 @@ export struct PayResultView {
                   .fontSize(13)
                   .fontColor($r('[ui_components].color.gray'))
                 if (GlobalVariable.DEMO_ORDER_FLOW) {
-                  Button('重新查询').fontSize(13).height(32).onClick(() => this.confirmPaymentResult())
+                  Button('重新查询').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).fontSize(13).height(32).onClick(() => this.confirmPaymentResult())
                 } else if (this.automaticRefreshExpired) {
-                  Button(this.refreshingPayment ? '正在刷新' : '手动刷新')
+                  Button(this.refreshingPayment ? '正在刷新' : '手动刷新').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
                     .fontSize(13)
                     .height(32)
                     .enabled(!this.cancelling)
@@ -445,36 +473,41 @@ export struct PayResultView {
                   .fontColor($r('[ui_components].color.gray'))
               }
               Row({ space: 12 }) {
+                Button(this.shouldOpenCashier() ? '去支付' : '查看本单')
+                  .enabled(this.canOpenResultDestination())
+                  .fontSize(14)
+                  .height(36)
+                  .backgroundColor($r('[ui_components].color.red'))
+                  .fontColor($r('[ui_components].color.white'))
+                  .border({ width: this.shouldOpenCashier() ? 0 : 0.5, color: $r('[ui_components].color.border') })
+                  .onClick(() => {
+                    this.openOrderListOrCashier()
+                  })
                 Button('全部订单')
-                  .backgroundColor($r('[ui_components].color.black'))
+                  .backgroundColor($r('[ui_components].color.under'))
+                  .fontColor($r('[ui_components].color.text'))
+                  .border({ width: 1, color: $r('[ui_components].color.border') })
                   .fontSize(14)
                   .height(36)
                   .onClick(() => {
                     this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
                   })
-                Button(this.shouldOpenCashier() ? '去支付' : '查看本单')
-                  .enabled(this.canOpenResultDestination())
-                  .fontSize(14)
-                  .height(36)
-                  .backgroundColor(this.shouldOpenCashier() ? $r('[ui_components].color.red') : $r('[ui_components].color.white'))
-                  .fontColor(this.shouldOpenCashier() ? Color.White : $r('[ui_components].color.black'))
-                  .border({ width: this.shouldOpenCashier() ? 0 : 0.5, color: $r('[ui_components].color.border') })
-                  .onClick(() => {
-                    this.openOrderListOrCashier()
-                  })
               }
               .width('100%')
               .justifyContent(FlexAlign.Center)
-              if (this.automaticRefreshExpired && this.canCancelOrder &&
+              if (this.paymentState === 'review' || this.paymentNotice.includes('人工')) {
+                Button('帮助与客服').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
+                  .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))
+              }
+              if (this.paymentRefreshElapsed >= 30000 && this.canCancelOrder &&
                 (this.paymentState === 'confirming' || this.paymentState === 'review')) {
                 Button('取消订单')
                   .fontSize(13)
                   .height(36)
+                  .backgroundColor(Color.Transparent)
+                  .fontColor($r('[ui_components].color.gray'))
                   .enabled(!this.cancelling && this.paymentAmount > 0)
                   .onClick(() => this.requestCancelOrder())
-              }
-              if (this.paymentState === 'review' || this.paymentNotice.includes('人工')) {
-                Button('帮助与客服').onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))
               }
             }
             .padding(40)

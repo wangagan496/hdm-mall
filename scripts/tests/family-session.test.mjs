@@ -24,7 +24,8 @@ function fixture() {
     OrderState,
     PAGE_PATH: { ORDER_DETAIL_PAGE: 'detail' },
     getFamilyRelationsPageAPI: (p, token) => { queries.push(['relations', p, token]); return api.relations(p, token) },
-    getFamilyOrdersPageAPI: (p, token) => { queries.push(['family', p, token]); return api.family(p, token) },
+    getFamilyOrdersPageAPI: (p, token, group) => { queries.push(['family', p, token]); return api.family(p, token, group) },
+    getFamilyOrderDetailAPI: async (id, token) => { queries.push(['detail', id, token]); return (await api.family(1, token)).items.find(item => item.id === id) },
     getMerchantOrdersPageAPI: (p, token) => { queries.push(['merchant', p, token]); return api.merchant(p, token) },
     inviteRelationAPI: (...args) => write('invite', args), updateRelationAPI: (...args) => write('relation', args),
     receiveOrderAPI: (...args) => write('receipt', args), startFamilyPaymentAPI: (...args) => write('pay', args),
@@ -60,6 +61,39 @@ test('亲友中心首次加载、刷新及失败保留的列表不能执行写�
   assert.equal(f.writes.length, 0); assert.equal(f.dialogs.length, 0)
   f.api.relations = async p => pageResult([], p); await f.page.loadFamilyCenter()
   f.invoke('invite'); await tick(); assert.deepEqual(f.writes[0], ['invite', 'friend', 'token-a'])
+})
+
+test('UX18 首次加载默认选中首个有内容的筛选，全部为空时回到全部订单', async () => {
+  const f = fixture()
+  f.api.family = async p => pageResult([{ ...receipt }], p)
+  await f.page.loadFamilyCenter()
+  assert.equal(f.page.familyGroup, 'receipt')
+  f.api.family = async p => pageResult([], p)
+  f.page.familyGroupInitialized = false
+  await f.page.loadFamilyCenter()
+  assert.equal(f.page.familyGroup, 'all')
+})
+
+test('UX18 跨页数量决定初始筛选，切换从第一页查询并隔离迟到结果', async () => {
+  const f = fixture(), calls = [], gate = deferred()
+  f.api.family = async (p, token, group) => {
+    calls.push({ p, token, group })
+    return { ...pageResult(group === 'receipt' ? [{ ...receipt }] : [], p),
+      groupCounts: { pay: 0, receipt: 1, pending: 0, all: 25 } }
+  }
+  await f.page.loadFamilyCenter()
+  assert.equal(f.page.familyGroup, 'receipt')
+  assert.equal(f.page.familyGroupCount('all'), 25)
+  assert.equal(f.page.familyOrders[0].id, 'receipt')
+  f.page.familyPage = 3
+  f.api.family = () => gate.promise
+  f.page.selectFamilyGroup('all'); await tick()
+  f.page.user = { token: 'token-b', role: 'buyer' }
+  f.page.reloadForCurrentAccount(); await tick()
+  gate.resolve({ ...pageResult([], 1), groupCounts: { pay: 0, receipt: 0, pending: 0, all: 0 } })
+  await tick()
+  assert.equal(f.page.familyGroupCount('all'), 0)
+  assert.equal(f.page.familyPage, 1)
 })
 
 test('换账号清空邀请输入和全部列表，资料变化不重读，注销与隐藏不查询', async () => {
@@ -178,6 +212,8 @@ test('亲友代付确认中不提示成功，不能再次提交，未知结果�
       paymentNotice: '正在确认付款结果，请勿重复付款' }], p)
     f.invoke('pay'); await tick()
     assert.ok(!f.messages.includes('代付成功'))
+    assert.equal(f.page.pendingFamilyOrders.includes('pay'), true)
+    await f.page.checkFamilyOrder('pay')
     assert.equal(f.page.familyOrders[0].paymentState, 'confirming')
     f.invoke('pay'); await tick()
     assert.equal(f.writes.length, 1)

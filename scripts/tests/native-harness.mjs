@@ -25,5 +25,11 @@ export function pageMethods(path, className, dependencies = {}, globals = {}) {
   const end = source.indexOf('  @Builder')
   source = source.slice(0, end < 0 ? source.indexOf('  build()') : end)
   source = source.replace('export struct', 'export class').replace(/@\w+(?:\([^)]*\))?\s*/g, '') + '\n}'
-  return execute(source, dependencies, globals)[className]
+  // Background recovery timers must not hold the test process open; tests of recovery
+  // inject a controllable timer and execute the same production scheduler.
+  const recovery = execute(sourceOf('mixed-development-h5/commons/storage/src/main/ets/RecoveryQuery.ets'), {}, {
+    setTimeout: globals.setTimeout ?? ((fn, delay) => { const timer = setTimeout(fn, delay); timer.unref(); return timer }),
+    clearTimeout: globals.clearTimeout ?? clearTimeout,
+  })
+  return execute(source, dependencies, { ...recovery, ...globals })[className]
 }

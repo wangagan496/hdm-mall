@@ -13,10 +13,11 @@ test('桥接对象缺少网页字段或基本类型变化均拒绝，允许原�
     assert.throws(() => checkBridge(types, native, models.replace(declaration, '')), new RegExp(`HDMUser\\.${field}`))
     assert.throws(() => checkBridge(types, native, models.replace(declaration, `  ${field}: number\n`)), /基本类型不一致/)
   }
-  assert.equal(checkBridge(types, native, models.replace('role?: string', 'role?: string\n  nativeOnly?: boolean')), 10)
+  assert.equal(checkBridge(types, native, models.replace('role?: string', 'role?: string\n  nativeOnly?: boolean')), 12)
 })
 test('真实桥接契约通过，缺实现、漏注册、改名、改参数及返回值均被拒绝', () => {
-  assert.equal(checkBridge(types, native), 10)
+  assert.equal(checkBridge(types, native), 12)
+  assert.throws(() => checkBridge(types, native.replace("'completeProfileFlush'", "'missingFlush'")), /completeProfileFlush/)
   assert.throws(() => checkBridge(types, native.replace('pickerPhoto(): Promise<string>', 'missingPhoto(): Promise<string>')), /pickerPhoto/)
   assert.throws(() => checkBridge(types, native.replace("'pickerPhoto',", '')), /pickerPhoto/)
   assert.throws(() => checkBridge(types.replace('pickerPhoto:', 'renamedPhoto:'), native), /Photo/)

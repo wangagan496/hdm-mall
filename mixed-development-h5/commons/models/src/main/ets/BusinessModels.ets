@@ -342,7 +342,15 @@ export interface OrderListParams {
   orderState: number
 }
 
+export interface FamilyGroupCounts {
+  pay: number
+  receipt: number
+  pending: number
+  all: number
+}
+
 export interface OrderPage {
+  groupCounts?: FamilyGroupCounts
   counts: number
   items: OrderItem[]
   page: number

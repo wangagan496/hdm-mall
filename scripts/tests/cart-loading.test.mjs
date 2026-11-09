@@ -18,6 +18,8 @@ function fixture(operations = {}) {
     ...api, CartOperations: Object.assign(class extends CartOperationHelper {}, operations),
     ...execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/CartPresentation.ets')),
     CartGoodsModel: class { constructor(value) { Object.assign(this, value) } },
+    RequestAxios: {putForSession:(_url,body)=>body.count!==undefined?operations.updateCartCount?.():operations.updateCartSelection?.()},
+    authCart:{updateCartCount:async()=>{}},
     BusinessVariable: { UPDATE_CART_LIST: 'cart' },
     PAGE_PATH: { CART_PAGE: 'cart', CHECK_ORDER_PAGE: 'checkout' },
   })
@@ -190,6 +192,7 @@ test('换账号或离页重进后，旧修改和删除回应不影响新列表�
           : method === 'toggleAllGoodsSelection' ? f.page[method]()
           : f.page[method](f.page.cartList[0], method === 'changeGoodsQuantity' ? 3 : false)
         const oldSave = invoke()
+        if(method==='changeGoodsSelection'||method==='changeGoodsQuantity')await new Promise(resolve=>setTimeout(resolve,140))
         if (transition === 'account') {
           f.page.user = { token: 'buyer-b' }
           f.page.reloadForCurrentAccount()
@@ -200,18 +203,20 @@ test('换账号或离页重进后，旧修改和删除回应不影响新列表�
         f.requests[1].resolve([item('same-sku', 40)])
         await tick()
         const newSave = invoke()
+        if(method==='changeGoodsSelection'||method==='changeGoodsQuantity')await new Promise(resolve=>setTimeout(resolve,140))
         assert.equal(calls, 2)
         if (fails) oldGate.reject(new Error('late failure'))
         else oldGate.resolve()
         await oldSave
         assert.equal(f.page.cartList[0].skuId, 'same-sku')
-        assert.equal(f.page.allPrice, 80)
+        assert.equal(f.page.allPrice, method==='changeGoodsSelection'?0:method==='changeGoodsQuantity'?120:80)
         assert.deepEqual(f.toasts, [])
+        const row=method==='changeGoodsSelection'||method==='changeGoodsQuantity'
         const flag = method === 'deleteCartItems' ? 'deleting' : 'updating'
-        assert.equal(f.page[flag], true)
+        assert.equal(row?f.page.rowSaves.size>0:f.page[flag], true)
         newGate.resolve()
         await newSave
-        assert.equal(f.page[flag], false)
+        assert.equal(row?f.page.rowSaves.size>0:f.page[flag], false)
       }
     }
   }

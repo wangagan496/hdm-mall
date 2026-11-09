@@ -32,7 +32,7 @@ export class AuthCart {
 
   // 刷新显示用的总件数，不是修改购物袋里某件商品的数量。
   // 读取成功后更新应用角标、桌面卡片，并通知购物袋页面重新加载列表。
-  async updateCartCount(): Promise<void> {
+  async updateCartCount(source: string = ''): Promise<void> {
     const token: string = auth.getUserInfo()?.token || ''
     const sequence: number = ++this.querySequence
     if (!token) {
@@ -45,20 +45,20 @@ export class AuthCart {
       if (sequence !== this.querySequence || auth.getUserInfo()?.token !== token) {
         return
       }
-      this.publishCartCount(cartSummary.count)
+      this.publishCartCount(cartSummary.count, source)
     } catch {
       if (sequence === this.querySequence && auth.getUserInfo()?.token === token) {
         // 查询失败统一清理显示；不表示服务端购物袋已清空。
-        this.publishCartCount(0)
+        this.publishCartCount(0, source)
       }
     }
   }
 
-  private publishCartCount(count: number): void {
+  private publishCartCount(count: number, source: string = ''): void {
     // AppStorage 保存应用共享的显示数量；事件通知 CartView 重新读列表。
     AppStorage.setOrCreate<number>(BusinessVariable.CART_COUNT, count)
     this.updateCardData(count)
-    storeManager.ctx?.eventHub.emit(BusinessVariable.UPDATE_CART_LIST)
+    storeManager.ctx?.eventHub.emit(BusinessVariable.UPDATE_CART_LIST, source)
   }
 
   // 更新服务卡片上显示的购物车数量

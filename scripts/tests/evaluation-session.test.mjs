@@ -114,5 +114,5 @@ test('当前评价确认期间保持提交锁，确认读取固定凭证并拒�
   confirmation.resolve({ id: 'order-a', evaluation: { score: 1, content: '另一条评价' } }); await pending
   assert.equal(page.submitted, false); assert.equal(page.submitting, false); assert.equal(f.navigations(), 0)
   assert.equal(page.content, '这是当前账号的评价')
-  assert.equal(page.errorText, '网络连接失败，评价结果待确认，输入已保留，请恢复网络后重新提交')
+  assert.equal(page.errorText, '正在确认评价结果，输入已保留，恢复网络后会自动核对');assert.equal(page.resultUnknown,true)
 })
