@@ -13,9 +13,9 @@ async function fixture(count = 37) {
       const name = index === 0 ? "scale %_ O'Reilly Case" : `scale 商品 ${index}`
       const price = 1000 + index % 4 * 100, stock = index === 3 ? 0 : 2
       products.push({ id, name, category: '测试类别', price, child, stock })
-      f.db.run('INSERT INTO products VALUES(?,?,?,?,?)', id, name, '测试类别', '/assets/product.svg', '测试说明')
-      f.db.run('INSERT INTO skus VALUES(?,?,?,?,?)', `${id}-a`, id, '有货规格', price, stock)
-      f.db.run('INSERT INTO skus VALUES(?,?,?,?,?)', `${id}-b`, id, '便宜但售罄', 1, 0)
+      f.db.run('INSERT INTO products(id,name,category,picture,description) VALUES(?,?,?,?,?)', id, name, '测试类别', '/assets/product.svg', '测试说明')
+      f.db.run('INSERT INTO skus(id,product_id,spec,price,stock) VALUES(?,?,?,?,?)', `${id}-a`, id, '有货规格', price, stock)
+      f.db.run('INSERT INTO skus(id,product_id,spec,price,stock) VALUES(?,?,?,?,?)', `${id}-b`, id, '便宜但售罄', 1, 0)
       f.db.run('INSERT INTO product_categories VALUES(?,?)', id, child)
     }
   })

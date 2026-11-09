@@ -1,3 +1,5 @@
+import { ExcludedCheckoutGoods } from './BusinessModels'
+
 export interface CheckoutPrice {
   skuId: string
   name: string
@@ -15,7 +17,7 @@ export interface CheckoutShortage {
 }
 export interface CheckoutDetail {
   totalAmountCents?: number
-  goods: CheckoutPrice[] | CheckoutShortage[]
+  goods: CheckoutPrice[] | CheckoutShortage[] | ExcludedCheckoutGoods[]
 }
 export interface CheckoutFailure {
   status: number

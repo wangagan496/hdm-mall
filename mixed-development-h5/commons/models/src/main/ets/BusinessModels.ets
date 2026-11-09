@@ -78,6 +78,8 @@ export interface FamilyRelationPage {
 }
 
 export interface CartGoods {
+  available?: boolean
+  unavailableReason?: string
   count: number
   id: string
   name: string
@@ -91,6 +93,8 @@ export interface CartGoods {
 
 @Observed
 export class CartGoodsModel implements CartGoods {
+  @Track available: boolean = true
+  @Track unavailableReason: string = ''
   // @Track 让 @ObjectLink 仅在实际变更的属性上触发最小化刷新
   @Track count: number = 0
   @Track id: string = ''
@@ -103,12 +107,14 @@ export class CartGoodsModel implements CartGoods {
   @Track attrsText: string = ''
 
   constructor(model: CartGoods) {
+    this.available = model.available !== false
+    this.unavailableReason = model.unavailableReason || ''
     this.count = model.count
     this.id = model.id
     this.name = model.name
     this.picture = model.picture
     this.price = model.price
-    this.selected = model.selected
+    this.selected = model.selected && this.available
     this.skuId = model.skuId
     this.stock = model.stock
     this.attrsText = model.attrsText
@@ -169,10 +175,13 @@ export interface Summary {
 }
 
 export interface PreOrder {
+  excludedGoods?: ExcludedCheckoutGoods[]
   goods: OrderGoodsItem[]
   userAddresses: AddressItem[]
   summary: Summary
 }
+
+export interface ExcludedCheckoutGoods { skuId: string; name: string; reason: string }
 
 export interface CreateOrderParamsGoods {
   skuId: string

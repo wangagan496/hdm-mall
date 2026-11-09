@@ -212,6 +212,8 @@ export function normalizeGoodsPresentation(source: HDMGoodsItem, detail: Goods):
     orderNum: source.orderNum,
     originalPrice: source.originalPrice || detail.originalPrice,
     inventory: detail.inventory,
+    status: detail.status,
+    available: detail.available,
     mainPictures: productPicture ? [productPicture] : [],
     details: detail.details,
     specs: normalizeSkuSpecs(detail.skus, detail.specs),

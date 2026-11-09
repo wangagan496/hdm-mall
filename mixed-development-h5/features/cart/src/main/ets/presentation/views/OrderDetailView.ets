@@ -1,4 +1,5 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
+import { orderWriteFailure } from '../utils/OrderWriteFailure'
 import { HDMNavBar } from 'ui_components'
 import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, formatBeijingTime } from 'models'
 import { demoOrderStore, cancelActions } from 'storage'
@@ -181,7 +182,7 @@ export struct OrderDetailView {
             return
           }
         }
-        this.safeToast((error as Error).message || '操作失败，请稍后重试')
+        this.safeToast(orderWriteFailure(error as Error).message || '操作结果还在确认，请刷新订单查看')
       }
     } finally {
       if (this.isCurrentDetail(generation, token, orderId)) {
@@ -214,7 +215,7 @@ export struct OrderDetailView {
       }
       if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) this.safeToast('取消操作已确认')
     } catch (error) {
-      if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) this.safeToast((error as Error).message)
+      if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) this.safeToast(orderWriteFailure(error as Error).message || '取消结果还在确认，请刷新订单查看')
     } finally {
       if (this.isCurrentDetail(generation, token, orderId)) {
         this.cancelActionPending = cancelActions.pending().some(record => record.orderId === orderId)
@@ -399,15 +400,14 @@ export struct OrderDetailView {
             }
           }
           .width('100%')
-        } else if (this.displayedOrderState === OrderState.AWAITING_RECEIPT) { // 待收货：查看物流、确认收货。
+        } else if (this.displayedOrderState === OrderState.AWAITING_RECEIPT) { // 待收货：物流提示、确认收货。
           Row({ space: 8 }) {
-            Button('查看物流')
+            Text('暂未提供物流信息')
               .height(36)
               .fontSize(13)
               .fontColor($r('[ui_components].color.gray'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.border') })
-              .onClick(() => {})
             Button(this.busy === 'receipt' ? '确认中...' : '确认收货')
               .height(36)
               .fontSize(13)

@@ -6,6 +6,8 @@ import { CartItem } from '../components'
 import { common } from '@kit.AbilityKit'
 import { excludeCartItems } from '../utils/CartPresentation'
 import { CartOperationHelper as CartOperations } from '../utils/CartOperations'
+import { RequestAxios } from 'network'
+import { authCart } from 'storage'
 
 @Component
 export struct CartView {
@@ -185,7 +187,7 @@ export struct CartView {
       await CartOperations.toggleSelectAll(selected)
       // 角标刷新会通知列表重载，已替换的列表以服务端结果为准。
       if (this.isCurrentPage(version, token) && this.cartList === list) {
-        this.cartList.forEach(item => item.selected = selected)
+        this.cartList.forEach(item => item.selected = selected && item.available !== false)
         this.recalculateCartSummary()
       }
     } catch {
@@ -204,7 +206,7 @@ export struct CartView {
     if (this.updating || this.deleting || this.loading || this.loadFailed) {
       return
     }
-    const selectedGoodsCount = this.cartList.filter(item => item.selected).length
+    const selectedGoodsCount = CartOperations.getSelectedCarts(this.cartList).length
     if (selectedGoodsCount === 0) {
       this.getUIContext().getPromptAction().showToast({
         message: '请选择要结算的商品'
@@ -247,6 +249,21 @@ export struct CartView {
         this.deleting = false
       }
     }
+  }
+
+  private invalidCount(): number { return this.cartList.filter(item => !item.available).length }
+  private async clearInvalid(): Promise<void> {
+    const version = this.pageVersion, token = this.user.token
+    if (this.loading || this.updating || this.deleting || !token) return
+    this.deleting = true
+    try {
+      await RequestAxios.deleteForSession<object>('/member/cart/invalid', token)
+      if (!this.isCurrentPage(version, token)) return
+      await authCart.updateCartCount()
+      if (this.isCurrentPage(version, token)) await this.loadCartList()
+    } catch {
+      if (this.isCurrentPage(version, token)) this.getUIContext().getPromptAction().showToast({ message: '清除未完成，请重试' })
+    } finally { if (this.isCurrentPage(version, token)) this.deleting = false }
   }
 
   @Builder
@@ -324,6 +341,14 @@ export struct CartView {
         }
 
         List({ space: 8 }) {
+          if (this.invalidCount() > 0) {
+            ListItem() {
+              Column({ space: 8 }) {
+                Text('有 ' + this.invalidCount() + ' 件商品暂不可购买，已取消选择，其余商品可继续结算')
+                Button('清除失效商品').enabled(!this.loading && !this.deleting && !this.updating).onClick(() => this.clearInvalid())
+              }.padding(12).width('100%')
+            }
+          }
           if (this.user.token) {
             if (this.loading && this.cartList.length === 0) {
               ListItem() {
@@ -441,7 +466,7 @@ export struct CartView {
               .fontColor($r('[ui_components].color.red'))
               .layoutWeight(1)
             Button('去结算')
-              .enabled(!this.updating && !this.deleting && !this.loading && !this.loadFailed)
+              .enabled(!this.updating && !this.deleting && !this.loading && !this.loadFailed && CartOperations.getSelectedCarts(this.cartList).length > 0)
               .fontSize(14)
               .width(88)
               .height(36)

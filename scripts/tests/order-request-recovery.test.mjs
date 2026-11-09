@@ -41,13 +41,13 @@ for (const state of ['pending', 'cancelled', 'missing', 'offline']) {
     assert.deepEqual(f.queries, [{ key: 'old-key', token: 'token' }])
     assert.equal(f.dialogs.length, state === 'pending' ? 1 : 0)
     assert.equal(f.messages.length, state === 'missing' ? 1 : 0)
-    if (state === 'missing') assert.equal(f.messages[0], '上次提交没有成功，商品仍在购物车里')
+    if (state === 'missing') assert.equal(f.messages[0], '正在确认是否下单成功，请勿重复提交')
     if (state === 'pending') {
       assert.match(f.dialogs[0].message, /上次提交的订单已生成/)
       assert.equal(f.dialogs[0].buttons[1].text, '去付款')
     }
     assert.equal(f.paths.length, 0)
-    assert.equal(f.storeManager.getPendingOrder('buyer') !== null, state === 'offline')
+    assert.equal(f.storeManager.getPendingOrder('buyer') !== null, state === 'offline' || state === 'missing')
     await f.page.recoverPendingOrder()
     assert.equal(f.dialogs.length, state === 'pending' ? 1 : 0)
   })

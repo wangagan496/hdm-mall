@@ -67,10 +67,10 @@ export class TestFixtures {
     const data = productSchema.parse(input), db = this.accounts.db
     return db.transaction(() => {
       const id = data.id ?? randomUUID()
-      db.run('INSERT INTO products VALUES(?,?,?,?,?)', id, data.name, data.category, '/assets/product.svg', data.description)
+      db.run('INSERT INTO products(id,name,category,picture,description) VALUES(?,?,?,?,?)', id, data.name, data.category, '/assets/product.svg', data.description)
       const skus = data.skus.map(sku => {
         const skuId = sku.id ?? randomUUID()
-        db.run('INSERT INTO skus VALUES(?,?,?,?,?)', skuId, id, sku.spec, sku.priceCents, sku.stock)
+        db.run('INSERT INTO skus(id,product_id,spec,price,stock) VALUES(?,?,?,?,?)', skuId, id, sku.spec, sku.priceCents, sku.stock)
         recordStockMovement(db, { kind: 'opening', skuId, delta: sku.stock }, this.accounts.clock)
         return { ...sku, id: skuId }
       })

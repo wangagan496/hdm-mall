@@ -301,7 +301,7 @@ export struct PayResultView {
         orderCancellation.confirm(orderId).then(() => {
           if (this.isCurrentPaymentContext(generation, token, orderId)) this.confirmPaymentResult()
         }).catch((error: Error) => {
-          if (this.isCurrentPaymentContext(generation, token, orderId)) this.safeToast(error.message || '取消结果待确认，请稍后查询')
+          if (this.isCurrentPaymentContext(generation, token, orderId)) this.safeToast('取消结果待确认，请稍后查询')
         }).finally(() => {
           if (this.isCurrentPaymentContext(generation, token, orderId)) this.cancelling = false
         })
@@ -393,7 +393,7 @@ export struct PayResultView {
     if (this.shouldOpenCashier()) {
       this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: this.orderId })
     } else {
-      this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
+      this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: this.orderId })
     }
   }
 
@@ -445,15 +445,14 @@ export struct PayResultView {
                   .fontColor($r('[ui_components].color.gray'))
               }
               Row({ space: 12 }) {
-                Button('返回首页')
+                Button('全部订单')
                   .backgroundColor($r('[ui_components].color.black'))
                   .fontSize(14)
                   .height(36)
                   .onClick(() => {
-                    this.stackPath.popToIndex(-1)
-                    this.stackPath.clear()
+                    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })
                   })
-                Button(this.shouldOpenCashier() ? '去支付' : GlobalVariable.DEMO_ORDER_FLOW ? '查看订单' : '回到订单')
+                Button(this.shouldOpenCashier() ? '去支付' : '查看本单')
                   .enabled(this.canOpenResultDestination())
                   .fontSize(14)
                   .height(36)

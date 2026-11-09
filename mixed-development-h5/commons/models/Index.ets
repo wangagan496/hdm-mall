@@ -20,6 +20,7 @@ export {
   OrderGoodsItem,
   Summary,
   PreOrder,
+  ExcludedCheckoutGoods,
   CreateOrderParamsGoods,
   CreateOrderParams,
   CreateOrderResult,

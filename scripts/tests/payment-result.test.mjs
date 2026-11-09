@@ -46,7 +46,7 @@ function fixture() {
   const queries = [], refreshes = [], navigations = [], demoReads = [], dialogs = [], cancellations = [], timers = fakeTimers()
   const config = { DEMO_ORDER_FLOW: false }
   const Page = pageMethods(base + 'views/PayResultView.ets', 'PayResultView', {}, {
-    ...presentation, GlobalVariable: config, PAGE_PATH: { PAY_RESULT_PAGE: 'result', PAY_PAGE: 'pay', ORDER_PAGE: 'orders' },
+    ...presentation, GlobalVariable: config, PAGE_PATH: { PAY_RESULT_PAGE: 'result', PAY_PAGE: 'pay', ORDER_PAGE: 'orders', ORDER_DETAIL_PAGE: 'detail' },
     getOrderDetailAPI: (id, token) => { const gate = deferred(); queries.push({ ...gate, id, token }); return gate.promise },
     refreshPaymentAPI: (id, token) => { const gate = deferred(); refreshes.push({ ...gate, id, token }); return gate.promise },
     orderCancellation: { confirm: id => { cancellations.push(id); return cancel(id) } },
@@ -71,7 +71,8 @@ test('支付结果查询中不能进入收银台，查询失败只可查看订�
   assert.equal(f.page.paymentSucceeded, false)
   f.queries[0].reject(new Error('offline')); await tick()
   assert.equal(f.page.paymentResultUnconfirmed, true); assert.equal(f.page.getPaymentResultTitle(), '支付结果待确认')
-  f.page.openOrderListOrCashier(); assert.equal(f.navigations.at(-1).name, 'orders')
+  f.page.openOrderListOrCashier(); assert.equal(f.navigations.at(-1).name, 'detail')
+  assert.equal(f.navigations.at(-1).param, 'order-a')
   const retry = f.page.confirmPaymentResult(); await f.finish(row(1)); await retry
   assert.equal(f.page.paymentResultUnconfirmed, false); assert.equal(f.page.paymentSucceeded, false)
   f.page.openOrderListOrCashier(); assert.equal(f.navigations.at(-1).name, 'pay')
@@ -149,7 +150,7 @@ test('只有已确认待付款且有权限的订单可继续支付，已付已�
     assert.equal(f.page.displayedOrderState, state)
     assert.equal(f.page.paymentSucceeded, state >= 2 && state <= 5)
     f.page.openOrderListOrCashier()
-    assert.equal(f.navigations[0].name, state === 1 && canPay ? 'pay' : 'orders', `state=${state} canPay=${canPay}`)
+    assert.equal(f.navigations[0].name, state === 1 && canPay ? 'pay' : 'detail', `state=${state} canPay=${canPay}`)
   }
 })
 

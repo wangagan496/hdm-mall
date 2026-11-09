@@ -6,6 +6,37 @@ import { addressPage } from './address-harness.mjs'
 const test = (name, run) => nodeTest(name, { timeout: 2000 }, run)
 const row = (id = 'address-a') => ({ id, receiver: id, contact: '13800000000', address: '一号楼',
   fullLocation: '北京市 北京市 东城区', provinceCode: 11, cityCode: 1101, countyCode: 110101, isDefault: 1 })
+
+test('结算直接复用地址编辑器，保存最后输入后返回地址编号且不设为默认', async () => {
+  const f = fixture(), results = []
+  f.page.stackPath = { pop: result => results.push(result) }
+  await f.page.startCheckoutEditor('')
+  assert.equal(f.page.showEditor, true)
+  assert.equal(f.page.checkoutEditor, true)
+  Object.assign(f.page.form, row(''), { receiver: '结算收货人', isDefault: false })
+  await f.page.useCheckoutAddress()
+  assert.equal(f.writes.length, 1)
+  assert.equal(f.writes[0].data.isDefault, 1)
+  assert.equal(f.writes[0].data.receiver, '结算收货人')
+  assert.deepEqual(results, ['created'])
+})
+
+test('结算地址保存失败保留输入，未保存和旧账号结果都不能返回到结算', async () => {
+  const f = fixture(), results = []
+  f.page.stackPath = { pop: result => results.push(result) }
+  await f.page.startCheckoutEditor('address-a')
+  f.page.form.receiver = '新名字'
+  f.setWrite(async () => { throw new Error('offline') })
+  await f.page.useCheckoutAddress()
+  assert.deepEqual(results, [])
+  assert.equal(f.page.form.receiver, '新名字')
+  assert.ok(f.page.saveError)
+  const gate = deferred(); f.setWrite(() => gate.promise)
+  const saving = f.page.useCheckoutAddress(); await tick()
+  f.page.user = { token: 'buyer-b' }
+  gate.resolve({ id: 'address-a' }); await saving
+  assert.deepEqual(results, [])
+})
 function fixture() {
   const reads = [], writes = [], messages = [], events = [], alerts = [], timers = new Map()
   let nextTimer = 0, nextKey = 0, list = async () => [row()], detail = async id => row(id), write = async () => ({ id: 'created' })

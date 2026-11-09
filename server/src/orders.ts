@@ -6,6 +6,7 @@ import { Catalog } from './catalog.ts'
 import { AppError, ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
 import type { Payments } from './payments.ts'
+import { localAvatarPath } from './avatar.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -201,7 +202,8 @@ export class Orders {
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
       payMoney: order.amount / 100, totalMoney: order.amount / 100, postFee: 0, payChannel: 1, payType: 1,
       totalNum: items.reduce((sum, item) => sum + item.count, 0),
-      skus: items.map(item => ({ id: item.sku_id, spuId: item.product_id, name: item.name, image: item.picture,
+      skus: items.map(item => ({ id: item.sku_id, spuId: item.product_id, name: item.name,
+        image: localAvatarPath(item.picture) ? this.catalog.publicUrl + localAvatarPath(item.picture) : item.picture,
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100 })),
       evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created } : null,
@@ -264,11 +266,15 @@ export class Orders {
     this.expireIfDue()
     // 只预览购物车里已勾选的商品，不扣库存、不创建订单。
     const selectedSku = selection ? this.catalog.sku(selection.skuId) : undefined
+    const cart = selection ? [] : this.catalog.cart(user)
+    const excludedGoods = selectedSku && (selectedSku.status !== 'on' || selectedSku.enabled !== 1) ?
+      [{ skuId: selectedSku.id, name: selectedSku.name, reason: selectedSku.status === 'off' ? '已下架' : '规格已停用' }] :
+      cart.filter(item => !item.available).map(item => ({ skuId: item.skuId, name: item.name, reason: item.unavailableReason }))
     const selectedGoods = selectedSku ? [{ id: selectedSku.product_id, skuId: selectedSku.id, name: selectedSku.name,
       picture: selectedSku.picture, stock: selectedSku.stock, price: selectedSku.price / 100,
       attrsText: selectedSku.spec, count: selection!.count, selected: true }] :
-      this.catalog.cart(user).filter(item => item.selected)
-    const goods = selectedGoods.map(item => ({
+      cart.filter(item => item.selected && item.available)
+    const goods = selectedGoods.filter(item => !excludedGoods.some(excluded => excluded.skuId === item.skuId)).map(item => ({
       ...item,
       price: String(item.price),
       payPrice: String(item.price),
@@ -281,6 +287,7 @@ export class Orders {
     const goodsCount = goods.reduce((sum, item) => sum + item.count, 0)
     return {
       goods,
+      excludedGoods,
       userAddresses: this.accounts.addresses(user),
       summary: { discountPrice: 0, goodsCount, postFee: 0, totalPayPrice: totalYuan, totalPrice: totalYuan }
     }
@@ -312,6 +319,10 @@ export class Orders {
       const address = this.db.one<{ data: string }>('SELECT data FROM addresses WHERE id=? AND user_id=?', data.addressId, user.id)
       ensure(address, 400, '请选择自己的收货地址')
       const items = data.goods.map(item => ({ ...this.catalog.sku(item.skuId), count: item.count }))
+      const unavailable = items.filter(item => item.status !== 'on' || item.enabled !== 1)
+      if (unavailable.length) throw new AppError(409, '部分商品暂不可购买，请核对新的结算内容', 'PRODUCT_UNAVAILABLE', {
+        goods: unavailable.map(item => ({ skuId: item.id, name: item.name, reason: item.status === 'off' ? '已下架' : '规格已停用' }))
+      })
       const totalAmountCents = items.reduce((sum, item) => sum + item.price * item.count, 0)
       if (totalAmountCents !== data.expectedAmountCents) {
         throw new AppError(409, '商品价格有变化，已更新为最新价格，请确认后再提交', 'PRICE_CHANGED', {

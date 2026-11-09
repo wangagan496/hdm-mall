@@ -1,16 +1,16 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
+import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, ExcludedCheckoutGoods, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart, checkoutFailure, getOrderByRequestAPI, storeManager } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
 import { util } from '@kit.ArkTS'
-import { createOrderAPI, getPreOrderAPI } from '../../data/api'
+import { connection } from '@kit.NetworkKit'
+import { createOrderAPI, getPreOrderAPI, updateCheckoutCartAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
 
 // 用业务名称区分弹层，避免读者猜测 1、2 各代表什么。
 enum CheckoutSheet {
   None = 0,
-  Payment = 1,
   Address = 2
 }
 
@@ -29,6 +29,7 @@ export struct CheckView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   // 本次要购买的商品：由服务端根据购物袋中已勾选的商品返回。
   @State goodsList: OrderGoodsItem[] = []
+  @State excludedNotice: string = ''
   // 用户可选的收货地址。
   @State addressList: AddressItem[] = []
   // 服务端返回的结算金额，购物袋的本地合计不直接用于下单。
@@ -52,11 +53,18 @@ export struct CheckView {
   @State isSubmittingOrder: boolean = false
   @State confirmingOrder: boolean = false
   @State confirmingRequest: boolean = false
+  @State confirmationExhausted: boolean = false
+  @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
+  private confirmationTimer: number = -1
+  private confirmationAttempt: number = 0
+  private networkMonitor: connection.NetConnection | undefined = undefined
+  private networkAttempted: boolean = false
   private requestSummary: string = ''
   private confirmationSequence: number = 0
   private recoveredOrderId: string = ''
   private checkoutAccountId: string = ''
   private checkoutSelection: CheckoutSelection | undefined = undefined
+  private buyNowRemoved: boolean = false
   @Consume
   stackPath: NavPathStack
 
@@ -72,8 +80,8 @@ export struct CheckView {
   @State pageActive: boolean = true
   @State checkoutLoading: boolean = true
   @State checkoutRefreshFailed: boolean = false
-
-  payChannels = ['模拟支付（可邀请亲友代付）']
+  @State editingCheckout: boolean = false
+  private keepEmptyCheckout: boolean = false
 
   aboutToAppear(): void {
     this.pageActive = true
@@ -87,6 +95,7 @@ export struct CheckView {
   }
 
   aboutToDisappear(): void {
+    this.stopOrderRecovery()
     this.confirmationSequence++
     this.confirmingRequest = false
     this.pageActive = false
@@ -95,6 +104,7 @@ export struct CheckView {
     this.checkoutQuerySequence++
     this.checkoutLoading = true
     this.showSheet = false
+    this.editingCheckout = false
     emitter.off(BusinessVariable.UPDATE_ADDRESS_LIST, this.reloadCheckoutAfterAddressChange)
   }
 
@@ -118,12 +128,14 @@ export struct CheckView {
     const changedAccount: boolean = !!accountId && !!this.checkoutAccountId && accountId !== this.checkoutAccountId
     if (accountId) this.checkoutAccountId = accountId
     this.checkoutToken = token
+    this.stopOrderRecovery()
     this.confirmationSequence++
     this.confirmingOrder = false
     this.confirmingRequest = false
     this.pageGeneration++
     this.checkoutQuerySequence++
     this.isSubmittingOrder = false
+    this.editingCheckout = false
     this.checkoutLoading = false
     this.showSheet = false
     this.activeSheet = CheckoutSheet.None
@@ -169,25 +181,27 @@ export struct CheckView {
     const sequence: number = ++this.checkoutQuerySequence
     this.checkoutLoading = true
     this.checkoutRefreshFailed = false
-    // 金额或商品可能变化，关闭旧支付确认；地址选择仍允许保留。
-    if (this.activeSheet === CheckoutSheet.Payment) {
-      this.showSheet = false
-    }
     try {
       if (!GlobalVariable.DEMO_ORDER_FLOW && storeManager.getPendingOrder(this.user.id || '')) {
         this.confirmingOrder = true
         await this.confirmPendingOrder()
         if (!this.isCurrentCheckout(generation, token) || this.confirmingOrder || this.recoveredOrderId) return
       }
+      if (this.buyNowRemoved) return
       const checkoutPreview = await getPreOrderAPI(token, this.checkoutSelection)
       if (sequence !== this.checkoutQuerySequence || !this.isCurrentCheckout(generation, token)) {
         return
       }
       this.checkoutRefreshFailed = false
+      if (checkoutPreview.excludedGoods && checkoutPreview.excludedGoods.length > 0) {
+        this.excludedNotice = checkoutPreview.excludedGoods.map((item: ExcludedCheckoutGoods) => item.name + item.reason + '，已移出本次结算').join('；')
+        this.keepEmptyCheckout = true
+      }
       if (!checkoutPreview.goods || checkoutPreview.goods.length === 0) {
         this.goodsList = []
         this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
         this.showSheet = false
+        if (this.keepEmptyCheckout) return
         this.safeToast(this.checkoutSelection ? '商品规格已失效，请重新选择' : '购物车中没有选中的商品')
         this.stackPath.pop()
         return
@@ -228,7 +242,7 @@ export struct CheckView {
     }
   }
 
-  // 第二步：用户在支付方式弹层确认购买，才校验并提交订单。
+  // 第二步：用户提交订单，校验成功后进入收银台。
   private async createOrderAndOpenCashier(): Promise<void> {
     if (this.confirmingOrder) {
       await this.confirmPendingOrder()
@@ -260,6 +274,10 @@ export struct CheckView {
       void authCart.updateCartCount()
       this.openCashier(createdOrder.id)
     } catch (error) {
+      // 401 明确未通过鉴权；即使登录拦截器已切换页面状态，也只清理本次原账号的记录。
+      if (sent && !GlobalVariable.DEMO_ORDER_FLOW && checkoutFailure(error as Error).status === 401) {
+        await storeManager.clearPendingOrder(accountId, request.requestKey || '')
+      }
       if (this.isCurrentCheckout(generation, token)) {
         const failure = checkoutFailure(error as Error)
         if (!GlobalVariable.DEMO_ORDER_FLOW) {
@@ -302,6 +320,12 @@ export struct CheckView {
           this.orderRequestKey = util.generateRandomUUID(true)
           this.showSheet = false
           this.safeToast('商品价格有变化，已更新为最新价格，请确认后再提交')
+        } else if (failure.reason === 'PRODUCT_UNAVAILABLE') {
+          this.keepEmptyCheckout = true
+          this.showSheet = false
+          if (failure.result) this.excludedNotice = (failure.result.goods as ExcludedCheckoutGoods[])
+            .map((item: ExcludedCheckoutGoods) => item.name + item.reason + '，已移出本次结算').join('；')
+          await this.loadCheckoutPreview()
         } else if (failure.reason === 'STOCK_SHORTAGE' && failure.result) {
           const shortages = failure.result.goods as CheckoutShortage[]
           this.goodsList = this.goodsList.map((item: OrderGoodsItem): OrderGoodsItem => {
@@ -349,7 +373,7 @@ export struct CheckView {
 
   private isCheckoutReady(): boolean {
     return this.pageActive && this.checkoutToken.length > 0 && this.checkoutToken === (this.user.token || '') &&
-      !this.confirmingOrder && !this.checkoutLoading && !this.checkoutRefreshFailed && this.goodsList.length > 0 && !this.hasStockShortage()
+      !this.confirmingOrder && !this.editingCheckout && !this.checkoutLoading && !this.checkoutRefreshFailed && this.goodsList.length > 0 && !this.hasStockShortage()
   }
 
   private hasStockShortage(): boolean {
@@ -366,21 +390,70 @@ export struct CheckView {
       totalPrice: item.totalPrice, totalPayPrice: item.totalPayPrice }
   }
 
-  private adjustInCart(): void {
-    this.showSheet = false
-    if (this.checkoutSelection) {
-      this.stackPath.pop()
+  private async updateCheckoutQuantity(skuId: string, value: string): Promise<void> {
+    if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 999) {
+      this.safeToast('数量请输入 1 到 999 的整数')
       return
     }
-    this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true })
+    await this.changeCheckoutItem(skuId, Number(value))
   }
 
-  private openPaymentSheet(): void {
+  private async removeCheckoutItem(skuId: string): Promise<void> {
+    await this.changeCheckoutItem(skuId, 0)
+  }
+
+  private async changeCheckoutItem(skuId: string, count: number): Promise<void> {
+    const generation: number = this.pageGeneration
+    const token: string = this.checkoutToken
+    if (!this.isCurrentCheckout(generation, token) || this.confirmingOrder || this.isSubmittingOrder ||
+      this.editingCheckout || this.checkoutLoading || !this.goodsList.some((item: OrderGoodsItem) => item.skuId === skuId)) return
+    this.editingCheckout = true
+    this.keepEmptyCheckout = true
+    try {
+      if (this.checkoutSelection) {
+        if (count === 0) {
+          this.buyNowRemoved = true
+          this.goodsList = []
+          this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
+          return
+        }
+        this.checkoutSelection = { skuId, count }
+      } else {
+        if (count === 0) await updateCheckoutCartAPI(skuId, { selected: false }, token)
+        else await updateCheckoutCartAPI(skuId, { count }, token)
+        if (!this.isCurrentCheckout(generation, token)) return
+      }
+      await this.loadCheckoutPreview()
+    } catch {
+      if (this.isCurrentCheckout(generation, token)) {
+        this.checkoutRefreshFailed = true
+        this.safeToast('暂时连不上服务，请重新加载确认商品数量')
+      }
+    } finally {
+      if (this.isCurrentCheckout(generation, token)) this.editingCheckout = false
+    }
+  }
+
+  private async submitCheckout(): Promise<void> {
     if (!this.canSubmitOrder()) {
       return
     }
-    this.activeSheet = CheckoutSheet.Payment
-    this.showSheet = true
+    this.showSheet = false
+    await this.createOrderAndOpenCashier()
+  }
+
+  private openCheckoutAddressEditor(addressId: string = ''): void {
+    if (this.confirmingOrder || this.isSubmittingOrder || !this.isCurrentCheckout(this.pageGeneration, this.checkoutToken)) return
+    const token: string = this.checkoutToken
+    this.showSheet = false
+    this.stackPath.pushPath({ name: PAGE_PATH.ADDRESS_PAGE, param: 'checkout:' + addressId,
+      onPop: (info: PopInfo) => {
+        if (token !== (this.user.token || '') || typeof info.result !== 'string' || !info.result) return
+        this.addressId = info.result as string
+        this.addressManuallySelected = true
+        void this.loadCheckoutPreview()
+      }
+    })
   }
 
   // 只提交商品规格、数量和地址等下单信息；金额由服务端核算。
@@ -416,7 +489,74 @@ export struct CheckView {
   }
 
   private orderStatusText(): string {
-    return this.confirmingOrder ? '正在确认订单' : ''
+    return this.confirmingOrder ? '正在确认是否下单成功，请勿重复提交' : ''
+  }
+
+  private refreshAfterForeground(): void {
+    if (this.pageActive && this.confirmingOrder) void this.confirmPendingOrder()
+  }
+
+  private stopOrderRecovery(): void {
+    if (this.confirmationTimer !== -1) clearTimeout(this.confirmationTimer)
+    this.confirmationTimer = -1
+    this.confirmationAttempt = 0
+    this.confirmationExhausted = false
+    const monitor = this.networkMonitor
+    this.networkMonitor = undefined
+    this.networkAttempted = false
+    if (monitor) {
+      try { monitor.unregister(() => {}) } catch {}
+    }
+  }
+
+  private watchOrderNetwork(generation: number, token: string): void {
+    if (this.networkAttempted) return
+    this.networkAttempted = true
+    try {
+      const monitor = connection.createNetConnection()
+      this.networkMonitor = monitor
+      monitor.on('netAvailable', () => {
+        if (this.networkMonitor === monitor && this.confirmingOrder && this.isCurrentCheckout(generation, token)) {
+          void this.confirmPendingOrder()
+        }
+      })
+      monitor.register((error) => {
+        if (!error && this.networkMonitor !== monitor) {
+          try { monitor.unregister(() => {}) } catch {}
+          return
+        }
+        if (error && this.networkMonitor === monitor) {
+          this.networkMonitor = undefined
+          try { monitor.unregister(() => {}) } catch {}
+        }
+      })
+    } catch {
+      const monitor = this.networkMonitor
+      this.networkMonitor = undefined
+      if (monitor) { try { monitor.unregister(() => {}) } catch {} }
+    }
+  }
+
+  private scheduleOrderConfirmation(generation: number, token: string): void {
+    if (!this.confirmingOrder || !this.isCurrentCheckout(generation, token) || this.confirmationTimer !== -1) return
+    const delays: number[] = [1000, 3000, 8000]
+    if (this.confirmationAttempt >= delays.length) {
+      this.confirmationExhausted = true
+      return
+    }
+    const delay: number = delays[this.confirmationAttempt++]
+    this.confirmationTimer = setTimeout(() => {
+      if (!this.isCurrentCheckout(generation, token) || !this.confirmingOrder) return
+      this.confirmationTimer = -1
+      void this.confirmPendingOrder()
+    }, delay)
+  }
+
+  private retryOrderConfirmation(): void {
+    if (this.confirmingRequest) return
+    this.confirmationAttempt = 0
+    this.confirmationExhausted = false
+    void this.confirmPendingOrder()
   }
 
   private async confirmPendingOrder(): Promise<void> {
@@ -425,33 +565,31 @@ export struct CheckView {
     if (this.confirmingRequest || !this.isCurrentCheckout(generation, token)) return
     const accountId: string = this.user.id || ''
     const record = storeManager.getPendingOrder(accountId)
-    if (!record) { this.confirmingOrder = false; return }
+    if (!record) { this.confirmingOrder = false; this.stopOrderRecovery(); return }
     const sequence: number = ++this.confirmationSequence
     this.orderRequestKey = record.requestKey
     this.confirmingOrder = true
     this.confirmingRequest = true
+    this.watchOrderNetwork(generation, token)
     try {
       const order = await getOrderByRequestAPI(record.requestKey, token)
       if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
       await storeManager.clearPendingOrder(accountId, record.requestKey)
       if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
       this.confirmingOrder = false
+      this.stopOrderRecovery()
       this.goodsList = []
       this.recoveredOrderId = order.id
       void authCart.updateCartCount()
       if (order.orderState === 1) this.openCashier(order.id)
       else this.stackPath.replacePath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: order.id })
-    } catch (error) {
-      if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
-      if (checkoutFailure(error as Error).status === 404) {
-        await storeManager.clearPendingOrder(accountId, record.requestKey)
-        if (sequence !== this.confirmationSequence || !this.isCurrentCheckout(generation, token)) return
-        this.confirmingOrder = false
-        this.orderRequestKey = util.generateRandomUUID(true)
-        this.safeToast(this.checkoutSelection ? '上次提交没有成功，请重新确认这件商品' : '上次提交没有成功，商品仍在购物车里')
-      }
+    } catch {
+      // 查询失败或暂时查无记录都不能证明创建失败，保留原请求直到查清。
     } finally {
-      if (sequence === this.confirmationSequence && this.isCurrentCheckout(generation, token)) this.confirmingRequest = false
+      if (sequence === this.confirmationSequence && this.isCurrentCheckout(generation, token)) {
+        this.confirmingRequest = false
+        this.scheduleOrderConfirmation(generation, token)
+      }
     }
   }
 
@@ -491,6 +629,18 @@ export struct CheckView {
           Text(this.stockShortageText(goods))
             .fontColor($r('[ui_components].color.red'))
             .fontSize(14)
+          Row({ space: 8 }) {
+            TextInput({ text: String(goods.count), placeholder: '购买数量' })
+              .type(InputType.Number)
+              .width(100)
+              .enabled(!this.editingCheckout && !this.confirmingOrder && !this.checkoutLoading)
+              .onSubmit((enterKey: EnterKeyType, event: SubmitEvent) => {
+                void this.updateCheckoutQuantity(goods.skuId, event.text)
+              })
+            Button('移除此商品')
+              .enabled(!this.editingCheckout && !this.confirmingOrder && !this.checkoutLoading)
+              .onClick(() => this.removeCheckoutItem(goods.skuId))
+          }
         }
       }
       .layoutWeight(1)
@@ -500,46 +650,6 @@ export struct CheckView {
       width: { bottom: 0.5 },
       color: $r('[ui_components].color.border')
     })
-  }
-
-  // 支付方式弹层：“立即支付”先创建订单，随后进入收银台。
-  @Builder
-  PaySheetBuilder() {
-    Column() {
-      Text('¥' + (this.summary.totalPayPrice || 0).toFixed(2))
-        .fontSize(20)
-        .fontWeight(500)
-        .fontColor($r('[ui_components].color.black'))
-        .height(50)
-        .width('100%')
-        .border({
-          width: { bottom: 0.5 },
-          color: $r('[ui_components].color.under')
-        })
-      ForEach(this.payChannels, (label: string, index) => {
-        CheckCell({
-          label: label, checked: this.payChannel === index + 1, onClickBox: () => {
-            this.payChannel = index + 1
-          }
-        })
-          .onClick(() => {
-            this.payChannel = index + 1
-          })
-      })
-      Row() {
-        Button(this.isSubmittingOrder ? '提交中...' : '立即支付')
-          .width('100%')
-          .height(36)
-          .fontSize(14)
-          .backgroundColor($r('[ui_components].color.red'))
-          .enabled(!this.isSubmittingOrder && this.isCheckoutReady())
-          .onClick(() => {
-            this.createOrderAndOpenCashier()
-          })
-      }
-      .height(50)
-    }
-    .padding({ left: 16, right: 16, bottom: this.safeBottom })
   }
 
   build() {
@@ -557,10 +667,13 @@ export struct CheckView {
           })
         if (this.confirmingOrder) {
           Text(this.orderStatusText())
-          Button('重新确认订单')
+          if (this.confirmationExhausted) {
+          Button('再查一次')
             .enabled(!this.confirmingRequest)
-            .onClick(() => this.confirmPendingOrder())
+            .onClick(() => this.retryOrderConfirmation())
+          }
         }
+        if (this.excludedNotice) { Text(this.excludedNotice).fontColor('#B34D36').padding(12) }
         if (!this.user.token) {
           Button('重新登录后继续结算')
             .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }))
@@ -576,9 +689,11 @@ export struct CheckView {
             .padding(12)
             .onClick(() => this.loadCheckoutPreview())
         }
-        if (this.hasStockShortage()) {
-          Button(this.checkoutSelection ? '返回商品重新选择' : '去购物车调整')
-            .onClick(() => this.adjustInCart())
+        if (!this.checkoutLoading && this.goodsList.length === 0 && !this.confirmingOrder) {
+          if (this.excludedNotice) { Text('所选商品暂不可购买').fontColor('#B34D36') }
+          Text('本次结算没有商品')
+          Button('返回购物车')
+            .onClick(() => this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true }))
         }
         List() {
           ListItem() {
@@ -671,14 +786,14 @@ export struct CheckView {
           .alignItems(HorizontalAlign.Start)
 
           Blank()
-          Button('提交订单')
+          Button('提交订单并付款')
             .enabled(!this.isSubmittingOrder && this.isCheckoutReady())
             .fontSize(14)
             .height(36)
             .backgroundColor($r('[ui_components].color.red'))
             .onClick(() => {
-              // 先展示支付方式；用户在弹层确认后才请求创建订单。
-              this.openPaymentSheet()
+              // 此处只建单；收银台仍由用户明确确认付款。
+              this.submitCheckout()
             })
         }
         .height(50 + this.safeBottom)
@@ -691,10 +806,10 @@ export struct CheckView {
         .padding({ left: 16, right: 16, bottom: this.safeBottom })
       }
       .backgroundColor($r('[ui_components].color.under'))
-      .bindSheet($$this.showSheet, this.SheetBuilder(), {
+      .bindSheet($$this.showSheet, this.AddressSelectBuilder(), {
         title: {
-          title: this.activeSheet === CheckoutSheet.Payment ? '支付方式' : '选择收货地址',
-          subtitle: this.activeSheet === CheckoutSheet.Payment ? '请选择一种支付方式进行付款' : ''
+          title: '选择收货地址',
+          subtitle: ''
         }, height: SheetSize.FIT_CONTENT, backgroundColor: $r('[ui_components].color.white')
       })
       .padding({
@@ -702,15 +817,10 @@ export struct CheckView {
       })
     }
     .hideTitleBar(true)
-  }
-
-  @Builder
-  SheetBuilder() {
-    if (this.activeSheet === CheckoutSheet.Payment) {
-      this.PaySheetBuilder()
-    } else {
-      this.AddressSelectBuilder()
-    }
+    .onHidden(() => this.aboutToDisappear())
+    .onShown(() => {
+      if (!this.pageActive) this.aboutToAppear()
+    })
   }
 
   @Builder
@@ -753,6 +863,8 @@ export struct CheckView {
                     .fontSize(18)
                     .fontColor($r('[ui_components].color.red'))
                 }
+                Button('编辑')
+                  .onClick(() => this.openCheckoutAddressEditor(address.id))
               }
               .width('100%')
               .padding(12)
@@ -770,16 +882,14 @@ export struct CheckView {
         .height(260)
         .scrollBar(BarState.Off)
       }
-      Button('管理收货地址')
+      Button('新增地址')
         .width('100%')
         .height(40)
         .fontSize(14)
         .backgroundColor($r('[ui_components].color.under'))
         .fontColor($r('[ui_components].color.text'))
         .onClick(() => {
-          this.showSheet = false
-          this.addressManuallySelected = false
-          this.stackPath.pushPathByName(PAGE_PATH.ADDRESS_PAGE, null)
+          this.openCheckoutAddressEditor()
         })
     }
     .width('100%')

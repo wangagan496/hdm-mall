@@ -1,6 +1,10 @@
 {
   "string": [
     {
+      "name": "order_network_recovery_reason",
+      "value": "用于网络恢复后自动确认订单结果"
+    },
+    {
       "name": "module_desc",
       "value": "惠多美商城手机端"
     },

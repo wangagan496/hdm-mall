@@ -5,6 +5,15 @@
         "name": "ohos.permission.INTERNET"
       },
       {
+        "name": "ohos.permission.GET_NETWORK_INFO",
+        "reason": "$string:order_network_recovery_reason",
+        "usedScene": {
+          "abilities": [
+            "PhoneAbility"
+          ]
+        }
+      },
+      {
         "name": "ohos.permission.MICROPHONE",
         "reason": "$string:app_name",
         "usedScene": {

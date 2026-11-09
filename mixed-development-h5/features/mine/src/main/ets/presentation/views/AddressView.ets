@@ -1,4 +1,4 @@
-import { BusinessVariable, GlobalVariable } from 'constants'
+import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { AddressItem, HDMUser } from 'models'
 import { HDMEmpty, HDMNavBar, HDMConfirm } from 'ui_components'
 import { common } from '@kit.AbilityKit'
@@ -20,6 +20,10 @@ interface AreaNode {
   level: number
   name: string
   areaList?: AreaNode[]
+}
+
+interface AddressEditorDismiss {
+  dismiss: () => void
 }
 
 interface AddressForm {
@@ -117,6 +121,7 @@ export struct AddressView {
   private pageGeneration: number = 0
   private sessionToken: string = ''
   @State loadedToken: string = ''
+  @State checkoutEditor: boolean = false
 
   @Builder
   DeleteConfirmBuilder() {
@@ -135,7 +140,42 @@ export struct AddressView {
 
   aboutToAppear(): void {
     this.pageActive = true
+    const entries = this.stackPath?.getParamByName?.(PAGE_PATH.ADDRESS_PAGE) as string[] | undefined
+    const entry: string = entries && entries.length ? entries[entries.length - 1] : ''
+    if (typeof entry === 'string' && entry.startsWith('checkout:')) {
+      void this.startCheckoutEditor(entry.slice('checkout:'.length))
+      return
+    }
     this.loadAddresses()
+  }
+
+  private async startCheckoutEditor(addressId: string): Promise<void> {
+    this.checkoutEditor = true
+    if (!await this.loadAddresses()) return
+    const address = this.addresses.find((item: AddressItem) => item.id === addressId)
+    if (address) await this.openEdit(address)
+    else this.openCreate()
+  }
+
+  private async useCheckoutAddress(): Promise<void> {
+    const sequence: number = this.editorRequestSequence
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    if (!this.checkoutEditor || this.closingEditor || !this.isCurrentEditor(sequence, generation, token)) return
+    this.cancelScheduledSave()
+    this.closingEditor = true
+    try {
+      do {
+        await this.saveAddress()
+        if (!this.isCurrentEditor(sequence, generation, token)) return
+      } while (!this.saveError && !this.addressValidationMessage() && JSON.stringify(this.buildAddressData()) !== this.savedAddressData)
+      if (!this.saveError && !this.addressValidationMessage() && this.form.id &&
+        JSON.stringify(this.buildAddressData()) === this.savedAddressData) {
+        this.stackPath.pop(this.form.id)
+      } else if (!this.saveError) this.saveError = this.addressValidationMessage()
+    } finally {
+      if (this.isCurrentEditor(sequence, generation, token)) this.closingEditor = false
+    }
   }
 
   aboutToDisappear(): void {
@@ -258,7 +298,7 @@ export struct AddressView {
     this.cancelScheduledSave()
     this.editorRequestSequence++
     const form: AddressForm = createEmptyForm()
-    form.isDefault = this.addresses.length === 0
+    form.isDefault = !this.checkoutEditor && this.addresses.length === 0
     this.form = form
     this.savedAddressData = JSON.stringify(this.buildAddressData())
     this.addressRequestKey = util.generateRandomUUID(true)
@@ -485,7 +525,7 @@ export struct AddressView {
     }
   }
 
-  private async closeAddressEditor(action: DismissSheetAction): Promise<void> {
+  private async closeAddressEditor(action: AddressEditorDismiss): Promise<void> {
     const sequence: number = this.editorRequestSequence
     const generation: number = this.pageGeneration
     const token: string = this.sessionToken
@@ -707,7 +747,8 @@ export struct AddressView {
           })
           .height(56)
           .width('100%')
-        Row() {
+        if (!this.checkoutEditor) {
+         Row() {
           Checkbox()
             .select(this.form.isDefault)
             .selectedColor($r('[ui_components].color.red'))
@@ -725,6 +766,7 @@ export struct AddressView {
             })
         }
         .width('100%')
+        }
         if (this.saveError) {
           Text(this.saveError)
             .fontSize(12)
@@ -811,6 +853,23 @@ export struct AddressView {
 
   build() {
     NavDestination() {
+      if (this.checkoutEditor) {
+        Column({ space: 12 }) {
+          HDMNavBar({ title: '收货地址', onLeftClick: () => {
+            void this.closeAddressEditor({ dismiss: () => { this.stackPath.pop() } })
+          } })
+          if (this.loadFailed) {
+            Text('地址加载失败，请返回后重试')
+          } else {
+            this.AddressEditorBuilder()
+            Button(this.submitting ? '保存中…' : '保存并使用此地址')
+              .enabled(!this.closingEditor && !this.editorLoading && !this.selectingArea)
+              .onClick(() => this.useCheckoutAddress())
+          }
+        }
+        .width('100%')
+        .backgroundColor($r('[ui_components].color.white'))
+      } else {
       Column() {
         HDMNavBar({
           title: '收货地址管理',
@@ -872,15 +931,22 @@ export struct AddressView {
         height: SheetSize.FIT_CONTENT,
         backgroundColor: $r('[ui_components].color.white'),
         onWillDismiss: (action: DismissSheetAction) => {
-          this.closeAddressEditor(action)
+          this.closeAddressEditor({ dismiss: () => action.dismiss() })
         },
         onDisappear: () => {
           this.cancelScheduledSave()
           this.editorRequestSequence++
         }
       })
+      }
     }
     .hideTitleBar(true)
+    .mode(this.checkoutEditor ? NavDestinationMode.DIALOG : NavDestinationMode.STANDARD)
+    .onBackPressed(() => {
+      if (!this.checkoutEditor) return false
+      void this.closeAddressEditor({ dismiss: () => { this.stackPath.pop() } })
+      return true
+    })
     .bindContentCover($$this.showDeleteConfirm, this.DeleteConfirmBuilder())
     .padding({ top: this.topHeight })
   }

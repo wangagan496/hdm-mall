@@ -1,4 +1,5 @@
 import { emptyCancelActions, cancelActionFailure } from './cancel-boundaries.mjs'
+import { orderWriteFailure } from './order-write-boundaries.mjs'
 import { test as nodeTest } from 'node:test'
 import assert from 'node:assert/strict'
 import { deferred, execute, pageMethods, sourceOf, tick } from './native-harness.mjs'
@@ -16,7 +17,7 @@ function fixture() {
     storage: { demoOrderStore: { setOverlay: async (...args) => overlays.push(args) } },
   })
   const Page = pageMethods(base + 'views/OrderDetailView.ets', 'OrderDetailView', {}, {
-    cancelActions: emptyCancelActions, cancelActionFailure,
+    cancelActions: emptyCancelActions, cancelActionFailure, orderWriteFailure,
     ...flow, OrderState: states, readPhoneClockMillis: () => 123,
     PAGE_PATH: { PAY_PAGE: 'pay', EVALUATION_PAGE: 'evaluation' },
     getOrderDetailAPI: (id, token) => { const gate = deferred(); queries.push({ ...gate, id, token }); return gate.promise },

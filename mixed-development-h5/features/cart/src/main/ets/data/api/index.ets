@@ -6,6 +6,7 @@ export {
   getCartListAPI,
   getGuessLikeAPI,
   updateCart,
+  updateCheckoutCartAPI,
   selectOrUnSelect,
   delCart,
   getPreOrderAPI,

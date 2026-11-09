@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { Database } from './database.ts'
 import { Accounts, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
+import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
 import { Payments } from './payments.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
@@ -34,6 +35,7 @@ export async function buildApp(options: AppOptions) {
   const db = new Database(options.databasePath)
   const clock = options.clock ?? systemClock
   const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
+  const products = new Products(db, options.publicUrl, clock)
   const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
   const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
     (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret) : undefined)
@@ -71,6 +73,31 @@ export async function buildApp(options: AppOptions) {
     app.route({ method, url, handler: async req => ok(await handler(req, accounts.authenticate(req.headers.authorization))) })
   }
   if (fixtures) registerFixtureRoutes(app, fixtures)
+  protectedRoute('GET', '/merchant/products/categories', (_req, user) => products.categories(user))
+  protectedRoute('GET', '/merchant/products', (req, user) => {
+    const query = pageSchema.extend({ status: z.enum(['on', 'off']).optional() }).parse(req.query)
+    return products.list(user, query.page, query.pageSize, query.status)
+  })
+  protectedRoute('GET', '/merchant/products/changes/:id', (req, user) => products.receipt(user, key(req)))
+  protectedRoute('GET', '/merchant/products/:id', (req, user) => products.detail(user, key(req)))
+  protectedRoute('POST', '/merchant/products', (req, user) => products.create(user, productCreateSchema.parse(req.body)))
+  protectedRoute('POST', '/merchant/products/images', async (req, user) => {
+    ensure(user.role === 'merchant', 403, '需要商家权限')
+    let image: Buffer | undefined, requestKey: string | undefined
+    for await (const part of req.parts({ limits: { fileSize: 512 * 1024, files: 1, fields: 1, parts: 2, fieldSize: 100 } })) {
+      if (part.type === 'file') {
+        ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg', 400, '请选择JPEG商品图片')
+        image = await part.toBuffer()
+        ensure(!part.file.truncated, 413, '图片过大，请换一张')
+      } else {
+        ensure(part.fieldname === 'requestKey', 400, '上传参数不正确')
+        requestKey = z.string().uuid().parse(part.value)
+      }
+    }
+    ensure(image && requestKey, 400, '请选择图片并提供上传编号')
+    return products.uploadImage(user, requestKey, image, options.uploadsPath)
+  })
+  protectedRoute('PUT', '/merchant/products/:id', (req, user) => products.edit(user, key(req), productEditSchema.parse(req.body)))
   app.options('/*', async (_req, reply) => reply.code(204).send())
   app.get('/health', async () => ok({ status: 'ok', mockPayments: options.mockPayments }))
   app.get('/ready', async () => ok(db.one('SELECT 1 AS ready')))
@@ -164,6 +191,7 @@ export async function buildApp(options: AppOptions) {
     const { ids } = z.object({ ids: z.array(idSchema).max(100) }).parse(req.body)
     db.transaction(() => { for (const id of ids) db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, id) }); return null
   })
+  protectedRoute('DELETE', '/member/cart/invalid', (_req, user) => catalog.clearInvalid(user))
   protectedRoute('GET', '/member/relations', (_req, user) => accounts.relations(user))
   protectedRoute('GET', '/member/relations/page', (req, user) => {
     const query = pageSchema.parse(req.query)
