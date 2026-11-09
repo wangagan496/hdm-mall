@@ -118,7 +118,7 @@ test('v3 备份恢复后升级当前版本保留原流水，新增调整和备�
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(parent, 'restored') })
     const databasePath = join(restored.root, 'mall.sqlite'), db = new Database(databasePath)
     try {
-      assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
+      assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
       assert.equal(db.one<{ delta: number }>('SELECT delta FROM inventory_movements WHERE id=1')!.delta, 20)
       const user = { id: 'merchant', account: 'merchant', nickname: '商家', role: 'merchant' as const, profile: '{}' }
       const receipt = adjustStock(db, user, 'sku', { requestKey: randomUUID(), delta: 2, expectedStock: 20, reason: '实际盘点增加库存' })
@@ -126,7 +126,7 @@ test('v3 备份恢复后升级当前版本保留原流水，新增调整和备�
       assert.throws(() => db.run('DELETE FROM inventory_movements WHERE id=1'), /append-only/)
     } finally { db.close() }
     const upgraded = await createBackup({ databasePath, uploadsPath: join(restored.root, 'uploads'), destination: join(parent, 'v4') })
-    assert.equal(upgraded.manifest.schemaVersion, 11)
+    assert.equal(upgraded.manifest.schemaVersion, 12)
     assert.equal(upgraded.counts.inventory_movements, 2)
     const recovered = await restoreBackup({ backupPath: upgraded.root, destination: join(parent, 'restored-v4') })
     const check = new Database(join(recovered.root, 'mall.sqlite'))

@@ -1,3 +1,5 @@
+import { AfterSale } from './AfterSaleModels'
+
 export interface HDMGoodsItem {
   id: string
   name: string
@@ -205,6 +207,13 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  afterSales?: AfterSale[]
+  canApplyAfterSale?: boolean
+  afterSaleActive?: boolean
+  afterSaleKinds?: string[]
+  afterSaleDeadline?: number
+  noReasonDeadline?: number
+  afterSaleNotice?: string
   address?: AddressItem
   serverManaged?: boolean
   ownerAccount?: string
@@ -342,6 +351,7 @@ export interface OrderPage {
 }
 
 export interface OrderSku {
+  afterSaleRemaining?: number
   attrsText: string
   curPrice: number
   id: string

@@ -1,3 +1,4 @@
+import { removeAfterSaleSchema } from './helpers/legacy-v11.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -47,7 +48,7 @@ async function fixture(databasePath = ':memory:') {
 test('B-80 RED1：空库迁移至8且取消两表为空', () => {
   const db = new Database(':memory:')
   try {
-    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
+    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_actions')!.count, 0)
   } finally { db.close() }
@@ -263,7 +264,7 @@ test('B-80 RED10：版本8备份统计、合法取消不误报并恢复到期申
     const pendingId = await f.create()
     await f.request(pendingId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 11)
+    assert.equal(backup.manifest.schemaVersion, 12)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.counts.order_cancel_requests, 2)
     assert.equal(backup.counts.order_cancel_actions, 3)
@@ -276,7 +277,7 @@ test('B-80 RED10：版本8备份统计、合法取消不误报并恢复到期申
     try {
       assert.equal(next.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', pendingId)!.state, 6)
       assert.equal(next.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM refunds')!.count, 2)
-      assert.deepEqual(next.orders.processDueCancelRequests(), { processed: 0, failed: [] })
+      assert.deepEqual(await next.orders.processDueCancelRequests(), { processed: 0, failed: [] })
       assert.equal(next.db.one<{ count: number }>("SELECT COUNT(*) AS count FROM inventory_movements WHERE kind IN ('cancel','expire')")!.count, 2)
       assert.equal(next.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM sessions')!.count, 0)
     } finally { await next.app.close() }
@@ -301,7 +302,7 @@ test('B-80 RED11：备份不放行申请与订单状态或操作者错配', asyn
   } finally { await f.ctx.app.close(); await rm(root, { recursive: true, force: true }) }
 })
 
-test('B-80：真实版本7数据升级8，不重建退款相关表且重启不重复', async () => {
+test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据和引用保留，重启不重复', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hdm-cancel-migration-'))
   const path = join(root, 'live', 'mall.sqlite')
   const f = await fixture(path)
@@ -316,26 +317,27 @@ test('B-80：真实版本7数据升级8，不重建退款相关表且重启不�
   } finally { await f.ctx.app.close() }
   try {
     const raw = new DatabaseSync(path)
+    removeAfterSaleSchema(raw)
     raw.exec('DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; DROP TABLE order_cancel_actions; DROP TABLE order_cancel_requests; PRAGMA user_version=7')
     const preserved = ['payments', 'refunds', 'payment_notices', 'refund_retry_actions', 'payment_review_resolutions']
     const before = Object.fromEntries(preserved.map(table => [table, raw.prepare('SELECT * FROM ' + table + ' ORDER BY id').all()]))
-    const schemas = raw.prepare("SELECT name,sql FROM sqlite_master WHERE name IN ('refunds','payment_notices','refund_retry_actions') ORDER BY name").all()
+    const schemas = raw.prepare("SELECT name,sql FROM sqlite_master WHERE name IN ('payment_notices','refund_retry_actions') ORDER BY name").all()
     raw.close()
     const oldBackup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'v7') })
     assert.equal(oldBackup.manifest.schemaVersion, 7)
     for (let startup = 0; startup < 2; startup++) {
       const migrated = new Database(path)
       try {
-        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11)
-        for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), before[table])
-        assert.deepEqual(migrated.all("SELECT name,sql FROM sqlite_master WHERE name IN ('refunds','payment_notices','refund_retry_actions') ORDER BY name"), schemas)
+        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
+        for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), table === 'refunds' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{after_sale_id:null})) : before[table])
+        assert.deepEqual(migrated.all("SELECT name,sql FROM sqlite_master WHERE name IN ('payment_notices','refund_retry_actions') ORDER BY name"), schemas)
         assert.equal(migrated.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
         assert.deepEqual(migrated.all('PRAGMA foreign_key_check'), [])
       } finally { migrated.close() }
     }
     const oldRestore = await restoreBackup({ backupPath: oldBackup.root, destination: join(root, 'old-restored') })
     const upgraded = new Database(join(oldRestore.root, 'mall.sqlite'))
-    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11) } finally { upgraded.close() }
+    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12) } finally { upgraded.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -345,6 +347,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
   try {
     new Database(path).close()
     const raw = new DatabaseSync(path)
+    removeAfterSaleSchema(raw)
     raw.exec("DROP TRIGGER product_revision_sku_update; DROP TRIGGER product_revision_sku_insert; DROP TRIGGER product_revision_fields; DROP INDEX product_enabled_spec; DROP TABLE product_changes; DROP TABLE product_images; ALTER TABLE skus DROP COLUMN enabled; ALTER TABLE products DROP COLUMN revision; ALTER TABLE products DROP COLUMN status; DROP TABLE cart_requests; DROP TABLE order_cancel_actions; DROP TABLE order_cancel_requests; PRAGMA user_version=7; CREATE TABLE order_cancel_actions(sentinel TEXT); INSERT INTO order_cancel_actions VALUES('保留')")
     raw.close()
     assert.throws(() => new Database(path), /already exists/)
@@ -356,7 +359,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
       inspected.exec('DROP TABLE order_cancel_actions')
     } finally { inspected.close() }
     const recovered = new Database(path)
-    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 11) } finally { recovered.close() }
+    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12) } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -402,12 +405,12 @@ test('B-76：注入时钟驱动截止前1毫秒、到点、后1毫秒扫描且�
     const id = await f.create()
     await f.request(id)
     f.advance(deadlineMs - 1)
-    assert.deepEqual(f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
+    assert.deepEqual(await f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
     assert.equal(f.order(id).state, 2)
     f.advance(1)
-    assert.deepEqual(f.ctx.orders.processDueCancelRequests(), { processed: 1, failed: [] })
+    assert.deepEqual(await f.ctx.orders.processDueCancelRequests(), { processed: 1, failed: [] })
     f.advance(1)
-    assert.deepEqual(f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
+    assert.deepEqual(await f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
     assert.equal(f.order(id).state, 6)
     assert.equal(f.stock(), 20)
     assert.equal(f.ctx.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM refunds')!.count, 1)
@@ -447,7 +450,7 @@ test('B-63 B-76 B-77：到点普通发货先自动取消，人工同意不能抢
     assert.equal(due.cancelRequestNotice, '已到自动处理时间，正在处理')
     assert.equal((await f.call('POST', '/merchant/orders/' + ids[1] + '/ship', f.merchant.token)).body.msg, '买家已取消，不能发货')
     assert.equal((await f.resolve(ids[2]!, requests[2]!)).body.reason, 'CANCEL_REQUEST_EXPIRED')
-    assert.deepEqual(f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
+    assert.deepEqual(await f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
     assert.equal(f.stock(), 20)
     assert.equal(f.ctx.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM refunds')!.count, 3)
   } finally { await f.ctx.app.close() }
@@ -613,14 +616,14 @@ test('B-76 B-82：异常到期申请整体回滚，不阻塞其他申请，修�
     const payment = f.ctx.db.one<{ payment_id: string }>('SELECT payment_id FROM order_cancel_requests WHERE id=?', blocked)!.payment_id
     f.ctx.db.run("CREATE TRIGGER cancel_auto_failure BEFORE INSERT ON refunds WHEN NEW.payment_id='" + payment + "' BEGIN SELECT RAISE(ABORT,'injected'); END")
     f.advance(deadlineMs)
-    const result = f.ctx.orders.processDueCancelRequests()
+    const result = await f.ctx.orders.processDueCancelRequests()
     assert.equal(result.processed, 1)
     assert.deepEqual(result.failed, [blocked])
     assert.equal(f.order(blockedId).state, 2)
     assert.equal(f.order(validId).state, 6)
     assert.equal(f.stock(), 19)
     f.ctx.db.run('DROP TRIGGER cancel_auto_failure')
-    assert.deepEqual(f.ctx.orders.processDueCancelRequests(), { processed: 1, failed: [] })
+    assert.deepEqual(await f.ctx.orders.processDueCancelRequests(), { processed: 1, failed: [] })
     assert.equal(f.stock(), 20)
   } finally { await f.ctx.app.close() }
 })
@@ -654,10 +657,11 @@ test('B-82：同意提交后渠道异常仍保持取消，后续沿同一退款�
   try {
     const id = await f.create()
     const requestId = (await f.request(id)).body.result.cancelRequestId
-    const approved = (await f.resolve(id, requestId)).body.result
     const channel = f.ctx.payments.channel!
     const originalRefund = channel.refund.bind(channel)
     channel.refund = () => { throw new Error('外部退款渠道暂不可用') }
+    assert.equal((await f.resolve(id, requestId)).status,500)
+    const approved = f.ctx.db.one<{refundId:string}>('SELECT refund_id AS refundId FROM order_cancel_requests WHERE id=?',requestId)!
     await assert.rejects(f.ctx.payments.reconcile(), /暂不可用/)
     assert.equal(f.order(id).state, 6)
     assert.equal(f.stock(), 20)
@@ -710,6 +714,9 @@ test('B-80：已取消退款必须匹配原支付、全额且原因cancelled', a
     const other = await f.create()
     const otherPayment = f.ctx.db.one<{ id: string }>('SELECT id FROM payments WHERE order_id=?', other)!.id
     const corruptions = ["UPDATE refunds SET reason='duplicate'", 'UPDATE refunds SET amount=2474', "UPDATE refunds SET payment_id='" + otherPayment + "'"]
+    // Model an externally corrupted backup after bypassing the new write guard.
+    assert.throws(() => f.ctx.db.run(corruptions[0]!), /immutable/)
+    f.ctx.db.run('DROP TRIGGER refunds_identity_update')
     for (const [index, sql] of corruptions.entries()) {
       f.ctx.db.run("UPDATE refunds SET reason='cancelled',amount=2475,payment_id=?", paymentId)
       f.ctx.db.run(sql)

@@ -8,7 +8,7 @@ function fixture(sizes) {
     createPixelMap: async options => { dimensions.push(options.desiredSize); const id = maps.length; maps.push(id); return { release: async () => released.push('map-' + id) } },
     release: async () => released.push('source') }
   const packer = { packToData: async () => { const next = sizes.shift(); if (next instanceof Error) throw next; return new ArrayBuffer(next ?? 600000) }, release: async () => released.push('packer') }
-  const { encodeProductFile } = execute(sourceOf('mixed-development-h5/commons/device/src/main/ets/ProductImage.ets'), { '@kit.ImageKit': { image: { createImageSource: () => source, createImagePacker: () => packer } } })
+  const { encodeProductFile } = execute(sourceOf('mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets'), { '@kit.ImageKit': { image: { createImageSource: () => source, createImagePacker: () => packer } } })
   return { encode: () => encodeProductFile(12), dimensions, released }
 }
 test('商品图按原比例缩放，超限时降质量并释放资源', async () => {

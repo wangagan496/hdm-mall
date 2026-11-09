@@ -1,4 +1,6 @@
 export class PAGE_PATH {
+  static readonly AFTER_SALE_APPLY_PAGE: string = "AfterSaleApplyView"
+  static readonly AFTER_SALE_MANAGE_PAGE: string = "AfterSaleManageView"
   static readonly INVENTORY_PAGE: string = "InventoryView"
   static readonly PRODUCT_MANAGE_PAGE: string = "ProductManageView"
   static readonly PRODUCT_EDIT_PAGE: string = "ProductEditView"

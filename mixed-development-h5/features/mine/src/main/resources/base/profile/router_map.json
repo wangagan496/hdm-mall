@@ -1,6 +1,11 @@
 {
   "routerMap": [
     {
+      "name": "AfterSaleManageView",
+      "buildFunction": "AfterSaleManageViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AfterSaleManageView.ets"
+    },
+    {
       "name": "ProductManageView",
       "buildFunction": "ProductManageViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/ProductManageView.ets"

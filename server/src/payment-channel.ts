@@ -48,6 +48,7 @@ interface SimulationRecord {
   preset: PaymentPreset
   queries: number
   refundAttempts: Map<string, number>
+  refunds: Map<string, number>
   closed: boolean
 }
 
@@ -72,7 +73,7 @@ export class MockPaymentChannel implements PaymentChannel {
     const preset = this.presets.get(payment.id) ?? this.nextPreset ?? { outcome: 'success', paidAt: payment.created }
     this.presets.delete(payment.id)
     this.nextPreset = undefined
-    const record: SimulationRecord = { payment, preset, queries: 0, refundAttempts: new Map(), closed: false }
+    const record: SimulationRecord = { payment, preset, queries: 0, refundAttempts: new Map(), refunds: new Map(), closed: false }
     this.records.set(payment.id, record)
     if (preset.outcome === 'unknown' || preset.outcome === 'close-paid') return { accepted: true }
     const state = preset.outcome === 'success' ? 'success' : 'fail'
@@ -103,10 +104,15 @@ export class MockPaymentChannel implements PaymentChannel {
 
   refund(refundId: string, paymentId: string, amount: number): 'success' | 'fail' {
     const record = this.records.get(paymentId)
-    if (!record || amount !== record.payment.amount) return 'fail'
+    if (!record || !Number.isSafeInteger(amount) || amount <= 0) return 'fail'
+    const existing = record.refunds.get(refundId)
+    if (existing !== undefined) return existing === amount ? 'success' : 'fail'
+    if (amount + [...record.refunds.values()].reduce((sum,value) => sum + value,0) > record.payment.amount) return 'fail'
     const attempts = (record.refundAttempts.get(refundId) ?? 0) + 1
     record.refundAttempts.set(refundId, attempts)
-    return attempts <= (record.preset.refundFailures ?? 0) ? 'fail' : 'success'
+    if (attempts <= (record.preset.refundFailures ?? 0)) return 'fail'
+    record.refunds.set(refundId, amount)
+    return 'success'
   }
 
   signedCallback(paymentId: string, overrides: Partial<Omit<PaymentCallback, 'paymentId' | 'orderId' | 'amount' | 'signature'>> &

@@ -668,6 +668,11 @@ export struct OrderView {
       }
       .width('100%')
       .onClick(() => this.openOrderDetail(order.id))
+      if(order.afterSaleActive){Text('售后中').fontColor($r('[ui_components].color.red')).fontSize(13)}
+      if(order.canApplyAfterSale) {
+        Button('申请售后').id('order-apply-after-sale-'+order.id).height(36).enabled(!this.busyOrderId&&this.canUseOrder(order.id))
+          .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:order.id}))
+      }
       if (this.hasOrderActions(order)) {
         this.OrderActions(order)
       }

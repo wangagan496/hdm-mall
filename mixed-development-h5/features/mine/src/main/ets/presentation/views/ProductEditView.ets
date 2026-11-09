@@ -3,7 +3,7 @@ import { HDMUser } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
 import { storeManager } from 'storage'
-import { pickProductImage } from 'device'
+import { pickProductImage } from 'ui_components'
 import { ProductBody, ProductData, ProductDraft, ProductSku, ProductSkuPatch, ProductSkuInput, ProductCategory, ProductError, ProductNotice } from '../../data/api/products'
 import { productSave } from '../utils/ProductSave'
 

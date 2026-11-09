@@ -32,7 +32,7 @@ interface RefundRow {
   id: string
   payment_id: string
   amount: number
-  reason: 'late' | 'duplicate' | 'cancelled'
+  reason: 'late' | 'duplicate' | 'cancelled' | 'after-sale'
   state: 'pending' | 'succeeded' | 'failed'
   attempts: number
   next_attempt_at: number | null
@@ -131,7 +131,7 @@ export class Payments {
     const order = this.order(orderId)
     if (order.paid_by === user.id && order.state !== 1) {
       const payment = this.db.one<PaymentRow>(`SELECT * FROM payments WHERE order_id=? AND payer_id=? AND state='succeeded'
-        AND channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=payments.id) ORDER BY created,id LIMIT 1`,
+        AND channel_paid_at=? AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=payments.id AND r.reason IN ('late','duplicate','cancelled')) ORDER BY created,id LIMIT 1`,
       orderId, user.id, order.paid_at)
       if (payment) {
         ensure(expectedAmount === order.amount, 409, '订单金额变化，请刷新后重试')
@@ -254,7 +254,7 @@ export class Payments {
   effectivePaymentId(orderId: string): string | undefined {
     return this.db.one<{ id: string }>(`SELECT p.id FROM payments p JOIN orders o ON o.id=p.order_id
       WHERE o.id=? AND p.state='succeeded' AND p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at
-      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id)
+      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled'))
       ORDER BY p.created,p.id LIMIT 1`, orderId)?.id
   }
 
@@ -263,12 +263,20 @@ export class Payments {
     return this.createRefund(this.payment(paymentId)!, 'cancelled', now)
   }
 
-  private createRefund(payment: PaymentRow, reason: RefundRow['reason'], now: number) {
-    const existing = this.db.one<{ id: string }>('SELECT id FROM refunds WHERE payment_id=?', payment.id)
+  createAfterSaleRefund(orderId: string, paymentId: string, afterSaleId: string, amount: number, now: number) {
+    ensure(this.effectivePaymentId(orderId) === paymentId, 409, '付款记录异常，请联系客服')
+    return this.createRefund(this.payment(paymentId)!, 'after-sale', now, amount, afterSaleId)
+  }
+
+  private createRefund(payment: PaymentRow, reason: RefundRow['reason'], now: number, amount = payment.amount, afterSaleId?: string) {
+    const existing = afterSaleId ? this.db.one<{ id: string }>('SELECT id FROM refunds WHERE after_sale_id=?', afterSaleId) :
+      this.db.one<{ id: string }>("SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')", payment.id)
     if (existing) return existing.id
     const id = randomUUID()
-    this.db.run(`INSERT INTO refunds(id,payment_id,amount,reason,state,attempts,next_attempt_at,created) VALUES(?,?,?,?,'pending',0,?,?)`,
-      id, payment.id, payment.amount, reason, now, now)
+    const reserved = this.db.one<{ amount: number }>('SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=?', payment.id)!.amount
+    ensure(Number.isSafeInteger(amount) && amount > 0 && amount + reserved <= payment.amount, 409, '退款合计不能超过实付金额')
+    this.db.run(`INSERT INTO refunds(id,payment_id,amount,reason,after_sale_id,state,attempts,next_attempt_at,created) VALUES(?,?,?,?,?,'pending',0,?,?)`,
+      id, payment.id, amount, reason, afterSaleId ?? null, now, now)
     this.createRefundNotices(payment, id, now)
     return id
   }
@@ -301,6 +309,7 @@ export class Payments {
       const next = result === 'success' || current.review_at !== null ? null : now + REFUND_RETRY_DELAYS[Math.min(attempts - 1, REFUND_RETRY_DELAYS.length - 1)]!
       this.db.run('UPDATE refunds SET state=?,attempts=?,next_attempt_at=?,review_at=CASE WHEN ? THEN NULL ELSE review_at END WHERE id=?',
         result === 'success' ? 'succeeded' : 'failed', attempts, next, result === 'success' ? 1 : 0, refund.id)
+      if (result === 'success') this.db.run("UPDATE after_sales SET state='refunded' WHERE refund_id=? AND state='refunding'", refund.id)
     })
   }
 
@@ -511,7 +520,7 @@ export class Payments {
     const visiblePayments = payments.filter(payment => user.id === order.owner_id || user.id === payment.payer_id)
     const pending = payments.find(payment => payment.state === 'pending' || payment.state === 'closed' && payment.next_query_at !== null)
     const effective = order.paid_by ? payments.find(payment => payment.state === 'succeeded' && payment.payer_id === order.paid_by &&
-      payment.channel_paid_at === order.paid_at && !this.db.one('SELECT id FROM refunds WHERE payment_id=?', payment.id)) : undefined
+      payment.channel_paid_at === order.paid_at && !this.db.one("SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')", payment.id)) : undefined
     const visibleRefunds = this.db.all<RefundRow & { payer_id: string; channel_paid_at: number | null }>(`SELECT r.*,p.payer_id,p.channel_paid_at
       FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id`, order.id)
       .filter(refund => user.id === order.owner_id || visiblePayments.some(payment => payment.id === refund.payment_id))

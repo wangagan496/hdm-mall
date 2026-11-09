@@ -182,6 +182,8 @@ export struct MineView {
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))
             Button('商品管理').margin({ top: 12 })
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MANAGE_PAGE }))
+            Button($r('app.string.after_sale_manage')).margin({ top: 12 })
+              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_MANAGE_PAGE }))
           }
           Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
             .margin({ top: 12, bottom: 12 })
