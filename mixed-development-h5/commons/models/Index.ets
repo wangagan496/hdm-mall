@@ -46,3 +46,4 @@ export { LocalEvaluationItem, DemoOrderOverlay } from './src/main/ets/BusinessMo
 export { OrderState } from './src/main/ets/OrderState'
 export { CheckoutPrice, CheckoutShortage, CheckoutDetail, CheckoutFailure, OrderRequestResult, PendingOrderRequest } from './src/main/ets/CheckoutModels'
 export { formatBeijingTime } from './src/main/ets/TimeFormat'
+export { AfterSale, AfterSaleAddress, AfterSaleLine, AfterSaleImage, AfterSaleQuantity, AfterSaleRestock, AfterSaleBody, AfterSalePhoto, AfterSalePending, AfterSaleReceipt, AfterSalePage, AfterSaleCounts, afterSaleAmount, afterSaleInputError, afterSaleStatus, afterSaleKind } from './src/main/ets/AfterSaleModels'

@@ -134,9 +134,16 @@ instance.interceptors.response.use((response: AxiosResponse) => {
 })
 
 export class RequestAxios {
-  static postMultipartForSession<T>(url: string, bytes: ArrayBuffer, requestKey: string, token: string): Promise<T> {
+  static async getImageForSession(path: string, token: string): Promise<ArrayBuffer> {
+    if (!/^\/uploads\/[a-f0-9-]{36}\.jpg$/.test(path)) throw new Error('图片路径无效')
+    const response: AxiosResponse<ArrayBuffer>=await rawInstance.get<ArrayBuffer, AxiosResponse<ArrayBuffer>>(GlobalVariable.BASE_URL+path,{responseType:'array_buffer',headers:{Authorization:`Bearer ${token}`}})
+    return response.data
+  }
+  static postMultipartForSession<T>(url: string, bytes: ArrayBuffer, requestKey: string, token: string, orderId?: string, applicationKey?: string): Promise<T> {
     const form = new FormData()
     form.append('requestKey', requestKey)
+    if (orderId) form.append('orderId', orderId)
+    if (applicationKey) form.append('applicationKey', applicationKey)
     form.append('file', bytes, { filename: 'product.jpg', type: 'image/jpeg' })
     return instance.post<null, T>(url, form, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1', 'Content-Type': 'multipart/form-data' } })
   }

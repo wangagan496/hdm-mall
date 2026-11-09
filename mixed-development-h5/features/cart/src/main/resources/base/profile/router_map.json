@@ -1,6 +1,11 @@
 {
   "routerMap": [
     {
+      "name": "AfterSaleApplyView",
+      "buildFunction": "AfterSaleApplyViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AfterSaleApplyView.ets"
+    },
+    {
       "name": "CartView",
       "buildFunction": "CartViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/CartView.ets"

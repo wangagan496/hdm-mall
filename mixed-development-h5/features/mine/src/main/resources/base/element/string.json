@@ -1,6 +1,10 @@
 {
   "string": [
     {
+      "name": "after_sale_manage",
+      "value": "售后处理"
+    },
+    {
       "name": "shared_desc",
       "value": "description"
     }

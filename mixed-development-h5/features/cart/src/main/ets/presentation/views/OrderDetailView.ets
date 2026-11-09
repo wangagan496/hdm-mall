@@ -14,6 +14,8 @@ import { getScoreLabel } from '../utils/EvaluationPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
 import { orderCancellation } from '../utils/OrderCancellation'
+import { AfterSaleCard } from '../components/AfterSaleCard'
+import { AfterSale } from 'models'
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -479,6 +481,17 @@ export struct OrderDetailView {
         } else {
           Scroll() {
             Column({ space: 12 }) {
+              if(this.order.canApplyAfterSale) {
+                Button('申请售后').id('order-apply-after-sale').enabled(this.canOperateOrder()&&!this.busy)
+                  .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:this.orderId}))
+              }
+              if(this.order.afterSaleNotice) {
+                Text(this.order.afterSaleNotice).fontColor($r('[ui_components].color.text'))
+                Button('帮助与客服').onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.CUSTOMER_SERVICE_PAGE}))
+              }
+              ForEach(this.order.afterSales||[],(sale:AfterSale)=>{
+                AfterSaleCard({sale,owner:this.order?.ownerAccount===this.user.account,ready:this.canOperateOrder(),onComplete:()=>{void this.loadOrderDetail()}})
+              },(sale:AfterSale)=>sale.id+sale.state+sale.refundState)
               Column({ space: 6 }) {
                 Row({ space: 6 }) {
                   Text(this.displayStateText())
