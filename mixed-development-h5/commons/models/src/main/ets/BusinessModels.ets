@@ -46,6 +46,8 @@ export interface GoodsItems {
 }
 
 export interface HDMUser {
+  status?: string
+  deletionDueAt?: number
   id?: string
   role?: string
   birthday?: string

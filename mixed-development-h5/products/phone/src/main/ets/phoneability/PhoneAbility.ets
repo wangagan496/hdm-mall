@@ -56,6 +56,7 @@ export default class PhoneAbility extends UIAbility {
     storeManager.ctx = this.context
     // 将 context 存入 AppStorage，供 network 模块的 toast 使用（避免循环依赖）
     AppStorage.setOrCreate(GlobalVariable.ABILITY_CONTEXT_KEY, this.context)
+    AppStorage.setOrCreate('debugFixtureForm', this.isDebuggable() && this.debugLaunchWant.parameters?.['debugFixtureForm'] === 'local-trade')
     this.restoreUserSession()
     this.injectDebugTestAccount()
     // 首页打开后才注册屏幕变化监听；窗口销毁时用对应方法注销。

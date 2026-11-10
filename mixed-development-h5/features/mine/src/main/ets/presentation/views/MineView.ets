@@ -2,9 +2,13 @@ import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser } from 'models'
 import { HDMGuess, HDMNavCol } from 'ui_components'
 import { getGuessLikeAPI, getOrderAttentionCountAPI } from '../../data/api'
+import { RequestAxios } from 'network'
+
+interface AccountNotice { id: string; message: string; created: number }
 
 @Component
 export struct MineView {
+  @StorageProp('privacyConsentAccepted') privacyConsentAccepted: boolean = false
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   safeTop: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadAttentionForAccount')
@@ -19,6 +23,7 @@ export struct MineView {
   @Consume
   stackPath: NavPathStack
   @State attentionCount: number = 0
+  @State accountNotice: string = ''
   private attentionVisible: boolean = false
   private attentionToken: string = ''
   private attentionSequence: number = 0
@@ -55,6 +60,7 @@ export struct MineView {
     const token: string = this.user.token || ''
     const sequence: number = ++this.attentionSequence
     this.attentionToken = token
+    void this.refreshAccountNotice(token, sequence)
     if (!token || !this.attentionVisible) {
       this.attentionCount = 0
       return
@@ -67,6 +73,14 @@ export struct MineView {
     } catch {
       if (sequence === this.attentionSequence && token === this.attentionToken) this.attentionCount = 0
     }
+  }
+
+  private async refreshAccountNotice(token: string, sequence: number): Promise<void> {
+    if (!token) { this.accountNotice = ''; return }
+    try {
+      const notices = await RequestAxios.getForSession<AccountNotice[]>('/member/account-notices', token)
+      if (sequence === this.attentionSequence && token === this.user.token) this.accountNotice = notices.length ? notices[0].message : ''
+    } catch { }
   }
 
   private openOrders(orderState: number): void {
@@ -146,6 +160,11 @@ export struct MineView {
               }
             })
 
+            if (!this.user.token && !this.privacyConsentAccepted) {
+              Text('你还未同意协议，同意后可登录').fontSize(13).padding(8)
+                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }))
+            }
+
             Row({ space: 8 }) {
               Image($r('app.media.ic_user_vip'))
                 .width(24)
@@ -185,6 +204,12 @@ export struct MineView {
             Button($r('app.string.after_sale_manage')).margin({ top: 12 })
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_MANAGE_PAGE }))
           }
+          if (this.user.status === 'deleting') {
+            Button('账号注销处理中 · 查看进度或撤销').fontSize(14)
+              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+              .onClick(() => this.stackPath.pushPath({ name: 'AccountDeletionView' }))
+          }
+          if (this.accountNotice && this.user.token) { Text(this.accountNotice).fontSize(14).padding(12).width('100%') }
           Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
             .margin({ top: 12, bottom: 12 })
             .onClick(() => {

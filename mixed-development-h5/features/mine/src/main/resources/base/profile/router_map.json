@@ -1,6 +1,11 @@
 {
   "routerMap": [
     {
+      "name": "AccountDeletionView",
+      "buildFunction": "AccountDeletionViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AccountDeletionView.ets"
+    },
+    {
       "name": "AfterSaleManageView",
       "buildFunction": "AfterSaleManageViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/AfterSaleManageView.ets"

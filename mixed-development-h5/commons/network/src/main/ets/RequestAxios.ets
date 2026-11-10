@@ -85,6 +85,13 @@ let sessionExpiredHandler: ((token: string) => Promise<boolean>) | undefined = u
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const user = AppStorage.get<HDMUser>(GlobalVariable.USER_INFO_KEY)
+  if (user?.status === 'deleting' && config.method?.toUpperCase() !== 'GET') {
+    const url: string = config.url || ''
+    const followUp: boolean = ['/logout', '/member/consents', '/member/consents/withdraw', '/member/account-deletion', '/member/account-deletion/cancel', '/member/after-sales/images'].includes(url) ||
+      /^\/member\/order\/[^/]+\/(receipt|payments\/refresh|after-sales|cancel-requests|cancel-requests\/[^/]+\/withdraw)$/.test(url) ||
+      /^\/member\/after-sales\/[^/]+\/(withdraw|ship-back)$/.test(url)
+    if (!followUp) throw new BusinessError('账号正在注销中', 403)
+  }
   if (user && user.token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${user.token}`
   }

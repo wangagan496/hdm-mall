@@ -96,7 +96,8 @@ function voiceFixture(permissionRequest) {
   let recognitions = 0
   let recordings = 0
   const Page = pageMethods('mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets', 'HDMAudioSearch', {}, {
-    accessManager: { runWithPermissions: permissionRequest },
+    accessManager: { runWithPermissions: permissionRequest, hasPermissions:()=>true },
+    storeManager: {getStore:()=>({getSync:()=>false,putSync(){},flush:async()=>{}})},
     speechToTextManager: {
       createEngine: async () => {},
       startRecognition: async () => { recognitions++ },
@@ -108,9 +109,10 @@ function voiceFixture(permissionRequest) {
     VoiceState: { IDLE: 0, LISTENING: 1, START_FAILED: 2, PROCESSING: 3 },
   })
   const page = new Page()
+  page.microphoneExplained = true
   page.getUIContext = () => ({
     getHostContext: () => ({}),
-    getPromptAction: () => ({ showToast: options => toasts.push(options.message) }),
+    getPromptAction: () => ({ showToast: options => toasts.push(options.message),showDialog:async()=>({index:0}) }),
   })
   page.aboutToAppear()
   return { page, toasts, recognitions: () => recognitions, recordings: () => recordings }
@@ -122,7 +124,8 @@ test('已授权且本次弹窗后不录音，重置后再次长按可启动识�
     { granted: true, prompted: false },
   ]
   const permission = deferred()
-  const f = voiceFixture(() => outcomes.length === 2 ? permission.promise : Promise.resolve(outcomes.shift()))
+  let first=true
+  const f = voiceFixture(() => {if(first){first=false;return permission.promise}return Promise.resolve(outcomes.shift())})
   f.page.requestMicrophoneAndStart()
   const firstStart = f.page.starting
   assert.equal(f.page.holding, true)
@@ -152,6 +155,14 @@ test('已授权且本次没有弹窗时正常启动录音', async () => {
   assert.equal(f.recognitions(), 1)
   assert.equal(f.recordings(), 1)
   assert.equal(f.page.voiceState, 1)
+})
+
+test('CD-L03 麦克风说明取消不请求系统权限',async()=>{
+ let requests=0
+ const f=voiceFixture(async()=>{requests++;return {granted:true,prompted:false}})
+ f.page.explainMicrophone=async()=>false
+ f.page.requestMicrophoneAndStart();await f.page.starting
+ assert.equal(requests,0);assert.equal(f.recordings(),0)
 })
 
 test('拒绝权限后即使用户已松手仍显示设置提示并回到待机', async () => {

@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser, PendingTradeInfo } from 'models'
 import { HDMNavBar } from 'ui_components'
-import { auth, localGoodsStore, storeManager } from 'storage'
+import { auth, localGoodsStore, storeManager, consentManager, deviceFixturePassword } from 'storage'
 import { authCart } from 'storage'
 import { huaweiLoginAPI, loginAPI, registerAPI, isAuthNetworkError, isAuthRequestError } from '../../data/api'
 import { LoginParams } from '../../domain/models'
@@ -17,6 +17,7 @@ export struct LoginView {
     password: ''
   }
   @State hasAcceptedTerms: boolean = false
+  @State consentAlreadyAccepted: boolean = false
   @State termsError: boolean = false
   @State documentTitle: string = ''
   @State documentText: string = ''
@@ -88,6 +89,7 @@ export struct LoginView {
   }
 
   private async saveLoginAndRefreshCart(user: HDMUser): Promise<void> {
+    await consentManager.report(user.token, user.id || '')
     // 先保存供下次启动恢复的资料，再更新当前页面使用的登录状态。
     await storeManager.saveUserInfo(user)
     if (storeManager.getUserInfo()?.token !== user.token) {
@@ -107,6 +109,7 @@ export struct LoginView {
     const paths = this.stackPath.getAllPathName()
     if (paths.length === 0 || paths[paths.length - 1] !== PAGE_PATH.LOGIN_PAGE) return
     this.stackPath.pop()
+    if (user.status === 'deleting') { this.stackPath.pushPath({ name: 'AccountDeletionView' }); return }
     if (GlobalVariable.DEMO_ORDER_FLOW || this.stackPath.getAllPathName().includes(PAGE_PATH.GOODS_PAGE)) return
     try {
       const raw: string = storeManager.getPendingTrade()
@@ -162,12 +165,31 @@ export struct LoginView {
       .setEnabled(this.hasAcceptedTerms)
   }
 
-  aboutToAppear():void {this.agreementScroller=new Scroller()}
-  aboutToDisappear():void {this.closeAgreement()}
+  aboutToAppear():void {
+    this.agreementScroller=new Scroller()
+    this.consentAlreadyAccepted=consentManager.accepted()
+    this.hasAcceptedTerms=this.consentAlreadyAccepted
+    this.updateHuaweiAgreementStatus()
+    if(!this.hasAcceptedTerms)void this.requestLoginConsent()
+  }
+  private async requestLoginConsent():Promise<void> {
+    try {
+      this.hasAcceptedTerms=await consentManager.request(this.getUIContext(),'login')
+      this.consentAlreadyAccepted=this.hasAcceptedTerms
+      this.updateHuaweiAgreementStatus()
+      if(!this.hasAcceptedTerms)this.stackPath.pop()
+    }catch {this.safeToast('同意记录保存失败，请重试')}
+  }
+  private async fillFixtureForm(account: string): Promise<void> {
+    const password = await deviceFixturePassword(account)
+    if (password && this.loginForm.account === account && !this.submitting) this.loginForm.password = password
+  }
+  aboutToDisappear():void {this.closeAgreement();this.loginForm.password=''}
   private showTermsError():void {this.termsError=true;this.agreementScroller?.scrollEdge(Edge.Bottom)}
   private toggleTerms():void {
-    if(this.submitting)return
+    if(this.submitting||this.consentAlreadyAccepted)return
     this.hasAcceptedTerms=!this.hasAcceptedTerms;this.termsError=false;this.updateHuaweiAgreementStatus()
+    void (this.hasAcceptedTerms?consentManager.accept('login'):consentManager.clear()).catch(()=>{this.hasAcceptedTerms=false;this.safeToast('同意记录保存失败，请重试')})
   }
   private async openAgreement(kind:string):Promise<void> {
     const generation=++this.documentGeneration
@@ -234,6 +256,7 @@ export struct LoginView {
                 .fontWeight(500)
                 .margin({ bottom: 10 })
               TextInput({ placeholder: '账号：3～32位字母、数字或下划线', text: $$this.loginForm.account })
+                .onChange((value: string) => { this.loginForm.account = value; void this.fillFixtureForm(value) })
                 .placeholderColor($r('[ui_components].color.gray'))
                 .placeholderFont({ size: 14 })
                 .form()
@@ -245,6 +268,7 @@ export struct LoginView {
                 .form()
 
               Row({ space: 4 }) {
+                if (!this.consentAlreadyAccepted) {
                 Checkbox()
                   .select(this.hasAcceptedTerms)
                   .width(24)
@@ -254,8 +278,9 @@ export struct LoginView {
                   .onClick(() => {
                     this.toggleTerms()
                   })
+                }
                 Text() {
-                  Span('查看并同意')
+                  Span(this.consentAlreadyAccepted ? '已同意' : '查看并同意')
                   Span('《隐私政策》')
                     .fontColor('#007DFB')
                     .onClick(()=>this.openAgreement('privacy'))
