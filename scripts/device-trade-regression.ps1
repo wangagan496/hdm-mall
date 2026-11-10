@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -13,6 +13,8 @@ $PackageSha256 = (Get-FileHash $PackagePath -Algorithm SHA256).Hash
 if ($ProductProbe) { $Mode = 'ProductProbe' }
 if ($AfterSaleProbe) { $Mode = 'AfterSaleProbe' }
 if ($UxProbe) { $Mode = 'UxProbe' }
+if ($ConsentProbe) { $Mode = 'ConsentProbe' }
+if ($DeletionProbe) { $Mode = 'DeletionProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
@@ -25,7 +27,7 @@ if ($ArchiveSequence) {
 }
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Base = 'http://127.0.0.1:3103'
-$Password = 'Device-trade-123'
+$Password = ''
 $Tokens = @{}
 function Invoke-Hdc([string[]]$Arguments) {
   $Response = @(& $Hdc -t $Target @Arguments 2>&1)
@@ -48,6 +50,10 @@ function Find-Text([string]$Text) {
 function Wait-Text([string]$Text) {
   for ($Try = 0; $Try -lt 12; $Try++) {
     $script:Nodes = Read-Nodes
+    if (-not $script:ExplicitConsent -and $Text -notin @('隐私与协议','不同意','隐私政策全文','用户协议全文') -and (Find-Text '隐私与协议')) {
+      Operate-Node (Find-Text '同意')
+      continue
+    }
     if (Find-Text $Text) { return }
     Start-Sleep -Milliseconds 300
   }
@@ -81,7 +87,10 @@ function Scroll-Text([string]$Text, [switch]$ViewOnly) {
   for ($Try = 0; $Try -lt 8; $Try++) {
     $script:Nodes = Read-Nodes
     $Node = Find-Text $Text
-    if ($Node) { if (-not $ViewOnly) { Operate-Node $Node }; return }
+    if ($Node) {
+      $Box=[regex]::Matches($Node.bounds,'\d+')|ForEach-Object{[int]$_.Value}
+      if($Box[3] -lt 2780 -or $ViewOnly){if (-not $ViewOnly) { Operate-Node $Node }; return}
+    }
     $null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','2350','660','900','600')
   }
   throw "Expected scroll target not found: $Text"
@@ -100,8 +109,9 @@ function Select-FamilyAll {
   throw 'Family all-orders filter is missing or disabled.'
 }
 function Mine {
+  $null = Invoke-Hdc @('shell','power-shell','wakeup')
   $null = Invoke-Hdc @('shell','aa','force-stop','com.hdm.mall')
-  $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall')
+  $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall','--ps','debugFixtureForm','local-trade')
   Wait-Text '爆款推荐'
   for ($Try = 0; $Try -lt 3; $Try++) {
     Tap-Text '我的'
@@ -124,13 +134,25 @@ function Login([string]$Account) {
   Tap-Text '立即登录'
   Wait-Text '账号密码登录'
   Input-Type 'TextInput' 0 $Account
-  Input-Type 'TextInput' 1 $Password
-  Back
+  Wait-FixturePassword
   $Inputs = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })
-  if ($Inputs[0].checked -ne 'true') { Operate-Node $Inputs[0] }
+  if ($Inputs.Count -gt 0 -and $Inputs[0].checked -ne 'true') { Operate-Node $Inputs[0] }
   Tap-Text '登录'
-  Wait-Text $Account
+  $Deleting=$false
+  if($DeletionProbe){$Lifecycle=Invoke-RestMethod "$Base/device-fixture/lifecycle";$Deleting=@($Lifecycle.users|Where-Object {$_.account -eq $Account -and $_.status -eq 'deleting'}).Count -eq 1}
+  if($Deleting){Wait-Text '注销申请已提交'}else{Wait-Text $Account}
   Write-Output "CHECK device signed in as $Account"
+}
+function Wait-FixturePassword {
+  for($Try=0;$Try -lt 15;$Try++) {
+    $script:Nodes=Read-Nodes
+    if(@($script:Nodes|Where-Object id -eq 'keyboardLeftButton').Count){Back;continue}
+    $Button=Find-Text '登录'
+    if($Button -and $Button.enabled -ne 'false'){return}
+    $null=Invoke-Hdc @('shell','uitest','uiInput','swipe','660','1500','660','650','400')
+    Start-Sleep -Milliseconds 200
+  }
+  throw 'Debug-only in-memory fixture form did not become ready.'
 }
 function Api([string]$Account, [string]$Path, [string]$Method = 'Get', $Body = $null) {
   if (-not $Tokens.ContainsKey($Account)) {
@@ -195,6 +217,17 @@ function Set-PaymentPreset([string]$Outcome, [string]$OrderId = '') {
 }
 function Payment-Proof([string]$OrderId) {
   return Invoke-RestMethod "$Base/device-fixture/orders/$OrderId/payments"
+}
+function Wait-RefundTimeout([string]$OrderId) {
+  for($Try=0;$Try -lt 100;$Try++){
+    $Proof=Payment-Proof $OrderId
+    if($Proof.refunds.Count -eq 1 -and $Proof.refunds[0].attempts -ge 1){
+      if($Proof.refunds[0].state -ne 'pending' -or !$Proof.refunds[0].next_attempt_at){throw 'Timeout must remain pending with scheduled retry'}
+      return $Proof
+    }
+    Start-Sleep -Milliseconds 250
+  }
+  throw 'Refund did not reach bounded timeout'
 }
 function Assert-NoPaymentAction {
   $script:Nodes = Read-Nodes
@@ -362,8 +395,8 @@ function Invoke-PaidCancellation {
   Tap-Text '全部订单'
   Wait-Text '已取消 · 退款中'
   Wait-Text '●'
-  $Proof = Payment-Proof $OrderId
-  if ($Proof.refunds.Count -ne 1 -or $Proof.refunds[0].state -ne 'pending' -or $Proof.refunds[0].attempts -ne 0 -or -not $Approved.needsAttention) { throw 'Refund barrier did not preserve genuine pending refund and unread notice' }
+  $Proof = Wait-RefundTimeout $OrderId
+  if ($Proof.refunds.Count -ne 1 -or $Proof.refunds[0].state -ne 'pending' -or $Proof.refunds[0].attempts -ne 1 -or -not $Approved.needsAttention) { throw 'Refund timeout did not preserve pending refund and unread notice' }
   Save-S3Checkpoint 'c7-refund-pending' $Cases $OrderId
   $null = Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$PaymentId;hold=$false} | ConvertTo-Json)
   Tap-Text '待付款'
@@ -734,10 +767,9 @@ function Invoke-LoginProbe {
   Tap-Text '重新登录后继续结算'
   Wait-Text '账号密码登录'
   Input-Type 'TextInput' 0 'device_buyer'
-  Input-Type 'TextInput' 1 $Password
-  Back
+  Wait-FixturePassword
   $Checkbox = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })
-  if ($Checkbox[0].checked -ne 'true') { Operate-Node $Checkbox[0] }
+  if ($Checkbox.Count -gt 0 -and $Checkbox[0].checked -ne 'true') { Operate-Node $Checkbox[0] }
   Tap-Text '登录'
   Wait-Text '结算'
   Wait-Text '设备独立测试商品'
@@ -904,10 +936,9 @@ function Invoke-BuyerScenario {
     Wait-Text '账号密码登录'
     Save-BuyerCheckpoint '04-guest-login' @('B-10')
     Input-Type 'TextInput' 0 'device_buyer'
-    Input-Type 'TextInput' 1 $Password
-    Back
+    Wait-FixturePassword
     $Checkbox = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })
-    if ($Checkbox[0].checked -ne 'true') { Operate-Node $Checkbox[0] }
+    if ($Checkbox.Count -gt 0 -and $Checkbox[0].checked -ne 'true') { Operate-Node $Checkbox[0] }
     Tap-Text '登录'
     Wait-Text '已加入购物车'
     Wait-Text '去购物车'
@@ -1065,14 +1096,26 @@ function Product-Control([string]$Id, [string]$Value = '') {
     $Nodes = Read-Nodes
     $Node = $Nodes | Where-Object { $_.id -eq $Id -and $_.visible -ne 'false' } | Select-Object -First 1
     if ($Node) {
-      Operate-Node $Node
       if ($Value) {
-        $null = Invoke-Hdc @('shell','uitest','uiInput','keyEvent','2072','2017')
-        $null = Invoke-Hdc @('shell','uitest','uiInput','text',$Value)
-        Back
-        $Actual = Read-Nodes | Where-Object { $_.id -eq $Id } | Select-Object -First 1
-        if ($Actual.text -ne $Value) { throw "Input did not replace existing text for $Id; got $($Actual.text)" }
-      }
+        for($InputTry=0;$InputTry -lt 8;$InputTry++){
+          $Current=Read-Nodes|Where-Object { $_.id -eq $Id -and $_.visible -ne 'false' }|Select-Object -First 1
+          if(!$Current){Start-Sleep -Milliseconds 500;continue}
+          if(!$Current.text){Operate-Node $Current $Value}
+          else {
+            Operate-Node $Current
+            Start-Sleep -Milliseconds 700
+            $null = Invoke-Hdc @('shell','uitest','uiInput','keyEvent','2072','2017')
+            $null = Invoke-Hdc @('shell','uitest','uiInput','text',$Value)
+          }
+          Start-Sleep -Milliseconds 700
+          $AfterInput=Read-Nodes
+          $Actual=$AfterInput|Where-Object { $_.id -eq $Id }|Select-Object -First 1
+          if($Actual.text -eq $Value){break}
+        }
+        if ($Actual.text -ne $Value) { throw "Input did not replace existing text for $Id" }
+        # Back is only a keyboard dismissal after verified input, never a blind sheet dismissal.
+        if(@($AfterInput|Where-Object { $_.id -eq 'keyboardLeftButton' }).Count){Back}
+      } else {Operate-Node $Node}
       return
     }
     $null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','2200','660','900','400')
@@ -1471,11 +1514,25 @@ function Invoke-AfterSaleProbe {
   if($RestockCount.text -ne '1'){throw 'Restock stepper display did not update to 1'}
   Wait-Text '不合格的不入库'
   Capture '06-after-sale-inspect-sheet'
+  $RefundPayment=(Payment-Proof $First).payments[0].id
+  $null=Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$RefundPayment;hold=$true}|ConvertTo-Json)
   $RefundTimer=[Diagnostics.Stopwatch]::StartNew()
   Product-Control 'after-sale-confirm'
+  $TimeoutProof=Wait-RefundTimeout $First
+  if($RefundTimer.Elapsed.TotalSeconds -gt 26){throw 'Return refund timeout did not settle within budget'}
+  # The client request timeout may precede the channel deadline; resume the saved action receipt.
+  $script:Nodes=Read-Nodes
+  if(Find-Text '确认上次处理结果'){
+    Capture '06-refund-action-result-unknown'
+    Product-Control 'after-sale-confirm'
+    Wait-Text '处理已完成'
+  }
+  Product-Control 'after-sale-filter-all'
+  Scroll-Text '七日无理由退货 · 退款中' -ViewOnly
+  Capture '07-after-sale-refund-timeout'
+  $null=Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$RefundPayment;hold=$false}|ConvertTo-Json)
   $Refunded=Wait-AfterSale $First 'refunded'
   $ReturnRefundSeconds=[math]::Round($RefundTimer.Elapsed.TotalSeconds,3)
-  if($ReturnRefundSeconds -ge 10){throw 'Return refund exceeded 10 seconds'}
   Product-Control 'after-sale-filter-all'
   Scroll-Text '七日无理由退货 · 已退款' -ViewOnly
   Wait-Text '已入库 1 件，未入库 1 件'
@@ -1520,9 +1577,143 @@ function Invoke-AfterSaleProbe {
   if($SecondProof.refunds.Count -ne 1 -or $SecondProof.refunds[0].amount -ne $AmountCents -or $SecondProof.refunds[0].state -ne 'succeeded' -or @($FinalMoves.items | Where-Object {$_.kind -eq 'return'}).Count -ne 1 -or $Inventory.items[0].stock -ne ($InitialStock-3) -or $Inventory.items[0].difference -ne 0){throw 'Missing-only refund changed stock or refund total mismatch'}
   $null=Assert-State $First 4
   $null=Assert-State $Second 4
-  Write-Output "CHECK immediate refunds return=$ReturnRefundSeconds seconds missing=$MissingRefundSeconds seconds; withdrawal restored=3"
+  Write-Output "CHECK timeout recovery return=$ReturnRefundSeconds seconds immediate missing=$MissingRefundSeconds seconds; withdrawal restored=3"
   Save-Result @{returnRefundSeconds=$ReturnRefundSeconds;missingRefundSeconds=$MissingRefundSeconds;withdrawnSale=$Withdrawn;restoredQuantity=$Restored.skus[0].afterSaleRemaining;firstOrder=$FirstProof;secondOrder=$SecondProof;returnSale=$Refunded;missingSale=$MissingRefund;returns=$Returns;stock=$Inventory.items[0].stock;difference=$Inventory.items[0].difference;nativeActions=@('checkout','payment','shipment','partial-application','first-return-address','ship-back','partial-restock','missing-only-refund')}
   Write-Output "SCRIPT $PSCommandPath RESULT AfterSaleProbe native partial return and missing-only refund passed"
+}
+function Open-Settings {
+  $Settings=@(Read-Nodes | Where-Object {$_.type -eq 'Image' -and $_.clickable -eq 'true' -and $_.visible -ne 'false'})
+  if($Settings.Count -ne 1){throw 'Settings image is not uniquely identified'}
+  Operate-Node $Settings[0]
+  Wait-Text '设置'
+}
+function Invoke-ConsentProbe {
+  Login 'device_buyer'
+  Open-Settings
+  Tap-CellArrow '撤回同意'
+  Tap-Text '确认撤回'
+  Wait-Text '爆款推荐'
+  $script:ExplicitConsent=$true
+  $null=Invoke-Hdc @('shell','aa','force-stop','com.hdm.mall')
+  $null=Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall','--ps','debugFixtureForm','local-trade')
+  Wait-Text '隐私与协议'
+  Back
+  Wait-Text '隐私与协议'
+  foreach($Document in @(@('隐私政策全文','隐私政策'),@('用户协议全文','用户协议'))){
+    Tap-Text $Document[0]
+    Wait-Text $Document[1]
+    Tap-Text '返回'
+    Wait-Text '隐私与协议'
+  }
+  Capture '01-startup-consent'
+  Operate-Node (Find-Text '不同意')
+  Wait-Text '爆款推荐'
+  Tap-Text '我的'
+  Wait-Text '你还未同意协议，同意后可登录'
+  Tap-Text '立即登录'
+  Wait-Text '隐私与协议'
+  Capture '02-login-consent'
+  Operate-Node (Find-Text '同意')
+  Wait-Text '账号密码登录'
+  if(@(Read-Nodes|Where-Object type -eq 'Checkbox').Count){throw 'Accepted login still shows checkbox'}
+  Wait-Text '已同意《隐私政策》和《用户协议》'
+  Capture '03-accepted-login'
+  Input-Type 'TextInput' 0 'device_buyer'
+  Wait-FixturePassword
+  Tap-Text '登录'
+  Wait-Text 'device_buyer'
+  Tap-Text '首页'
+  Tap-Text '搜索...'
+  Wait-Text '搜索'
+  Back
+  Wait-Text '长按语音搜索'
+  $Box=[regex]::Matches((Find-Text '长按语音搜索').bounds,'\d+')|ForEach-Object{[int]$_.Value}
+  $null=Invoke-Hdc @('shell','uitest','uiInput','longClick',"$([int](($Box[0]+$Box[2])/2))","$([int](($Box[1]+$Box[3])/2))")
+  Wait-Text '麦克风使用说明'
+  Capture '04-microphone-explanation'
+  Tap-Text '取消'
+  Wait-Text '长按语音搜索'
+  $Proof=Invoke-RestMethod "$Base/device-fixture/lifecycle"
+  if(@($Proof.consents|Where-Object action -eq 'withdrawn').Count -ne 1){throw 'Consent withdrawal not recorded'}
+  if(@($Proof.consents|Where-Object action -eq 'agreed').Count -ne 1){throw 'Consent version duplicated'}
+  Save-Result @{consents=$Proof.consents;checks=@('withdraw-in-app','explicit-choice-only','two-full-text-links','startup-decline','guest-browse','login-resume','accepted-without-checkbox','microphone-cancel')}
+  Write-Output "SCRIPT $PSCommandPath RESULT ConsentProbe passed"
+}
+function Invoke-DeletionProbe {
+  Login 'device_buyer'
+  $Address=@(Api 'device_buyer' '/member/address')[0]
+  $Ids=@()
+  foreach($Paid in @($false,$true)){
+    $Order=Api 'device_buyer' '/member/order' 'Post' @{addressId=$Address.id;requestKey=[guid]::NewGuid().ToString();expectedAmountCents=$AmountCents;goods=@(@{skuId=$SkuId;count=1})}
+    $Ids+=($Order.id)
+    if($Paid){$null=Api 'device_buyer' "/member/order/$($Order.id)/mock-pay" 'Post' @{amountCents=$AmountCents}}
+  }
+  Open-Settings
+  Tap-CellArrow '注销账号'
+  Wait-Text '提交后有15天冷静期'
+  Capture '01-deletion-matters'
+  Scroll-Text '我已了解上述影响' -ViewOnly
+  $Checkbox=@(Read-Nodes|Where-Object {$_.type -eq 'Checkbox' -and $_.visible -ne 'false'})[0]
+  Operate-Node $Checkbox
+  Scroll-Text '提交注销申请'
+  Wait-Text '爆款推荐'
+  $Tokens.Remove('device_buyer')
+  $Proof=Invoke-RestMethod "$Base/device-fixture/lifecycle"
+  if(($Proof.orders|Where-Object id -eq $Ids[0]).state -ne 6 -or ($Proof.orders|Where-Object id -eq $Ids[1]).state -ne 2){throw 'Immediate deletion order effects invalid'}
+  $null=Api 'device_merchant' "/merchant/orders/$($Ids[1])/ship" 'Post' @{}
+  Login 'device_buyer'
+  Wait-Text '注销申请已提交'
+  Wait-Text '查看注销说明'
+  $Status=Api 'device_buyer' '/member/account-deletion'
+  Wait-Text $Status.message
+  if($Status.matters.Count -ne 1 -or !$Status.matters[0].productName){throw 'Deletion status lacks order detail'}
+  Wait-Text $Status.matters[0].productName
+  Wait-Text $Status.matters[0].message
+  $OrderDate=[DateTimeOffset]::FromUnixTimeMilliseconds($Status.matters[0].createdAt).ToOffset([TimeSpan]::FromHours(8)).ToString('yyyy年M月d日下单')
+  Wait-Text $OrderDate
+  Capture '02-deleting-status'
+  Tap-Text $Status.matters[0].productName
+  Wait-Text '申请售后'
+  if(-not @(Read-Nodes|Where-Object id -eq 'order-apply-after-sale').Count){throw 'Deletion matter did not open order detail'}
+  Back
+  Wait-Text '注销申请已提交'
+  Scroll-Text '查看订单'
+  Wait-Text '确认收货'
+  Capture '03-deleting-orders'
+  Tap-Text '确认收货'
+  $null=Assert-State $Ids[1] 4
+  Product-Control ('order-apply-after-sale-'+$Ids[1])
+  Wait-Text '提交申请'
+  Product-Control 'after-sale-submit'
+  $Pending=Wait-AfterSale $Ids[1] 'pending'
+  # The native form must succeed while the account remains deleting.
+  $Status=Api 'device_buyer' '/member/account-deletion'
+  if($Status.status -ne 'deleting' -or $Status.matters.Count -ne 1){throw 'Cooling-period after-sale not retained as an unfinished matter'}
+  Capture '04-cooling-period-after-sale-success'
+  # Return to the order list after the application form closes, then to deletion status.
+  Back
+  Wait-Text '注销申请已提交'
+  Scroll-Text '撤销注销'
+  Wait-Text '提交后有15天冷静期'
+  Capture '05-deletion-cancelled'
+  $State=Api 'device_buyer' '/member/account-deletion'
+  if($State.status -ne 'active'){throw 'Deletion cancel did not restore active'}
+  $null=Api 'device_buyer' "/member/after-sales/$($Pending.id)/withdraw" 'Post' @{requestKey=[guid]::NewGuid().ToString()}
+  # A second explicit application verifies final deletion after the grace period.
+  Mine
+  Open-Settings
+  Tap-CellArrow '注销账号'
+  Scroll-Text '我已了解上述影响' -ViewOnly
+  Operate-Node (@(Read-Nodes|Where-Object {$_.type -eq 'Checkbox' -and $_.visible -ne 'false'})[0])
+  Scroll-Text '提交注销申请'
+  Wait-Text '爆款推荐'
+  $null=Invoke-RestMethod "$Base/device-fixture/advance" -Method Post -ContentType 'application/json' -Body '{"milliseconds":1296000000}'
+  $Proof=Invoke-RestMethod "$Base/device-fixture/lifecycle"
+  if(@($Proof.users|Where-Object status -eq 'deleted').Count -ne 1){throw 'Grace-period deletion did not complete'}
+  $Registered=Invoke-RestMethod "$Base/register" -Method Post -ContentType 'application/json' -Body (@{account='device_buyer';password=$Password}|ConvertTo-Json)
+  if($Registered.code -ne '1'){throw 'Original account name was not released'}
+  Save-Result @{users=$Proof.users;orders=$Proof.orders;coolingPeriodAfterSale=$Pending;checks=@('unpaid-cancel','paid-ship','buyer-receipt','cooling-period-native-after-sale','collapsed-explanation','dated-order-matters','cancel-deletion','grace-period-delete','account-reuse')}
+  Write-Output "SCRIPT $PSCommandPath RESULT DeletionProbe passed"
 }
 function Invoke-UxProbe {
   Guest
@@ -1530,33 +1721,27 @@ function Invoke-UxProbe {
   Tap-Text '立即登录'
   Wait-Text '账号密码登录'
   Input-Type 'TextInput' 0 'device_buyer'
-  Input-Type 'TextInput' 1 $Password
-  Back
-  Tap-Text '登录'
-  Wait-Text '请先阅读并勾选协议'
-  Capture '01-agreement-required'
-  $Checkbox = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })[0]
-  if ($Checkbox.checked -eq 'true') { throw 'Submitting without agreement silently checked terms.' }
+  Wait-FixturePassword
+  Wait-Text '已同意《隐私政策》和《用户协议》'
+  Capture '01-agreement-accepted'
+  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' }).Count) { throw 'Accepted consent shows redundant checkbox.' }
   # UiTest exports the native Span sequence as one Text; use its observed bounds.
-  $AgreementText=Find-Text '查看并同意《隐私政策》和《用户协议》'
+  $AgreementText=Find-Text '已同意《隐私政策》和《用户协议》'
   $Box=[regex]::Matches($AgreementText.bounds,'\d+')|ForEach-Object{[int]$_.Value}
-  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$([int]($Box[0]+($Box[2]-$Box[0])*0.42))","$([int](($Box[1]+$Box[3])/2))")
+  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$([int]($Box[0]+($Box[2]-$Box[0])*0.28))","$([int](($Box[1]+$Box[3])/2))")
   Wait-Text '隐私政策'
   Capture '02-privacy-draft'
   Back
   Wait-Text '账号密码登录'
-  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })[0].checked -eq 'true') { throw 'Privacy link toggled agreement.' }
-  $AgreementText=Find-Text '查看并同意《隐私政策》和《用户协议》'
+  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' }).Count) { throw 'Privacy link changed consent.' }
+  $AgreementText=Find-Text '已同意《隐私政策》和《用户协议》'
   $Box=[regex]::Matches($AgreementText.bounds,'\d+')|ForEach-Object{[int]$_.Value}
-  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$([int]($Box[0]+($Box[2]-$Box[0])*0.8))","$([int](($Box[1]+$Box[3])/2))")
+  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$([int]($Box[0]+($Box[2]-$Box[0])*0.60))","$([int](($Box[1]+$Box[3])/2))")
   Wait-Text '用户协议'
   Capture '03-agreement-draft'
   Back
   Wait-Text '账号密码登录'
-  $Terms = @(Read-Nodes | Where-Object { $_.id -eq 'terms-row' })[0]
-  $Box = [regex]::Matches($Terms.bounds, '\d+') | ForEach-Object { [int]$_.Value }
-  $null=Invoke-Hdc @('shell','uitest','uiInput','click',"$($Box[2]-8)","$($Box[3]-8)")
-  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })[0].checked -ne 'true') { throw 'Agreement row blank area did not toggle.' }
+  if (@(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' }).Count) { throw 'Agreement document changed consent.' }
   Tap-Text '登录'
   Wait-Text 'device_buyer'
   Tap-Text '编辑资料'
@@ -1675,7 +1860,7 @@ function Invoke-UxProbe {
   $OrderId=@(Orders)[0].id
   $Proof=Payment-Proof $OrderId
   if($Proof.payments.Count -ne 1){throw 'Result polling repeated the payment write.'}
-  Save-Result @{profileNickname=$Profile.nickname;cartQuantity=$Cart[0].count;orderId=$OrderId;paymentCount=$Proof.payments.Count;checks=@('agreement-highlight','agreement-links-no-toggle','whole-row-checkbox','profile-return-flush','family-groups-selected-counts-no-refresh-status-bar','cart-five-increments','cart-clear-confirm','address-delete-confirm','category-empty-source-copy-actions','payment-low-frequency-pending-indicator-action-order')}
+  Save-Result @{profileNickname=$Profile.nickname;cartQuantity=$Cart[0].count;orderId=$OrderId;paymentCount=$Proof.payments.Count;checks=@('accepted-agreement-no-checkbox','agreement-links-preserve-consent','profile-return-flush','family-groups-selected-counts-no-refresh-status-bar','cart-five-increments','cart-clear-confirm','address-delete-confirm','category-empty-source-copy-actions','payment-low-frequency-pending-indicator-action-order')}
   Write-Output "SCRIPT $PSCommandPath RESULT UxProbe passed"
 }
 $Existing = @(& $Hdc -t $Target fport ls)
@@ -1704,6 +1889,7 @@ try {
     } catch { Start-Sleep -Milliseconds 200 }
   }
   if (-not $Ready) { throw 'Isolated backend did not start.' }
+  $Password=(Invoke-RestMethod "$Base/device-fixture/form/device_buyer").result.password
   if (-not $Identity.skuId -or $Identity.amountCents -le 0 -or $Identity.initialStock -lt 11) { throw 'Isolated fixture product metadata is invalid.' }
   $SkuId = [string]$Identity.skuId
   $AmountCents = [int]$Identity.amountCents
@@ -1715,6 +1901,8 @@ try {
   $null = Invoke-Hdc @('install','-r',$PackagePath)
   Write-Output "CHECK installed package SHA256 $PackageSha256"
   if ($UxProbe) { Invoke-UxProbe; return }
+  if ($ConsentProbe) { Invoke-ConsentProbe; return }
+  if ($DeletionProbe) { Invoke-DeletionProbe; return }
   if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($AfterSaleProbe) { Invoke-AfterSaleProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }
