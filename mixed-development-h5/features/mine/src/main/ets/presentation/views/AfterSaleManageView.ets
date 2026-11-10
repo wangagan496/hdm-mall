@@ -1,6 +1,6 @@
 import { util } from '@kit.ArkTS'
 import { GlobalVariable } from 'constants'
-import { HDMUser, AfterSale, AfterSaleAddress, AfterSaleBody, AfterSaleLine, AfterSaleRestock, AfterSalePage, AfterSaleCounts, afterSaleStatus, afterSaleKind, formatBeijingTime } from 'models'
+import { HDMUser, AfterSale, AfterSaleAddress, AfterSaleBody, AfterSaleLine, AfterSaleRestock, AfterSalePage, AfterSaleCounts, afterSaleStatus, afterSaleKind, formatBeijingTime, returnConditionLabel } from 'models'
 import { RequestAxios } from 'network'
 import { afterSaleActions } from 'storage'
 import { HDMNavBar, AfterSalePhotos } from 'ui_components'
@@ -116,7 +116,8 @@ export struct AfterSaleManageView {
     this.selected=sale;this.action=action;this.message='';this.messageType='error';this.reason='';this.addressTouched=[];this.addressSubmitted=false
     this.pending=sale?this.hasPending(sale):false
     this.receiver=this.defaultAddress?.receiver||'';this.contact=this.defaultAddress?.contact||'';this.address=this.defaultAddress?.address||''
-    this.lines=(sale?.items||[]).map((line:AfterSaleLine):AfterSaleLine=>{return {skuId:line.skuId,name:line.name,spec:line.spec,priceCents:line.priceCents,count:line.count,restockCount:line.count}})
+    this.lines=(sale?.items||[]).map((line:AfterSaleLine):AfterSaleLine=>{return {skuId:line.skuId,name:line.name,spec:line.spec,priceCents:line.priceCents,count:line.count,restockCount:line.count,
+      conditionDeclared:line.conditionDeclared,returnPolicyReason:line.returnPolicyReason}})
     this.editorOpen=true
   }
   private addressError():string {
@@ -190,6 +191,9 @@ export struct AfterSaleManageView {
             Text('退款按申请数量计算，只把合格的件数入库').fontColor($r('[ui_components].color.text'))
             ForEach(this.lines,(line:AfterSaleLine,index:number)=>{
               Text(line.name+' · '+line.spec+'，退回 '+line.count+' 件').fontColor($r('[ui_components].color.text'))
+              if (returnConditionLabel(line.returnPolicyReason, line.conditionDeclared)) {
+                Text(returnConditionLabel(line.returnPolicyReason, line.conditionDeclared)).id('merchant-condition-' + index).fontColor($r('[ui_components].color.text'))
+              }
               Text('合格入库数量').fontColor($r('[ui_components].color.text'))
               Row({space:12}) {
                 Button('−').id('after-sale-restock-minus-'+index).enabled(!this.busy&&!this.pending&&Number(this.lines[index].restockCount)>0).onClick(()=>this.stepRestock(index,-1)).backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text'))
@@ -217,7 +221,12 @@ export struct AfterSaleManageView {
       Text(this.amountText(sale)).fontColor($r('[ui_components].color.text'))
       if(this.countdown(sale)){Text(this.countdown(sale)).fontColor(this.urgent(sale)?$r('[ui_components].color.red'):$r('[ui_components].color.text'))}
       if(sale.description){Text('问题说明：'+sale.description).fontColor($r('[ui_components].color.text'))}
-      ForEach(sale.items||[],(line:AfterSaleLine)=>{Text(line.name+' · '+line.spec+' × '+line.count).fontColor($r('[ui_components].color.text'))},(line:AfterSaleLine)=>line.skuId)
+      ForEach(sale.items||[],(line:AfterSaleLine)=>{
+        Text(line.name+' · '+line.spec+' × '+line.count).fontColor($r('[ui_components].color.text'))
+        if (returnConditionLabel(line.returnPolicyReason, line.conditionDeclared)) {
+          Text(returnConditionLabel(line.returnPolicyReason, line.conditionDeclared)).fontColor($r('[ui_components].color.text'))
+        }
+      },(line:AfterSaleLine)=>line.skuId)
       if((sale.images||[]).length){AfterSalePhotos({images:sale.images||[],loadImage:(path:string):Promise<string>=>this.photo(path)})}
       if(sale.state==='refunded'){Text(this.restockText(sale)).id('after-sale-restock-result').fontColor($r('[ui_components].color.text'))}
       if(sale.carrier){Text('寄回：'+sale.carrier+' '+sale.trackingNo).fontColor($r('[ui_components].color.text'))}

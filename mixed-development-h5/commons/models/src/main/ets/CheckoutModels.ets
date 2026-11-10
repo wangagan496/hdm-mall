@@ -1,4 +1,5 @@
 import { ExcludedCheckoutGoods } from './BusinessModels'
+import { ReturnPolicyGoods } from './ReturnPolicy'
 
 export interface CheckoutPrice {
   skuId: string
@@ -16,8 +17,9 @@ export interface CheckoutShortage {
   remainingCount: number
 }
 export interface CheckoutDetail {
+  returnPolicyToken?: string
   totalAmountCents?: number
-  goods: CheckoutPrice[] | CheckoutShortage[] | ExcludedCheckoutGoods[]
+  goods: CheckoutPrice[] | CheckoutShortage[] | ExcludedCheckoutGoods[] | ReturnPolicyGoods[]
 }
 export interface CheckoutFailure {
   status: number
@@ -34,4 +36,3 @@ export interface PendingOrderRequest {
   requestKey: string
   summary: string
 }
-

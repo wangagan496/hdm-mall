@@ -1,9 +1,19 @@
 import { AuditItem, AuditLine } from '../../data/api/audit'
-import { formatBeijingTime } from 'models'
+import { formatBeijingTime, returnPolicyLabel } from 'models'
+
+interface AuditReturnPolicy { policy: string; reason: string; note: string }
+function policyLabel(value: string | number | boolean | undefined): string {
+  try {
+    const parsed = JSON.parse(String(value)) as AuditReturnPolicy
+    if (!parsed || !parsed.policy) return '退货规则'
+    return returnPolicyLabel({ returnPolicy: parsed.policy, returnPolicyReason: parsed.reason, returnPolicyNote: parsed.note })
+  } catch { return '退货规则' }
+}
 
 export function auditActionLabel(action: string): string {
   const labels: Record<string, string> = {
     'product.create': '新建商品', 'product.edit': '修改商品', 'product.status': '上架或下架',
+    'product.return_policy': '修改退货规则',
     'sku.price': '改价', 'sku.enable': '启用或停用规格', 'sku.stock': '编辑商品库存', 'stock.adjust': '调整库存',
     'order.ship': '发货', 'order.reject_and_ship': '拒绝取消并发货', 'cancel.approve': '同意取消', 'cancel.auto_approve': '自动同意取消',
     'aftersale.approve': '同意售后', 'aftersale.reject': '拒绝售后', 'aftersale.inspect': '售后验收并退款',
@@ -21,6 +31,7 @@ function money(value: number): string { return '¥' + (value / 100).toFixed(2) }
 export function auditChange(item: AuditItem): string {
   const s = item.summary
   const reason = s.reason ? '，原因：' + s.reason : ''
+  if (item.action === 'product.return_policy') return policyLabel(s.before) + ' → ' + policyLabel(s.after)
   if (item.action === 'sku.price') return (s.spec || '规格') + ' ' + money(Number(s.before)) + ' → ' + money(Number(s.after))
   if (item.action === 'sku.stock' || item.action === 'stock.adjust') return '库存 ' + s.before + ' → ' + s.after + reason
   if (item.action === 'sku.enable') return (s.spec || '规格') + '：' + (s.before ? '启用' : '停用') + ' → ' + (s.after ? '启用' : '停用')

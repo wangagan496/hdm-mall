@@ -1,5 +1,6 @@
+import { ReturnPolicyFields, returnConditionError } from './ReturnPolicy'
 export interface AfterSaleAddress { receiver: string; contact: string; address: string; fullLocation?: string }
-export interface AfterSaleLine { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number }
+export interface AfterSaleLine extends ReturnPolicyFields { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number; afterSaleKinds?: string[]; conditionDeclared?: string }
 export interface AfterSaleImage { imageId: string; path: string }
 export interface AfterSale {
   id: string; orderId: string; sequence: number; kind: string; state: string; amountCents: number; payerAccount: string
@@ -8,7 +9,7 @@ export interface AfterSale {
   description?: string; returnAddress?: AfterSaleAddress | null; carrier?: string; trackingNo?: string; rejectReason?: string
   items?: AfterSaleLine[]; images?: AfterSaleImage[]; needsReturnAddress?: boolean; buyerAccount?: string; serverNow?: number
 }
-export interface AfterSaleQuantity { skuId: string; count: number }
+export interface AfterSaleQuantity { skuId: string; count: number; conditionDeclared?: string }
 export interface AfterSaleRestock { skuId: string; restockCount: number }
 export interface AfterSaleBody {
   requestKey?: string; kind?: string; description?: string; items?: AfterSaleQuantity[] | AfterSaleRestock[]; imageIds?: string[]
@@ -22,6 +23,14 @@ export interface AfterSalePage { items: AfterSale[]; counts: number; page: numbe
 export function afterSaleAmount(items: AfterSaleLine[]): number { return items.reduce((sum: number,item: AfterSaleLine): number => sum + item.priceCents * item.count,0) }
 export function afterSaleInputError(items: AfterSaleLine[], kind: string, description: string): string {
   if (!items.some((item: AfterSaleLine): boolean => item.count > 0) || items.some((item: AfterSaleLine): boolean => !Number.isInteger(item.count) || item.count < 0 || item.count > (item.remaining ?? 0))) return '请核对申请数量'
+  for (const item of items) {
+    if (item.count <= 0) continue
+    if (kind === 'return-no-reason') {
+      const error = returnConditionError(item, item.conditionDeclared)
+      if (error) return item.name + '：' + error
+    }
+    if (item.afterSaleKinds && !item.afterSaleKinds.includes(kind)) return item.name + '暂不能申请该售后类型，请调整数量或类型'
+  }
   if (description.trim().length > 200 || (kind !== 'return-no-reason' && description.trim().length < 5)) return '请填写5到200字的问题说明'
   return ''
 }

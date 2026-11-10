@@ -1,4 +1,5 @@
 export { TabItem } from './src/main/ets/TabItem'
+export { ReturnPolicyFields, ReturnPolicyGoods, ReturnPolicyOption, RETURN_POLICY_OPTIONS, ReturnPolicyConfirmation, returnPolicyError, returnPolicyLabel, returnPolicyAllowsNoReason, returnConditionRequired, returnConditionError, returnPolicyAfterSaleHint, returnConditionLabel } from './src/main/ets/ReturnPolicy'
 export {
   HDMGoodsItem,
   LocalGoodsItem,

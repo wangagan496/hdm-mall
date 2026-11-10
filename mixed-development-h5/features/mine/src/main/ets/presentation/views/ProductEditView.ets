@@ -1,5 +1,5 @@
 import { GlobalVariable } from 'constants'
-import { HDMUser } from 'models'
+import { HDMUser, ReturnPolicyFields, ReturnPolicyOption, RETURN_POLICY_OPTIONS, returnPolicyError } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
 import { storeManager } from 'storage'
@@ -20,6 +20,7 @@ export struct ProductEditView {
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('foreground') foregroundSequence: number = 0
   @State productId: string = ''
   @State draft: ProductDraft = { name: '', categoryId: '', description: '', image: '', picture: '', imageId: '', status: 'on', revision: 0,
+    returnPolicy: 'standard', returnPolicyReason: '', returnPolicyNote: '',
     skus: [{ spec: '标准款', price: '', stock: '0', enabled: true, originalPrice: 0 }] }
   @State categories: ProductCategory[] = []
   @State loading: boolean = false
@@ -47,6 +48,7 @@ export struct ProductEditView {
 
   private empty(): ProductDraft {
     return { name: '', categoryId: '', description: '', image: '', picture: '', imageId: '', status: 'on', revision: 0,
+      returnPolicy: 'standard', returnPolicyReason: '', returnPolicyNote: '',
       skus: [{ spec: '标准款', price: '', stock: '0', enabled: true, originalPrice: 0 }] }
   }
   private synchronizeSession(): void {
@@ -70,6 +72,7 @@ export struct ProductEditView {
   private fromProduct(product: ProductData): ProductDraft {
     return { name: product.name, categoryId: product.categoryId, description: product.description, image: '', picture: product.picture,
       imageId: product.imageId, status: product.status, revision: product.revision, base: product,
+      returnPolicy: product.returnPolicy || 'standard', returnPolicyReason: product.returnPolicyReason || '', returnPolicyNote: product.returnPolicyNote || '',
       skus: product.skus.map((sku: ProductSku): ProductSkuInput => { return { id: sku.id, spec: sku.spec, price: (sku.priceCents / 100).toFixed(2), stock: String(sku.stock), enabled: sku.enabled, originalPrice: sku.priceCents } }) }
   }
   private async load(): Promise<void> {
@@ -85,6 +88,9 @@ export struct ProductEditView {
       const raw = storeManager.getStore().getSync(this.draftKey(), '') as string
       if (raw) {
         const saved = JSON.parse(raw) as ProductDraft
+        saved.returnPolicy = saved.returnPolicy || 'standard'
+        saved.returnPolicyReason = saved.returnPolicyReason || ''
+        saved.returnPolicyNote = saved.returnPolicyNote || ''
         if (!Array.isArray(saved.skus) || saved.skus.length === 0) throw new Error('invalid draft')
         this.draft = saved
         this.restoreTouched()
@@ -129,7 +135,7 @@ export struct ProductEditView {
     return ''
   }
   private valid(): boolean {
-    return !this.nameError() && !!this.draft.categoryId && this.draft.description.length <= 2000 &&
+    return !this.nameError() && !!this.draft.categoryId && this.draft.description.length <= 2000 && !returnPolicyError(this.draft) &&
       this.draft.skus.length > 0 && this.draft.skus.every(sku => !this.specError(sku) && !this.priceError(sku) && !this.stockError(sku))
   }
   private touch(field: string): void { if (!this.touched.includes(field)) this.touched = this.touched.concat(field) }
@@ -137,6 +143,7 @@ export struct ProductEditView {
     if (this.draft.name.length > 0) this.touch('name')
     if (this.draft.categoryId) this.touch('category')
     if (this.draft.description.length > 0) this.touch('description')
+    if (this.draft.returnPolicyReason) this.touch('policy')
     this.draft.skus.forEach((sku: ProductSkuInput, index: number) => {
       if (sku.spec.length > 0) this.touch('spec-' + index)
       if (sku.price.length > 0) this.touch('price-' + index)
@@ -147,13 +154,14 @@ export struct ProductEditView {
     if (field === 'name') return this.nameError()
     if (field === 'category') return this.draft.categoryId ? '' : '请选择分类'
     if (field === 'description') return this.draft.description.length > 2000 ? '商品说明最多2000个字' : ''
+    if (field === 'policy') return returnPolicyError(this.draft)
     const parts = field.split('-'), sku = this.draft.skus[Number(parts[1])]
     if (!sku) return ''
     return parts[0] === 'spec' ? this.specError(sku) : parts[0] === 'price' ? this.priceError(sku) : this.stockError(sku)
   }
   private fieldError(field: string): string { return this.submitted || this.touched.includes(field) ? this.validationError(field) : '' }
   private firstError(): string {
-    const fields: string[] = ['name', 'category', 'description']
+    const fields: string[] = ['name', 'category', 'description', 'policy']
     this.draft.skus.forEach((sku: ProductSkuInput, index: number) => { fields.push('spec-' + index, 'price-' + index, 'stock-' + index) })
     return fields.find(field => !!this.validationError(field)) || 'name'
   }
@@ -205,6 +213,11 @@ export struct ProductEditView {
     const stockMessages: string[] = []
     if (!base || old.name !== base.name) fresh.name = old.name
     if (!base || old.description !== base.description) fresh.description = old.description
+    if (!base || this.policyChanged(old, base)) {
+      fresh.returnPolicy = old.returnPolicy || 'standard'
+      fresh.returnPolicyReason = old.returnPolicyReason || ''
+      fresh.returnPolicyNote = old.returnPolicyNote || ''
+    }
     fresh.image = old.image
     for (const input of old.skus) {
       if (!input.id) { fresh.skus.push(input); continue }
@@ -225,11 +238,17 @@ export struct ProductEditView {
   private saveBody(): ProductBody {
     const base = this.draft.base
     if (!this.productId) return { name: this.draft.name.trim(), description: this.draft.description.trim(), categoryId: this.draft.categoryId,
+      returnPolicy: this.draft.returnPolicy || 'standard', returnPolicyReason: this.draft.returnPolicyReason || '', returnPolicyNote: (this.draft.returnPolicyNote || '').trim(),
       skus: this.draft.skus.map((sku: ProductSkuInput): ProductSkuPatch => { return { spec: sku.spec.trim(), priceCents: Math.round(Number(sku.price) * 100), stock: Number(sku.stock), enabled: sku.enabled } }) }
     if (!base) throw new Error('请重新读取商品后保存')
     const body: ProductBody = { expectedRevision: this.draft.revision }
     if (this.draft.name.trim() !== base.name) body.name = this.draft.name.trim()
     if (this.draft.description.trim() !== base.description) body.description = this.draft.description.trim()
+    if (this.policyChanged(this.draft, base)) {
+      body.returnPolicy = this.draft.returnPolicy || 'standard'
+      body.returnPolicyReason = this.draft.returnPolicyReason || ''
+      body.returnPolicyNote = (this.draft.returnPolicyNote || '').trim()
+    }
     const patches: ProductSkuPatch[] = []
     for (const input of this.draft.skus) {
       const original = base.skus.find(sku => sku.id === input.id)
@@ -246,6 +265,19 @@ export struct ProductEditView {
     if (patches.length > 0) body.skus = patches
     return body
   }
+  private policyChanged(left: ReturnPolicyFields, right: ReturnPolicyFields): boolean {
+    return (left.returnPolicy || 'standard') !== (right.returnPolicy || 'standard') ||
+      (left.returnPolicyReason || '') !== (right.returnPolicyReason || '') ||
+      (left.returnPolicyNote || '').trim() !== (right.returnPolicyNote || '').trim()
+  }
+  private choosePolicy(option: ReturnPolicyOption): void {
+    if (this.saving || this.pending) return
+    this.draft.returnPolicy = option.policy; this.draft.returnPolicyReason = option.reason
+    if (option.reason !== 'defect') this.draft.returnPolicyNote = ''
+    this.touch('policy'); this.changed()
+  }
+  private policyOptions(policy: string): ReturnPolicyOption[] { return RETURN_POLICY_OPTIONS.filter((option: ReturnPolicyOption): boolean => option.policy === policy) }
+  private policySelected(option: ReturnPolicyOption): boolean { return (this.draft.returnPolicy || 'standard') === option.policy && (this.draft.returnPolicyReason || '') === option.reason }
   private schedule(generation: number, token: string): void {
     if (!this.pending || this.timer !== -1 || !this.current(generation, token)) return
     const delays: number[] = [1000, 3000, 8000]
@@ -286,6 +318,38 @@ export struct ProductEditView {
     if (this.fieldError(field)) { Text(this.fieldError(field)).fontColor($r('[ui_components].color.red')) }
   }
   @Builder
+  private PolicyGroup(policy: string, title: string) {
+    Text(title).fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
+    ForEach(this.policyOptions(policy), (option: ReturnPolicyOption) => {
+      Button(option.label + (this.policySelected(option) ? ' ✓ 已选' : ''))
+        .id('product-policy-' + (option.reason || 'standard')).width('100%').type(ButtonType.Normal).borderRadius(12)
+        .padding(12).fontSize(14)
+        .backgroundColor(this.policySelected(option) ? $r('[ui_components].color.red') : $r('[ui_components].color.white'))
+        .fontColor(this.policySelected(option) ? $r('[ui_components].color.loading_foreground') : $r('[ui_components].color.text'))
+        .border({ width: 1, color: $r('[ui_components].color.border') })
+        .onClick(() => this.choosePolicy(option))
+    }, (option: ReturnPolicyOption) => option.reason || 'standard')
+  }
+  @Builder
+  private ReturnPolicyForm() {
+    this.FieldLabel('七日无理由退货', 'policy')
+    this.PolicyGroup('standard', '正常支持')
+    this.PolicyGroup('law-excluded', '以下商品依法不适用，不需要买家勾选')
+    this.PolicyGroup('confirm-required', '以下规则需要买家下单时主动确认')
+    if (this.draft.returnPolicy === 'confirm-required') {
+      Text('选择后，买家下单时需要单独确认；没有确认的订单仍可七日无理由退货。拆封和激活类以买家的实际商品状态为准。')
+        .fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+    }
+    if (this.draft.returnPolicyReason === 'defect') {
+      TextArea({ text: this.draft.returnPolicyNote || '', placeholder: '请具体说明瑕疵，5到100字' })
+        .id('product-policy-note').height(90).maxLength(100).fontColor($r('[ui_components].color.text'))
+        .backgroundColor($r('[ui_components].color.under'))
+        .onChange((value: string) => { this.draft.returnPolicyNote = value; this.touch('policy'); this.changed() })
+    }
+    this.FieldError('policy')
+    Text('修改只影响之后的新订单，已有订单按下单时的规则处理。').fontSize(13).fontColor($r('[ui_components].color.gray'))
+  }
+  @Builder
   private Form() {
     this.FieldLabel('商品名称', 'name')
     TextInput({ text: this.draft.name, placeholder: '请输入商品名称' }).id('product-name').maxLength(100)
@@ -299,9 +363,9 @@ export struct ProductEditView {
       Flex({ wrap: FlexWrap.Wrap }) {
         ForEach(this.categories, (category: ProductCategory) => {
           Button(this.categoryLabel(category)).id('product-category-' + category.id)
-            .backgroundColor(this.draft.categoryId === category.id ? $r('sys.color.ohos_id_color_emphasize') : Color.Transparent)
+            .backgroundColor(this.draft.categoryId === category.id ? $r('[ui_components].color.red') : Color.Transparent)
             .fontColor(this.draft.categoryId === category.id ? $r('[ui_components].color.loading_foreground') : $r('[ui_components].color.text'))
-            .border({ width: 1, color: this.draft.categoryId === category.id ? $r('sys.color.ohos_id_color_emphasize') : $r('[ui_components].color.border') })
+            .border({ width: 1, color: this.draft.categoryId === category.id ? $r('[ui_components].color.red') : $r('[ui_components].color.border') })
             .margin({ right: 8, bottom: 4 }).onClick(() => { this.draft.categoryId = category.id; this.touch('category'); this.changed() })
         }, (category: ProductCategory) => category.id)
       }
@@ -315,7 +379,7 @@ export struct ProductEditView {
     if (this.draft.image || this.draft.picture) {
       Image(this.draft.image ? 'data:image/jpeg;base64,' + this.draft.image : this.draft.picture).width(160).height(160).objectFit(ImageFit.Contain).onError(() => this.imageFailed())
     }
-    Button('选择商品图片').backgroundColor(Color.Transparent).fontColor($r('sys.color.ohos_id_color_emphasize'))
+    Button('选择商品图片').backgroundColor(Color.Transparent).fontColor($r('[ui_components].color.red'))
       .border({ width: 1, color: $r('[ui_components].color.border') }).onClick(() => this.chooseImage())
     ForEach(this.draft.skus, (sku: ProductSkuInput, index: number) => {
       Column({ space: 8 }) {
@@ -337,11 +401,12 @@ export struct ProductEditView {
         TextInput({ text: sku.stock, placeholder: '请输入库存' }).id('product-stock-' + index).type(InputType.Number)
           .onChange(value => { this.draft.skus[index].stock = value; this.touch('stock-' + index); this.changed() }).onBlur(() => this.touch('stock-' + index))
         this.FieldError('stock-' + index)
-        Row({ space: 12 }) { Text('启用此规格').fontColor($r('[ui_components].color.text')); Toggle({ type: ToggleType.Switch, isOn: sku.enabled }).id('product-enabled-' + index).onChange(value => { this.draft.skus[index].enabled = value; this.changed() }) }
+        Row({ space: 12 }) { Text('启用此规格').fontColor($r('[ui_components].color.text')); Toggle({ type: ToggleType.Switch, isOn: sku.enabled }).selectedColor($r('[ui_components].color.red')).id('product-enabled-' + index).onChange(value => { this.draft.skus[index].enabled = value; this.changed() }) }
       }.padding(12).width('100%').alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.under')).borderRadius(12)
     }, (sku: ProductSkuInput, index: number) => sku.id || 'new-' + index)
-    Button('添加规格').backgroundColor(Color.Transparent).fontColor($r('sys.color.ohos_id_color_emphasize'))
+    Button('添加规格').backgroundColor(Color.Transparent).fontColor($r('[ui_components].color.red'))
       .border({ width: 1, color: $r('[ui_components].color.border') }).enabled(this.draft.skus.length < 50).onClick(() => this.addSku())
+    this.ReturnPolicyForm()
   }
   build() {
     NavDestination() {
@@ -371,6 +436,7 @@ export struct ProductEditView {
             }
             Button(this.pending ? (this.exhausted ? '确认保存结果' : '正在确认是否已保存') : this.saving ? '正在保存' : '保存')
               .id('product-save').width('100%').height(48)
+              .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.loading_foreground'))
               .enabled(!this.saving && (!this.pending || this.exhausted)).onClick(() => this.save())
           }.padding({ left: 16, right: 16, top: 12, bottom: 12 + this.safeBottom }).width('100%')
             .backgroundColor($r('[ui_components].color.white'))
