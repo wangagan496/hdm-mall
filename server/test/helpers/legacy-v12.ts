@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { removeAuditSchema } from './legacy-v13.ts'
 export function removeLifecycleSchema(db:DatabaseSync){
+ removeAuditSchema(db)
  if(!db.prepare("SELECT name FROM sqlite_master WHERE name='consents'").get())return
  db.exec(`DROP TABLE consent_requests; DROP TABLE consents; DROP TABLE account_deletions; DROP TABLE account_notices; DROP TABLE account_file_deletions;
  DROP INDEX users_deletion_due; DROP INDEX orders_retention;

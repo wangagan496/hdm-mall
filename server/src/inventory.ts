@@ -2,6 +2,7 @@ import type { User } from './accounts.ts'
 import { Database } from './database.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { ensure } from './errors.ts'
+import { appendAudit } from './audit.ts'
 
 type Movement = { skuId: string; delta: number } & (
   { kind: 'opening' } |
@@ -82,6 +83,8 @@ export function adjustStock(db: Database, user: User, skuId: string, data: Stock
     db.run('UPDATE skus SET stock=? WHERE id=?', balance, skuId)
     db.run(`INSERT INTO inventory_movements(sku_id,actor_id,kind,delta,balance,business_key,created,reason)
       VALUES(?,?,'adjust',?,?,?,?,?)`, skuId, user.id, data.delta, balance, `adjust:${user.id}:${data.requestKey}`, clock.now(), data.reason)
+    appendAudit(db,{created:clock.now(),actor:user,action:'stock.adjust',targetType:'sku',targetId:skuId,requestKey:data.requestKey,
+      summary:{before:sku.stock,after:balance,reason:data.reason,spec:db.one<{spec:string}>('SELECT spec FROM skus WHERE id=?',skuId)!.spec}})
     return findAdjustment(db, user, data.requestKey)!
   })
 }

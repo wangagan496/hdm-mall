@@ -7,6 +7,7 @@ import type { User } from './accounts.ts'
 import type { Clock } from './clock.ts'
 import type { Payments } from './payments.ts'
 import { ensure } from './errors.ts'
+import { appendAudit, type AuditAction } from './audit.ts'
 
 const DAY = 86400000
 const active = ['pending', 'awaiting-return', 'returned', 'refunding']
@@ -41,6 +42,7 @@ export class AfterSales {
   private address() { const row = this.db.one<{ return_address: string }>('SELECT return_address FROM merchant_settings WHERE id=1'); return row ? JSON.parse(row.return_address) as ReturnAddress : null }
   getAddress(user: User) { this.merchant(user); return this.address() }
   private storeAddress(user: User, address: ReturnAddress) {
+    if(canonical(this.address())!==canonical(address))appendAudit(this.db,{created:this.clock.now(),actor:user,action:'settings.return_address',targetType:'settings',targetId:'return-address',summary:{note:'已修改'}})
     this.db.run('INSERT INTO merchant_settings(id,return_address,updated_by,updated_at) VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET return_address=excluded.return_address,updated_by=excluded.updated_by,updated_at=excluded.updated_at', JSON.stringify(address), user.id, this.clock.now())
   }
   async setAddress(user: User, value: unknown) {
@@ -65,6 +67,10 @@ export class AfterSales {
   private receipt(sale: Sale, user: User | undefined, action: string, key: string, body: string): Receipt {
     const result = { id: randomUUID(), orderId: sale.order_id, afterSaleId: sale.id, action, appliedState: sale.state, appliedAt: this.clock.now(), refundId: sale.refund_id }
     this.db.run('INSERT INTO after_sale_actions(id,after_sale_id,actor_id,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?)', result.id, sale.id, user?.id ?? null, action, key, body, JSON.stringify(result), result.appliedAt)
+    const actions:Record<string,AuditAction>={approve:'aftersale.approve',reject:'aftersale.reject',inspect:'aftersale.inspect','refund-reject':'aftersale.refund_reject','auto-approve':'aftersale.auto_approve',close:'aftersale.auto_close','auto-refund':'aftersale.auto_refund'}
+    const auditAction=actions[action]
+    if(auditAction)appendAudit(this.db,{created:result.appliedAt,actor:user,action:auditAction,targetType:'after_sale',targetId:sale.id,orderId:sale.order_id,requestKey:key,
+      summary:{...(sale.reject_reason?{reason:sale.reject_reason}:{}),...(action==='inspect'?{items:this.db.all<{skuId:string;spec:string;restockCount:number}>('SELECT a.sku_id skuId,i.spec,a.restock_count restockCount FROM after_sale_items a JOIN order_items i ON i.sku_id=a.sku_id AND i.order_id=? WHERE a.after_sale_id=?',sale.order_id,sale.id)}:{})}})
     return result
   }
   async request(user: User, orderId: string, input: unknown) {
@@ -103,7 +109,7 @@ export class AfterSales {
     })
   }
   private refund(sale: Sale, user?: User) {
-    const refundId = this.payments.createAfterSaleRefund(sale.order_id, sale.payment_id, sale.id, sale.amount, this.clock.now())
+    const refundId = this.payments.createAfterSaleRefund(sale.order_id, sale.payment_id, sale.id, sale.amount, this.clock.now(),user)
     this.db.run("UPDATE after_sales SET state='refunding',approved_at=COALESCE(approved_at,?),refund_id=?,resolved_at=?,resolved_by=? WHERE id=?", this.clock.now(), refundId, this.clock.now(), user?.id ?? null, sale.id)
   }
   private approve(sale: Sale, address: ReturnAddress | null, user?: User) {

@@ -13,6 +13,7 @@ import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
 import { Payments } from './payments.ts'
 import { AccountLifecycle } from './account-lifecycle.ts'
+import { auditPage, deniedAudit } from './audit.ts'
 import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
 import { AppError, ensure } from './errors.ts'
@@ -68,6 +69,11 @@ export async function buildApp(options: AppOptions) {
   app.setErrorHandler((error, req, reply) => {
     const status = error instanceof z.ZodError ? 400 : error instanceof AppError ? error.statusCode : (error as { statusCode?: number }).statusCode ?? 500
     const msg = error instanceof z.ZodError ? '参数不正确，请检查输入' : error instanceof AppError ? error.message : status === 429 ? '操作太频繁，请稍后重试' : status === 413 ? '文件或请求过大' : '服务暂时不可用'
+    if(status===403&&req.routeOptions.url?.startsWith('/merchant/')){
+      let user:User|undefined
+      try{user=accounts.authenticate(req.headers.authorization)}catch{ /* Anonymous requests have no verified actor. */ }
+      if(user&&user.role!=='merchant')deniedAudit(db,user,req.method+' '+req.routeOptions.url,clock.now())
+    }
     if (status >= 500) app.log.error({ requestId: req.id, error: error instanceof Error ? error.message : 'unknown' }, 'request failed')
     reply.code(status).send({ code: '0', msg, requestId: req.id,
       ...(error instanceof AppError && error.reason ? { reason: error.reason, result: error.data } : {}) })
@@ -77,6 +83,7 @@ export async function buildApp(options: AppOptions) {
   const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User) => unknown) => {
     app.route({ method, url, handler: async req => {
       const user=accounts.authenticate(req.headers.authorization)
+      if(url.startsWith('/merchant/')&&user.role!=='merchant')throw new AppError(403,'需要商家权限','MERCHANT_REQUIRED')
       const followUp = [
         '/logout','/member/consents','/member/consents/withdraw','/member/account-deletion','/member/account-deletion/cancel',
         '/member/order/:id/receipt','/member/order/:id/payments/refresh',
@@ -89,6 +96,7 @@ export async function buildApp(options: AppOptions) {
     } })
   }
 
+  protectedRoute('GET','/merchant/audit-log',(req,user)=>auditPage(db,user,req.query))
   protectedRoute('POST','/member/consents',(req,user)=>lifecycle.consent(user,req.body))
   protectedRoute('POST','/member/consents/withdraw',(req,user)=>lifecycle.withdrawConsent(user,req.body))
   protectedRoute('GET','/member/account-deletion',(_req,user)=>lifecycle.status(user))
@@ -302,6 +310,7 @@ export async function buildApp(options: AppOptions) {
     return orders.evaluate(user, key(req), data.score, data.content)
   })
   protectedRoute('GET', '/merchant/orders', (_req, user) => orders.merchantList(user))
+  protectedRoute('GET', '/merchant/orders/:id', (req,user) => orders.merchantDetail(user,key(req)))
   protectedRoute('GET', '/merchant/orders/page', (req, user) => {
     const query = pageSchema.parse(req.query)
     return orders.merchantPage(user, query.page, query.pageSize)

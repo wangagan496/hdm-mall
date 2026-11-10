@@ -7,6 +7,7 @@ import type { User } from './accounts.ts'
 import { AppError, ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
 import { systemClock, type Clock } from './clock.ts'
+import { productAudit } from './audit.ts'
 
 const specFields = z.object({ spec: z.string().trim().min(1).max(60), priceCents: z.number().int().min(1).max(100000000),
   stock: z.number().int().min(0).max(2147483647), enabled: z.boolean().default(true) }).strict()
@@ -134,7 +135,9 @@ export class Products {
         this.db.run('INSERT INTO skus(id,product_id,spec,price,stock,enabled) VALUES(?,?,?,?,?,?)', skuId, id, sku.spec, sku.priceCents, sku.stock, Number(sku.enabled))
         recordStockMovement(this.db, { kind: 'opening', skuId, delta: sku.stock }, this.clock)
       }
-      return this.saveReceipt(user, data.requestKey, 'create', id, body)
+      const result = this.saveReceipt(user, data.requestKey, 'create', id, body)
+      productAudit(this.db,user,id,data.requestKey,this.clock.now(),undefined,result)
+      return result
     })
   }
   edit(user: User, id: string, data: ProductEdit) {
@@ -193,7 +196,9 @@ export class Products {
       const picture = data.imageId === undefined ? this.db.one<ProductRow>('SELECT * FROM products WHERE id=?', id)!.picture : this.image(user, data.imageId, id)
       this.db.run('UPDATE products SET name=?,description=?,picture=?,status=? WHERE id=?', data.name ?? current.name,
         data.description ?? current.description, picture, data.status ?? current.status, id)
-      return this.saveReceipt(user, data.requestKey, 'edit', id, body)
+      const result = this.saveReceipt(user, data.requestKey, 'edit', id, body)
+      productAudit(this.db,user,id,data.requestKey,this.clock.now(),current,result)
+      return result
     })
   }
 }
