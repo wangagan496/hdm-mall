@@ -116,9 +116,9 @@ export struct ProductManageView {
               }.padding(16).width('100%').backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }, (item: ProductData) => item.id + ':' + item.revision)
             Row({ space: 12 }) {
-              Button('上一页').enabled(this.page > 1 && !this.loading).onClick(() => this.load(this.page - 1))
+              Button('上一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.page > 1 && !this.loading).onClick(() => this.load(this.page - 1))
               Text(this.page + ' / ' + Math.max(1, this.pages)).fontColor($r('[ui_components].color.text'))
-              Button('下一页').enabled(this.page < this.pages && !this.loading).onClick(() => this.load(this.page + 1))
+              Button('下一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.page < this.pages && !this.loading).onClick(() => this.load(this.page + 1))
             }
           }.padding(16).width('100%')
         }.align(Alignment.Top).layoutWeight(1).width('100%')

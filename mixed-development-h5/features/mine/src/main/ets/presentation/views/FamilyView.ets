@@ -719,6 +719,8 @@ export struct FamilyView {
           .enabled(this.canManageFamily() && !this.pendingCancelActions.includes(order.id))
           .onClick(() => this.shipOrder(order))
       }
+      Button('查看订单详情').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+        .onClick(() => this.stackPath.pushPath({ name: 'MerchantOrderView', param: order.id }))
     }
     .orderCardStyle()
     .alignItems(HorizontalAlign.Start)

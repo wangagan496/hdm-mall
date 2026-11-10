@@ -197,6 +197,8 @@ export struct MineView {
           })
 
           if (this.user.role === 'merchant') {
+            Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')
+              .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))
             Button('库存管理').margin({ top: 12 })
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))
             Button('商品管理').margin({ top: 12 })
