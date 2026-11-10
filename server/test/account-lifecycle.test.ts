@@ -297,7 +297,7 @@ test('CD08 三年到期清除地址和售后照片，头像立即删除，备份
   const address=JSON.parse(f.ctx.db.one<{address:string}>('SELECT address FROM orders WHERE id=?',order)!.address)
   assert.equal(address.receiver,'');assert.equal(address.contact,'');assert.equal(address.address,'')
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion,13);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion,14);assert.deepEqual(backup.manifest.issues,[])
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
 test('CD09 012升级013保留账号订单，重启扫描执行到期注销',async()=>{
@@ -310,7 +310,7 @@ test('CD09 012升级013保留账号订单，重启扫描执行到期注销',asyn
   try{removeLifecycleSchema(old)}finally{old.close()}
   const migrated=new Database(path)
   try{
-   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version,13)
+   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version,14)
    assert.equal(migrated.one<{account:string}>('SELECT account FROM users WHERE id=?',f.buyer.id)!.account,f.buyer.account)
    assert.ok(migrated.one('SELECT id FROM orders WHERE id=?',order))
    migrated.run("UPDATE users SET status='deleting',deletion_requested_at=?,deletion_due_at=? WHERE id=?",f.now(),f.now()+15*DAY,f.buyer.id)

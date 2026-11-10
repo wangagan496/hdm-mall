@@ -6,6 +6,7 @@ import { storeManager } from 'storage'
 import { pickProductImage } from 'ui_components'
 import { ProductBody, ProductData, ProductDraft, ProductSku, ProductSkuPatch, ProductSkuInput, ProductCategory, ProductError, ProductNotice } from '../../data/api/products'
 import { productSave } from '../utils/ProductSave'
+import { AuditFilter } from '../../data/api/audit'
 
 @Builder
 function ProductEditViewBuilder() { ProductEditView() }
@@ -351,7 +352,7 @@ export struct ProductEditView {
             if (this.message) { Text(this.message).id('product-edit-message').fontColor(this.messageColor()) }
             if (this.draftError) { Text(this.draftError).fontColor($r('[ui_components].color.red')) }
             if (this.loading) { Text('正在读取商品').fontColor($r('[ui_components].color.text')) }
-            if (!this.ready && !this.loading) { Button('重试').onClick(() => this.load()) }
+            if (!this.ready && !this.loading) { Button('重试').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(() => this.load()) }
             if (this.ready) {
               Column({ space: 12 }) { this.Form() }.width('100%').alignItems(HorizontalAlign.Start).enabled(!this.saving && !this.pending)
               if (!this.productId) {
@@ -364,6 +365,10 @@ export struct ProductEditView {
         }.align(Alignment.Top).layoutWeight(1).width('100%').id('product-form-scroll')
         if (this.ready) {
           Column() {
+            if (this.productId) {
+              Button('操作记录').id('product-audit-entry').backgroundColor(Color.Transparent).fontColor($r('[ui_components].color.text'))
+                .enabled(!this.saving && !this.pending).onClick(() => this.stackPath.pushPath({ name: 'AuditLogView', param: { productId: this.productId } as AuditFilter }))
+            }
             Button(this.pending ? (this.exhausted ? '确认保存结果' : '正在确认是否已保存') : this.saving ? '正在保存' : '保存')
               .id('product-save').width('100%').height(48)
               .enabled(!this.saving && (!this.pending || this.exhausted)).onClick(() => this.save())

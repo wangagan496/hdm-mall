@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -15,11 +15,13 @@ if ($AfterSaleProbe) { $Mode = 'AfterSaleProbe' }
 if ($UxProbe) { $Mode = 'UxProbe' }
 if ($ConsentProbe) { $Mode = 'ConsentProbe' }
 if ($DeletionProbe) { $Mode = 'DeletionProbe' }
+if ($AuditProbe) { $Mode = 'AuditProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
 if ($AfterSaleProbe) { $Output = Join-Path $Root '_device_acceptance/after-sale-probe' }
 if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
+if ($AuditProbe) { $Output = Join-Path $Root '_device_acceptance/audit-probe' }
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
@@ -1581,6 +1583,111 @@ function Invoke-AfterSaleProbe {
   Save-Result @{returnRefundSeconds=$ReturnRefundSeconds;missingRefundSeconds=$MissingRefundSeconds;withdrawnSale=$Withdrawn;restoredQuantity=$Restored.skus[0].afterSaleRemaining;firstOrder=$FirstProof;secondOrder=$SecondProof;returnSale=$Refunded;missingSale=$MissingRefund;returns=$Returns;stock=$Inventory.items[0].stock;difference=$Inventory.items[0].difference;nativeActions=@('checkout','payment','shipment','partial-application','first-return-address','ship-back','partial-restock','missing-only-refund')}
   Write-Output "SCRIPT $PSCommandPath RESULT AfterSaleProbe native partial return and missing-only refund passed"
 }
+function Invoke-AuditProbe {
+  $Product=@((Api 'device_merchant' '/merchant/products?pageSize=100').items | Where-Object { $_.skus.id -contains $SkuId })[0]
+  if(!$Product){throw 'Audit product not found'}
+  $OldAmount=$AmountCents
+  $AmountCents=$OldAmount+100
+  $OldPrice=([decimal]$OldAmount/100).ToString('F2',[Globalization.CultureInfo]::InvariantCulture)
+  $NewPrice=([decimal]$AmountCents/100).ToString('F2',[Globalization.CultureInfo]::InvariantCulture)
+  $PaymentText='确认支付 ¥'+$NewPrice
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Product-Control ('product-edit-'+$Product.id)
+  Product-Control 'product-price-0' $NewPrice
+  Product-Control 'product-save'
+  Wait-Text '商品已保存'
+  $Updated=Api 'device_merchant' ('/merchant/products/'+$Product.id)
+  if($Updated.skus[0].priceCents -ne $AmountCents){throw 'Native price change failed'}
+  Product-Control ('product-edit-'+$Product.id)
+  Product-Control 'product-audit-entry'
+  Wait-Text '改价'
+  Capture '01-product-filter-entry'
+  Mine
+  Tap-Text '库存管理'
+  Tap-Text '调整库存'
+  Wait-Text ('当前可售库存：'+$InitialStock)
+  Input-Type 'TextInput' 0 '2'
+  $script:Nodes=Read-Nodes
+  if(@($script:Nodes|Where-Object id -eq 'keyboardLeftButton').Count){Back}
+  Scroll-Text '盘点更正'
+  Scroll-Text '提交库存调整'
+  Tap-Text '确认调整'
+  Wait-Text ('调整已记录，本次调整后库存为 '+($InitialStock+2))
+  Write-Output 'CHECK AuditProbe native price and inventory changes saved'
+  Login 'device_buyer'
+  Checkout
+  $Order=(Orders)[0].id
+  Tap-Text $PaymentText
+  $null=Assert-State $Order 2
+  Ship
+  $null=Assert-State $Order 3
+  Login 'device_buyer'
+  Tap-Text '待收货'
+  Product-Control ('order-apply-after-sale-'+$Order)
+  Product-Control 'after-sale-submit'
+  Tap-Text '确认提交'
+  $Sale=Wait-AfterSale $Order 'pending'
+  Login 'device_merchant'
+  Scroll-Text '售后处理'
+  Product-Control ('after-sale-approve-'+$Sale.id)
+  Product-Control 'after-sale-receiver' 'Return warehouse'
+  Product-Control 'after-sale-contact' '13800138000'
+  Product-Control 'after-sale-address' 'Beijing return warehouse 1'
+  Product-Control 'after-sale-confirm'
+  $null=Wait-AfterSale $Order 'awaiting-return'
+  Login 'device_buyer'
+  Tap-Text '待评价'
+  Tap-Text '设备独立测试商品'
+  Product-Control 'after-sale-carrier' 'SF'
+  Product-Control 'after-sale-tracking' 'SF123456789'
+  Product-Control 'after-sale-ship-back'
+  $null=Wait-AfterSale $Order 'returned'
+  Login 'device_merchant'
+  Scroll-Text '售后处理'
+  Product-Control 'after-sale-filter-returned'
+  Product-Control ('after-sale-inspect-'+$Sale.id)
+  Product-Control 'after-sale-confirm'
+  $null=Wait-AfterSale $Order 'refunded'
+  $Denied=$false
+  try{$null=Api 'device_buyer' '/merchant/audit-log'}catch{$Denied=[int]$_.Exception.Response.StatusCode -eq 403}
+  if(!$Denied){throw 'Buyer audit endpoint must return 403'}
+  $Audit=Api 'device_merchant' '/merchant/audit-log?pageSize=100'
+  foreach($Action in @('sku.price','stock.adjust','order.ship','aftersale.inspect','refund.create','refund.result','access.denied')){
+    if(@($Audit.items|Where-Object action -eq $Action).Count -ne 1){throw "Expected exactly one audit action: $Action"}
+  }
+  $Price=@($Audit.items|Where-Object action -eq 'sku.price')[0]
+  if($Price.summary.before -ne $OldAmount -or $Price.summary.after -ne $AmountCents -or $Price.actorAccount -ne 'device_merchant'){throw 'Audit price before/after or actor mismatch'}
+  if(($Audit|ConvertTo-Json -Depth 15) -match '13800138000|Beijing return warehouse|/uploads/|SF123456789'){throw 'Private fields leaked into audit'}
+  Mine
+  Tap-Text '操作记录'
+  Wait-Text '访问被拒绝'
+  Capture '02-audit-list-filters'
+  Product-Control 'audit-filter-products'
+  $PriceText=$Product.skus[0].spec+' ¥'+$OldPrice+' → ¥'+$NewPrice
+  Wait-Text $PriceText
+  Capture '03-audit-price'
+  Product-Control 'audit-filter-inventory'
+  Wait-Text ('库存 '+$InitialStock+' → '+($InitialStock+2)+'，原因：库存盘点更正')
+  Capture '04-audit-stock'
+  Product-Control 'audit-filter-shipping'
+  Wait-Text '发货'
+  Capture '05-audit-shipment'
+  Product-Control 'audit-action-order.ship'
+  Wait-Text '商家订单详情'
+  Product-Control 'merchant-order-audit'
+  Wait-Text '售后验收并退款'
+  Capture '06-order-filter-entry'
+  Back
+  Back
+  Product-Control 'audit-filter-aftersales'
+  Scroll-Text '售后验收并退款' -ViewOnly
+  Capture '07-audit-after-sale-refund'
+  $Inventory=Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  if($Inventory.items[0].stock -ne ($InitialStock+2) -or $Inventory.items[0].difference -ne 0){throw 'AuditProbe final inventory mismatch'}
+  Save-Result @{orderId=$Order;priceBefore=$OldAmount;priceAfter=$AmountCents;stockBefore=$InitialStock;stockAfter=$Inventory.items[0].stock;buyerDenied=$Denied;audit=$Audit;checks=@('native-price','native-stock','native-ship','native-inspect-refund','product-entry','order-entry','audit-filters','audit-text','buyer-403','privacy')}
+  Write-Output "SCRIPT $PSCommandPath RESULT AuditProbe passed"
+}
 function Open-Settings {
   $Settings=@(Read-Nodes | Where-Object {$_.type -eq 'Image' -and $_.clickable -eq 'true' -and $_.visible -ne 'false'})
   if($Settings.Count -ne 1){throw 'Settings image is not uniquely identified'}
@@ -1903,6 +2010,7 @@ try {
   if ($UxProbe) { Invoke-UxProbe; return }
   if ($ConsentProbe) { Invoke-ConsentProbe; return }
   if ($DeletionProbe) { Invoke-DeletionProbe; return }
+  if ($AuditProbe) { Invoke-AuditProbe; return }
   if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($AfterSaleProbe) { Invoke-AfterSaleProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }

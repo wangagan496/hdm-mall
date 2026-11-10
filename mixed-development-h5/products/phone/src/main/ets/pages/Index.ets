@@ -4,7 +4,7 @@ import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI, consentM
 import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
-import { MineView } from 'mine'
+import { MineView, AuditLogView, MerchantOrderView } from 'mine'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 // 导入抽离的常量和枚举
@@ -187,7 +187,13 @@ struct Index {
       .animationDuration(new BreakPointType({ xs: 100, sm: 100, md: 100, lg: 0 }).getValue(this.breakPoint))
     }
     .mode(NavigationMode.Stack)
+    .navDestination(this.auditDestination)
     .titleMode(NavigationTitleMode.Mini)
     .hideTitleBar(true)
+  }
+  @Builder
+  private auditDestination(name: string) {
+    if (name === 'AuditLogView') { AuditLogView() }
+    else if (name === 'MerchantOrderView') { MerchantOrderView() }
   }
 }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { appendAudit, type AuditAction } from './audit.ts'
 import { Database } from './database.ts'
 import type { Clock } from './clock.ts'
 import { Accounts, type User } from './accounts.ts'
@@ -224,6 +225,10 @@ export class Orders {
     ensure(this.canRead(user, order), 403, '无权查看此订单')
     this.payments?.markViewed(order.id, user.id)
     return this.present(order, user)
+  }
+  merchantDetail(user:User,id:string){
+    ensure(user.role==='merchant',403,'需要商家权限')
+    return this.present(this.get(id),user,true)
   }
   private listFilter(user: User, state: number, family: boolean) {
     const stateFilter = state ? 'o.state=?' : '1=1'
@@ -474,6 +479,9 @@ export class Orders {
       action, appliedState: request.state, appliedAt: now, refundId: request.refund_id }
     this.db.run('INSERT INTO order_cancel_actions(id,order_id,cancel_request_id,actor_id,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?,?)',
       result.id, request.order_id, request.id, user?.id ?? null, action, requestKey, body, JSON.stringify(result), now)
+    const auditAction:AuditAction|undefined=action==='approve'?'cancel.approve':action==='auto-approve'?'cancel.auto_approve':action==='reject-and-ship'?'order.reject_and_ship':undefined
+    if(auditAction)appendAudit(this.db,{created:now,actor:user,action:auditAction,targetType:'order',targetId:request.order_id,orderId:request.order_id,requestKey,
+      summary:request.reject_reason?{reason:request.reject_reason}:{}})
     return result
   }
   requestCancel(user: User, id: string, requestKey: string) {
@@ -538,7 +546,7 @@ export class Orders {
         { kind: 'cancel', skuId: item.sku_id, delta: item.count, orderId: request.order_id, actorId: user.id } :
         { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: request.order_id }, this.clock)
     }
-    const refundId = this.payments.createOrderCancellationRefund(request.order_id, request.payment_id, now)
+    const refundId = this.payments.createOrderCancellationRefund(request.order_id, request.payment_id, now,user??undefined)
     const state = user ? 'approved' : 'auto-approved'
     const resolved = this.db.run("UPDATE order_cancel_requests SET state=?,resolved_at=?,resolved_by=?,refund_id=? WHERE id=? AND state='pending'",
       state, now, user?.id ?? null, refundId, request.id)
@@ -635,6 +643,7 @@ export class Orders {
       if (this.payments) ensure(this.payments.effectivePaymentId(id), 409, '订单没有有效支付，不能发货')
       const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', this.clock.now(), id)
       ensure(shipped.changes === 1, 409, '订单不在待发货状态')
+      appendAudit(this.db,{created:this.clock.now(),actor:user,action:'order.ship',targetType:'order',targetId:id,orderId:id})
       return { id }
     })
   }

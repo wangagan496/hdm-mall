@@ -4,6 +4,7 @@ import type { Clock } from './clock.ts'
 import { AppError, ensure } from './errors.ts'
 import type { Accounts, User } from './accounts.ts'
 import { recordStockMovement } from './inventory.ts'
+import { appendAudit } from './audit.ts'
 import { MockPaymentChannel, type ChannelPayment, type ChannelResult, type PaymentCallback, type PaymentChannel } from './payment-channel.ts'
 
 const PAYMENT_WINDOW_MS = 15 * 60_000
@@ -260,17 +261,17 @@ export class Payments {
       ORDER BY p.created,p.id LIMIT 1`, orderId)?.id
   }
 
-  createOrderCancellationRefund(orderId: string, paymentId: string, now: number) {
+  createOrderCancellationRefund(orderId: string, paymentId: string, now: number, actor?: User) {
     if (this.effectivePaymentId(orderId) !== paymentId) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
-    return this.createRefund(this.payment(paymentId)!, 'cancelled', now)
+    return this.createRefund(this.payment(paymentId)!, 'cancelled', now,undefined,undefined,actor)
   }
 
-  createAfterSaleRefund(orderId: string, paymentId: string, afterSaleId: string, amount: number, now: number) {
+  createAfterSaleRefund(orderId: string, paymentId: string, afterSaleId: string, amount: number, now: number, actor?: User) {
     ensure(this.effectivePaymentId(orderId) === paymentId, 409, '付款记录异常，请联系客服')
-    return this.createRefund(this.payment(paymentId)!, 'after-sale', now, amount, afterSaleId)
+    return this.createRefund(this.payment(paymentId)!, 'after-sale', now, amount, afterSaleId,actor)
   }
 
-  private createRefund(payment: PaymentRow, reason: RefundRow['reason'], now: number, amount = payment.amount, afterSaleId?: string) {
+  private createRefund(payment: PaymentRow, reason: RefundRow['reason'], now: number, amount = payment.amount, afterSaleId?: string, actor?: User) {
     const existing = afterSaleId ? this.db.one<{ id: string }>('SELECT id FROM refunds WHERE after_sale_id=?', afterSaleId) :
       this.db.one<{ id: string }>("SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')", payment.id)
     if (existing) return existing.id
@@ -280,6 +281,8 @@ export class Payments {
     this.db.run(`INSERT INTO refunds(id,payment_id,amount,reason,after_sale_id,state,attempts,next_attempt_at,created) VALUES(?,?,?,?,?,'pending',0,?,?)`,
       id, payment.id, amount, reason, afterSaleId ?? null, now, now)
     this.createRefundNotices(payment, id, now)
+    appendAudit(this.db,{created:now,actor,action:'refund.create',targetType:'refund',targetId:id,orderId:payment.order_id,
+      summary:{reason,amountCents:amount,payerId:payment.payer_id}})
     return id
   }
 
@@ -349,6 +352,7 @@ export class Payments {
         result === 'success' ? 'succeeded' : 'failed', attempts, next, result === 'success' ? 1 : 0, refund.id)
       if (result === 'success') this.db.run('UPDATE refunds SET completed_at=? WHERE id=?',now,refund.id)
       if (result === 'success') this.db.run("UPDATE after_sales SET state='refunded' WHERE refund_id=? AND state='refunding'", refund.id)
+      appendAudit(this.db,{created:now,action:'refund.result',targetType:'refund',targetId:refund.id,orderId:this.payment(refund.payment_id)!.order_id,summary:{outcome:result,amountCents:refund.amount}})
     })
   }
 
@@ -432,6 +436,7 @@ export class Payments {
       const changed = this.db.run("UPDATE refunds SET review_at=?,next_attempt_at=NULL WHERE id=? AND review_at IS NULL AND state IN ('pending','failed')", now, refund.id)
       if (!changed.changes) return
       const payment = this.payment(refund.payment_id)!
+      appendAudit(this.db,{created:now,action:'refund.result',targetType:'refund',targetId:refund.id,orderId:payment.order_id,summary:{outcome:'review',amountCents:refund.amount}})
       const ownerId = this.order(payment.order_id).owner_id
       for (const recipientId of new Set([payment.payer_id, ownerId])) this.db.run(`INSERT INTO payment_notices(id,order_id,recipient_id,payment_id,refund_id,kind,created)
         VALUES(?,?,?,?,?,'review',?)`, randomUUID(), payment.order_id, recipientId, payment.id, refund.id, now)
@@ -497,8 +502,10 @@ export class Payments {
       return { id: refundId }
     }
     ensure(refund.review_at !== null && refund.state !== 'succeeded', 409, '退款单不在待核实列表')
-    this.db.transaction(() => this.db.run('INSERT INTO refund_retry_actions(refund_id,merchant_id,request_key,created) VALUES(?,?,?,?)',
-      refundId, user.id, requestKey, this.clock.now()))
+    this.db.transaction(() => {
+      this.db.run('INSERT INTO refund_retry_actions(refund_id,merchant_id,request_key,created) VALUES(?,?,?,?)',refundId,user.id,requestKey,this.clock.now())
+      appendAudit(this.db,{created:this.clock.now(),actor:user,action:'refund.retry',targetType:'refund',targetId:refundId,orderId:this.payment(refund.payment_id)!.order_id,requestKey})
+    })
     await this.reconcile(this.clock.now(), { refundIds: [refundId] })
     return { id: refundId }
   }
@@ -531,6 +538,8 @@ export class Payments {
         VALUES(?,?,?,?,?,?,?)`, paymentId, user.id, data.requestKey, data.outcome, data.paidAt ?? null, data.reason, this.clock.now())
       if (data.outcome === 'paid') this.settleSuccess(payment, data.paidAt!, this.clock.now(), refundIds)
       else this.settleFailure(payment, this.clock.now())
+      appendAudit(this.db,{created:this.clock.now(),actor:user,action:'payment.review',targetType:'payment',targetId:paymentId,orderId:payment.order_id,requestKey:data.requestKey,
+        summary:{outcome:data.outcome,reason:data.reason}})
     })
     if (refundIds.length) await this.reconcile(this.clock.now(), { refundIds })
     return { id: paymentId }

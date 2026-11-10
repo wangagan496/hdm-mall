@@ -277,9 +277,9 @@ export struct InventoryView {
               // 接口返回普通对象；数据变化时重建该行，更新显示和按钮捕获的库存基准。
               }, (item: InventoryItem) => JSON.stringify(item))
               Row({ space: 16 }) {
-                Button('上一页').enabled(this.page > 1 && !this.loading && !this.submitting).onClick(() => this.load(this.page - 1))
+                Button('上一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.page > 1 && !this.loading && !this.submitting).onClick(() => this.load(this.page - 1))
                 Text(this.page + ' / ' + Math.max(1, this.pages)).fontColor('#1F2329')
-                Button('下一页').enabled(this.page < this.pages && !this.loading && !this.submitting).onClick(() => this.load(this.page + 1))
+                Button('下一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.page < this.pages && !this.loading && !this.submitting).onClick(() => this.load(this.page + 1))
               }
             }
           }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
