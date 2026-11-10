@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -16,12 +16,14 @@ if ($UxProbe) { $Mode = 'UxProbe' }
 if ($ConsentProbe) { $Mode = 'ConsentProbe' }
 if ($DeletionProbe) { $Mode = 'DeletionProbe' }
 if ($AuditProbe) { $Mode = 'AuditProbe' }
+if ($ReturnPolicyProbe) { $Mode = 'ReturnPolicyProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
 if ($AfterSaleProbe) { $Output = Join-Path $Root '_device_acceptance/after-sale-probe' }
 if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
 if ($AuditProbe) { $Output = Join-Path $Root '_device_acceptance/audit-probe' }
+if ($ReturnPolicyProbe) { $Output = Join-Path $Root '_device_acceptance/return-policy-probe' }
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
@@ -1583,6 +1585,158 @@ function Invoke-AfterSaleProbe {
   Save-Result @{returnRefundSeconds=$ReturnRefundSeconds;missingRefundSeconds=$MissingRefundSeconds;withdrawnSale=$Withdrawn;restoredQuantity=$Restored.skus[0].afterSaleRemaining;firstOrder=$FirstProof;secondOrder=$SecondProof;returnSale=$Refunded;missingSale=$MissingRefund;returns=$Returns;stock=$Inventory.items[0].stock;difference=$Inventory.items[0].difference;nativeActions=@('checkout','payment','shipment','partial-application','first-return-address','ship-back','partial-restock','missing-only-refund')}
   Write-Output "SCRIPT $PSCommandPath RESULT AfterSaleProbe native partial return and missing-only refund passed"
 }
+function Invoke-ReturnPolicyProbe {
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Product-Control ('product-edit-' + $Identity.productId)
+  Product-Control 'product-policy-unsealed'
+  Capture '01-editor-unsealed-options'
+  Scroll-Text '有瑕疵' -ViewOnly
+  Capture '01-editor-confirm-required-options'
+  Product-Control 'product-save'
+  Wait-Text '商品已保存'
+  $ProductA=Api 'device_merchant' ('/merchant/products/'+$Identity.productId)
+  if($ProductA.returnPolicy -ne 'confirm-required' -or $ProductA.returnPolicyReason -ne 'unsealed'){throw 'Native unsealed policy not saved'}
+  Tap-Text '新建商品'
+  Product-Control 'product-name' 'ReturnPolicyCustom'
+  Product-Control 'product-price-0' '19.00'
+  Product-Control 'product-stock-0' '20'
+  Product-Control 'product-policy-custom'
+  Capture '02-editor-custom-options'
+  Product-Control 'product-save'
+  Wait-Text '商品已保存'
+  $Products=@((Api 'device_merchant' '/merchant/products?pageSize=100').items|Where-Object name -eq 'ReturnPolicyCustom')
+  if($Products.Count -ne 1 -or $Products[0].returnPolicyReason -ne 'custom'){throw 'Native custom product not saved exactly once'}
+  $ProductB=$Products[0]
+  $SkuB=$ProductB.skus[0].id
+  Login 'device_buyer'
+  Product-Search '设备独立测试商品'
+  Scroll-Text '拆封后不支持七日无理由退货，下单时需确认' -ViewOnly
+  Capture '03-detail-unsealed'
+  Mine
+  Tap-Text '购物袋'
+  Wait-Text '拆封后不支持七日无理由退货'
+  Capture '04-cart-policy'
+  Tap-Text '去结算'
+  Wait-Text '结算'
+  $BeforeOrders=@(Orders).Count
+  Tap-Text '提交订单并付款'
+  Wait-Text '请先阅读并勾选退货限制，再提交订单'
+  $Checkbox=Read-Nodes|Where-Object id -eq 'checkout-policy-checkbox'|Select-Object -First 1
+  if(!$Checkbox -or $Checkbox.checked -eq 'true' -or @(Orders).Count -ne $BeforeOrders){throw 'Unchecked confirmation created an order or was default selected'}
+  Capture '05-checkout-unchecked-highlight'
+  Product-Control 'checkout-policy-checkbox'
+  $null=Api 'device_merchant' ('/merchant/products/'+$ProductA.id) 'Put' @{requestKey=[guid]::NewGuid().ToString();expectedRevision=$ProductA.revision;returnPolicy='confirm-required';returnPolicyReason='activated';returnPolicyNote=''}
+  Tap-Text '提交订单并付款'
+  Wait-Text '设备独立测试商品：激活或试用后不支持七日无理由退货'
+  Wait-Text '请先阅读并勾选退货限制，再提交订单'
+  if(@(Orders).Count -ne $BeforeOrders){throw 'Changed policy created an order without renewed consent'}
+  $Checkbox=Read-Nodes|Where-Object id -eq 'checkout-policy-checkbox'|Select-Object -First 1
+  if($Checkbox.checked -eq 'true'){throw 'Changed policy retained checkbox consent'}
+  Capture '05-checkout-policy-changed'
+  $LatestA=Api 'device_merchant' ('/merchant/products/'+$ProductA.id)
+  $null=Api 'device_merchant' ('/merchant/products/'+$ProductA.id) 'Put' @{requestKey=[guid]::NewGuid().ToString();expectedRevision=$LatestA.revision;returnPolicy='confirm-required';returnPolicyReason='unsealed';returnPolicyNote=''}
+  Product-Control 'checkout-policy-checkbox'
+  Tap-Text '提交订单并付款'
+  Wait-Text '设备独立测试商品：拆封后不支持七日无理由退货'
+  Wait-Text '请先阅读并勾选退货限制，再提交订单'
+  if(@(Orders).Count -ne $BeforeOrders){throw 'Restored policy created an order without renewed consent'}
+  Product-Control 'checkout-policy-checkbox'
+  Tap-Text '提交订单并付款'
+  Wait-Text $PaymentText
+  $First=(Orders)[0].id
+  $SnapshotA=Api 'device_buyer' "/member/order/$First"
+  if(!$SnapshotA.skus[0].returnPolicyConfirmed -or $SnapshotA.skus[0].returnPolicyReason -ne 'unsealed'){throw 'Order lost confirmed policy snapshot'}
+  Tap-Text $PaymentText
+  $null=Assert-State $First 2
+  Ship
+  Login 'device_buyer'
+  Tap-Text '待收货'
+  Tap-Text '确认收货'
+  $null=Assert-State $First 4
+  Tap-Text '待评价'
+  Product-Control ('order-apply-after-sale-'+$First)
+  Product-Control 'after-sale-submit'
+  Wait-Text '设备独立测试商品：请选择是否已拆封'
+  if(@((Api 'device_buyer' "/member/order/$First").afterSales).Count -ne 0){throw 'Missing declaration submitted an application'}
+  Product-Control 'after-sale-condition-0-unsealed'
+  Wait-Text '已拆封的该商品不支持七日无理由退货，如有质量问题可选择质量问题退货'
+  Product-Control 'after-sale-submit'
+  if(@((Api 'device_buyer' "/member/order/$First").afterSales).Count -ne 0){throw 'Unsealed declaration submitted no-reason application'}
+  Capture '06-unsealed-restriction'
+  Product-Control 'after-sale-condition-0-sealed'
+  Wait-Text '未拆封 ✓ 已选'
+  Capture '07-sealed-declaration'
+  Product-Control 'after-sale-submit'
+  $Pending=Wait-AfterSale $First 'pending'
+  if($Pending.kind -ne 'return-no-reason' -or $Pending.items[0].conditionDeclared -ne 'sealed'){throw 'Sealed declaration not stored with no-reason application'}
+  Login 'device_merchant'
+  Scroll-Text '售后处理'
+  Product-Control ('after-sale-approve-'+$Pending.id)
+  Product-Control 'after-sale-receiver' 'Return warehouse'
+  Product-Control 'after-sale-contact' '13800138000'
+  Product-Control 'after-sale-address' 'Beijing return warehouse 1'
+  Product-Control 'after-sale-confirm'
+  $null=Wait-AfterSale $First 'awaiting-return'
+  Login 'device_buyer'
+  Tap-Text '待评价'
+  Tap-Text '设备独立测试商品'
+  Product-Control 'after-sale-carrier' 'SF'
+  Product-Control 'after-sale-tracking' 'SF202611100001'
+  Product-Control 'after-sale-ship-back'
+  $null=Wait-AfterSale $First 'returned'
+  Login 'device_merchant'
+  Scroll-Text '售后处理'
+  Product-Control 'after-sale-filter-returned'
+  Product-Control ('after-sale-inspect-'+$Pending.id)
+  Wait-Text '买家声明：未拆封'
+  $Declaration=Read-Nodes|Where-Object id -eq 'merchant-condition-0'|Select-Object -First 1
+  if($Declaration.text -ne '买家声明：未拆封'){throw 'Merchant inspection lost buyer declaration'}
+  Wait-Text '商品不完好，拒绝退款'
+  Capture '08-merchant-inspection-declaration'
+  Product-Control 'after-sale-confirm'
+  $Refunded=Wait-AfterSale $First 'refunded'
+  $ProofA=Payment-Proof $First
+  $InventoryA=Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
+  $MovesA=Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
+  if($ProofA.refunds.Count -ne 1 -or $ProofA.refunds[0].amount -ne $AmountCents -or $ProofA.refunds[0].state -ne 'succeeded' -or $InventoryA.items[0].stock -ne $InitialStock -or $InventoryA.items[0].difference -ne 0 -or @($MovesA.items|Where-Object kind -eq 'return').Count -ne 1){throw 'No-reason refund amount or stock ledger mismatch'}
+  Login 'device_buyer'
+  Product-Search 'ReturnPolicyCustom'
+  Scroll-Text '不支持七日无理由退货（定作商品）' -ViewOnly
+  Capture '09-detail-custom'
+  Product-Select '立即购买'
+  Wait-Text '结算'
+  Tap-Text '提交订单并付款'
+  Wait-Text '确认支付 ¥19.00'
+  $Second=@(Orders|Where-Object id -ne $First)[0].id
+  $SnapshotB=Api 'device_buyer' "/member/order/$Second"
+  if($SnapshotB.skus[0].returnPolicyConfirmed -or $SnapshotB.skus[0].returnPolicyReason -ne 'custom'){throw 'Custom order confirmation snapshot is incorrect'}
+  Tap-Text '确认支付 ¥19.00'
+  $null=Assert-State $Second 2
+  Ship
+  Login 'device_buyer'
+  Tap-Text '待收货'
+  Tap-Text '确认收货'
+  $ReceivedB=Assert-State $Second 4
+  if($ReceivedB.afterSaleKinds -contains 'return-no-reason'){throw 'Custom order exposes no-reason return'}
+  Tap-Text '待评价'
+  Product-Control ('order-apply-after-sale-'+$Second)
+  Wait-Text '不支持七日无理由退货（定作商品）；如有质量问题可选择质量问题退货'
+  $script:Nodes=Read-Nodes
+  if(@($script:Nodes|Where-Object id -eq 'after-sale-kind-return-no-reason').Count){throw 'Native custom application exposes no-reason option'}
+  Capture '10-custom-restricted-application'
+  Product-Control 'after-sale-kind-return-quality'
+  Product-Control 'after-sale-description' 'The delivered product is damaged'
+  Product-Control 'after-sale-submit'
+  $Quality=Wait-AfterSale $Second 'pending'
+  if($Quality.kind -ne 'return-quality' -or $Quality.amountCents -ne 1900){throw 'Custom quality application failed'}
+  $ProofB=Payment-Proof $Second
+  $InventoryB=Api 'device_merchant' "/merchant/inventory?skuId=$SkuB"
+  if($ProofB.order.amount -ne 1900 -or $InventoryB.items[0].stock -ne 19 -or $InventoryB.items[0].difference -ne 0){throw 'Custom purchase amount or inventory mismatch'}
+  Capture '11-quality-application-success'
+  Save-Result @{returnPolicyProof=@{productA=$ProductA;productB=$ProductB;uncheckedOrderCount=$BeforeOrders;orderA=$SnapshotA;orderB=$SnapshotB;sealedSale=$Refunded;qualitySale=$Quality;paymentA=$ProofA;paymentB=$ProofB;inventoryA=$InventoryA;inventoryB=$InventoryB;movementsA=$MovesA};nativeActions=@('edit-unsealed','create-custom','detail','cart','unchecked-highlight','explicit-confirm','payment','shipment','receipt','reject-unsealed','declare-sealed','merchant-inspection','refund','custom-quality-application')}
+  Write-Output "SCRIPT $PSCommandPath RESULT -ReturnPolicyProbe passed"
+}
 function Invoke-AuditProbe {
   $Product=@((Api 'device_merchant' '/merchant/products?pageSize=100').items | Where-Object { $_.skus.id -contains $SkuId })[0]
   if(!$Product){throw 'Audit product not found'}
@@ -2013,6 +2167,7 @@ try {
   if ($AuditProbe) { Invoke-AuditProbe; return }
   if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($AfterSaleProbe) { Invoke-AfterSaleProbe; return }
+  if ($ReturnPolicyProbe) { Invoke-ReturnPolicyProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }
   if ($WriteNetworkProbe) { Invoke-WriteNetworkProbe; return }
   if ($S1 -or $S2 -or $NetworkProbe) { Invoke-BuyerScenario; return }
