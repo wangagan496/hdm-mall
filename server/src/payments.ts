@@ -10,6 +10,7 @@ const PAYMENT_WINDOW_MS = 15 * 60_000
 const PAYMENT_GRACE_MS = 10 * 60_000
 const PAYMENT_REVIEW_MS = 24 * 3600_000
 const REFUND_RETRY_DELAYS = [60_000, 5 * 60_000, 30 * 60_000, 3600_000]
+const REFUND_CHANNEL_TIMEOUT_MS = 15_000
 
 interface PaymentRow {
   id: string
@@ -68,6 +69,7 @@ export class Payments {
   readonly channel?: PaymentChannel
   readonly clock: Clock
   private readonly callbackSecret: string
+  private readonly refundAttempts = new Map<string, Promise<void>>()
 
   constructor(db: Database, accounts: Accounts, channel: PaymentChannel | undefined, callbackSecret: string, clock: Clock) {
     this.db = db
@@ -293,11 +295,47 @@ export class Payments {
       VALUES(?,?,?,?, 'review',?)`, randomUUID(), payment.order_id, recipientId, payment.id, now)
   }
 
-  private async executeRefund(refundId: string) {
+  private executeRefund(refundId: string): Promise<void> {
+    const running = this.refundAttempts.get(refundId)
+    if (running) return running
+    const attempt = this.attemptRefund(refundId).finally(() => this.refundAttempts.delete(refundId))
+    this.refundAttempts.set(refundId, attempt)
+    return attempt
+  }
+
+  private async attemptRefund(refundId: string) {
     const refund = this.db.one<RefundRow>('SELECT * FROM refunds WHERE id=?', refundId)
     if (!refund || refund.state === 'succeeded') return
-    const result = await this.channelRequired().refund(refund.id, refund.payment_id, refund.amount)
+    let timer: NodeJS.Timeout | undefined
+    let result: 'success' | 'fail'
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('退款渠道响应超时')), REFUND_CHANNEL_TIMEOUT_MS)
+        timer.unref()
+      })
+      result = await Promise.race([
+        Promise.resolve().then(() => this.channelRequired().refund(refund.id, refund.payment_id, refund.amount)),
+        timeout,
+      ])
+    } catch {
+      this.deferUnknownRefund(refund)
+      return
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+    // Database errors must remain visible rather than masquerading as a channel timeout.
     this.finishRefund(refund, result)
+  }
+
+  private deferUnknownRefund(refund: RefundRow) {
+    const now = this.clock.now()
+    this.db.transaction(() => {
+      const current = this.db.one<RefundRow>('SELECT * FROM refunds WHERE id=?', refund.id)
+      if (!current || current.state === 'succeeded') return
+      const attempts = current.attempts + 1
+      const next = current.review_at !== null ? null : now + REFUND_RETRY_DELAYS[Math.min(attempts - 1, REFUND_RETRY_DELAYS.length - 1)]!
+      this.db.run("UPDATE refunds SET state='pending',attempts=?,next_attempt_at=? WHERE id=?", attempts, next, refund.id)
+    })
   }
 
   private finishRefund(refund: RefundRow, result: 'success' | 'fail') {
@@ -309,6 +347,7 @@ export class Payments {
       const next = result === 'success' || current.review_at !== null ? null : now + REFUND_RETRY_DELAYS[Math.min(attempts - 1, REFUND_RETRY_DELAYS.length - 1)]!
       this.db.run('UPDATE refunds SET state=?,attempts=?,next_attempt_at=?,review_at=CASE WHEN ? THEN NULL ELSE review_at END WHERE id=?',
         result === 'success' ? 'succeeded' : 'failed', attempts, next, result === 'success' ? 1 : 0, refund.id)
+      if (result === 'success') this.db.run('UPDATE refunds SET completed_at=? WHERE id=?',now,refund.id)
       if (result === 'success') this.db.run("UPDATE after_sales SET state='refunded' WHERE refund_id=? AND state='refunding'", refund.id)
     })
   }
@@ -550,7 +589,7 @@ export class Payments {
       countdown: pending ? 0 : Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)) }
   }
 
-  private account(id: string) { return this.db.one<{ account: string }>('SELECT account FROM users WHERE id=?', id)?.account ?? '' }
+  private account(id: string) { return this.db.one<{ account: string }>("SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?", id)?.account ?? '' }
 }
 
 const PAYMENT_RETRY_DELAY = 60_000

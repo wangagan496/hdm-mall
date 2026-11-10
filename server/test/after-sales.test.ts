@@ -83,6 +83,30 @@ test('AS-R2 验收及少件同意返回前立即退款，失败保留重试且�
   assert.equal(f.ctx.db.one<{state:string}>('SELECT state FROM refunds WHERE after_sale_id=?',missing)!.state,'succeeded')
  } finally {await f.ctx.app.close()}
 })
+test('AS-R5 退款渠道无响应时限时返回并保留后台重试',async t=>{
+ const f=await fixture()
+ try {
+  const realSetTimeout=globalThis.setTimeout.bind(globalThis)
+  t.mock.timers.enable({apis:['setTimeout']})
+  const order=await f.create(),id=await f.requested(order,'refund-missing')
+  let called=false
+  f.ctx.payments.channel!.refund=()=>{called=true;return new Promise(()=>{})}
+  const action=f.action(id,'approve')
+  for(let i=0;i<20&&!called;i++) await new Promise<void>(resolve=>setImmediate(resolve))
+  assert.ok(called,'测试前置未调用退款渠道')
+  t.mock.timers.tick(15_000)
+  await new Promise<void>(resolve=>setImmediate(resolve))
+  const result=await Promise.race([
+   action,
+   new Promise<null>(resolve=>realSetTimeout(()=>resolve(null),1_000)),
+  ])
+  assert.ok(result,'退款渠道无响应时商家操作仍被挂住')
+  assert.equal(result.status,200)
+  assert.equal(f.ctx.db.one<{state:string}>('SELECT state FROM after_sales WHERE id=?',id)!.state,'refunding')
+  assert.equal(f.ctx.db.one<{state:string;next_attempt_at:number|null}>('SELECT * FROM refunds WHERE after_sale_id=?',id)!.state,'pending')
+  assert.ok(f.ctx.db.one<{next_attempt_at:number}>('SELECT next_attempt_at FROM refunds WHERE after_sale_id=?',id)!.next_attempt_at>f.now())
+ }finally{await f.ctx.app.close()}
+})
 test('AS-R2 自动同意及十天退款扫描立即执行，取消同意也立即执行',async()=>{
  const f=await fixture()
  try {
@@ -111,6 +135,82 @@ test('AS-R4 商家列表提供买家账号与筛选数量，不提供订单收�
   assert.deepEqual(page.stateCounts,{pending:1,returned:0,all:1})
  }finally{await f.ctx.app.close()}
 })
+test('AS-R5 超时后渠道迟到成功与原号重试只退款一次',async t=>{
+ const f=await fixture();let lateSuccess:(()=>void)|undefined
+ try {
+  const realSetTimeout=globalThis.setTimeout.bind(globalThis)
+  t.mock.timers.enable({apis:['setTimeout']})
+  const order=await f.create(),id=await f.requested(order,'refund-missing'),ids:string[]=[]
+  const channelRefund=f.ctx.payments.channel!.refund.bind(f.ctx.payments.channel!)
+  let calls=0
+  f.ctx.payments.channel!.refund=(refundId,paymentId,amount)=>{
+   calls++;ids.push(refundId)
+   if(calls===1)return new Promise(resolve=>{lateSuccess=()=>{resolve(channelRefund(refundId,paymentId,amount))}})
+   return channelRefund(refundId,paymentId,amount)
+  }
+  const action=f.action(id,'approve')
+  await waitFor(()=>calls===1)
+  t.mock.timers.tick(15_000);await new Promise<void>(resolve=>setImmediate(resolve))
+  const result=await Promise.race([action,new Promise<null>(resolve=>realSetTimeout(()=>resolve(null),1_000))])
+  assert.ok(result,'渠道无响应时接口未及时返回')
+  assert.equal(result.status,200)
+  f.advance(60_000);lateSuccess?.()
+  await f.ctx.payments.reconcile()
+  assert.equal(calls,2);assert.deepEqual(ids,[ids[0],ids[0]])
+  const payment=f.ctx.db.one<{id:string;amount:number}>('SELECT id,amount FROM payments WHERE order_id=?',order)!
+  const refunded=f.ctx.db.one<{amount:number}>('SELECT amount FROM refunds WHERE after_sale_id=?',id)!.amount
+  assert.equal(await channelRefund(randomUUID(),payment.id,payment.amount-refunded),'success')
+  assert.equal(await channelRefund(randomUUID(),payment.id,1),'fail')
+  assert.equal(f.ctx.db.one<{state:string}>('SELECT state FROM refunds WHERE after_sale_id=?',id)!.state,'succeeded')
+ }finally{await f.ctx.app.close()}
+})
+test('AS-R5 连续退款超时满24小时转人工并停止扫描重试',async t=>{
+ const f=await fixture()
+ try {
+  const realSetTimeout=globalThis.setTimeout.bind(globalThis)
+  t.mock.timers.enable({apis:['setTimeout']})
+  const order=await f.create(),id=await f.requested(order,'refund-missing')
+  let called=false
+  f.ctx.payments.channel!.refund=()=>{called=true;return new Promise(()=>{})}
+  const action=f.action(id,'approve')
+  await waitFor(()=>called)
+  t.mock.timers.tick(15_000);await new Promise<void>(resolve=>setImmediate(resolve))
+  const result=await Promise.race([action,new Promise<null>(resolve=>realSetTimeout(()=>resolve(null),1_000))])
+  assert.ok(result);assert.equal(result.status,200)
+  for(const delay of [60_000,300_000,1_800_000,3_600_000]){
+   const row=f.ctx.db.one<{next_attempt_at:number;attempts:number}>('SELECT next_attempt_at,attempts FROM refunds WHERE after_sale_id=?',id)!
+   assert.equal(row.next_attempt_at-f.now(),delay)
+   f.advance(delay-1);called=false;await f.ctx.payments.reconcile();assert.equal(called,false)
+   f.advance(1);const retry=f.ctx.payments.reconcile();await waitFor(()=>called)
+   t.mock.timers.tick(15_000);await retry
+   assert.equal(f.ctx.db.one<{attempts:number}>('SELECT attempts FROM refunds WHERE after_sale_id=?',id)!.attempts,row.attempts+1)
+  }
+  const before=f.ctx.db.one<{attempts:number}>('SELECT attempts FROM refunds WHERE after_sale_id=?',id)!.attempts
+  f.advance(DAY+1);await f.ctx.payments.reconcile()
+  const refund=f.ctx.db.one<{state:string;attempts:number;review_at:number|null;next_attempt_at:number|null}>('SELECT * FROM refunds WHERE after_sale_id=?',id)!
+  assert.equal(refund.state,'pending');assert.equal(refund.attempts,before);assert.ok(refund.review_at!==null);assert.equal(refund.next_attempt_at,null)
+ }finally{await f.ctx.app.close()}
+})
+test('AS-R5 商家验收退款超时后订单仍显示退款中',async t=>{
+ const f=await fixture()
+ try {
+  const realSetTimeout=globalThis.setTimeout.bind(globalThis)
+  t.mock.timers.enable({apis:['setTimeout']})
+  const order=await f.create(),id=await f.requested(order)
+  assert.equal((await f.action(id,'approve',{returnAddress:address})).status,200)
+  assert.equal((await f.action(id,'ship-back',{carrier:'SF',trackingNo:'SF12345678'})).status,200)
+  let called=false
+  f.ctx.payments.channel!.refund=()=>{called=true;return new Promise(()=>{})}
+  const action=f.action(id,'inspect',{items:[{skuId:f.sku.id,restockCount:1}]})
+  await waitFor(()=>called)
+  t.mock.timers.tick(15_000);await new Promise<void>(resolve=>setImmediate(resolve))
+  const result=await Promise.race([action,new Promise<null>(resolve=>realSetTimeout(()=>resolve(null),1_000))])
+  assert.ok(result,'验收接口因退款渠道无响应而挂起');assert.equal(result.status,200)
+  const detail=(await f.call('GET',`/member/order/${order}`)).body.result
+  assert.equal(detail.afterSales[0].state,'refunding');assert.equal(detail.afterSales[0].refundState,'pending')
+ }finally{await f.ctx.app.close()}
+})
+async function waitFor(predicate:()=>boolean):Promise<void>{for(let i=0;i<100&&!predicate();i++)await new Promise<void>(resolve=>setImmediate(resolve));assert.ok(predicate(),'异步请求没有进入预期状态')}
 async function fixture(databasePath = ':memory:', uploadsPath = './unused') {
   let now = Date.UTC(2026, 10, 9, 5)
   const ctx = await buildTestApp({ databasePath, uploadsPath, publicUrl: 'http://localhost', mockPayments: true, clock: { now: () => now } })
@@ -180,7 +280,7 @@ test('AS-11 v11迁移v12保留退款通知和库存流水、重开不重复', as
     const raw=new DatabaseSync(path); removeAfterSaleSchema(raw); raw.close()
     for(let i=0;i<2;i++) {
       const db=new Database(path)
-      try {assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version,12); assert.deepEqual(db.all('SELECT * FROM payments ORDER BY id'),payments);assert.deepEqual(db.all('SELECT * FROM inventory_movements ORDER BY id'),movements);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)} finally {db.close()}
+      try {assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 13); assert.deepEqual(db.all('SELECT * FROM payments ORDER BY id'),payments);assert.deepEqual(db.all('SELECT * FROM inventory_movements ORDER BY id'),movements);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)} finally {db.close()}
     }
   } finally {if(!closed)await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
@@ -223,7 +323,7 @@ test('AS-08 售后照片本人上传、限3张、同号同内容、读取隔离�
     assert.equal((await f.call('POST',`/member/order/${order}/after-sales`,{requestKey:applicationKey,kind:'return-quality',description:'质量问题照片说明',items:[{skuId:f.sku.id,count:1}],imageIds:[img.imageId]})).status,200)
     assert.equal((await f.ctx.app.inject({method:'GET',url:img.path,headers:{authorization:'Bearer '+f.merchant.token}})).statusCode,200)
     const backup = await createBackup({databasePath:join(root,'data','mall.sqlite'),uploadsPath:join(root,'uploads'),destination:join(root,'backup')})
-    assert.equal(backup.manifest.schemaVersion,12)
+    assert.equal(backup.manifest.schemaVersion, 13)
     assert.deepEqual(backup.manifest.issues,[])
     await verifyBackup(join(root,'backup'))
     await writeFile(join(root,'uploads',img.imageId+'.jpg'),Buffer.from([255,216,255,0]))
@@ -258,7 +358,7 @@ test('AS-09 重启启动扫描继续处理超时申请和旧数据备份', async
 test('AS-01 迁移12、申请原子确认收货、下单价和剩余数量、权限与幂等', async () => {
   const f = await fixture()
   try {
-    assert.equal(f.ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
+    assert.equal(f.ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13)
     const id = await f.create(), key = randomUUID()
     assert.equal((await f.apply(id, 'return-no-reason', 2, randomUUID(), f.other.token)).status, 403)
     assert.equal((await f.apply(id, 'return-no-reason', 4)).status, 409)

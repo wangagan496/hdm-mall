@@ -48,7 +48,7 @@ async function fixture(databasePath = ':memory:') {
 test('B-80 RED1：空库迁移至8且取消两表为空', () => {
   const db = new Database(':memory:')
   try {
-    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
+    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_actions')!.count, 0)
   } finally { db.close() }
@@ -264,7 +264,7 @@ test('B-80 RED10：版本8备份统计、合法取消不误报并恢复到期申
     const pendingId = await f.create()
     await f.request(pendingId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 12)
+    assert.equal(backup.manifest.schemaVersion, 13)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.counts.order_cancel_requests, 2)
     assert.equal(backup.counts.order_cancel_actions, 3)
@@ -328,8 +328,8 @@ test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据�
     for (let startup = 0; startup < 2; startup++) {
       const migrated = new Database(path)
       try {
-        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
-        for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), table === 'refunds' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{after_sale_id:null})) : before[table])
+        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13)
+        for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), table === 'refunds' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{after_sale_id:null,completed_at:null})) : before[table])
         assert.deepEqual(migrated.all("SELECT name,sql FROM sqlite_master WHERE name IN ('payment_notices','refund_retry_actions') ORDER BY name"), schemas)
         assert.equal(migrated.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
         assert.deepEqual(migrated.all('PRAGMA foreign_key_check'), [])
@@ -337,7 +337,7 @@ test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据�
     }
     const oldRestore = await restoreBackup({ backupPath: oldBackup.root, destination: join(root, 'old-restored') })
     const upgraded = new Database(join(oldRestore.root, 'mall.sqlite'))
-    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12) } finally { upgraded.close() }
+    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13) } finally { upgraded.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -359,7 +359,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
       inspected.exec('DROP TABLE order_cancel_actions')
     } finally { inspected.close() }
     const recovered = new Database(path)
-    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12) } finally { recovered.close() }
+    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13) } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -660,16 +660,46 @@ test('B-82：同意提交后渠道异常仍保持取消，后续沿同一退款�
     const channel = f.ctx.payments.channel!
     const originalRefund = channel.refund.bind(channel)
     channel.refund = () => { throw new Error('外部退款渠道暂不可用') }
-    assert.equal((await f.resolve(id, requestId)).status,500)
+    assert.equal((await f.resolve(id, requestId)).status,200)
     const approved = f.ctx.db.one<{refundId:string}>('SELECT refund_id AS refundId FROM order_cancel_requests WHERE id=?',requestId)!
-    await assert.rejects(f.ctx.payments.reconcile(), /暂不可用/)
+    const deferred = f.ctx.db.one<{id:string;state:string;attempts:number;next_attempt_at:number}>('SELECT * FROM refunds')!
+    assert.equal(deferred.id,approved.refundId)
+    assert.equal(deferred.state,'pending')
+    assert.equal(deferred.attempts,1)
+    assert.ok(deferred.next_attempt_at>f.clock.now())
     assert.equal(f.order(id).state, 6)
     assert.equal(f.stock(), 20)
-    assert.equal(f.ctx.db.one<{ id: string }>('SELECT id FROM refunds')!.id, approved.refundId)
     channel.refund = originalRefund
+    f.advance(60_000)
     await f.ctx.payments.reconcile()
     assert.equal(f.ctx.db.one<{ state: string }>('SELECT state FROM refunds')!.state, 'succeeded')
     assert.equal(f.ctx.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM refunds')!.count, 1)
+  } finally { await f.ctx.app.close() }
+})
+
+test('B-82：已付款取消退款渠道超时后接口返回且订单显示退款中', async t => {
+  const f = await fixture()
+  try {
+    const realSetTimeout = globalThis.setTimeout.bind(globalThis)
+    t.mock.timers.enable({ apis: ['setTimeout'] })
+    const id = await f.create()
+    const requestId = (await f.request(id)).body.result.cancelRequestId
+    let called = false
+    f.ctx.payments.channel!.refund = () => { called = true; return new Promise(() => {}) }
+    const action = f.resolve(id, requestId)
+    for (let i = 0; i < 100 && !called; i++) await new Promise<void>(resolve => setImmediate(resolve))
+    assert.ok(called, '取消操作没有调用退款渠道')
+    t.mock.timers.tick(15_000)
+    await new Promise<void>(resolve => setImmediate(resolve))
+    const result = await Promise.race([action, new Promise<null>(resolve => realSetTimeout(() => resolve(null), 1_000))])
+    assert.ok(result, '取消接口因退款渠道无响应而挂起')
+    assert.equal(result.status, 200)
+    const refund = f.ctx.db.one<{ id: string; state: string; attempts: number; next_attempt_at: number }>('SELECT * FROM refunds')!
+    assert.equal(refund.state, 'pending')
+    assert.equal(refund.attempts, 1)
+    assert.ok(refund.next_attempt_at > f.clock.now())
+    const detail = (await f.call('GET', `/member/order/${id}`)).body.result
+    assert.equal(detail.refunds[0].state, '退款中')
   } finally { await f.ctx.app.close() }
 })
 

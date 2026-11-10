@@ -194,7 +194,7 @@ export class AfterSales {
     return { failed }
   }
   private present(sale: Sale, details: boolean) {
-    const payer = this.db.one<{ account: string }>('SELECT u.account FROM payments p JOIN users u ON u.id=p.payer_id WHERE p.id=?', sale.payment_id)!.account
+    const payer = this.db.one<{ account: string }>("SELECT CASE WHEN u.status='deleted' THEN '已注销用户' ELSE u.account END account FROM payments p JOIN users u ON u.id=p.payer_id WHERE p.id=?", sale.payment_id)!.account
     const refund = sale.refund_id ? this.db.one<{ state: string; review_at: number | null }>('SELECT state,review_at FROM refunds WHERE id=?', sale.refund_id) : undefined
     return { id: sale.id, orderId: sale.order_id, sequence: sale.sequence, kind: sale.kind, state: sale.state, amountCents: sale.amount, payerAccount: payer,
       createdAt: sale.created, reviewDeadline: sale.review_deadline, returnDeadline: sale.return_deadline, inspectDeadline: sale.inspect_deadline,

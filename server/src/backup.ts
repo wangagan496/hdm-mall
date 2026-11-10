@@ -26,7 +26,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -114,17 +114,33 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12) throw new Error('仅支持数据库版本 2 至 12')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12 && version !== 13) throw new Error('仅支持数据库版本 2 至 13')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
       ...(version >= 7 ? ['payments', 'refunds', 'refund_retry_actions', 'payment_notices', 'payment_review_resolutions'] : []),
       ...(version >= 8 ? ['order_cancel_requests', 'order_cancel_actions'] : []),
       ...(version >= 9 ? ['cart_requests'] : []), ...(version >= 10 ? ['product_images', 'product_changes'] : []),
-      ...(version >= 12 ? ['after_sales','after_sale_items','after_sale_images','after_sale_actions','merchant_settings'] : [])]) {
+      ...(version >= 12 ? ['after_sales','after_sale_items','after_sale_images','after_sale_actions','merchant_settings'] : []),
+      ...(version >= 13 ? ['consents','consent_requests','account_deletions','account_notices','account_file_deletions'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
+    if(version>=13){
+      if(db.prepare("SELECT id FROM users WHERE status='deleted' AND (password<>'' OR profile<>'{}' OR account<>'deleted:'||id OR nickname<>'已注销用户' OR deleted_at IS NULL)").get())throw new Error('已注销账号资料未清理')
+      if(db.prepare("SELECT id FROM users WHERE status='deleting' AND (deletion_requested_at IS NULL OR deletion_due_at IS NULL OR deletion_due_at<>deletion_requested_at+1296000000)").get())throw new Error('注销冷静期无效')
+      for(const receipt of db.prepare('SELECT * FROM account_deletions').all()){
+        const body=JSON.parse(String(receipt.request_body)),result=JSON.parse(String(receipt.result))
+        if(body.password!==undefined||result.id!==receipt.id||body.action!==receipt.action)throw new Error('注销回执无效')
+      }
+      for(const receipt of db.prepare('SELECT r.*,c.user_id owner,c.version,c.action FROM consent_requests r JOIN consents c ON c.id=r.consent_id').all()){
+        const body=JSON.parse(String(receipt.request_body))
+        if(receipt.user_id!==receipt.owner||body.requestKey!==receipt.request_key||body.version!==receipt.version||
+          (receipt.action==='agreed'&&(!['startup','login'].includes(body.source)||!Number.isSafeInteger(body.agreedAt))))throw new Error('同意回执无效')
+      }
+      if(db.prepare('SELECT c.id FROM consents c WHERE NOT EXISTS(SELECT 1 FROM consent_requests r WHERE r.consent_id=c.id AND r.request_key=c.request_key AND r.request_body=c.request_body)').get())throw new Error('同意回执缺失')
+      for(const file of db.prepare('SELECT path FROM account_file_deletions').all())if(!localAvatarPath(String(file.path)))throw new Error('注销文件清理路径无效')
+    }
     if (version >= 3) {
       for (const row of db.prepare(`SELECT s.id FROM skus s WHERE
         NOT EXISTS(SELECT 1 FROM inventory_movements m WHERE m.sku_id=s.id AND m.kind='opening') OR
@@ -202,7 +218,7 @@ function inspectDatabase(path: string) {
       }
     }
     return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages,
-      issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 }
+      issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 }
   } finally { db.close() }
 }
 

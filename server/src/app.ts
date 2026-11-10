@@ -12,6 +12,7 @@ import { Catalog } from './catalog.ts'
 import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
 import { Payments } from './payments.ts'
+import { AccountLifecycle } from './account-lifecycle.ts'
 import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
 import { AppError, ensure } from './errors.ts'
@@ -41,6 +42,7 @@ export async function buildApp(options: AppOptions) {
   const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
     (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret) : undefined)
   const payments = new Payments(db, accounts, paymentChannel, paymentCallbackSecret, clock)
+  const lifecycle = new AccountLifecycle(db, accounts, clock, options.uploadsPath)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
   orders.attachPayments(payments)
   const afterSales = new AfterSales(db, payments, clock)
@@ -73,8 +75,26 @@ export async function buildApp(options: AppOptions) {
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ code: '0', msg: '接口不存在' }))
   const ok = (result: unknown) => ({ code: '1', result })
   const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User) => unknown) => {
-    app.route({ method, url, handler: async req => ok(await handler(req, accounts.authenticate(req.headers.authorization))) })
+    app.route({ method, url, handler: async req => {
+      const user=accounts.authenticate(req.headers.authorization)
+      const followUp = [
+        '/logout','/member/consents','/member/consents/withdraw','/member/account-deletion','/member/account-deletion/cancel',
+        '/member/order/:id/receipt','/member/order/:id/payments/refresh',
+        '/member/order/:id/after-sales','/member/after-sales/images','/member/order/:id/cancel-requests',
+        '/member/order/:id/cancel-requests/:cancelRequestId/withdraw',
+        '/member/after-sales/:id/withdraw','/member/after-sales/:id/ship-back'
+      ]
+      ensure(user.status!=='deleting'||method==='GET'||followUp.includes(url),403,'账号正在注销中')
+      return ok(await handler(req,user))
+    } })
   }
+
+  protectedRoute('POST','/member/consents',(req,user)=>lifecycle.consent(user,req.body))
+  protectedRoute('POST','/member/consents/withdraw',(req,user)=>lifecycle.withdrawConsent(user,req.body))
+  protectedRoute('GET','/member/account-deletion',(_req,user)=>lifecycle.status(user))
+  protectedRoute('POST','/member/account-deletion',(req,user)=>lifecycle.request(user,req.body))
+  protectedRoute('POST','/member/account-deletion/cancel',(req,user)=>lifecycle.cancel(user,req.body))
+  protectedRoute('GET','/member/account-notices',(_req,user)=>db.all('SELECT id,message,created FROM account_notices WHERE user_id=? ORDER BY created DESC',user.id))
   if (fixtures) registerFixtureRoutes(app, fixtures)
   protectedRoute('POST', '/member/order/:id/after-sales', (req, user) => afterSales.request(user, key(req), afterSaleRequestSchema.parse(req.body)))
   for (const action of ['withdraw','ship-back']) protectedRoute('POST', `/member/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
@@ -193,9 +213,9 @@ export async function buildApp(options: AppOptions) {
     const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count ${from}`, productId)!.count
     const offset = (query.page - 1) * query.pageSize
     // 超出总数时直接返回空页，也避免极大页码的偏移量溢出 SQLite 整数范围。
-    const rows = offset >= counts ? [] : db.all<{ order_id: string; content: string; score: number; created: number; nickname: string }>(
-      `SELECT e.*,u.nickname ${from} ORDER BY e.created DESC,e.order_id ASC LIMIT ? OFFSET ?`, productId, query.pageSize, offset)
-    const items = rows.map(r => ({ id: r.order_id, content: r.content, score: r.score, createTime: new Date(r.created).toISOString(), pictures: [], member: { nickname: maskNickname(r.nickname) } }))
+    const rows = offset >= counts ? [] : db.all<{ order_id: string; content: string; score: number; created: number; nickname: string; status:string }>(
+      `SELECT e.*,u.nickname,u.status ${from} ORDER BY e.created DESC,e.order_id ASC LIMIT ? OFFSET ?`, productId, query.pageSize, offset)
+    const items = rows.map(r => ({ id: r.order_id, content: r.content, score: r.score, createTime: new Date(r.created).toISOString(), pictures: [], member: { nickname: r.status==='deleted'?'已注销用户':maskNickname(r.nickname) } }))
     return ok({ items, counts, pages: Math.ceil(counts / query.pageSize), page: query.page, pageSize: query.pageSize })
   })
   protectedRoute('GET', '/member/address', (_req, user) => accounts.addresses(user))
@@ -321,13 +341,15 @@ export async function buildApp(options: AppOptions) {
   await processCancelRequests().catch(() => app.log.error('Order cancellation startup scan failed'))
   const processAfterSales = async () => { const result = await afterSales.processDue(); if (result.failed.length) app.log.error({ afterSaleIds: result.failed }, 'After-sale processing failed') }
   await processAfterSales().catch(() => app.log.error('After-sale startup scan failed'))
+  await lifecycle.scan().catch(() => app.log.error('Account lifecycle startup scan failed'))
   const timer = setInterval(() => {
     try { orders.expire() } catch { app.log.error('Order expiration failed') }
     try { catalog.cleanupCartRequests() } catch { app.log.error('Cart request cleanup failed') }
     void processCancelRequests().catch(() => app.log.error('Order cancellation scan failed'))
     void processAfterSales().catch(() => app.log.error('After-sale scan failed'))
     void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
+    void lifecycle.scan().catch(() => app.log.error('Account lifecycle scan failed'))
   }, 30_000).unref()
   app.addHook('onClose', async () => { clearInterval(timer); db.close() })
-  return { app, db, accounts, catalog, orders, payments, afterSales, clock, fixtures }
+  return { app, db, accounts, catalog, orders, payments, afterSales, lifecycle, clock, fixtures }
 }

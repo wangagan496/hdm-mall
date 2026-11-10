@@ -1,8 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { removeLifecycleSchema } from './legacy-v12.ts'
 
 // Older migration fixtures start from today's schema then roll back their subject migration.
 // Remove the later v12 layer first so those fixtures remain genuine v11-or-earlier databases.
 export function removeAfterSaleSchema(db: DatabaseSync) {
+  removeLifecycleSchema(db)
   if (!db.prepare("SELECT name FROM sqlite_master WHERE name='after_sales'").get()) return
   db.exec(`PRAGMA foreign_keys=OFF;
     DROP TABLE after_sale_actions; DROP TABLE after_sale_images; DROP TABLE after_sale_items; DROP TABLE after_sales; DROP TABLE merchant_settings;

@@ -135,7 +135,7 @@ export class Orders {
   }
   private account(id: string | null) {
     if (!id) return ''
-    return this.db.one<{ account: string }>('SELECT account FROM users WHERE id=?', id)?.account ?? ''
+    return this.db.one<{ account: string }>("SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?", id)?.account ?? ''
   }
 
   // 已付款时按实际付款人判断；未付款时按是否邀请了亲友判断。
