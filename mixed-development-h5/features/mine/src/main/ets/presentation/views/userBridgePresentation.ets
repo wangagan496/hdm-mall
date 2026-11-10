@@ -7,6 +7,8 @@ export function mergeBridgeUser(current: HDMUser | undefined, update: HDMUser): 
   return {
     id: current?.id,
     role: current?.role,
+    status: current.status,
+    deletionDueAt: current.deletionDueAt,
     token: current.token,
     nickname: update.nickname,
     avatar: update.avatar,

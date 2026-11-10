@@ -1,6 +1,6 @@
 import { TabItem, BreakPointType, HDMUser, PendingTradeInfo, CreateOrderParams } from 'models'
 import { GlobalVariable, BusinessVariable, PAGE_PATH } from 'constants'
-import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI } from 'storage'
+import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI, consentManager, userSession } from 'storage'
 import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
@@ -129,10 +129,21 @@ struct Index {
 
   aboutToAppear(): void {
     this.recoveryActive = true
+    void this.requestStartupConsent()
     void this.recoverPendingOrder()
     LaunchPerf.mark('tabsAboutToAppear')
     this.listenForNavigationEvents()
     authCart.updateCartCount()
+  }
+
+  private async requestStartupConsent(): Promise<void> {
+    try {
+      const accepted = await consentManager.request(this.getUIContext(), 'startup')
+      if (!accepted && this.user.token) await userSession.logout()
+      if (accepted && this.user.token) await consentManager.report(this.user.token, this.user.id || '')
+    } catch {
+      this.getUIContext().getPromptAction().showToast({ message: '协议确认未完成，请在登录时重试' })
+    }
   }
 
   aboutToDisappear(): void {

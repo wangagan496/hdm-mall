@@ -4,7 +4,7 @@ import { systemClock, type Clock } from './clock.ts'
 import { AppError, ensure } from './errors.ts'
 import { localAvatarPath } from './avatar.ts'
 
-export interface User { id: string; account: string; nickname: string; role: 'buyer' | 'merchant'; profile: string }
+export interface User { id: string; account: string; nickname: string; role: 'buyer' | 'merchant'; profile: string; status?: 'active' | 'deleting' | 'deleted'; deletion_due_at?: number | null }
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')
 
 export class Accounts {
@@ -27,18 +27,25 @@ export class Accounts {
   }
   login(account: string, password: string) {
     const user = this.db.one<User & { password: string }>('SELECT * FROM users WHERE account=?', account)
-    const [salt, hash] = user?.password.split(':') ?? ['invalid-account-salt', '00'.repeat(64)]
-    const valid = timingSafeEqual(scryptSync(password, salt!, 64), Buffer.from(hash!, 'hex'))
+    const valid = this.verifyPassword(user?.id ?? '', password)
     ensure(user && valid, 401, '账号或密码不正确')
     const token = randomBytes(32).toString('hex')
     this.db.run('DELETE FROM sessions WHERE expires<?', this.clock.now())
     this.db.run('INSERT INTO sessions VALUES(?,?,?)', digest(token), user.id, this.clock.now() + 24 * 3600_000)
     return { ...this.profile(user), token }
   }
+  verifyPassword(userId: string, password: string): boolean {
+    const row = this.db.one<{password:string;status:string}>('SELECT password,status FROM users WHERE id=?',userId)
+    const parts = row?.password.split(':')
+    const validHash = !!parts && parts.length === 2 && /^[a-f0-9]{128}$/.test(parts[1]!)
+    const salt = validHash ? parts![0]! : 'invalid-account-salt'
+    const hash = validHash ? parts![1]! : '00'.repeat(64)
+    return timingSafeEqual(scryptSync(password,salt,64),Buffer.from(hash,'hex')) && row?.status !== 'deleted' && validHash
+  }
   authenticate(authorization: string | undefined): User {
     ensure(authorization && authorization.startsWith('Bearer '), 401, '请先登录')
     const user = this.db.one<User>('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.digest=? AND s.expires>?', digest(authorization.slice(7)), this.clock.now())
-    ensure(user, 401, '登录已过期，请重新登录')
+    ensure(user && user.status !== 'deleted', 401, '登录已过期，请重新登录')
     return user
   }
   logout(authorization: string) { this.db.run('DELETE FROM sessions WHERE digest=?', digest(authorization.slice(7))) }
@@ -46,7 +53,8 @@ export class Accounts {
     const stored = JSON.parse(user.profile)
     const path = localAvatarPath(stored.avatar)
     return { avatar: '', birthday: '', cityCode: '', provinceCode: '', countyCode: '', gender: '未知', profession: '', fullLocation: '', mobile: '',
-      ...stored, ...(path ? { avatar: this.publicUrl + path } : {}), id: user.id, account: user.account, nickname: user.nickname, role: user.role }
+      ...stored, ...(path ? { avatar: this.publicUrl + path } : {}), id: user.id, account: user.account, nickname: user.nickname, role: user.role,
+      status: user.status ?? 'active', deletionDueAt: user.deletion_due_at ?? null }
   }
   updateProfile(user: User, data: Record<string, string>) {
     const latest = this.db.one<User>('SELECT * FROM users WHERE id=?', user.id)!
@@ -72,7 +80,7 @@ export class Accounts {
   }
   invite(user: User, account: string) {
     const friend = this.db.one<User>('SELECT * FROM users WHERE account=?', account)
-    ensure(friend && friend.id !== user.id && friend.role === 'buyer', 400, '请输入其他买家账号')
+    ensure(friend && friend.status === 'active' && friend.id !== user.id && friend.role === 'buyer', 400, '请输入其他买家账号')
     return this.db.transaction(() => {
       const existing = this.db.one<{ id: string; status: string }>('SELECT id,status FROM relations WHERE owner_id=? AND friend_id=?', user.id, friend.id)
       if (existing && existing.status !== 'revoked') return { id: existing.id }

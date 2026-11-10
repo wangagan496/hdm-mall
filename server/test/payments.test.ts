@@ -213,7 +213,7 @@ test('迁移 007 将版本 6 历史已付款订单补成有效支付且重复启
   let migrated: Database | undefined
   try {
     migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13)
     assert.deepEqual(migrated.all<{ order_id: string; payer_id: string; amount: number; state: string; created: number; channel_paid_at: number }>(
       'SELECT order_id,payer_id,amount,state,created,channel_paid_at FROM payments').map(row => ({ ...row })), [
       { order_id: 'paid-order', payer_id: 'buyer', amount: 2475, state: 'succeeded', created: 2000, channel_paid_at: 2000 }
@@ -225,7 +225,7 @@ test('迁移 007 将版本 6 历史已付款订单补成有效支付且重复启
     assert.ok(migrated.one("SELECT name FROM sqlite_master WHERE type='index' AND name='refund_retry_actions_refund'"))
     migrated.close(); migrated = undefined
     migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13)
     assert.equal(migrated.all('SELECT id FROM payments').length, 1)
     migrated.close(); migrated = undefined
   } finally { migrated?.close(); await rm(root, { recursive: true, force: true }) }
@@ -912,7 +912,7 @@ test('迁移 007 中途外键失败整体回滚，修复历史付款人后可重
     } finally { afterForeignKey.close() }
     const migrated = new Database(path)
     try {
-      assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 12)
+      assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 13)
       assert.ok(migrated.one("SELECT name FROM sqlite_master WHERE type='table' AND name='refund_retry_actions'"))
     }
     finally { migrated.close() }
@@ -933,7 +933,7 @@ test('v7 备份统计支付、退款与退款重试审计，并报告缺少有�
     await f.app.inject({ method: 'POST', url: `/member/order/${orderId}/mock-pay`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
     f.db.run('DELETE FROM payments WHERE order_id=?', orderId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 12)
+    assert.equal(backup.manifest.schemaVersion, 13)
     assert.equal(backup.counts.payments, 0)
     assert.equal(backup.counts.refunds, 0)
     assert.equal(backup.counts.refund_retry_actions, 0)

@@ -164,6 +164,16 @@ export class LocalGoodsStore {
   async clearHistory(): Promise<void> {
     await this.updateLocalGoods(BROWSE_HISTORY_KEY, (): LocalGoodsItem[] => [])
   }
+
+  async clearPersonalData(): Promise<void> {
+    const favoriteKey = this.getAccountStorageKey(FAVORITE_GOODS_KEY)
+    const historyKey = this.getAccountStorageKey(BROWSE_HISTORY_KEY)
+    await this.enqueue(async (): Promise<void> => {
+      const store = storeManager.getStore()
+      for (const key of [favoriteKey, historyKey, FAVORITE_GOODS_KEY, BROWSE_HISTORY_KEY]) store.deleteSync(key)
+      await store.flush()
+    })
+  }
 }
 
 export const localGoodsStore = new LocalGoodsStore()

@@ -67,7 +67,7 @@ async function relationsFixture() {
   f.db.transaction(() => {
     for (let i = 24; i >= 0; i--) {
       const id = `friend-${String(i).padStart(2, '0')}`
-      f.db.run('INSERT INTO users SELECT ?,?,password,nickname,role,profile FROM users WHERE id=?', id, id, seedUser.id)
+      f.db.run('INSERT INTO users(id,account,password,nickname,role,profile) SELECT ?,?,password,nickname,role,profile FROM users WHERE id=?', id, id, seedUser.id)
       f.db.run('INSERT INTO relations VALUES(?,?,?,?,?)', `relation-${String(i).padStart(2, '0')}`, owner.id, id, i === 24 ? 'revoked' : i === 23 ? 'pending' : 'accepted', 1)
     }
     f.db.run('INSERT INTO relations VALUES(?,?,?,?,?)', 'incoming', outsider.id, owner.id, 'accepted', 2)

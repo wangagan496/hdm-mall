@@ -12,6 +12,7 @@ test('B-10/B-70 旧登录成功、错误密码及协议拦截迁移到真实登�
   let current, requests = 0
   const Page = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/LoginView.ets', 'LoginView', {}, {
     loginComponentManager: { LoginWithHuaweiIDButtonController: HuaweiController, AgreementStatus: {} },
+    consentManager: {report:async()=>{}},
     loginAPI: async form => { requests++; if (form.password === 'wrong_password') throw new Error('request'); return { id: 'buyer', account: form.account, token: 'token' } },
     storeManager: { saveUserInfo: async user => { saved.push(user); current = user }, getUserInfo: () => current, getPendingTrade: () => '' },
     auth: { updateCurrentUser: user => { current = user }, getUserInfo: () => current },

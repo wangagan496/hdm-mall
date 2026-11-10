@@ -2,7 +2,7 @@
 import { buildTestApp } from '../../server/test/helpers/fixtures.ts'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
 const paymentCallbackSecret = randomUUID()
 const channel = new MockPaymentChannel(paymentCallbackSecret)
@@ -11,6 +11,8 @@ let heldPaymentId: string | undefined
 let refundBarrier: Promise<void> | undefined
 let releaseRefund: (() => void) | undefined
 const activeRefunds = new Map<string, Promise<'success' | 'fail'>>()
+const fixturePassword = randomBytes(24).toString('hex')
+let clockOffset = 0
 Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: string, amount: number) => {
   const existing = activeRefunds.get(refundId)
   if (existing) return existing
@@ -23,7 +25,7 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
   return completion
 } })
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
-  paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'],
+  paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'], clock: {now:()=>Date.now()+clockOffset},
   publicUrl: 'http://127.0.0.1:3000', uploadsPath: join(tmpdir(), 'hdm-device-trade-uploads') })
 const product = f.testData.product({ name: '设备独立测试商品',
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
@@ -33,12 +35,29 @@ const s2 = process.argv.includes('--s2')
 const loginProbe = process.argv.includes('--login-probe')
 const extra = s2 || loginProbe ? f.testData.product({ name: '购物车保留商品', skus: [{ spec: '保留款', priceCents: 1109, stock: 19 }] }) : undefined
 for (const account of ['device_buyer', 'device_friend', 'device_merchant']) {
-  f.testData.account({ account, password: 'Device-trade-123', role: account === 'device_merchant' ? 'merchant' : 'buyer' })
+  f.testData.account({ account, password: fixturePassword, role: account === 'device_merchant' ? 'merchant' : 'buyer' })
 }
-const buyer = f.accounts.login('device_buyer', 'Device-trade-123')
+const buyer = f.accounts.login('device_buyer', fixturePassword)
 const user = f.accounts.authenticate(`Bearer ${buyer.token}`)
 const address = s1 ? undefined : f.testData.address({ userId: user.id, receiver: '设备验收', contact: '13800138000', fullLocation: '测试省 测试市 测试区',
   provinceCode: 'test', cityCode: 'test', countyCode: 'test', address: '独立模拟器验收地址', isDefault: 0 })
+f.app.get<{Params:{account:string}}>('/device-fixture/form/:account',async(req,reply)=>{
+ if(!/^device_(buyer|friend|merchant)$/.test(req.params.account))return reply.code(404).send({code:'0'})
+ return {code:'1',result:{fixture:'device-trade-form',password:fixturePassword}}
+})
+f.app.post<{Body:{milliseconds:number}}>('/device-fixture/advance',async(req,reply)=>{
+ if(!Number.isSafeInteger(req.body.milliseconds)||req.body.milliseconds<0||req.body.milliseconds>4*366*86400000)return reply.code(400).send({error:'invalid clock advance'})
+ clockOffset+=req.body.milliseconds
+ f.db.run('UPDATE sessions SET expires=?',f.clock.now()+86400000)
+ await f.payments.reconcile();await f.orders.processDueCancelRequests(f.clock.now());await f.afterSales.processDue();await f.lifecycle.scan()
+ return {now:f.clock.now()}
+})
+f.app.get('/device-fixture/lifecycle',async()=>({
+ users:f.db.all('SELECT id,account,status,deletion_due_at FROM users'),
+ orders:f.db.all('SELECT id,state,owner_id,paid_by FROM orders'),
+ consents:f.db.all('SELECT version,source,action FROM consents'),
+ sessions:f.db.one<{n:number}>('SELECT COUNT(*) n FROM sessions')!.n
+}))
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid,
   skuId: sku.id, productId: product.id, amountCents: sku.priceCents, initialStock: sku.stock,
   extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : loginProbe ? 'LoginProbe' : 'default' }))
@@ -126,6 +145,8 @@ f.app.post<{ Body: { paymentId: string; hold: boolean } }>('/device-fixture/refu
     heldPaymentId = undefined
     releaseRefund?.()
     await Promise.all(activeRefunds.values())
+    const due=f.db.one<{at:number|null}>("SELECT MIN(next_attempt_at) at FROM refunds WHERE payment_id=? AND state<>'succeeded'",paymentId)?.at
+    if(due&&due>f.clock.now())clockOffset+=due-f.clock.now()+1
     await f.payments.reconcile()
     refundBarrier = undefined
     releaseRefund = undefined
@@ -154,7 +175,7 @@ f.app.get<{ Params: { orderId: string } }>('/device-fixture/orders/:orderId/paym
     payments: f.db.all(`SELECT payments.id,order_id,amount,state,created,channel_paid_at,next_query_at,payer_id,
       (SELECT account FROM users WHERE users.id=payments.payer_id) AS payerAccount
       FROM payments WHERE order_id=? ORDER BY created,id`, orderId),
-    refunds: f.db.all(`SELECT refunds.id,payment_id,refunds.amount,refunds.state,reason,attempts FROM refunds
+    refunds: f.db.all(`SELECT refunds.id,payment_id,refunds.amount,refunds.state,reason,attempts,refunds.next_attempt_at FROM refunds
       JOIN payments ON payments.id=refunds.payment_id WHERE payments.order_id=? ORDER BY refunds.id`, orderId),
     cancelRequests: f.db.all('SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence', orderId),
     cancelActions: f.db.all(`SELECT order_cancel_actions.*,
@@ -171,18 +192,18 @@ if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { 
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {
     const account = `probe_${String(index).padStart(2, '0')}`
-    const friend = f.testData.account({ account, password: 'Device-trade-123' })
+    const friend = f.testData.account({ account, password: fixturePassword })
     const id = f.testData.relation({ ownerId: user.id, friendId: friend.id }).id
     f.db.run('UPDATE relations SET created=? WHERE id=?', 1000 + index, id)
   }
 }
 if (process.argv.includes('--cancel-family') || s2) {
-  const friend = f.accounts.login('device_friend', 'Device-trade-123')
+  const friend = f.accounts.login('device_friend', fixturePassword)
   f.testData.relation({ ownerId: user.id, friendId: friend.id })
 }
 // 分页探针单独准备 11 笔代付订单；Full 模式仍由设备完成全部交易操作。
 if (process.argv.includes('--pagination')) {
-  const friend = f.accounts.login('device_friend', 'Device-trade-123')
+  const friend = f.accounts.login('device_friend', fixturePassword)
   const friendUser = f.accounts.authenticate(`Bearer ${friend.token}`)
   f.testData.relation({ ownerId: user.id, friendId: friend.id })
   const orders = f.orders

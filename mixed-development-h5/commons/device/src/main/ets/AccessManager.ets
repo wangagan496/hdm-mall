@@ -18,7 +18,13 @@ function isPermissionRejected(error: Error): boolean {
 }
 
 export class AccessManager {
-  async runWithPermissions(context: common.UIAbilityContext, permissions: Permissions[], onPermissionsGranted: () => void): Promise<PermissionOutcome> {
+  hasPermissions(permissions: Permissions[]): boolean {
+    const appInfo = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
+    const manager = abilityAccessCtrl.createAtManager()
+    return permissions.every(item => manager.checkAccessTokenSync(appInfo.appInfo.accessTokenId, item) === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+  }
+
+  async runWithPermissions(context: common.UIAbilityContext, permissions: Permissions[], onPermissionsGranted: () => void, allowSettingsPrompt: boolean = true): Promise<PermissionOutcome> {
     try {
       const appInfo = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
       const permissionManager = abilityAccessCtrl.createAtManager()
@@ -41,6 +47,7 @@ export class AccessManager {
         return { granted: true, prompted }
       }
       if (prompted) return { granted: false, prompted: true }
+      if (!allowSettingsPrompt) return { granted: false, prompted: false }
       try {
         const settingResults = await permissionManager.requestPermissionOnSetting(context, permissions)
         if (settingResults.length === permissions.length && settingResults.every(status =>

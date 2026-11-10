@@ -3,6 +3,7 @@ import { common } from '@kit.AbilityKit';
 import { speechRecognizer } from '@kit.CoreSpeechKit';
 import { accessManager, audioCapturerManager, PermissionOutcome, speechToTextManager } from 'device';
 import { vibrator } from '@kit.SensorServiceKit';
+import { storeManager } from 'storage'
 
 export enum VoiceState {
   IDLE,
@@ -30,13 +31,33 @@ export struct HDMAudioSearch {
   private holding: boolean = false
   private operation: number = 0
   private starting?: Promise<void>
+  private microphoneExplained: boolean = false
+
+  private async explainMicrophone(): Promise<boolean> {
+    const granted = accessManager.hasPermissions(['ohos.permission.MICROPHONE'])
+    if (!granted && storeManager.getStore().getSync('microphoneDenied', false) as boolean) {
+      this.getUIContext().getPromptAction().showToast({ message: '请在设置中开启麦克风权限' })
+      return false
+    }
+    if (this.microphoneExplained && granted) return true
+    const result = await this.getUIContext().getPromptAction().showDialog({ title: '麦克风使用说明',
+      message: '语音搜索需要使用麦克风，把你说的话转成搜索文字。不授权也能用文字搜索',
+      buttons: [{ text: '取消', color: '#666666' }, { text: '继续', color: '#E64340' }] })
+    this.microphoneExplained = result.index === 1
+    return this.microphoneExplained
+  }
 
   private async startVoiceRecognition(sequence: number): Promise<void> {
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     try {
-      const outcome: PermissionOutcome = await accessManager.runWithPermissions(context, ['ohos.permission.MICROPHONE'], () => {})
+      if (!await this.explainMicrophone()) { this.holding = false; this.voiceState = VoiceState.IDLE; this.scaleValue = 1; return }
+      if (!this.active || sequence !== this.operation) return
+      const outcome: PermissionOutcome = await accessManager.runWithPermissions(context, ['ohos.permission.MICROPHONE'], () => {}, false)
       if (!this.active || sequence !== this.operation) return
       if (!outcome.granted) {
+        const store = storeManager.getStore()
+        store.putSync('microphoneDenied', true)
+        await store.flush()
         this.holding = false
         this.voiceState = VoiceState.IDLE
         this.scaleValue = 1
