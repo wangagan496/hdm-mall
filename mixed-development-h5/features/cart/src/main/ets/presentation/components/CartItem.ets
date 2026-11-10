@@ -1,4 +1,4 @@
-import { CartGoodsModel } from 'models'
+import { CartGoodsModel, returnPolicyLabel } from 'models'
 
 @Component
 export struct CartItem {
@@ -58,6 +58,8 @@ export struct CartItem {
             })
         }
         .width('100%')
+        Text(returnPolicyLabel(this.cart)).id('cart-return-policy-' + this.cart.skuId)
+          .fontSize(12).fontColor($r('[ui_components].color.text')).width('100%')
         Row() {
           Text(this.cart.available ? this.cart.attrsText : this.cart.unavailableReason || '暂不可购买')
             .textOverflow({ overflow: TextOverflow.Ellipsis })

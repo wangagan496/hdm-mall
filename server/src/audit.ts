@@ -3,7 +3,7 @@ import type { Database } from './database.ts'
 import type { User } from './accounts.ts'
 import { ensure } from './errors.ts'
 
-export const auditActions = ['product.create','product.edit','product.status','sku.price','sku.enable','sku.stock','stock.adjust',
+export const auditActions = ['product.create','product.edit','product.status','product.return_policy','sku.price','sku.enable','sku.stock','stock.adjust',
   'order.ship','order.reject_and_ship','cancel.approve','cancel.auto_approve','aftersale.approve','aftersale.reject','aftersale.inspect',
   'aftersale.refund_reject','aftersale.auto_approve','aftersale.auto_close','aftersale.auto_refund','refund.create','refund.result',
   'refund.retry','payment.review','settings.return_address','access.denied'] as const
@@ -48,7 +48,7 @@ export const auditQuerySchema=z.object({page:z.coerce.number().int().min(1).max(
 export function auditPage(db:Database,user:User,input:unknown){
   ensure(user.role==='merchant',403,'需要商家权限')
   const q=auditQuerySchema.parse(input),conditions:string[]=[],values:(string|number)[]=[]
-  const groups:Record<string,readonly string[]>={products:['product.create','product.edit','product.status','sku.price','sku.enable'],inventory:['sku.stock','stock.adjust'],shipping:['order.ship','order.reject_and_ship'],
+  const groups:Record<string,readonly string[]>={products:['product.create','product.edit','product.status','product.return_policy','sku.price','sku.enable'],inventory:['sku.stock','stock.adjust'],shipping:['order.ship','order.reject_and_ship'],
     aftersales:auditActions.filter(a=>a.startsWith('aftersale.')||a.startsWith('refund.')||a.startsWith('cancel.')||a==='payment.review'),denied:['access.denied']}
   if(q.group!=='all'){const actions=groups[q.group]!;conditions.push(`a.action IN (${actions.map(()=>'?').join(',')})`);values.push(...actions)}
   for(const [column,value] of [['a.action',q.action],['a.order_id',q.orderId],['a.actor_id',q.actorId]] as const)if(value){conditions.push(column+'=?');values.push(value)}
@@ -72,12 +72,14 @@ export function auditPage(db:Database,user:User,input:unknown){
   return {items,counts,pages:Math.ceil(counts/q.pageSize),page:q.page,pageSize:q.pageSize}
 }
 
-export interface ProductAuditSnapshot {name:string;description:string;picture:string;status:string;skus:{id:string;spec:string;priceCents:number;stock:number;enabled:boolean}[]}
+export interface ProductAuditSnapshot {name:string;description:string;picture:string;status:string;returnPolicy?:string;returnPolicyReason?:string;returnPolicyNote?:string;skus:{id:string;spec:string;priceCents:number;stock:number;enabled:boolean}[]}
 export function productAudit(db:Database,user:Pick<User,'id'|'role'>,productId:string,key:string,created:number,current:ProductAuditSnapshot|undefined,next:ProductAuditSnapshot,backfilled=false){
   const write=(action:AuditAction,targetType:Target,targetId:string,summary:AuditSummary)=>appendAudit(db,{created,actor:user,action,targetType,targetId,requestKey:key,summary:{...summary,...(backfilled?{backfilled:true}:{})}})
   if(!current){write('product.create','product',productId,{name:next.name});return}
   if(current.name!==next.name||current.description!==next.description||current.picture!==next.picture)write('product.edit','product',productId,{...(current.name!==next.name?{before:current.name,after:next.name}:{}),descriptionChanged:current.description!==next.description,pictureChanged:current.picture!==next.picture})
   if(current.status!==next.status)write('product.status','product',productId,{before:current.status,after:next.status})
+  const policy=(p:ProductAuditSnapshot)=>JSON.stringify({policy:p.returnPolicy??'standard',reason:p.returnPolicyReason??'',note:p.returnPolicyNote??''})
+  if(policy(current)!==policy(next))write('product.return_policy','product',productId,{before:policy(current),after:policy(next)})
   for(const sku of next.skus){
     const old=current.skus.find(s=>s.id===sku.id);if(!old)continue
     for(const [field,action] of [['priceCents','sku.price'],['enabled','sku.enable'],['stock','sku.stock']] as const){

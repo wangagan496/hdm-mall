@@ -10,6 +10,7 @@ const summarySchema=z.object({before:value.optional(),after:value.optional(),spe
   outcome:z.enum(['success','fail','review','paid','unpaid']).optional(),items:z.array(z.object({skuId:z.string(),spec:text,restockCount:z.number().int().nonnegative()}).strict()).optional(),
   interface:z.string().regex(/^(GET|POST|PUT|DELETE) \/merchant\/[A-Za-z0-9/:_-]+$/).optional(),backfilled:z.literal(true).optional(),note:text.optional()}).strict()
 export function inspectAudit(db:DatabaseSync){
+  const version=Number(db.prepare('PRAGMA user_version').get()!.user_version)
   const migration=readFileSync(new URL('./migrations/014-audit-log.sql',import.meta.url),'utf8')
   const normalize=(s:string)=>s.replace(/\s+/g,' ').trim().replace(/;$/,'')
   for(const name of ['audit_log_no_update','audit_log_no_delete']){
@@ -19,7 +20,7 @@ export function inspectAudit(db:DatabaseSync){
   }
   for(const r of db.prepare('SELECT a.*,u.role FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id').iterate()){
     const action=String(r.action)
-    if(!auditActions.includes(action as typeof auditActions[number]))throw new Error('审计操作类型无效')
+    if(!auditActions.includes(action as typeof auditActions[number])||(version<15&&action==='product.return_policy'))throw new Error('审计操作类型无效')
     if((r.actor_kind==='system')!==(r.actor_id===null)||(r.actor_id!==null&&r.actor_kind!==r.role))throw new Error('审计操作人无效')
     if((action==='access.denied')!==(r.result==='denied'))throw new Error('审计结果无效')
     const summary=summarySchema.parse(JSON.parse(String(r.summary)))

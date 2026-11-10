@@ -1,10 +1,11 @@
+import { ReturnPolicyFields } from 'models'
 export interface ProductSku { id?: string; spec: string; priceCents: number; stock: number; enabled: boolean }
 export interface ProductSkuPatch { id?: string; spec?: string; priceCents?: number; stock?: number; enabled?: boolean; expectedStock?: number }
-export interface ProductData {
+export interface ProductData extends ReturnPolicyFields {
   id: string; name: string; categoryId: string; categoryName: string; description: string;
   picture: string; imageId: string; status: string; revision: number; skus: ProductSku[]
 }
-export interface ProductBody {
+export interface ProductBody extends ReturnPolicyFields {
   requestKey?: string; expectedRevision?: number; name?: string; categoryId?: string;
   description?: string; imageId?: string; status?: string; skus?: ProductSkuPatch[]
 }
@@ -16,7 +17,7 @@ export interface ProductErrorBody { reason?: string; result?: ProductData }
 export interface ProductErrorResponse { status: number; data?: ProductErrorBody }
 export interface ProductError extends Error { httpStatus?: number; response?: ProductErrorResponse }
 export interface ProductSkuInput { id?: string; spec: string; price: string; stock: string; enabled: boolean; originalPrice: number }
-export interface ProductDraft {
+export interface ProductDraft extends ReturnPolicyFields {
   name: string; categoryId: string; description: string; image: string; picture: string; imageId: string;
   status: string; revision: number; skus: ProductSkuInput[]
   base?: ProductData

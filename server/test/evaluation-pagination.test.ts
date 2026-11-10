@@ -21,9 +21,9 @@ async function fixture(count: number) {
       const product = index < count ? 'review-product' : 'other-product'
       f.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires) VALUES(?,?,5,?,?,?,?,?,?)',
         id, owner, priceCents, '{"contact":"13800138000","address":"private"}', id, '{}', created, created + 900000)
-      f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, `${product}-a`, product, '测试商品', '/assets/product.svg', '标准款', priceCents, 1)
+      f.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count) VALUES(?,?,?,?,?,?,?,?)', id, `${product}-a`, product, '测试商品', '/assets/product.svg', '标准款', priceCents, 1)
       if (index === 0) {
-        f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, 'review-product-b', 'review-product', '测试商品', '/assets/product.svg', '加大款', largerPriceCents, 1)
+        f.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count) VALUES(?,?,?,?,?,?,?,?)', id, 'review-product-b', 'review-product', '测试商品', '/assets/product.svg', '加大款', largerPriceCents, 1)
       }
       if (index === count + 6) continue // 尚未评价的订单不计入总数。
       f.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, 5, `评价内容 ${index}`, created)

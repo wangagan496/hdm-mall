@@ -7,6 +7,7 @@ import { util } from '@kit.ArkTS'
 import { connection } from '@kit.NetworkKit'
 import { createOrderAPI, getPreOrderAPI, updateCheckoutCartAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
+import { ReturnPolicyConfirmation, ReturnPolicyGoods, returnPolicyLabel } from 'models'
 
 // 用业务名称区分弹层，避免读者猜测 1、2 各代表什么。
 enum CheckoutSheet {
@@ -29,6 +30,8 @@ export struct CheckView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   // 本次要购买的商品：由服务端根据购物袋中已勾选的商品返回。
   @State goodsList: OrderGoodsItem[] = []
+  @State returnPolicy: ReturnPolicyConfirmation = new ReturnPolicyConfirmation()
+  private checkoutScroller: Scroller = new Scroller()
   @State excludedNotice: string = ''
   // 用户可选的收货地址。
   @State addressList: AddressItem[] = []
@@ -140,6 +143,7 @@ export struct CheckView {
     this.showSheet = false
     this.activeSheet = CheckoutSheet.None
     if (!changedAccount) return
+    this.returnPolicy = new ReturnPolicyConfirmation()
     this.requestSummary = ''
     this.recoveredOrderId = ''
     this.goodsList = []
@@ -193,6 +197,7 @@ export struct CheckView {
         return
       }
       this.checkoutRefreshFailed = false
+      this.refreshReturnPolicy(checkoutPreview.returnPolicyToken || '')
       if (checkoutPreview.excludedGoods && checkoutPreview.excludedGoods.length > 0) {
         this.excludedNotice = checkoutPreview.excludedGoods.map((item: ExcludedCheckoutGoods) => item.name + item.reason + '，已移出本次结算').join('；')
         this.keepEmptyCheckout = true
@@ -301,7 +306,20 @@ export struct CheckView {
           if (!this.isCurrentCheckout(generation, token)) return
           this.orderRequestKey = util.generateRandomUUID(true)
         }
-        if (failure.reason === 'PRICE_CHANGED' && failure.result) {
+        if ((failure.reason === 'RETURN_POLICY_CHANGED' || failure.reason === 'RETURN_POLICY_CONFIRM_REQUIRED') && failure.result) {
+          const policies = failure.result.goods as ReturnPolicyGoods[]
+          this.goodsList = this.goodsList.map((item: OrderGoodsItem): OrderGoodsItem => {
+            const updated = this.copyCheckoutItem(item), policy = policies.find((value: ReturnPolicyGoods): boolean => value.skuId === item.skuId)
+            if (policy) {
+              updated.returnPolicy = policy.returnPolicy; updated.returnPolicyReason = policy.returnPolicyReason; updated.returnPolicyNote = policy.returnPolicyNote
+            }
+            return updated
+          })
+          this.returnPolicy = new ReturnPolicyConfirmation()
+          this.refreshReturnPolicy(failure.result.returnPolicyToken || '')
+          this.showSheet = false
+          this.validateReturnPolicy()
+        } else if (failure.reason === 'PRICE_CHANGED' && failure.result) {
           const prices = failure.result.goods as CheckoutPrice[]
           this.goodsList = this.goodsList.map((item: OrderGoodsItem): OrderGoodsItem => {
             const price = prices.find((value: CheckoutPrice) => value.skuId === item.skuId)
@@ -368,8 +386,24 @@ export struct CheckView {
       this.safeToast('未选择收货地址')
       return false
     }
-    return true
+    return this.validateReturnPolicy()
   }
+
+  private refreshReturnPolicy(token: string): void {
+    const gate = this.returnPolicy.copy(); gate.refresh(token); this.returnPolicy = gate
+  }
+  private chooseReturnPolicy(confirmed: boolean): void {
+    if (this.confirmingOrder || this.isSubmittingOrder || !this.isCheckoutReady()) return
+    const gate = this.returnPolicy.copy(); gate.choose(confirmed); this.returnPolicy = gate
+  }
+  private validateReturnPolicy(): boolean {
+    const gate = this.returnPolicy.copy(), valid = gate.validate(this.goodsList)
+    this.returnPolicy = gate
+    if (!valid) this.checkoutScroller.scrollToIndex(5, false, ScrollAlign.END)
+    return valid
+  }
+  private restrictedGoods(): OrderGoodsItem[] { return this.goodsList.filter((item: OrderGoodsItem): boolean => !!item.returnPolicy && item.returnPolicy !== 'standard') }
+  private needsReturnPolicyConfirmation(): boolean { return this.goodsList.some((item: OrderGoodsItem): boolean => item.returnPolicy === 'confirm-required') }
 
   private isCheckoutReady(): boolean {
     return this.pageActive && this.checkoutToken.length > 0 && this.checkoutToken === (this.user.token || '') &&
@@ -386,6 +420,7 @@ export struct CheckView {
 
   private copyCheckoutItem(item: OrderGoodsItem): OrderGoodsItem {
     return { id: item.id, skuId: item.skuId, name: item.name, attrsText: item.attrsText, count: item.count,
+      returnPolicy: item.returnPolicy, returnPolicyReason: item.returnPolicyReason, returnPolicyNote: item.returnPolicyNote,
       picture: item.picture, stock: item.stock, price: item.price, payPrice: item.payPrice,
       totalPrice: item.totalPrice, totalPayPrice: item.totalPayPrice }
   }
@@ -460,6 +495,7 @@ export struct CheckView {
   private buildOrderRequest(): CreateOrderParams {
     const source: 'cart' | 'buy-now' = this.checkoutSelection ? 'buy-now' : 'cart'
     const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+      returnPolicyConfirmed: this.returnPolicy.confirmed, expectedReturnPolicyToken: this.returnPolicy.token,
       goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({ skuId: item.skuId, count: item.count }))
         .sort((left: CreateOrderParamsGoods, right: CreateOrderParamsGoods) => left.skuId.localeCompare(right.skuId)) })
     if (!GlobalVariable.DEMO_ORDER_FLOW && this.requestSummary && this.requestSummary !== summary) {
@@ -470,6 +506,8 @@ export struct CheckView {
       source,
       requestKey: this.orderRequestKey,
       expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+      returnPolicyConfirmed: this.returnPolicy.confirmed,
+      expectedReturnPolicyToken: this.returnPolicy.token || undefined,
       payChannel: this.payChannel,
       payType: 1,
       buyerMessage: '',
@@ -595,6 +633,30 @@ export struct CheckView {
 
   // 以下只负责页面展示和把用户操作交给上述业务方法。
   @Builder
+  private ReturnPolicyArea() {
+    Column({ space: 10 }) {
+      Text('请了解商品退货规则').fontColor($r('[ui_components].color.text')).fontWeight(500).width('100%')
+      ForEach(this.restrictedGoods(), (item: OrderGoodsItem) => {
+        Text(item.name + '：' + returnPolicyLabel(item)).fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
+      }, (item: OrderGoodsItem) => item.skuId + ':' + item.returnPolicy + ':' + item.returnPolicyReason + ':' + item.returnPolicyNote)
+      if (this.needsReturnPolicyConfirmation()) {
+        Row({ space: 8 }) {
+          Checkbox().id('checkout-policy-checkbox').select(this.returnPolicy.confirmed)
+            .selectedColor($r('[ui_components].color.red')).size({ width: 22, height: 22 })
+            .enabled(!this.isSubmittingOrder && this.isCheckoutReady())
+            .onChange((value: boolean) => this.chooseReturnPolicy(value))
+          Text('我已了解以上商品的退货限制').fontSize(14).fontColor($r('[ui_components].color.text')).layoutWeight(1)
+            .onClick(() => this.chooseReturnPolicy(!this.returnPolicy.confirmed))
+        }.width('100%')
+        if (this.returnPolicy.highlighted) {
+          Text('请先阅读并勾选退货限制，再提交订单').id('checkout-policy-warning').fontSize(14).fontColor($r('[ui_components].color.red')).width('100%')
+        }
+      }
+    }.id('checkout-return-policy').padding(14).margin(8).backgroundColor($r('[ui_components].color.white'))
+      .borderRadius(12).border({ width: this.returnPolicy.highlighted ? 2 : 1,
+        color: this.returnPolicy.highlighted ? $r('[ui_components].color.red') : $r('[ui_components].color.border') })
+  }
+  @Builder
   GoodsItemBuilder(goods: OrderGoodsItem) {
     Row({ space: 10 }) {
       Image(goods.picture)
@@ -695,7 +757,7 @@ export struct CheckView {
           Button('返回购物车')
             .onClick(() => this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true }))
         }
-        List() {
+        List({ scroller: this.checkoutScroller }) {
           ListItem() {
             ChangeAddressComp({
               addressList: this.addressList,
@@ -757,6 +819,9 @@ export struct CheckView {
             .padding(8)
           }
 
+          ListItem() {
+            if (this.restrictedGoods().length > 0) { this.ReturnPolicyArea() }
+          }
         }
         .width('100%')
         .height('100%')

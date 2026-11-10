@@ -14,7 +14,12 @@ export function execute(source, dependencies = {}, globals = {}) {
   const compiled = ts.transpileModule(source, { compilerOptions: {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,
   } }).outputText
-  const context = vm.createContext({ exports: {}, require: name => dependencies[name] ?? {},
+  const context = vm.createContext({ exports: {}, require: name => {
+    if (name === './ReturnPolicy' || name === 'models') {
+      return { ...execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/ReturnPolicy.ets')), ...dependencies[name] }
+    }
+    return dependencies[name] ?? {}
+  },
     setTimeout, clearTimeout, console, ...globals })
   vm.runInContext(compiled, context)
   return context.exports
@@ -31,5 +36,7 @@ export function pageMethods(path, className, dependencies = {}, globals = {}) {
     setTimeout: globals.setTimeout ?? ((fn, delay) => { const timer = setTimeout(fn, delay); timer.unref(); return timer }),
     clearTimeout: globals.clearTimeout ?? clearTimeout,
   })
-  return execute(source, dependencies, { ...recovery, ...globals })[className]
+  const policy = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/ReturnPolicy.ets'))
+  return execute(source, dependencies, { ...recovery, ...policy,
+    Scroller: class { scrollToIndex() {} }, ScrollAlign: { END: 'end' }, ...globals })[className]
 }

@@ -1,4 +1,5 @@
 import { Goods } from "../../domain/models"
+import { returnPolicyLabel } from 'models'
 import { excludeFailedPicture } from '../../data/api/goodsPresentation'
 
 @Component
@@ -106,6 +107,8 @@ export struct GoodsInfo {
         .fontColor($r('[ui_components].color.black'))
         .margin({ bottom: 8, top: 8 })
 
+        Text(returnPolicyLabel(this.getGoods()) + (this.getGoods().returnPolicy === 'confirm-required' ? '，下单时需确认' : ''))
+          .id('goods-return-policy').fontSize(14).width('100%').fontColor($r('[ui_components].color.text')).margin({ bottom: 8 })
         Text(this.getGoods().name)
           .width('100%')
           .fontColor($r('[ui_components].color.text'))
@@ -141,7 +144,7 @@ export struct GoodsInfo {
           .onClick(() => this.openSpecifications())
 
           Row() {
-            Text('无忧退货 · 快速退款 · 免费包邮')
+            Text('售后按下单规则处理 · 退款原路退回')
               .fontColor($r('[ui_components].color.text'))
               .fontSize(13)
             Blank()

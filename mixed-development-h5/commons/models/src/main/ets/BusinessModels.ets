@@ -1,6 +1,7 @@
 import { AfterSale } from './AfterSaleModels'
+import { ReturnPolicyFields } from './ReturnPolicy'
 
-export interface HDMGoodsItem {
+export interface HDMGoodsItem extends ReturnPolicyFields {
   id: string
   name: string
   desc: string
@@ -81,7 +82,7 @@ export interface FamilyRelationPage {
   pageSize: number
 }
 
-export interface CartGoods {
+export interface CartGoods extends ReturnPolicyFields {
   available?: boolean
   unavailableReason?: string
   count: number
@@ -97,6 +98,9 @@ export interface CartGoods {
 
 @Observed
 export class CartGoodsModel implements CartGoods {
+  @Track returnPolicy: string = 'standard'
+  @Track returnPolicyReason: string = ''
+  @Track returnPolicyNote: string = ''
   @Track available: boolean = true
   @Track unavailableReason: string = ''
   // @Track 让 @ObjectLink 仅在实际变更的属性上触发最小化刷新
@@ -111,6 +115,9 @@ export class CartGoodsModel implements CartGoods {
   @Track attrsText: string = ''
 
   constructor(model: CartGoods) {
+    this.returnPolicy = model.returnPolicy || 'standard'
+    this.returnPolicyReason = model.returnPolicyReason || ''
+    this.returnPolicyNote = model.returnPolicyNote || ''
     this.available = model.available !== false
     this.unavailableReason = model.unavailableReason || ''
     this.count = model.count
@@ -156,7 +163,7 @@ export interface AddressItem {
   countyCode: number
 }
 
-export interface OrderGoodsItem {
+export interface OrderGoodsItem extends ReturnPolicyFields {
   stock?: number
   attrsText: string
   count: number
@@ -179,6 +186,7 @@ export interface Summary {
 }
 
 export interface PreOrder {
+  returnPolicyToken?: string
   excludedGoods?: ExcludedCheckoutGoods[]
   goods: OrderGoodsItem[]
   userAddresses: AddressItem[]
@@ -193,6 +201,8 @@ export interface CreateOrderParamsGoods {
 }
 
 export interface CreateOrderParams {
+  returnPolicyConfirmed?: boolean
+  expectedReturnPolicyToken?: string
   expectedAmountCents: number
   source?: 'cart' | 'buy-now'
   requestKey?: string
@@ -360,7 +370,8 @@ export interface OrderPage {
   pages: number
 }
 
-export interface OrderSku {
+export interface OrderSku extends ReturnPolicyFields {
+  afterSaleKinds?: string[]
   afterSaleRemaining?: number
   attrsText: string
   curPrice: number

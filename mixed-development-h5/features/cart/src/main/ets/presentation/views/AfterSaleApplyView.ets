@@ -6,6 +6,7 @@ import { afterSaleActions } from 'storage'
 import { pickProductImage } from 'ui_components'
 import { getAfterSaleOrderAPI } from '../../data/api/afterSales'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
+import { returnPolicyAllowsNoReason, returnConditionRequired, returnConditionError, returnPolicyAfterSaleHint } from 'models'
 
 @Builder
 function AfterSaleApplyViewBuilder() { AfterSaleApplyView() }
@@ -40,19 +41,39 @@ export struct AfterSaleApplyView {
       if(!this.current(generation,token))return
       this.order=order
       this.lines=order.skus.filter((sku: OrderSku): boolean => (sku.afterSaleRemaining||0)>0).map((sku: OrderSku): AfterSaleLine => {
-        return {skuId:sku.id,name:sku.name,spec:sku.attrsText,priceCents:Math.round(sku.realPay*100),count:sku.afterSaleRemaining||0,remaining:sku.afterSaleRemaining||0}
+        return {skuId:sku.id,name:sku.name,spec:sku.attrsText,priceCents:Math.round(sku.realPay*100),count:sku.afterSaleRemaining||0,remaining:sku.afterSaleRemaining||0,
+          returnPolicy:sku.returnPolicy,returnPolicyReason:sku.returnPolicyReason,returnPolicyNote:sku.returnPolicyNote,returnPolicyConfirmed:sku.returnPolicyConfirmed,afterSaleKinds:sku.afterSaleKinds}
       })
       this.kind=order.afterSaleKinds?.[0]||'return-no-reason'
+      this.excludeRestrictedLines()
       this.pending=afterSaleActions.pending(this.user.id||'',this.orderId)!==null
       if(!order.canApplyAfterSale && !this.pending)this.message=order.afterSaleNotice||'当前订单暂不能申请售后'
     } catch {if(this.current(generation,token))this.message='订单读取失败，请重试'}
     finally {if(this.current(generation,token))this.loading=false}
   }
   private stepCount(index: number,delta: number): void {
-    if(this.busy||this.pending||!this.lines[index])return
+    if(this.busy||this.pending||!this.lines[index]||!this.lineAllowed(this.lines[index]))return
     this.lines[index].count=Math.max(0,Math.min(this.lines[index].remaining||0,this.lines[index].count+delta));this.lines=this.lines.slice()
   }
   private quantityHint():string {return this.lines.some((line:AfterSaleLine):boolean=>line.count>0)?'':'请至少选择 1 件'}
+  private lineAllowed(line: AfterSaleLine): boolean {
+    return (!line.afterSaleKinds || line.afterSaleKinds.includes(this.kind)) && (this.kind !== 'return-no-reason' || returnPolicyAllowsNoReason(line))
+  }
+  private excludeRestrictedLines(): void {
+    this.lines.forEach((line: AfterSaleLine) => { if (!this.lineAllowed(line)) line.count = 0 })
+    this.lines = this.lines.slice()
+  }
+  private selectKind(kind: string): void {
+    if (this.busy || this.pending || !this.order?.afterSaleKinds?.includes(kind)) return
+    this.kind = kind; this.message = ''; this.excludeRestrictedLines()
+  }
+  private chooseCondition(index: number, condition: string): void {
+    if (this.busy || this.pending || !this.lines[index] || (condition !== 'sealed' && condition !== 'unsealed')) return
+    this.lines[index].conditionDeclared = condition; this.lines = this.lines.slice(); this.message = ''
+  }
+  private conditionText(line: AfterSaleLine, condition: string): string {
+    return (condition === 'sealed' ? '未' : '已') + (line.returnPolicyReason === 'activated' ? '激活或试用' : '拆封')
+  }
   private canSubmit():boolean {return !this.busy&&!this.loading&&(this.pending||!!this.order?.canApplyAfterSale&&!this.quantityHint())}
   private total(): string {return (afterSaleAmount(this.lines)/100).toFixed(2)}
   private async choosePhoto(): Promise<void> {
@@ -76,11 +97,17 @@ export struct AfterSaleApplyView {
   }
   private async submit(): Promise<void> {
     if(this.busy||this.loading||!this.current(this.generation,this.token))return
+    if (!this.pending) {
+      if (!this.order?.canApplyAfterSale) return
+      this.message = afterSaleInputError(this.lines, this.kind, this.description)
+      if (this.message) return
+    }
     const generation=this.generation,token=this.token;this.busy=true;this.message=''
     try {
       if(this.pending)await afterSaleActions.resume(this.orderId,token)
       else {
-        const body: AfterSaleBody={kind:this.kind,description:this.description.trim(),imageIds:[],items:this.lines.filter((line: AfterSaleLine): boolean => line.count>0).map((line: AfterSaleLine): AfterSaleQuantity => {return {skuId:line.skuId,count:line.count}})}
+        const body: AfterSaleBody={kind:this.kind,description:this.description.trim(),imageIds:[],items:this.lines.filter((line: AfterSaleLine): boolean => line.count>0).map((line: AfterSaleLine): AfterSaleQuantity => {return {skuId:line.skuId,count:line.count,
+          conditionDeclared:this.kind==='return-no-reason'&&returnConditionRequired(line)?line.conditionDeclared:undefined}})}
         await afterSaleActions.start(this.orderId,'/member/order/'+encodeURIComponent(this.orderId)+'/after-sales',body,this.kind==='return-quality'?this.photos:[],token)
       }
       if(this.current(generation,token))this.stackPath.pop()
@@ -98,12 +125,33 @@ export struct AfterSaleApplyView {
         Column({space:6}) {
           Text(line.name+' · '+line.spec).fontColor($r('[ui_components].color.text')).width('100%')
           Text('下单单价 ¥'+(line.priceCents/100).toFixed(2)+'，可售后 '+String(line.remaining||0)+' 件').fontSize(13).fontColor($r('[ui_components].color.gray'))
+          if (returnPolicyAfterSaleHint(line)) {
+            Text(returnPolicyAfterSaleHint(line)).id('after-sale-policy-'+index).fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
+          }
+          if (!this.lineAllowed(line)) {
+            Text('该商品不适用当前类型，未选入本次申请；可切换为质量问题退货后增加数量。')
+              .fontSize(13).fontColor($r('[ui_components].color.red')).width('100%')
+          }
           Text('申请数量').fontColor($r('[ui_components].color.text')).width('100%')
           Row({space:16}) {
             Button('−').id('after-sale-count-minus-'+index).enabled(!this.busy&&!this.pending&&this.lines[index].count>0).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.stepCount(index,-1))
             Text(String(this.lines[index].count)).id('after-sale-count-'+index).fontColor($r('[ui_components].color.text'))
-            Button('+').id('after-sale-count-plus-'+index).enabled(!this.busy&&!this.pending&&this.lines[index].count<(this.lines[index].remaining||0)).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.stepCount(index,1))
+            Button('+').id('after-sale-count-plus-'+index).enabled(!this.busy&&!this.pending&&this.lineAllowed(line)&&this.lines[index].count<(this.lines[index].remaining||0)).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.stepCount(index,1))
           }.width('100%')
+          if (this.kind === 'return-no-reason' && this.lines[index].count > 0 && returnConditionRequired(line)) {
+            Text('请如实选择商品状态').fontColor($r('[ui_components].color.text')).width('100%')
+            ForEach(['sealed', 'unsealed'], (condition: string) => {
+              Button(this.conditionText(line, condition) + (this.lines[index].conditionDeclared === condition ? ' ✓ 已选' : ''))
+                .id('after-sale-condition-' + index + '-' + condition).width('100%')
+                .backgroundColor(this.lines[index].conditionDeclared === condition ? $r('[ui_components].color.red') : $r('[ui_components].color.white'))
+                .fontColor(this.lines[index].conditionDeclared === condition ? $r('[ui_components].color.loading_foreground') : $r('[ui_components].color.text'))
+                .border({width:1,color:$r('[ui_components].color.border')}).enabled(!this.busy && !this.pending)
+                .onClick(() => this.chooseCondition(index, condition))
+            })
+            if (this.lines[index].conditionDeclared === 'unsealed') {
+              Text(returnConditionError(line, this.lines[index].conditionDeclared)).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%')
+            }
+          }
         }.width('100%').padding(12).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
       },(line: AfterSaleLine)=>line.skuId)
       Text('售后类型').fontColor($r('[ui_components].color.text')).width('100%')
@@ -111,7 +159,7 @@ export struct AfterSaleApplyView {
         Button(afterSaleKind(kind)+(this.kind===kind?' ✓ 已选':'')).id('after-sale-kind-'+kind).width('100%')
           .backgroundColor(this.kind===kind?$r('[ui_components].color.red'):$r('[ui_components].color.white'))
           .fontColor(this.kind===kind?Color.White:$r('[ui_components].color.text')).enabled(!this.busy&&!this.pending)
-          .onClick(()=>{this.kind=kind;this.message=''})
+          .onClick(()=>this.selectKind(kind))
       })
       // 七日无理由退货 / 质量问题退货 / 少件漏发仅退款
       Text(this.kind==='return-no-reason'?'退货运费由买家承担':'运费由商家承担').fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
@@ -122,10 +170,10 @@ export struct AfterSaleApplyView {
         ForEach(this.photos,(photo:AfterSalePhoto,index:number)=>{
           Row({space:8}) {
             Image('data:image/jpeg;base64,'+photo.bytes).width(72).height(72).objectFit(ImageFit.Cover)
-            Button('移除照片 '+(index+1)).enabled(!this.busy&&!this.pending).onClick(()=>this.photos=this.photos.filter((_photo:AfterSalePhoto,i:number):boolean=>i!==index))
+            Button('移除照片 '+(index+1)).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy&&!this.pending).onClick(()=>this.photos=this.photos.filter((_photo:AfterSalePhoto,i:number):boolean=>i!==index))
           }
         },(photo:AfterSalePhoto)=>photo.requestKey)
-        Button('选择照片').enabled(!this.busy&&!this.pending&&this.photos.length<3).onClick(()=>this.choosePhoto())
+        Button('选择照片').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy&&!this.pending&&this.photos.length<3).onClick(()=>this.choosePhoto())
       }
     }.width('100%').padding(16)
   }

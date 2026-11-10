@@ -264,7 +264,7 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('GET', '/member/order/by-request/:requestKey', (req, user) => orders.byRequest(user,
     z.object({ requestKey: z.string().min(16).max(100) }).parse(req.params).requestKey))
-  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100) }).parse(req.body)))
+  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional() }).parse(req.body)))
   protectedRoute('GET', '/member/order', (req, user) => {
     const query = pageSchema.parse(req.query)
     return orders.listPage(user, query.orderState, query.page, query.pageSize)

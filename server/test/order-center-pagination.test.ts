@@ -22,7 +22,7 @@ async function fixture() {
     f.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires,paid_by,invited_payer,received_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
       id, users[owner].id, state, priceCents, '{"receiver":"测试","contact":"13800138000","address":"private"}', id, '{}', created, Date.now() + 900000,
       payer ? users[payer].id : null, invited ? users[invited].id : null, receiver ? users[receiver].id : null)
-    f.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, 'center-product-a', 'center-product', id, '/assets/product.svg', '标准款', priceCents, 1)
+    f.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count) VALUES(?,?,?,?,?,?,?,?)', id, 'center-product-a', 'center-product', id, '/assets/product.svg', '标准款', priceCents, 1)
   }
   const get = (path: string, name = 'friend') => f.app.inject({ url: path, headers: { authorization: `Bearer ${users[name].token}` } })
   return { ...f, users, add, get }
