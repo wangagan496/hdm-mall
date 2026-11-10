@@ -48,7 +48,7 @@ async function fixture(databasePath = ':memory:') {
 test('B-80 RED1：空库迁移至8且取消两表为空', () => {
   const db = new Database(':memory:')
   try {
-    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 14)
+    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_actions')!.count, 0)
   } finally { db.close() }
@@ -264,7 +264,7 @@ test('B-80 RED10：版本8备份统计、合法取消不误报并恢复到期申
     const pendingId = await f.create()
     await f.request(pendingId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 14)
+    assert.equal(backup.manifest.schemaVersion, 15)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.counts.order_cancel_requests, 2)
     assert.equal(backup.counts.order_cancel_actions, 3)
@@ -328,7 +328,7 @@ test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据�
     for (let startup = 0; startup < 2; startup++) {
       const migrated = new Database(path)
       try {
-        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 14)
+        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15)
         for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), table === 'refunds' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{after_sale_id:null,completed_at:null})) : before[table])
         assert.deepEqual(migrated.all("SELECT name,sql FROM sqlite_master WHERE name IN ('payment_notices','refund_retry_actions') ORDER BY name"), schemas)
         assert.equal(migrated.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
@@ -337,7 +337,7 @@ test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据�
     }
     const oldRestore = await restoreBackup({ backupPath: oldBackup.root, destination: join(root, 'old-restored') })
     const upgraded = new Database(join(oldRestore.root, 'mall.sqlite'))
-    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 14) } finally { upgraded.close() }
+    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15) } finally { upgraded.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -359,7 +359,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
       inspected.exec('DROP TABLE order_cancel_actions')
     } finally { inspected.close() }
     const recovered = new Database(path)
-    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 14) } finally { recovered.close() }
+    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15) } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

@@ -298,7 +298,7 @@ test('旧版数据库迁移保留商品，分类编号重启后保持稳定', ()
     const reloaded = new Catalog(migrated, 'http://fixture'); reloaded.seed()
     assert.equal(reloaded.categories().find(row => row.name === '原有分类')!.id, category.id)
     assert.equal(reloaded.categories().find(row => row.id === category.id)!.children[0]!.id, child.id)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 14)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15)
   } finally {
     migrated?.close()
     rmSync(directory, { recursive: true, force: true })

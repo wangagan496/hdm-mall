@@ -9,6 +9,7 @@ import { recordStockMovement } from './inventory.ts'
 import type { Payments } from './payments.ts'
 import type { AfterSales } from './after-sales.ts'
 import { localAvatarPath } from './avatar.ts'
+import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -39,7 +40,7 @@ interface Order {
   received_at: number | null
   shipped_at: number | null
 }
-interface Item {
+interface Item extends PolicyRow {
   order_id: string
   sku_id: string
   product_id: string
@@ -56,6 +57,8 @@ export interface CreateOrder {
   expectedAmountCents: number
   addressId: string
   goods: { skuId: string; count: number }[]
+  returnPolicyConfirmed?: boolean
+  expectedReturnPolicyToken?: string
 }
 interface CancelRequest {
   id: string
@@ -211,6 +214,8 @@ export class Orders {
         image: localAvatarPath(item.picture) ? this.catalog.publicUrl + localAvatarPath(item.picture) : item.picture,
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
+        ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
+        afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
       evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created } : null,
       ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {}),
@@ -307,7 +312,7 @@ export class Orders {
       cart.filter(item => !item.available).map(item => ({ skuId: item.skuId, name: item.name, reason: item.unavailableReason }))
     const selectedGoods = selectedSku ? [{ id: selectedSku.product_id, skuId: selectedSku.id, name: selectedSku.name,
       picture: selectedSku.picture, stock: selectedSku.stock, price: selectedSku.price / 100,
-      attrsText: selectedSku.spec, count: selection!.count, selected: true }] :
+      attrsText: selectedSku.spec, count: selection!.count, selected: true, ...presentPolicy(selectedSku) }] :
       cart.filter(item => item.selected && item.available)
     const goods = selectedGoods.filter(item => !excludedGoods.some(excluded => excluded.skuId === item.skuId)).map(item => ({
       ...item,
@@ -322,6 +327,7 @@ export class Orders {
     const goodsCount = goods.reduce((sum, item) => sum + item.count, 0)
     return {
       goods,
+      returnPolicyToken:policyToken(goods),
       excludedGoods,
       userAddresses: this.accounts.addresses(user),
       summary: { discountPrice: 0, goodsCount, postFee: 0, totalPayPrice: totalYuan, totalPrice: totalYuan }
@@ -335,7 +341,8 @@ export class Orders {
       source: data.source ?? 'cart',
       addressId: data.addressId,
       expectedAmountCents: data.expectedAmountCents,
-      goods: [...data.goods].sort((left, right) => left.skuId.localeCompare(right.skuId))
+      goods: [...data.goods].sort((left, right) => left.skuId.localeCompare(right.skuId)),
+      returnPolicyConfirmed:data.returnPolicyConfirmed??false,expectedReturnPolicyToken:data.expectedReturnPolicyToken??''
     })
     // 查重、扣库存、保存订单和移除购物车商品必须一起成功；任何一步失败都回滚。
     return this.db.transaction(() => {
@@ -344,7 +351,8 @@ export class Orders {
       if (existing) {
         const previous = JSON.parse(existing.request_body) as Omit<CreateOrder, 'requestKey'>
         const previousBody = JSON.stringify({ source: previous.source ?? 'cart', addressId: previous.addressId,
-          expectedAmountCents: previous.expectedAmountCents, goods: previous.goods })
+          expectedAmountCents: previous.expectedAmountCents, goods: previous.goods,
+          returnPolicyConfirmed:previous.returnPolicyConfirmed??false,expectedReturnPolicyToken:previous.expectedReturnPolicyToken??'' })
         ensure(previousBody === normalizedRequestBody, 409, '同一次下单不能修改来源、商品或地址，请重新结算')
         return { id: existing.id }
       }
@@ -359,6 +367,10 @@ export class Orders {
         goods: unavailable.map(item => ({ skuId: item.id, name: item.name, reason: item.status === 'off' ? '已下架' : '规格已停用' }))
       })
       const totalAmountCents = items.reduce((sum, item) => sum + item.price * item.count, 0)
+      const policyGoods=items.map(item=>({skuId:item.id,name:item.name,...presentPolicy(item)}))
+      const currentPolicyToken=policyToken(policyGoods)
+      if(data.expectedReturnPolicyToken&&data.expectedReturnPolicyToken!==currentPolicyToken)throw new AppError(409,'商品退货规则有变化，请核对后重新确认','RETURN_POLICY_CHANGED',{goods:policyGoods,returnPolicyToken:currentPolicyToken})
+      if(items.some(i=>i.return_policy==='confirm-required')&&(!data.returnPolicyConfirmed||data.expectedReturnPolicyToken!==currentPolicyToken))throw new AppError(409,'请先了解并确认商品的退货限制','RETURN_POLICY_CONFIRM_REQUIRED',{goods:policyGoods,returnPolicyToken:currentPolicyToken})
       if (totalAmountCents !== data.expectedAmountCents) {
         throw new AppError(409, '商品价格有变化，已更新为最新价格，请确认后再提交', 'PRICE_CHANGED', {
           totalAmountCents, goods: items.map(item => ({ skuId: item.id, name: item.name, spec: item.spec,
@@ -366,7 +378,7 @@ export class Orders {
         })
       }
       this.reserveStock(items)
-      const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items)
+      const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items, data.returnPolicyConfirmed===true)
       for (const item of items) {
         recordStockMovement(this.db, { kind: 'reserve', skuId: item.id, delta: -item.count, orderId: id, actorId: user.id }, this.clock)
         if (data.source !== 'buy-now') this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
@@ -385,13 +397,13 @@ export class Orders {
       ensure(result.changes === 1, 409, '商品刚刚售罄或剩余库存不足，请刷新')
     }
   }
-  private saveOrderAndItems(user: User, requestKey: string, requestBody: string, address: string, items: CheckoutItem[]) {
+  private saveOrderAndItems(user: User, requestKey: string, requestBody: string, address: string, items: CheckoutItem[], confirmed=false) {
     const id = randomUUID(), now = this.clock.now()
     const amount = items.reduce((sum, item) => sum + item.price * item.count, 0)
     this.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires) VALUES(?,?,?,?,?,?,?,?,?)',
       id, user.id, ORDER_STATE.AWAITING_PAYMENT, amount, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS)
     for (const item of items) {
-      this.db.run('INSERT INTO order_items VALUES(?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count)
+      this.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count,return_policy,return_policy_reason,return_policy_note,return_policy_confirmed) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count,item.return_policy,item.return_policy_reason,item.return_policy_note,Number(item.return_policy==='confirm-required'&&confirmed))
     }
     return id
   }

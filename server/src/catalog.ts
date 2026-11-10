@@ -4,8 +4,9 @@ import { AppError, ensure } from './errors.ts'
 import type { User } from './accounts.ts'
 import { randomUUID } from 'node:crypto'
 import { recordStockMovement } from './inventory.ts'
+import { presentPolicy, type PolicyRow } from './return-policy.ts'
 
-export interface Sku { id: string; product_id: string; spec: string; price: number; stock: number; name: string; picture: string; enabled: number; status: 'on' | 'off' }
+export interface Sku extends PolicyRow { id: string; product_id: string; spec: string; price: number; stock: number; name: string; picture: string; enabled: number; status: 'on' | 'off' }
 interface ProductSummary { id: string; name: string; picture: string; description: string; price: number }
 export class Catalog {
   db: Database
@@ -45,7 +46,7 @@ export class Catalog {
     })
   }
   sku(id: string): Sku {
-    const row = this.db.one<Sku>('SELECT s.*,p.name,p.picture,p.status FROM skus s JOIN products p ON p.id=s.product_id WHERE s.id=?', id)
+    const row = this.db.one<Sku>('SELECT s.*,p.name,p.picture,p.status,p.return_policy,p.return_policy_reason,p.return_policy_note FROM skus s JOIN products p ON p.id=s.product_id WHERE s.id=?', id)
     ensure(row, 404, '商品规格不存在')
     return { ...row, picture: this.publicUrl + row.picture }
   }
@@ -87,7 +88,7 @@ export class Catalog {
     return { items: rows.map(p => this.presentProduct(p)), counts, pages: Math.ceil(counts / pageSize), page, pageSize }
   }
   detail(id: string) {
-    const product = this.db.one<{ id: string; name: string; picture: string; description: string; status: 'on' | 'off' }>('SELECT * FROM products WHERE id=?', id)
+    const product = this.db.one<PolicyRow & { id: string; name: string; picture: string; description: string; status: 'on' | 'off' }>('SELECT * FROM products WHERE id=?', id)
     ensure(product, 404, '商品不存在')
     const allSkus = this.db.all<Sku>('SELECT * FROM skus WHERE product_id=?', id)
     const skus = allSkus.filter(sku => sku.enabled === 1)
@@ -96,7 +97,7 @@ export class Catalog {
     const available = skus.filter(s => s.stock > 0)
     const priced = available.length ? available : skus.length ? skus : allSkus
     const price = priced.length ? Math.min(...priced.map(s => s.price)) / 100 : 0
-    return { id, name: product.name, desc: product.description, picture, price, orderNum: 0, inventory,
+    return { id, name: product.name, desc: product.description, picture, price, orderNum: 0, inventory, ...presentPolicy(product),
       status: product.status, available: product.status === 'on' && skus.length > 0,
       mainPictures: [picture], details: { pictures: [picture], properties: [{ name: '说明', value: product.description }] },
       specs: [{ name: '规格', values: allSkus.map(s => ({ name: s.spec, picture, selected: false, disabled: !s.enabled || s.stock === 0 || product.status === 'off' })) }],
@@ -135,15 +136,15 @@ export class Catalog {
     })
   }
   cart(user: User, skuId?: string) {
-    const rows = this.db.all<{ sku_id: string; count: number; selected: number; product_id: string; spec: string; price: number; stock: number; name: string; picture: string; status: string; enabled: number }>(
-      `SELECT c.sku_id,c.count,c.selected,s.product_id,s.spec,s.price,s.stock,p.name,p.picture,p.status,s.enabled
+    const rows = this.db.all<PolicyRow & { sku_id: string; count: number; selected: number; product_id: string; spec: string; price: number; stock: number; name: string; picture: string; status: string; enabled: number }>(
+      `SELECT c.sku_id,c.count,c.selected,s.product_id,s.spec,s.price,s.stock,p.name,p.picture,p.status,s.enabled,p.return_policy,p.return_policy_reason,p.return_policy_note
        FROM carts c JOIN skus s ON s.id=c.sku_id JOIN products p ON p.id=s.product_id
        WHERE c.user_id=?${skuId === undefined ? '' : ' AND c.sku_id=?'} ORDER BY c.rowid`,
       ...(skuId === undefined ? [user.id] : [user.id, skuId]))
     return rows.map(row => {
       const available = row.status === 'on' && row.enabled === 1
       if (!available && row.selected) this.db.run('UPDATE carts SET selected=0 WHERE user_id=? AND sku_id=?', user.id, row.sku_id)
-      return { id: row.product_id, skuId: row.sku_id, name: row.name, picture: this.publicUrl + row.picture,
+      return { id: row.product_id, skuId: row.sku_id, name: row.name, picture: this.publicUrl + row.picture, ...presentPolicy(row),
         price: row.price / 100, stock: row.stock, attrsText: row.spec, count: row.count, selected: available && !!row.selected,
         available, unavailableReason: available ? '' : row.status === 'off' ? '已下架' : '规格已停用' }
     })

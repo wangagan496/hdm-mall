@@ -8,20 +8,23 @@ import { AppError, ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { productAudit } from './audit.ts'
+import { policyFields, presentPolicy, returnPolicySchema, type PolicyRow } from './return-policy.ts'
 
 const specFields = z.object({ spec: z.string().trim().min(1).max(60), priceCents: z.number().int().min(1).max(100000000),
   stock: z.number().int().min(0).max(2147483647), enabled: z.boolean().default(true) }).strict()
 export const productCreateSchema = z.object({ requestKey: z.string().uuid(), name: z.string().trim().min(1).max(100),
   categoryId: z.string().min(1).max(100), description: z.string().trim().max(2000).default(''), imageId: z.string().uuid().optional(),
+  returnPolicy:policyFields.returnPolicy.optional(),returnPolicyReason:policyFields.returnPolicyReason.optional(),returnPolicyNote:policyFields.returnPolicyNote.optional(),
   skus: z.array(specFields).min(1).max(50) }).strict()
 type ProductCreate = z.infer<typeof productCreateSchema>
 export const productEditSchema = z.object({ requestKey: z.string().uuid(), expectedRevision: z.number().int().positive().safe().optional(),
   name: productCreateSchema.shape.name.optional(), description: z.string().trim().max(2000).optional(),
   imageId: z.string().uuid().optional(), status: z.enum(['on', 'off']).optional(),
+  returnPolicy:policyFields.returnPolicy.optional(),returnPolicyReason:policyFields.returnPolicyReason.optional(),returnPolicyNote:policyFields.returnPolicyNote.optional(),
   skus: z.array(specFields.partial().extend({ enabled: z.boolean().optional(), id: z.string().min(1).max(100).optional(),
     expectedStock: specFields.shape.stock.optional() }).strict()).min(1).max(50).optional() }).strict()
 type ProductEdit = z.infer<typeof productEditSchema>
-interface ProductRow { id: string; name: string; category: string; description: string; picture: string; status: 'on' | 'off'; revision: number }
+interface ProductRow extends PolicyRow { id: string; name: string; category: string; description: string; picture: string; status: 'on' | 'off'; revision: number }
 interface SkuRow { id: string; spec: string; price: number; stock: number; enabled: number }
 interface SavedChange { request_body: string; result: string }
 
@@ -82,7 +85,7 @@ export class Products {
     const skus = this.db.all<SkuRow>('SELECT id,spec,price,stock,enabled FROM skus WHERE product_id=? ORDER BY rowid', id)
       .map(sku => ({ id: sku.id, spec: sku.spec, priceCents: sku.price, stock: sku.stock, enabled: sku.enabled === 1 }))
     return { id, name: row.name, categoryId, categoryName: row.category, description: row.description,
-      picture: this.publicUrl + row.picture, imageId, status: row.status, revision: row.revision, skus }
+      picture: this.publicUrl + row.picture, imageId, status: row.status, revision: row.revision, skus, ...presentPolicy(row) }
   }
   receipt(user: User, requestKey: string) {
     this.merchant(user)
@@ -115,12 +118,14 @@ export class Products {
     return this.db.transaction(() => {
       const replay = this.replay(user, data.requestKey, body)
       if (replay) return replay
+      const policy=returnPolicySchema.parse({returnPolicy:data.returnPolicy??'standard',returnPolicyReason:data.returnPolicyReason??'',returnPolicyNote:data.returnPolicyNote??''})
       const parent = this.db.one<{ id: string; name: string }>('SELECT id,name FROM categories WHERE id=? AND parent_id IS NULL', data.categoryId)
       ensure(parent, 400, '请选择已有一级分类')
       const names = data.skus.filter(sku => sku.enabled).map(sku => sku.spec)
       ensure(new Set(names).size === names.length, 400, '启用的规格名称不能重复')
       const id = randomUUID()
       this.db.run('INSERT INTO products(id,name,category,picture,description) VALUES(?,?,?,?,?)', id, data.name, parent.name, '/assets/product.svg', data.description)
+      this.db.run('UPDATE products SET return_policy=?,return_policy_reason=?,return_policy_note=? WHERE id=?',policy.returnPolicy,policy.returnPolicyReason,policy.returnPolicyNote,id)
       const picture = this.image(user, data.imageId, id)
       this.db.run('UPDATE products SET picture=? WHERE id=?', picture, id)
       const childKey = `child:${parent.name}:${data.name}`
@@ -147,10 +152,11 @@ export class Products {
       const replay = this.replay(user, data.requestKey, body)
       if (replay) return replay
       const current = this.detail(user, id)
-      const statusOnly = data.status !== undefined && data.name === undefined && data.description === undefined && data.imageId === undefined && data.skus === undefined
+      const statusOnly = data.status !== undefined && data.name === undefined && data.description === undefined && data.imageId === undefined && data.skus === undefined && data.returnPolicy===undefined && data.returnPolicyReason===undefined && data.returnPolicyNote===undefined
       ensure(statusOnly || data.expectedRevision !== undefined, 400, '请先读取商品再保存')
       if (!statusOnly && current.revision !== data.expectedRevision) throw new AppError(409,
         '该商品刚被修改，请核对最新内容', 'PRODUCT_REVISION_CHANGED', current)
+      const policy=returnPolicySchema.parse({returnPolicy:data.returnPolicy??current.returnPolicy,returnPolicyReason:data.returnPolicyReason??current.returnPolicyReason,returnPolicyNote:data.returnPolicyNote??current.returnPolicyNote})
       const updated = current.skus.map(sku => ({ ...sku }))
       const seen = new Set<string>()
       for (const patch of data.skus || []) {
@@ -196,6 +202,7 @@ export class Products {
       const picture = data.imageId === undefined ? this.db.one<ProductRow>('SELECT * FROM products WHERE id=?', id)!.picture : this.image(user, data.imageId, id)
       this.db.run('UPDATE products SET name=?,description=?,picture=?,status=? WHERE id=?', data.name ?? current.name,
         data.description ?? current.description, picture, data.status ?? current.status, id)
+      this.db.run('UPDATE products SET return_policy=?,return_policy_reason=?,return_policy_note=? WHERE id=?',policy.returnPolicy,policy.returnPolicyReason,policy.returnPolicyNote,id)
       const result = this.saveReceipt(user, data.requestKey, 'edit', id, body)
       productAudit(this.db,user,id,data.requestKey,this.clock.now(),current,result)
       return result
