@@ -56,7 +56,9 @@ export class AfterSaleActions {
         const photo=saved.photos[0], bytes=new util.Base64Helper().decodeSync(photo.bytes)
         const image=await RequestAxios.postMultipartForSession<AfterSaleImage>('/member/after-sales/images',bytes.buffer as ArrayBuffer,photo.requestKey,token,saved.orderId,saved.body.requestKey)
         this.session(token)
-        saved.body.imageIds=(saved.body.imageIds||[]).concat([image.imageId]);saved.photos=saved.photos.slice(1)
+        if (saved.url.endsWith('/ship-back')) saved.body.shippingImageId = image.imageId
+        else saved.body.imageIds=(saved.body.imageIds||[]).concat([image.imageId])
+        saved.photos=saved.photos.slice(1)
         await this.persist(account,saved.orderId,saved);this.session(token)
       }
       const result=await RequestAxios.postWithSession<AfterSaleReceipt>(saved.url,saved.body,token)

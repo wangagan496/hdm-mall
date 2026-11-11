@@ -197,6 +197,8 @@ export struct MineView {
           })
 
           if (this.user.role === 'merchant') {
+            Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
+              .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))
             Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')
               .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))
             Button('库存管理').margin({ top: 12 })

@@ -37,6 +37,7 @@ export function pageMethods(path, className, dependencies = {}, globals = {}) {
     clearTimeout: globals.clearTimeout ?? clearTimeout,
   })
   const policy = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/ReturnPolicy.ets'))
-  return execute(source, dependencies, { ...recovery, ...policy,
+  const afterSales = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/AfterSaleModels.ets'))
+  return execute(source, dependencies, { ...recovery, ...policy, ...afterSales,
     Scroller: class { scrollToIndex() {} }, ScrollAlign: { END: 'end' }, ...globals })[className]
 }

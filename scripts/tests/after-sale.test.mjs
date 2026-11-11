@@ -35,6 +35,17 @@ test('售后未知结果持久保留同号同参，重放成功后清理',async(
  assert.deepEqual(f.calls[0],f.calls[1]);assert.equal(f.flow.pending('buyer','order'),null)
  assert.ok([...f.disk.values()].every(v=>!v.includes('token')))
 })
+test('寄回运单上传绑定同一操作号，重试不重复上传且只发送shippingImageId',async()=>{
+ const f=fixture(), uploads=[];let fail=true
+ f.api.postMultipartForSession=async(...args)=>{uploads.push(args);return {imageId:'shipping-image'}}
+ f.api.postWithSession=async(url,body)=>{f.calls.push(structuredClone(body));if(fail)throw Error('unknown');return {afterSaleId:'sale',orderId:'order'}}
+ await assert.rejects(f.flow.start('order','/member/after-sales/sale/ship-back',{carrier:'SF',trackingNo:'SF123456',shippingAmountCents:100},[{bytes:'jpeg',requestKey:'photo-key'}],'token'))
+ assert.equal(f.calls[0].shippingImageId,'shipping-image')
+ assert.equal(f.calls[0].imageIds,undefined)
+ assert.equal(uploads[0][5],f.calls[0].requestKey)
+ fail=false;await f.flow.resume('order','token')
+ assert.equal(uploads.length,1);assert.deepEqual(f.calls[0],f.calls[1])
+})
 test('售后持久化失败不发请求，会话切换不借用新凭证',async()=>{
  const f=fixture();f.store.flush=async()=>{throw Error('disk')}
  await assert.rejects(f.flow.start('order','/member/order/order/after-sales',{kind:'refund-missing'},[],'token'));assert.equal(f.calls.length,0)

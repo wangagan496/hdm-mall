@@ -1,4 +1,4 @@
-import { ExcludedCheckoutGoods } from './BusinessModels'
+import { ExcludedCheckoutGoods, PromotionQuote } from './BusinessModels'
 import { ReturnPolicyGoods } from './ReturnPolicy'
 
 export interface CheckoutPrice {
@@ -18,6 +18,7 @@ export interface CheckoutShortage {
 }
 export interface CheckoutDetail {
   returnPolicyToken?: string
+  promotion?: PromotionQuote
   totalAmountCents?: number
   goods: CheckoutPrice[] | CheckoutShortage[] | ExcludedCheckoutGoods[] | ReturnPolicyGoods[]
 }

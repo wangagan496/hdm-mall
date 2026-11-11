@@ -2,6 +2,7 @@
 import { buildTestApp } from '../../server/test/helpers/fixtures.ts'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { mkdtempSync } from 'node:fs'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
 const paymentCallbackSecret = randomUUID()
@@ -24,9 +25,10 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
   void completion.finally(() => activeRefunds.delete(refundId))
   return completion
 } })
+const uploadsPath = mkdtempSync(join(tmpdir(), 'hdm-device-trade-uploads-' + process.pid + '-'))
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
   paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'], clock: {now:()=>Date.now()+clockOffset},
-  publicUrl: 'http://127.0.0.1:3000', uploadsPath: join(tmpdir(), 'hdm-device-trade-uploads') })
+  publicUrl: 'http://127.0.0.1:3000', uploadsPath })
 const product = f.testData.product({ name: '设备独立测试商品',
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
 const sku = product.skus[0]!
@@ -58,7 +60,7 @@ f.app.get('/device-fixture/lifecycle',async()=>({
  consents:f.db.all('SELECT version,source,action FROM consents'),
  sessions:f.db.one<{n:number}>('SELECT COUNT(*) n FROM sessions')!.n
 }))
-f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid,
+f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid, uploadsPath,
   skuId: sku.id, productId: product.id, amountCents: sku.priceCents, initialStock: sku.stock,
   extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : loginProbe ? 'LoginProbe' : 'default' }))
 type ResponseKind = 'order' | 'payment' | 'cancel' | 'receipt' | 'evaluation'
