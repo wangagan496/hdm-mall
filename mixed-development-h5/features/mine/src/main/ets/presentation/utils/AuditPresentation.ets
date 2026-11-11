@@ -1,5 +1,5 @@
 import { AuditItem, AuditLine } from '../../data/api/audit'
-import { formatBeijingTime, returnPolicyLabel } from 'models'
+import { formatBeijingTime, returnPolicyLabel, PromotionRule } from 'models'
 
 interface AuditReturnPolicy { policy: string; reason: string; note: string }
 function policyLabel(value: string | number | boolean | undefined): string {
@@ -12,6 +12,7 @@ function policyLabel(value: string | number | boolean | undefined): string {
 
 export function auditActionLabel(action: string): string {
   const labels: Record<string, string> = {
+    'promotion.edit': '修改满减规则', 'aftersale.shipping_comp': '补偿退货运费',
     'product.create': '新建商品', 'product.edit': '修改商品', 'product.status': '上架或下架',
     'product.return_policy': '修改退货规则',
     'sku.price': '改价', 'sku.enable': '启用或停用规格', 'sku.stock': '编辑商品库存', 'stock.adjust': '调整库存',
@@ -28,9 +29,15 @@ export function auditFilterLabel(group: string): string {
   return labels[group] || '全部'
 }
 function money(value: number): string { return '¥' + (value / 100).toFixed(2) }
+function promotionLabel(value: string | number | boolean | undefined): string {
+  try { const rule = JSON.parse(String(value)) as PromotionRule; return rule.enabled ? '满 ' + money(rule.thresholdCents) + ' 减 ' + money(rule.discountCents) : '已停用' }
+  catch { return '满减规则' }
+}
 export function auditChange(item: AuditItem): string {
   const s = item.summary
   const reason = s.reason ? '，原因：' + s.reason : ''
+  if (item.action === 'promotion.edit') return promotionLabel(s.before) + ' → ' + promotionLabel(s.after)
+  if (item.action === 'aftersale.shipping_comp') return '实付运费 ' + money(Number(s.before)) + '，补偿 ' + money(Number(s.after)) + reason
   if (item.action === 'product.return_policy') return policyLabel(s.before) + ' → ' + policyLabel(s.after)
   if (item.action === 'sku.price') return (s.spec || '规格') + ' ' + money(Number(s.before)) + ' → ' + money(Number(s.after))
   if (item.action === 'sku.stock' || item.action === 'stock.adjust') return '库存 ' + s.before + ' → ' + s.after + reason
@@ -45,7 +52,7 @@ export function auditChange(item: AuditItem): string {
     return changes.join('；') || s.note || '已修改'
   }
   if (item.action === 'refund.create') {
-    const reasons: Record<string, string> = { 'late': '迟到付款退回', 'duplicate': '重复付款退回', 'cancelled': '订单取消', 'after-sale': '售后退款' }
+    const reasons: Record<string, string> = { 'late': '迟到付款退回', 'duplicate': '重复付款退回', 'cancelled': '订单取消', 'after-sale': '售后退款', 'shipping': '退货运费补偿' }
     return '退款 ' + money(s.amountCents || 0) + ' 退回 ' + (s.payerAccount || '原付款账号') + '（' + (reasons[s.reason || ''] || '原路退回') + '）'
   }
   if (item.action === 'refund.result') return money(s.amountCents || 0) + ' · ' + (s.outcome === 'success' ? '退款成功' : s.outcome === 'review' ? '已转人工核实' : '退款失败，等待重试')

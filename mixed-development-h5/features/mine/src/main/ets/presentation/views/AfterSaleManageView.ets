@@ -4,6 +4,7 @@ import { HDMUser, AfterSale, AfterSaleAddress, AfterSaleBody, AfterSaleLine, Aft
 import { RequestAxios } from 'network'
 import { afterSaleActions } from 'storage'
 import { HDMNavBar, AfterSalePhotos } from 'ui_components'
+import { amountInputCents, shippingAdjustmentError, shippingCompensationText } from 'models'
 
 @Builder
 function AfterSaleManageViewBuilder() { AfterSaleManageView() }
@@ -34,6 +35,8 @@ export struct AfterSaleManageView {
   @State contact: string = ''
   @State address: string = ''
   @State reason: string = ''
+  @State shippingCompensation: string = ''
+  @State shippingReason: string = ''
   @State lines: AfterSaleLine[] = []
   @State now: number = Date.now()
   private active: boolean = false
@@ -48,10 +51,12 @@ export struct AfterSaleManageView {
   private filterLabel(filter:string):string {return filter==='pending'?'待处理 '+this.stateCounts.pending:filter==='returned'?'待验收 '+this.stateCounts.returned:'全部 '+this.stateCounts.all}
   private actionLabel():string {
     if(this.pending)return '重试确认结果'
-    const amount=' ¥'+((this.selected?.amountCents||0)/100).toFixed(2)
+    const principal=this.selected?.amountCents||0
+    const shipping=this.action==='inspect'?Math.max(0,amountInputCents(this.shippingCompensation)):0
+    const amount=' ¥'+((principal+shipping)/100).toFixed(2)
     if(this.action==='address')return '保存退货地址'
-    if(this.action==='inspect')return '验收并退款'+amount
-    if(this.action==='approve')return this.selected?.kind==='refund-missing'?'同意并退款'+amount:'同意并发送退货地址'
+    if(this.action==='inspect')return principal+shipping===0?'验收完成，无需退款':'验收并退款'+amount
+    if(this.action==='approve')return this.selected?.kind==='refund-missing'?(principal===0?'同意售后，无需货款退款':'同意并退款'+amount):'同意并发送退货地址'
     return this.action==='refund-reject'?'拒绝退款':'拒绝申请'
   }
   private fieldError(field:string):string {
@@ -67,6 +72,7 @@ export struct AfterSaleManageView {
     this.lines[index].restockCount=Math.max(0,Math.min(this.lines[index].count,Number(this.lines[index].restockCount||0)+delta));this.lines=this.lines.slice()
   }
   private amountText(sale:AfterSale):string {
+    if(sale.amountCents===0)return sale.amountMessage||'货款 0 元，无需退款'
     const amount='¥'+(sale.amountCents/100).toFixed(2)
     if(sale.state==='refunded')return '已退款 '+amount+'，退回 '+sale.payerAccount
     if(sale.state==='refunding')return '退款中 '+amount+'，退回 '+sale.payerAccount
@@ -82,6 +88,7 @@ export struct AfterSaleManageView {
     if (this.token === (this.user.token || '') && this.accountId === (this.user.id || '')) return
     this.token=this.user.token||'';this.accountId=this.user.id||'';this.generation++;this.query++
     this.items=[];this.stateCounts={pending:0,returned:0,all:0};this.selected=null;this.lines=[];this.defaultAddress=null;this.editorOpen=false
+    this.shippingCompensation='';this.shippingReason=''
     this.receiver='';this.contact='';this.address='';this.reason='';this.message='';this.busy=false;this.pending=false;this.loading=false
   }
   private current(generation:number,token:string):boolean {
@@ -115,6 +122,7 @@ export struct AfterSaleManageView {
     if(!this.current(this.generation,this.token)||this.busy)return
     this.selected=sale;this.action=action;this.message='';this.messageType='error';this.reason='';this.addressTouched=[];this.addressSubmitted=false
     this.pending=sale?this.hasPending(sale):false
+    this.shippingCompensation=((sale?.shippingAmountCents||0)/100).toFixed(2);this.shippingReason=''
     this.receiver=this.defaultAddress?.receiver||'';this.contact=this.defaultAddress?.contact||'';this.address=this.defaultAddress?.address||''
     this.lines=(sale?.items||[]).map((line:AfterSaleLine):AfterSaleLine=>{return {skuId:line.skuId,name:line.name,spec:line.spec,priceCents:line.priceCents,count:line.count,restockCount:line.count,
       conditionDeclared:line.conditionDeclared,returnPolicyReason:line.returnPolicyReason}})
@@ -141,6 +149,11 @@ export struct AfterSaleManageView {
         body.reason=this.reason.trim()
       }
       if(this.action==='inspect') {
+        if(sale?.shippingAmountCents!==undefined&&sale?.shippingAmountCents!==null){
+          this.message=shippingAdjustmentError(this.shippingCompensation,sale.shippingAmountCents,this.shippingReason);if(this.message)return
+          body.shippingCompensationCents=amountInputCents(this.shippingCompensation)
+          if(body.shippingCompensationCents<sale.shippingAmountCents)body.shippingAdjustmentReason=this.shippingReason.trim()
+        }
         if(this.lines.some((line:AfterSaleLine):boolean=>!Number.isInteger(line.restockCount)||Number(line.restockCount)<0||Number(line.restockCount)>line.count)){this.message='请核对合格入库数量';return}
         body.items=this.lines.map((line:AfterSaleLine):AfterSaleRestock=>{return {skuId:line.skuId,restockCount:Number(line.restockCount)}})
       }
@@ -188,6 +201,15 @@ export struct AfterSaleManageView {
             TextArea({text:this.reason,placeholder:'拒绝原因（5–200字）'}).id('after-sale-reason').height(120).maxLength(200).fontColor($r('[ui_components].color.text')).backgroundColor($r('[ui_components].color.under')).enabled(!this.busy).onChange((value:string)=>this.reason=value)
           }
           if(!this.pending&&this.action==='inspect') {
+            if(this.selected?.shippingAmountCents){
+              Text('买家实付运费 ¥'+(this.selected.shippingAmountCents/100).toFixed(2)+'，默认按买家填写补偿').id('merchant-shipping-paid').fontColor($r('[ui_components].color.text'))
+              if(this.selected.shippingImage){AfterSalePhotos({images:[this.selected.shippingImage],loadImage:(path:string):Promise<string>=>this.photo(path)})}
+              Text('补偿运费（元）').fontColor($r('[ui_components].color.text')).width('100%')
+              TextInput({text:this.shippingCompensation,placeholder:'默认全额补偿'}).id('merchant-shipping-amount').type(InputType.NUMBER_DECIMAL).fontColor($r('[ui_components].color.text')).backgroundColor($r('[ui_components].color.under')).enabled(!this.busy).onChange((value:string)=>this.shippingCompensation=value)
+              if(amountInputCents(this.shippingCompensation)<this.selected.shippingAmountCents){
+                TextArea({text:this.shippingReason,placeholder:'下调原因（5–200字，买家可见）'}).id('merchant-shipping-reason').height(100).maxLength(200).fontColor($r('[ui_components].color.text')).backgroundColor($r('[ui_components].color.under')).enabled(!this.busy).onChange((value:string)=>this.shippingReason=value)
+              }
+            }
             Text('退款按申请数量计算，只把合格的件数入库').fontColor($r('[ui_components].color.text'))
             ForEach(this.lines,(line:AfterSaleLine,index:number)=>{
               Text(line.name+' · '+line.spec+'，退回 '+line.count+' 件').fontColor($r('[ui_components].color.text'))
@@ -203,7 +225,7 @@ export struct AfterSaleManageView {
               }.width('100%')
             },(line:AfterSaleLine)=>line.skuId)
           }
-          if(this.selected){Text('退款 ¥'+(this.selected.amountCents/100).toFixed(2)+'，退回 '+this.selected.payerAccount).fontColor($r('[ui_components].color.text'))}
+          if(this.selected){Text(this.amountText(this.selected)).fontColor($r('[ui_components].color.text'))}
           if(this.message){Text(this.message).fontColor(this.messageColor())}
         }.width('100%')
       }.layoutWeight(1).width('100%').align(Alignment.Top)
@@ -219,6 +241,7 @@ export struct AfterSaleManageView {
       Text(afterSaleKind(sale.kind)+' · '+afterSaleStatus(sale)).fontSize(18).fontColor($r('[ui_components].color.text'))
       Text((sale.buyerAccount||'买家')+' · '+formatBeijingTime(sale.createdAt)).fontSize(12).fontColor($r('[ui_components].color.gray'))
       Text(this.amountText(sale)).fontColor($r('[ui_components].color.text'))
+      if(shippingCompensationText(sale)){Text(shippingCompensationText(sale)).fontColor($r('[ui_components].color.text'))}
       if(this.countdown(sale)){Text(this.countdown(sale)).fontColor(this.urgent(sale)?$r('[ui_components].color.red'):$r('[ui_components].color.text'))}
       if(sale.description){Text('问题说明：'+sale.description).fontColor($r('[ui_components].color.text'))}
       ForEach(sale.items||[],(line:AfterSaleLine)=>{
@@ -231,12 +254,15 @@ export struct AfterSaleManageView {
       if(sale.state==='refunded'){Text(this.restockText(sale)).id('after-sale-restock-result').fontColor($r('[ui_components].color.text'))}
       if(sale.carrier){Text('寄回：'+sale.carrier+' '+sale.trackingNo).fontColor($r('[ui_components].color.text'))}
       if(sale.rejectReason){Text(sale.rejectReason).fontColor($r('[ui_components].color.red'))}
-      if(this.hasPending(sale)){Button('重试确认结果').onClick(()=>this.open(sale,'resume'))}
+      if(this.hasPending(sale)){Button('重试确认结果').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(()=>this.open(sale,'resume'))}
       else if(sale.state==='pending') {
-        Row({space:12}) {Button('同意').id('after-sale-approve-'+sale.id).onClick(()=>this.open(sale,'approve'));Button('拒绝').onClick(()=>this.open(sale,'reject'))}
+        Row({space:12}) {
+          Button('同意').id('after-sale-approve-'+sale.id).backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(()=>this.open(sale,'approve'))
+          Button('拒绝').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.open(sale,'reject'))
+        }
       } else if(sale.state==='returned') {
-        Button('验收并退款').id('after-sale-inspect-'+sale.id).onClick(()=>this.open(sale,'inspect'))
-        if(sale.kind==='return-no-reason'){Button('拒绝退款').onClick(()=>this.open(sale,'refund-reject'))}
+        Button('验收并退款').id('after-sale-inspect-'+sale.id).backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(()=>this.open(sale,'inspect'))
+        if(sale.kind==='return-no-reason'){Button('拒绝退款').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.open(sale,'refund-reject'))}
       }
     }.alignItems(HorizontalAlign.Start).width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
   }

@@ -29,7 +29,7 @@ async function fixture(databasePath = ':memory:') {
   const catalog = new Catalog(ctx.db, 'http://127.0.0.1:3000')
   const orders = new Orders(ctx.db, ctx.accounts, catalog, true)
   const create = (count = 1, requestKey = randomUUID()) => orders.create(user, {
-    addressId: address.id, requestKey, expectedAmountCents: priceCents * count, goods: [{ skuId: 'inventory-product-a', count }]
+    addressId: address.id, requestKey, expectedAmountCents: priceCents * count - (priceCents * count >= 9900 ? 1000 : 0), goods: [{ skuId: 'inventory-product-a', count }]
   }).id
   const ledger = () => ctx.db.all('SELECT * FROM inventory_movements ORDER BY id')
   const reconcile = () => ctx.db.all(`SELECT s.id FROM skus s LEFT JOIN inventory_movements m ON m.sku_id=s.id
@@ -208,7 +208,7 @@ test('v2 备份仍可恢复并升级，历史待付款取消只记录真实归�
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const options = { databasePath: join(restored.root, 'mall.sqlite'), uploadsPath: join(restored.root, 'uploads'), publicUrl: 'http://127.0.0.1:3000', mockPayments: true }
     ctx = await buildTestApp(options)
-    assert.equal(ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15)
+    assert.equal(ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 16)
     assert.equal(ctx.db.all('SELECT * FROM inventory_movements').length, productInput.skus.length)
     assert.equal(ctx.db.one<{ delta: number }>('SELECT delta FROM inventory_movements WHERE sku_id=?', 'inventory-product-a')!.delta, initialStock - 2)
     const user = ctx.accounts.login('stock_buyer', 'test-password-123')
@@ -217,7 +217,7 @@ test('v2 备份仍可恢复并升级，历史待付款取消只记录真实归�
     assert.equal(ctx.db.all('SELECT * FROM inventory_movements WHERE order_id=?', id).length, 1)
     assert.equal(ctx.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'inventory-product-a')!.stock, initialStock)
     const nextBackup = await createBackup({ databasePath: options.databasePath, uploadsPath: options.uploadsPath, destination: join(root, 'v3-backup') })
-    assert.equal(nextBackup.manifest.schemaVersion, 15)
+    assert.equal(nextBackup.manifest.schemaVersion, 16)
     assert.equal(nextBackup.counts.inventory_movements, productInput.skus.length + 1)
     await ctx.app.close(); ctx = undefined
     ctx = await buildTestApp(options)

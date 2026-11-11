@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -17,6 +17,7 @@ if ($ConsentProbe) { $Mode = 'ConsentProbe' }
 if ($DeletionProbe) { $Mode = 'DeletionProbe' }
 if ($AuditProbe) { $Mode = 'AuditProbe' }
 if ($ReturnPolicyProbe) { $Mode = 'ReturnPolicyProbe' }
+if ($PromotionProbe) { $Mode = 'PromotionProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
@@ -24,6 +25,7 @@ if ($AfterSaleProbe) { $Output = Join-Path $Root '_device_acceptance/after-sale-
 if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
 if ($AuditProbe) { $Output = Join-Path $Root '_device_acceptance/audit-probe' }
 if ($ReturnPolicyProbe) { $Output = Join-Path $Root '_device_acceptance/return-policy-probe' }
+if ($PromotionProbe) { $Output = Join-Path $Root '_device_acceptance/promotion-probe' }
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
@@ -225,8 +227,9 @@ function Payment-Proof([string]$OrderId) {
 function Wait-RefundTimeout([string]$OrderId) {
   for($Try=0;$Try -lt 100;$Try++){
     $Proof=Payment-Proof $OrderId
-    if($Proof.refunds.Count -eq 1 -and $Proof.refunds[0].attempts -ge 1){
-      if($Proof.refunds[0].state -ne 'pending' -or !$Proof.refunds[0].next_attempt_at){throw 'Timeout must remain pending with scheduled retry'}
+    $Principal=@($Proof.refunds|Where-Object reason -ne 'shipping')
+    if($Principal.Count -eq 1 -and $Principal[0].attempts -ge 1){
+      if($Principal[0].state -ne 'pending' -or !$Principal[0].next_attempt_at){throw 'Timeout must remain pending with scheduled retry'}
       return $Proof
     }
     Start-Sleep -Milliseconds 250
@@ -1501,6 +1504,7 @@ function Invoke-AfterSaleProbe {
   Wait-Text '请寄回'
   Product-Control 'after-sale-carrier' 'SF'
   Product-Control 'after-sale-tracking' 'SF123456789'
+  Add-ReturnShippingProof
   Product-Control 'after-sale-ship-back'
   $Returned=Wait-AfterSale $First 'returned'
   Wait-Text '等待商家验收'
@@ -1510,7 +1514,7 @@ function Invoke-AfterSaleProbe {
   Product-Control 'after-sale-filter-returned'
   Product-Control ('after-sale-inspect-'+$Pending.id)
   Wait-Text '合格入库数量'
-  Wait-Text ('验收并退款 ¥'+([decimal]($AmountCents*2)/100).ToString('F2',[System.Globalization.CultureInfo]::InvariantCulture))
+  Wait-Text ('验收并退款 ¥'+([decimal]($AmountCents*2+100)/100).ToString('F2',[System.Globalization.CultureInfo]::InvariantCulture))
   Wait-Text '商品不完好，拒绝退款'
   if(Find-Text '返回列表'){throw 'Obsolete back-to-list button remains'}
   Product-Control 'after-sale-restock-minus-0'
@@ -1545,7 +1549,9 @@ function Invoke-AfterSaleProbe {
   $FirstProof=Payment-Proof $First
   $Movements=Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
   $Returns=@($Movements.items | Where-Object {$_.kind -eq 'return'})
-  if($FirstProof.refunds.Count -ne 1 -or $FirstProof.refunds[0].amount -ne ($AmountCents*2) -or $FirstProof.refunds[0].state -ne 'succeeded' -or $Returns.Count -ne 1 -or $Returns[0].delta -ne 1){throw 'Partial refund or qualified return ledger mismatch'}
+  $PrincipalRefund=@($FirstProof.refunds|Where-Object reason -eq 'after-sale')
+  $ShippingRefund=@($FirstProof.refunds|Where-Object reason -eq 'shipping')
+  if($FirstProof.refunds.Count -ne 2 -or $PrincipalRefund.Count -ne 1 -or $PrincipalRefund[0].amount -ne ($AmountCents*2) -or $PrincipalRefund[0].state -ne 'succeeded' -or $ShippingRefund.Count -ne 1 -or $ShippingRefund[0].amount -ne 100 -or $ShippingRefund[0].state -ne 'succeeded' -or $Returns.Count -ne 1 -or $Returns[0].delta -ne 1){throw 'Partial refund or qualified return ledger mismatch'}
   $null=Api 'device_buyer' '/member/cart' 'Post' @{skuId=$SkuId;count=1;requestKey=[guid]::NewGuid().ToString()}
   Login 'device_buyer'
   $PaymentText='确认支付 ¥'+([decimal]$AmountCents/100).ToString('F2',[System.Globalization.CultureInfo]::InvariantCulture)
@@ -1683,6 +1689,7 @@ function Invoke-ReturnPolicyProbe {
   Tap-Text '设备独立测试商品'
   Product-Control 'after-sale-carrier' 'SF'
   Product-Control 'after-sale-tracking' 'SF202611100001'
+  Add-ReturnShippingProof
   Product-Control 'after-sale-ship-back'
   $null=Wait-AfterSale $First 'returned'
   Login 'device_merchant'
@@ -1699,7 +1706,9 @@ function Invoke-ReturnPolicyProbe {
   $ProofA=Payment-Proof $First
   $InventoryA=Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
   $MovesA=Api 'device_merchant' "/merchant/inventory/$SkuId/movements"
-  if($ProofA.refunds.Count -ne 1 -or $ProofA.refunds[0].amount -ne $AmountCents -or $ProofA.refunds[0].state -ne 'succeeded' -or $InventoryA.items[0].stock -ne $InitialStock -or $InventoryA.items[0].difference -ne 0 -or @($MovesA.items|Where-Object kind -eq 'return').Count -ne 1){throw 'No-reason refund amount or stock ledger mismatch'}
+  $PrincipalRefund=@($ProofA.refunds|Where-Object reason -eq 'after-sale')
+  $ShippingRefund=@($ProofA.refunds|Where-Object reason -eq 'shipping')
+  if($ProofA.refunds.Count -ne 2 -or $PrincipalRefund.Count -ne 1 -or $PrincipalRefund[0].amount -ne $AmountCents -or $PrincipalRefund[0].state -ne 'succeeded' -or $ShippingRefund.Count -ne 1 -or $ShippingRefund[0].amount -ne 100 -or $ShippingRefund[0].state -ne 'succeeded' -or $InventoryA.items[0].stock -ne $InitialStock -or $InventoryA.items[0].difference -ne 0 -or @($MovesA.items|Where-Object kind -eq 'return').Count -ne 1){throw 'No-reason refund amount or stock ledger mismatch'}
   Login 'device_buyer'
   Product-Search 'ReturnPolicyCustom'
   Scroll-Text '不支持七日无理由退货（定作商品）' -ViewOnly
@@ -1795,6 +1804,7 @@ function Invoke-AuditProbe {
   Tap-Text '设备独立测试商品'
   Product-Control 'after-sale-carrier' 'SF'
   Product-Control 'after-sale-tracking' 'SF123456789'
+  Add-ReturnShippingProof
   Product-Control 'after-sale-ship-back'
   $null=Wait-AfterSale $Order 'returned'
   Login 'device_merchant'
@@ -1807,8 +1817,9 @@ function Invoke-AuditProbe {
   try{$null=Api 'device_buyer' '/merchant/audit-log'}catch{$Denied=[int]$_.Exception.Response.StatusCode -eq 403}
   if(!$Denied){throw 'Buyer audit endpoint must return 403'}
   $Audit=Api 'device_merchant' '/merchant/audit-log?pageSize=100'
-  foreach($Action in @('sku.price','stock.adjust','order.ship','aftersale.inspect','refund.create','refund.result','access.denied')){
-    if(@($Audit.items|Where-Object action -eq $Action).Count -ne 1){throw "Expected exactly one audit action: $Action"}
+  foreach($Action in @('sku.price','stock.adjust','order.ship','aftersale.inspect','aftersale.shipping_comp','refund.create','refund.result','access.denied')){
+    $ExpectedCount=if($Action -in @('refund.create','refund.result')){2}else{1}
+    if(@($Audit.items|Where-Object action -eq $Action).Count -ne $ExpectedCount){throw "Unexpected audit action count: $Action"}
   }
   $Price=@($Audit.items|Where-Object action -eq 'sku.price')[0]
   if($Price.summary.before -ne $OldAmount -or $Price.summary.after -ne $AmountCents -or $Price.actorAccount -ne 'device_merchant'){throw 'Audit price before/after or actor mismatch'}
@@ -2124,6 +2135,7 @@ function Invoke-UxProbe {
   Save-Result @{profileNickname=$Profile.nickname;cartQuantity=$Cart[0].count;orderId=$OrderId;paymentCount=$Proof.payments.Count;checks=@('accepted-agreement-no-checkbox','agreement-links-preserve-consent','profile-return-flush','family-groups-selected-counts-no-refresh-status-bar','cart-five-increments','cart-clear-confirm','address-delete-confirm','category-empty-source-copy-actions','payment-low-frequency-pending-indicator-action-order')}
   Write-Output "SCRIPT $PSCommandPath RESULT UxProbe passed"
 }
+. (Join-Path $PSScriptRoot 'device-promotion-probe.ps1')
 $Existing = @(& $Hdc -t $Target fport ls)
 $Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
 if (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) { throw 'Fixture port 3103 is already in use.' }
@@ -2168,6 +2180,7 @@ try {
   if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($AfterSaleProbe) { Invoke-AfterSaleProbe; return }
   if ($ReturnPolicyProbe) { Invoke-ReturnPolicyProbe; return }
+  if ($PromotionProbe) { Invoke-PromotionProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }
   if ($WriteNetworkProbe) { Invoke-WriteNetworkProbe; return }
   if ($S1 -or $S2 -or $NetworkProbe) { Invoke-BuyerScenario; return }
@@ -2373,10 +2386,19 @@ try {
     }
   } finally {
     if (-not $Fixture.HasExited) { Stop-Process -Id $Fixture.Id; $Fixture.WaitForExit() }
+    $UploadsRemoved=$true
+    if($Identity.uploadsPath){
+      $FixtureUploads=[IO.Path]::GetFullPath($Identity.uploadsPath)
+      $ExpectedParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')
+      if(([IO.Path]::GetDirectoryName($FixtureUploads) -ne $ExpectedParent) -or ([IO.Path]::GetFileName($FixtureUploads) -notlike ('hdm-device-trade-uploads-'+$Fixture.Id+'-*'))){throw 'Unexpected fixture upload cleanup target'}
+      if(Test-Path -LiteralPath $FixtureUploads){Remove-Item -LiteralPath $FixtureUploads -Recurse -Force}
+      $UploadsRemoved=!(Test-Path -LiteralPath $FixtureUploads)
+    }
     $After = @(& $Hdc -t $Target fport ls)
     $After | Set-Content -LiteralPath "$Output/ports-after.txt"
     $Clean = (($Existing -join "`n") -eq ($After -join "`n")) -and -not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) -and -not (Get-Process -Id $Fixture.Id -ErrorAction SilentlyContinue)
-    @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue))} | ConvertTo-Json | Set-Content "$Output/cleanup.json"
+    @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue));uploadsRemoved=$UploadsRemoved} | ConvertTo-Json | Set-Content "$Output/cleanup.json"
     if (-not $Clean) { throw 'Port mapping or fixture cleanup verification failed.' }
+    Remove-ReturnShippingMedia
   }
 }

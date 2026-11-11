@@ -41,6 +41,7 @@ export interface PaymentChannel {
   query(paymentId: string): Promise<ChannelResult> | ChannelResult
   close(paymentId: string): Promise<ChannelResult> | ChannelResult
   refund(refundId: string, paymentId: string, amount: number): Promise<RefundResult> | RefundResult
+  shippingRefund?(refundId: string, paymentId: string, amount: number): Promise<RefundResult> | RefundResult
 }
 
 interface SimulationRecord {
@@ -53,6 +54,7 @@ interface SimulationRecord {
 }
 
 export class MockPaymentChannel implements PaymentChannel {
+  private shippingRefundIds = new Set<string>()
   private secret: string
   private records = new Map<string, SimulationRecord>()
   private presets = new Map<string, PaymentPreset>()
@@ -103,15 +105,24 @@ export class MockPaymentChannel implements PaymentChannel {
   }
 
   refund(refundId: string, paymentId: string, amount: number): 'success' | 'fail' {
+    return this.issueRefund(refundId, paymentId, amount, false)
+  }
+
+  shippingRefund(refundId: string, paymentId: string, amount: number): 'success' | 'fail' {
+    return this.issueRefund(refundId, paymentId, amount, true)
+  }
+
+  private issueRefund(refundId: string, paymentId: string, amount: number, shipping: boolean): 'success' | 'fail' {
     const record = this.records.get(paymentId)
     if (!record || !Number.isSafeInteger(amount) || amount <= 0) return 'fail'
     const existing = record.refunds.get(refundId)
     if (existing !== undefined) return existing === amount ? 'success' : 'fail'
-    if (amount + [...record.refunds.values()].reduce((sum,value) => sum + value,0) > record.payment.amount) return 'fail'
+    if (!shipping && amount + [...record.refunds.entries()].filter(([id]) => !this.shippingRefundIds.has(id)).reduce((sum,[,value]) => sum + value,0) > record.payment.amount) return 'fail'
     const attempts = (record.refundAttempts.get(refundId) ?? 0) + 1
     record.refundAttempts.set(refundId, attempts)
     if (attempts <= (record.preset.refundFailures ?? 0)) return 'fail'
     record.refunds.set(refundId, amount)
+    if (shipping) this.shippingRefundIds.add(refundId)
     return 'success'
   }
 

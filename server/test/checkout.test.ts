@@ -93,7 +93,8 @@ test('B-23: 报价变化返回409和分明细，不创建订单不扣库存不�
     const response = await f.create()
     assert.equal(response.statusCode, 409)
     assert.equal(response.json().reason, 'PRICE_CHANGED')
-    assert.deepEqual(response.json().result, { totalAmountCents: 33, goods: [
+    assert.deepEqual(response.json().result, { totalAmountCents: 33,
+      promotion: { rule: { thresholdCents: 9900, discountCents: 1000, enabled: true, revision: 1 }, amountCents: 33, discountCents: 0, remainingCents: 9867 }, goods: [
       { skuId: 'apple-red', name: '苹果', spec: '红', priceCents: 11, count: 3, subtotalCents: 33 }
     ] })
     assert.equal(f.orders.list(f.user).length, 0)

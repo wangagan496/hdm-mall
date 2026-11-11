@@ -185,8 +185,17 @@ export interface Summary {
   totalPrice: number
 }
 
+export interface PromotionRule { thresholdCents: number; discountCents: number; enabled: boolean; revision: number }
+export interface PromotionQuote {
+  rule: PromotionRule
+  discountCents: number
+  amountCents: number
+  remainingCents: number
+}
+
 export interface PreOrder {
   returnPolicyToken?: string
+  promotion?: PromotionQuote
   excludedGoods?: ExcludedCheckoutGoods[]
   goods: OrderGoodsItem[]
   userAddresses: AddressItem[]
@@ -201,6 +210,7 @@ export interface CreateOrderParamsGoods {
 }
 
 export interface CreateOrderParams {
+  expectedPromotionRevision?: number
   returnPolicyConfirmed?: boolean
   expectedReturnPolicyToken?: string
   expectedAmountCents: number
@@ -373,6 +383,7 @@ export interface OrderPage {
 export interface OrderSku extends ReturnPolicyFields {
   afterSaleKinds?: string[]
   afterSaleRemaining?: number
+  discountShareCents?: number
   attrsText: string
   curPrice: number
   id: string

@@ -10,6 +10,7 @@ import type { Payments } from './payments.ts'
 import type { AfterSales } from './after-sales.ts'
 import { localAvatarPath } from './avatar.ts'
 import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
+import { promotionQuote, discountShares } from './promotions.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -28,6 +29,8 @@ interface Order {
   owner_id: string
   state: number
   amount: number // 服务端金额统一以“分”保存和计算。
+  discount: number
+  promotion: string | null
   address: string // 下单时的地址副本，后续修改地址簿不会改变它。
   request_key: string
   request_body: string // 第一次下单的内容，用于核对重试请求。
@@ -49,6 +52,7 @@ interface Item extends PolicyRow {
   spec: string
   price: number
   count: number
+  discount_share: number
 }
 type CheckoutItem = ReturnType<Catalog['sku']> & { count: number }
 export interface CreateOrder {
@@ -59,6 +63,7 @@ export interface CreateOrder {
   goods: { skuId: string; count: number }[]
   returnPolicyConfirmed?: boolean
   expectedReturnPolicyToken?: string
+  expectedPromotionRevision?: number
 }
 interface CancelRequest {
   id: string
@@ -108,7 +113,7 @@ export class Orders {
     return order
   }
   private items(id: string) {
-    return this.db.all<Item>('SELECT * FROM order_items WHERE order_id=?', id)
+    return this.db.all<Item>('SELECT * FROM order_items WHERE order_id=? ORDER BY rowid', id)
   }
   private owner(user: User, order: Order) {
     ensure(user.id === order.owner_id, 403, '只有下单人可以操作')
@@ -208,12 +213,14 @@ export class Orders {
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
       countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
-      payMoney: order.amount / 100, totalMoney: order.amount / 100, postFee: 0, payChannel: 1, payType: 1,
+      payMoney: order.amount / 100, totalMoney: (order.amount + order.discount) / 100, discountCents: order.discount,
+      promotion: order.promotion ? JSON.parse(order.promotion) : null, postFee: 0, payChannel: 1, payType: 1,
       totalNum: items.reduce((sum, item) => sum + item.count, 0),
       skus: items.map(item => ({ id: item.sku_id, spuId: item.product_id, name: item.name,
         image: localAvatarPath(item.picture) ? this.catalog.publicUrl + localAvatarPath(item.picture) : item.picture,
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
+        discountShareCents: item.discount_share,
         ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
@@ -324,13 +331,15 @@ export class Orders {
     // 先换算成整数“分”再合计，最后转成“元”供页面显示。
     const totalCents = goods.reduce((sum, item) => sum + Math.round(Number(item.price) * 100) * item.count, 0)
     const totalYuan = totalCents / 100
+    const promotion = promotionQuote(this.db, totalCents)
     const goodsCount = goods.reduce((sum, item) => sum + item.count, 0)
     return {
       goods,
+      promotion,
       returnPolicyToken:policyToken(goods),
       excludedGoods,
       userAddresses: this.accounts.addresses(user),
-      summary: { discountPrice: 0, goodsCount, postFee: 0, totalPayPrice: totalYuan, totalPrice: totalYuan }
+      summary: { discountPrice: promotion.discountCents / 100, goodsCount, postFee: 0, totalPayPrice: promotion.amountCents / 100, totalPrice: totalYuan }
     }
   }
   create(user: User, data: CreateOrder) {
@@ -342,7 +351,7 @@ export class Orders {
       addressId: data.addressId,
       expectedAmountCents: data.expectedAmountCents,
       goods: [...data.goods].sort((left, right) => left.skuId.localeCompare(right.skuId)),
-      returnPolicyConfirmed:data.returnPolicyConfirmed??false,expectedReturnPolicyToken:data.expectedReturnPolicyToken??''
+      returnPolicyConfirmed:data.returnPolicyConfirmed??false,expectedReturnPolicyToken:data.expectedReturnPolicyToken??'',expectedPromotionRevision:data.expectedPromotionRevision??null
     })
     // 查重、扣库存、保存订单和移除购物车商品必须一起成功；任何一步失败都回滚。
     return this.db.transaction(() => {
@@ -352,7 +361,7 @@ export class Orders {
         const previous = JSON.parse(existing.request_body) as Omit<CreateOrder, 'requestKey'>
         const previousBody = JSON.stringify({ source: previous.source ?? 'cart', addressId: previous.addressId,
           expectedAmountCents: previous.expectedAmountCents, goods: previous.goods,
-          returnPolicyConfirmed:previous.returnPolicyConfirmed??false,expectedReturnPolicyToken:previous.expectedReturnPolicyToken??'' })
+          returnPolicyConfirmed:previous.returnPolicyConfirmed??false,expectedReturnPolicyToken:previous.expectedReturnPolicyToken??'',expectedPromotionRevision:previous.expectedPromotionRevision??null })
         ensure(previousBody === normalizedRequestBody, 409, '同一次下单不能修改来源、商品或地址，请重新结算')
         return { id: existing.id }
       }
@@ -366,14 +375,15 @@ export class Orders {
       if (unavailable.length) throw new AppError(409, '部分商品暂不可购买，请核对新的结算内容', 'PRODUCT_UNAVAILABLE', {
         goods: unavailable.map(item => ({ skuId: item.id, name: item.name, reason: item.status === 'off' ? '已下架' : '规格已停用' }))
       })
-      const totalAmountCents = items.reduce((sum, item) => sum + item.price * item.count, 0)
+      const promotion = promotionQuote(this.db, items.reduce((sum, item) => sum + item.price * item.count, 0))
+      const totalAmountCents = promotion.amountCents
       const policyGoods=items.map(item=>({skuId:item.id,name:item.name,...presentPolicy(item)}))
       const currentPolicyToken=policyToken(policyGoods)
       if(data.expectedReturnPolicyToken&&data.expectedReturnPolicyToken!==currentPolicyToken)throw new AppError(409,'商品退货规则有变化，请核对后重新确认','RETURN_POLICY_CHANGED',{goods:policyGoods,returnPolicyToken:currentPolicyToken})
       if(items.some(i=>i.return_policy==='confirm-required')&&(!data.returnPolicyConfirmed||data.expectedReturnPolicyToken!==currentPolicyToken))throw new AppError(409,'请先了解并确认商品的退货限制','RETURN_POLICY_CONFIRM_REQUIRED',{goods:policyGoods,returnPolicyToken:currentPolicyToken})
-      if (totalAmountCents !== data.expectedAmountCents) {
+      if (totalAmountCents !== data.expectedAmountCents || data.expectedPromotionRevision !== undefined && data.expectedPromotionRevision !== promotion.rule.revision) {
         throw new AppError(409, '商品价格有变化，已更新为最新价格，请确认后再提交', 'PRICE_CHANGED', {
-          totalAmountCents, goods: items.map(item => ({ skuId: item.id, name: item.name, spec: item.spec,
+          totalAmountCents, promotion, goods: items.map(item => ({ skuId: item.id, name: item.name, spec: item.spec,
             priceCents: item.price, count: item.count, subtotalCents: item.price * item.count }))
         })
       }
@@ -399,11 +409,13 @@ export class Orders {
   }
   private saveOrderAndItems(user: User, requestKey: string, requestBody: string, address: string, items: CheckoutItem[], confirmed=false) {
     const id = randomUUID(), now = this.clock.now()
-    const amount = items.reduce((sum, item) => sum + item.price * item.count, 0)
-    this.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires) VALUES(?,?,?,?,?,?,?,?,?)',
-      id, user.id, ORDER_STATE.AWAITING_PAYMENT, amount, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS)
-    for (const item of items) {
-      this.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count,return_policy,return_policy_reason,return_policy_note,return_policy_confirmed) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count,item.return_policy,item.return_policy_reason,item.return_policy_note,Number(item.return_policy==='confirm-required'&&confirmed))
+    const amounts = items.map(item => item.price * item.count)
+    const promotion = promotionQuote(this.db, amounts.reduce((sum, amount) => sum + amount, 0))
+    const shares = discountShares(amounts, promotion.discountCents, items.map(item => item.count))
+    this.db.run('INSERT INTO orders(id,owner_id,state,amount,address,request_key,request_body,created,expires,discount,promotion) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+      id, user.id, ORDER_STATE.AWAITING_PAYMENT, promotion.amountCents, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS, promotion.discountCents, JSON.stringify(promotion.rule))
+    for (const [index,item] of items.entries()) {
+      this.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count,return_policy,return_policy_reason,return_policy_note,return_policy_confirmed,discount_share) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count,item.return_policy,item.return_policy_reason,item.return_policy_note,Number(item.return_policy==='confirm-required'&&confirmed),shares[index]!)
     }
     return id
   }

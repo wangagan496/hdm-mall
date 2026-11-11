@@ -1,5 +1,5 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, ExcludedCheckoutGoods, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary } from 'models'
+import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, ExcludedCheckoutGoods, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary, PromotionQuote } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart, checkoutFailure, getOrderByRequestAPI, storeManager } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
@@ -43,6 +43,14 @@ export struct CheckView {
     totalPayPrice: 0,
     totalPrice: 0
   }
+  @State promotion: PromotionQuote = { rule: { thresholdCents: 0, discountCents: 0, enabled: false, revision: 0 }, discountCents: 0, amountCents: 0, remainingCents: 0 }
+  private clearPromotion(): void { this.promotion = { rule: { thresholdCents: 0, discountCents: 0, enabled: false, revision: 0 }, discountCents: 0, amountCents: 0, remainingCents: 0 } }
+  private promotionText(): string {
+    if (!this.promotion.rule.enabled) return ''
+    if (this.promotion.remainingCents > 0) return '再买 ¥' + (this.promotion.remainingCents / 100).toFixed(2) + ' 可减 ¥' + (this.promotion.rule.discountCents / 100).toFixed(2) + '，回首页继续选购'
+    return '满 ¥' + (this.promotion.rule.thresholdCents / 100).toFixed(2) + ' 减 ¥' + (this.promotion.rule.discountCents / 100).toFixed(2) + ' −¥' + (this.promotion.discountCents / 100).toFixed(2)
+  }
+  private continueShopping(): void { AppStorage.setOrCreate<number>('currentTabIndex', 0); this.stackPath.clear() }
   // 结算页弹层
   @State showSheet: boolean = false
   @State activeSheet: CheckoutSheet = CheckoutSheet.None
@@ -146,6 +154,7 @@ export struct CheckView {
     this.returnPolicy = new ReturnPolicyConfirmation()
     this.requestSummary = ''
     this.recoveredOrderId = ''
+    this.clearPromotion()
     this.goodsList = []
     this.addressList = []
     this.addressId = ''
@@ -203,6 +212,7 @@ export struct CheckView {
         this.keepEmptyCheckout = true
       }
       if (!checkoutPreview.goods || checkoutPreview.goods.length === 0) {
+        this.clearPromotion()
         this.goodsList = []
         this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
         this.showSheet = false
@@ -220,6 +230,8 @@ export struct CheckView {
         totalPayPrice: 0,
         totalPrice: 0
       }
+      this.clearPromotion()
+      if (checkoutPreview.promotion) this.promotion = checkoutPreview.promotion
       this.goodsList = checkoutPreview.goods || []
     } catch {
       if (sequence === this.checkoutQuerySequence && this.isCurrentCheckout(generation, token)) {
@@ -332,9 +344,11 @@ export struct CheckView {
             }
             return updated
           })
-          this.summary = { goodsCount: this.summary.goodsCount, discountPrice: this.summary.discountPrice,
-            postFee: this.summary.postFee, totalPrice: (failure.result.totalAmountCents || 0) / 100,
-            totalPayPrice: (failure.result.totalAmountCents || 0) / 100 }
+          this.clearPromotion()
+          if (failure.result.promotion) this.promotion = failure.result.promotion
+          const payable = failure.result.totalAmountCents || 0
+          this.summary = { goodsCount: this.summary.goodsCount, discountPrice: this.promotion.discountCents / 100,
+            postFee: this.summary.postFee, totalPrice: (payable + this.promotion.discountCents) / 100, totalPayPrice: payable / 100 }
           this.orderRequestKey = util.generateRandomUUID(true)
           this.showSheet = false
           this.safeToast('商品价格有变化，已更新为最新价格，请确认后再提交')
@@ -447,6 +461,7 @@ export struct CheckView {
     try {
       if (this.checkoutSelection) {
         if (count === 0) {
+          this.clearPromotion()
           this.buyNowRemoved = true
           this.goodsList = []
           this.summary = { discountPrice: 0, goodsCount: 0, postFee: 0, totalPayPrice: 0, totalPrice: 0 }
@@ -494,7 +509,7 @@ export struct CheckView {
   // 只提交商品规格、数量和地址等下单信息；金额由服务端核算。
   private buildOrderRequest(): CreateOrderParams {
     const source: 'cart' | 'buy-now' = this.checkoutSelection ? 'buy-now' : 'cart'
-    const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+    const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100), expectedPromotionRevision: this.promotion.rule.revision || undefined,
       returnPolicyConfirmed: this.returnPolicy.confirmed, expectedReturnPolicyToken: this.returnPolicy.token,
       goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({ skuId: item.skuId, count: item.count }))
         .sort((left: CreateOrderParamsGoods, right: CreateOrderParamsGoods) => left.skuId.localeCompare(right.skuId)) })
@@ -506,6 +521,7 @@ export struct CheckView {
       source,
       requestKey: this.orderRequestKey,
       expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+      expectedPromotionRevision: this.promotion.rule.revision || undefined,
       returnPolicyConfirmed: this.returnPolicy.confirmed,
       expectedReturnPolicyToken: this.returnPolicy.token || undefined,
       payChannel: this.payChannel,
@@ -798,6 +814,10 @@ export struct CheckView {
             Row() {
               Column() {
                 PriceCell({ label: '商品总价', price: this.summary.totalPrice })
+                if (this.promotion.rule.enabled) {
+                  Text(this.promotionText()).id('checkout-promotion').fontSize(14).fontColor($r('[ui_components].color.red')).width('100%')
+                    .onClick(() => { if (this.promotion.remainingCents > 0) this.continueShopping() })
+                }
                 PriceCell({ label: '运费', price: this.summary.postFee })
                 PriceCell({ label: '实付金额', price: this.summary.totalPayPrice, isRed: true })
               }

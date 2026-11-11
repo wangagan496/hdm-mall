@@ -1,7 +1,7 @@
 import { util } from '@kit.ArkTS'
 import { GlobalVariable } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, OrderItem, OrderSku, AfterSaleLine, AfterSaleBody, AfterSalePhoto, AfterSaleQuantity, afterSaleAmount, afterSaleInputError, afterSaleKind } from 'models'
+import { HDMUser, OrderItem, OrderSku, AfterSaleLine, AfterSaleBody, AfterSalePhoto, AfterSaleQuantity, afterSaleAmount, afterSaleDiscount, afterSaleInputError, afterSaleKind } from 'models'
 import { afterSaleActions } from 'storage'
 import { pickProductImage } from 'ui_components'
 import { getAfterSaleOrderAPI } from '../../data/api/afterSales'
@@ -42,6 +42,7 @@ export struct AfterSaleApplyView {
       this.order=order
       this.lines=order.skus.filter((sku: OrderSku): boolean => (sku.afterSaleRemaining||0)>0).map((sku: OrderSku): AfterSaleLine => {
         return {skuId:sku.id,name:sku.name,spec:sku.attrsText,priceCents:Math.round(sku.realPay*100),count:sku.afterSaleRemaining||0,remaining:sku.afterSaleRemaining||0,
+          boughtCount:sku.quantity,discountShareCents:sku.discountShareCents,
           returnPolicy:sku.returnPolicy,returnPolicyReason:sku.returnPolicyReason,returnPolicyNote:sku.returnPolicyNote,returnPolicyConfirmed:sku.returnPolicyConfirmed,afterSaleKinds:sku.afterSaleKinds}
       })
       this.kind=order.afterSaleKinds?.[0]||'return-no-reason'
@@ -76,6 +77,7 @@ export struct AfterSaleApplyView {
   }
   private canSubmit():boolean {return !this.busy&&!this.loading&&(this.pending||!!this.order?.canApplyAfterSale&&!this.quantityHint())}
   private total(): string {return (afterSaleAmount(this.lines)/100).toFixed(2)}
+  private discount(): string {return (this.lines.reduce((sum:number,line:AfterSaleLine):number=>sum+afterSaleDiscount(line),0)/100).toFixed(2)}
   private async choosePhoto(): Promise<void> {
     if(this.busy||this.pending||this.photos.length>=3)return
     const generation=this.generation,token=this.token;this.busy=true
@@ -162,7 +164,7 @@ export struct AfterSaleApplyView {
           .onClick(()=>this.selectKind(kind))
       })
       // 七日无理由退货 / 质量问题退货 / 少件漏发仅退款
-      Text(this.kind==='return-no-reason'?'退货运费由买家承担':'运费由商家承担').fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+      Text(this.kind==='refund-missing'?'少件仅退款，无需寄回':'退货运费由商家承担，寄回后填写运费即可随退款退回').fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
       Text(this.kind==='return-no-reason'?'说明（选填）':'问题说明（5–200字）').fontColor($r('[ui_components].color.text')).width('100%')
       TextArea({text:this.description,placeholder:'请描述需要处理的问题'}).id('after-sale-description').height(100).maxLength(200).fontColor($r('[ui_components].color.text')).backgroundColor($r('[ui_components].color.white')).enabled(!this.busy&&!this.pending).onChange((value:string)=>this.description=value)
       if(this.kind==='return-quality') {
@@ -186,6 +188,8 @@ export struct AfterSaleApplyView {
         Scroll(){this.Form()}.align(Alignment.Top).layoutWeight(1).width('100%')
         Column({space:8}) {
           Text('预计退款 ¥'+this.total()+'，退回 '+(this.order?.payerAccount||'实际付款人账号')).id('after-sale-estimate').fontColor($r('[ui_components].color.text')).fontSize(15)
+          Text('已扣除该商品分摊的满减 ¥'+this.discount()).id('after-sale-discount').fontColor($r('[ui_components].color.gray')).fontSize(13)
+          if(this.total()==='0.00'&&!this.quantityHint()){Text(this.kind==='refund-missing'?'该商品实付 ¥0.00（满减已抵扣），无需货款退款':'该商品实付 ¥0.00（满减已抵扣），退货后无需退款').fontColor($r('[ui_components].color.text')).fontSize(13)}
           if(!this.pending&&this.quantityHint()){Text(this.quantityHint()).fontColor($r('[ui_components].color.red'))}
           Button(this.busy?'正在提交':this.pending?'重试确认结果':'提交申请').id('after-sale-submit').width('100%').backgroundColor($r('[ui_components].color.red')).enabled(this.canSubmit()).onClick(()=>this.requestSubmit())
           if(!this.order&&!this.loading){Button('重新加载').onClick(()=>this.load())}

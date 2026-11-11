@@ -509,7 +509,7 @@ export struct OrderDetailView {
               .onClick(() => this.retryPendingOrder())
           }
         }
-        if (this.loading) {
+        if (this.loading && !this.order) {
           Column() {
             LoadingProgress()
               .width(60)
@@ -518,7 +518,7 @@ export struct OrderDetailView {
           }
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
-        } else if (this.loadFailed || !this.order) {
+        } else if (!this.order) {
           Column({ space: 12 }) {
             Text('订单加载失败，请稍后重试')
               .fontSize(14)
@@ -538,6 +538,7 @@ export struct OrderDetailView {
             Column({ space: 12 }) {
               if(this.order.canApplyAfterSale) {
                 Button('申请售后').id('order-apply-after-sale').enabled(this.canOperateOrder()&&!this.busy)
+                  .backgroundColor($r('[ui_components].color.red')).fontColor(Color.White)
                   .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:this.orderId}))
               }
               if(this.order.afterSaleNotice) {

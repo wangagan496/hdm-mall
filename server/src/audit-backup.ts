@@ -20,7 +20,7 @@ export function inspectAudit(db:DatabaseSync){
   }
   for(const r of db.prepare('SELECT a.*,u.role FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id').iterate()){
     const action=String(r.action)
-    if(!auditActions.includes(action as typeof auditActions[number])||(version<15&&action==='product.return_policy'))throw new Error('审计操作类型无效')
+    if(!auditActions.includes(action as typeof auditActions[number])||(version<15&&action==='product.return_policy')||(version<16&&['promotion.edit','aftersale.shipping_comp'].includes(action)))throw new Error('审计操作类型无效')
     if((r.actor_kind==='system')!==(r.actor_id===null)||(r.actor_id!==null&&r.actor_kind!==r.role))throw new Error('审计操作人无效')
     if((action==='access.denied')!==(r.result==='denied'))throw new Error('审计结果无效')
     const summary=summarySchema.parse(JSON.parse(String(r.summary)))
