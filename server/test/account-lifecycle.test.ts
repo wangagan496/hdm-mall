@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { buildTestApp } from './helpers/fixtures.ts'
+import { withReturnShipping } from './helpers/return-shipping.ts'
 import { mkdtemp, rm, writeFile, mkdir, access } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,6 +23,7 @@ async function fixture(databasePath=':memory:',uploadsPath='./unused') {
  const address=ctx.testData.address({userId:buyer.id,receiver:'Test',contact:'13800000000',address:'Test street'})
  const sku=ctx.testData.product({name:'Lifecycle',skus:[{spec:'one',priceCents:100,stock:30}]}).skus[0]!
  const call=async(method:string,url:string,payload?:object,token=buyer.token)=>{
+  payload=withReturnShipping(ctx,uploadsPath,url,payload,token)
   const r=await ctx.app.inject({method:method as never,url,headers:{authorization:'Bearer '+token},payload})
   return {status:r.statusCode,body:r.json()}
  }
@@ -297,7 +299,7 @@ test('CD08 三年到期清除地址和售后照片，头像立即删除，备份
   const address=JSON.parse(f.ctx.db.one<{address:string}>('SELECT address FROM orders WHERE id=?',order)!.address)
   assert.equal(address.receiver,'');assert.equal(address.contact,'');assert.equal(address.address,'')
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion, 15);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 16);assert.deepEqual(backup.manifest.issues,[])
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
 test('CD09 012升级013保留账号订单，重启扫描执行到期注销',async()=>{
@@ -310,7 +312,7 @@ test('CD09 012升级013保留账号订单，重启扫描执行到期注销',asyn
   try{removeLifecycleSchema(old)}finally{old.close()}
   const migrated=new Database(path)
   try{
-   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version, 15)
+   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version, 16)
    assert.equal(migrated.one<{account:string}>('SELECT account FROM users WHERE id=?',f.buyer.id)!.account,f.buyer.account)
    assert.ok(migrated.one('SELECT id FROM orders WHERE id=?',order))
    migrated.run("UPDATE users SET status='deleting',deletion_requested_at=?,deletion_due_at=? WHERE id=?",f.now(),f.now()+15*DAY,f.buyer.id)

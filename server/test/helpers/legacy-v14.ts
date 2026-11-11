@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { removePromotionShippingSchema } from './legacy-v15.ts'
 export function removeReturnPolicySchema(db:DatabaseSync){
+ removePromotionShippingSchema(db)
  if(!db.prepare('PRAGMA table_info(products)').all().some(r=>r.name==='return_policy'))return
  db.exec('DROP TRIGGER IF EXISTS products_return_policy_revision')
  db.exec('ALTER TABLE after_sale_items DROP COLUMN condition_declared')

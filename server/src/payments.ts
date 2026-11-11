@@ -34,7 +34,7 @@ interface RefundRow {
   id: string
   payment_id: string
   amount: number
-  reason: 'late' | 'duplicate' | 'cancelled' | 'after-sale'
+  reason: 'late' | 'duplicate' | 'cancelled' | 'after-sale' | 'shipping'
   state: 'pending' | 'succeeded' | 'failed'
   attempts: number
   next_attempt_at: number | null
@@ -271,13 +271,18 @@ export class Payments {
     return this.createRefund(this.payment(paymentId)!, 'after-sale', now, amount, afterSaleId,actor)
   }
 
+  createShippingRefund(orderId: string, paymentId: string, afterSaleId: string, amount: number, now: number, actor?: User) {
+    ensure(this.effectivePaymentId(orderId) === paymentId, 409, '付款记录异常，请联系客服')
+    return this.createRefund(this.payment(paymentId)!, 'shipping', now, amount, afterSaleId, actor)
+  }
+
   private createRefund(payment: PaymentRow, reason: RefundRow['reason'], now: number, amount = payment.amount, afterSaleId?: string, actor?: User) {
-    const existing = afterSaleId ? this.db.one<{ id: string }>('SELECT id FROM refunds WHERE after_sale_id=?', afterSaleId) :
+    const existing = afterSaleId ? this.db.one<{ id: string }>('SELECT id FROM refunds WHERE after_sale_id=? AND reason=?', afterSaleId, reason) :
       this.db.one<{ id: string }>("SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')", payment.id)
     if (existing) return existing.id
     const id = randomUUID()
-    const reserved = this.db.one<{ amount: number }>('SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=?', payment.id)!.amount
-    ensure(Number.isSafeInteger(amount) && amount > 0 && amount + reserved <= payment.amount, 409, '退款合计不能超过实付金额')
+    const reserved = this.db.one<{ amount: number }>("SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=? AND reason<>'shipping'", payment.id)!.amount
+    ensure(Number.isSafeInteger(amount) && amount > 0 && (reason === 'shipping' || amount + reserved <= payment.amount), 409, '退款合计不能超过实付金额')
     this.db.run(`INSERT INTO refunds(id,payment_id,amount,reason,after_sale_id,state,attempts,next_attempt_at,created) VALUES(?,?,?,?,?,'pending',0,?,?)`,
       id, payment.id, amount, reason, afterSaleId ?? null, now, now)
     this.createRefundNotices(payment, id, now)
@@ -317,7 +322,12 @@ export class Payments {
         timer.unref()
       })
       result = await Promise.race([
-        Promise.resolve().then(() => this.channelRequired().refund(refund.id, refund.payment_id, refund.amount)),
+        Promise.resolve().then(() => {
+          const channel = this.channelRequired()
+          if (refund.reason !== 'shipping') return channel.refund(refund.id, refund.payment_id, refund.amount)
+          ensure(channel.shippingRefund, 409, '支付渠道尚未接入独立运费补偿')
+          return channel.shippingRefund(refund.id, refund.payment_id, refund.amount)
+        }),
         timeout,
       ])
     } catch {

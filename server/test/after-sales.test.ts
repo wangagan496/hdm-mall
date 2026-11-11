@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { buildTestApp } from './helpers/fixtures.ts'
+import { withReturnShipping } from './helpers/return-shipping.ts'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -221,6 +222,7 @@ async function fixture(databasePath = ':memory:', uploadsPath = './unused') {
   const product = ctx.testData.product({ name: '售后测试', category: '售后测试', skus: [{ spec: '标准', priceCents: 2475, stock: 100 }] })
   const sku = product.skus[0]!
   const call = async (method: string, url: string, payload?: object, token = buyer.token) => {
+    payload = withReturnShipping(ctx, uploadsPath, url, payload, token)
     const res = await ctx.app.inject({ method: method as never, url, headers: { authorization: 'Bearer ' + token }, payload })
     return { status: res.statusCode, body: res.json() }
   }
@@ -280,7 +282,7 @@ test('AS-11 v11迁移v12保留退款通知和库存流水、重开不重复', as
     const raw=new DatabaseSync(path); removeAfterSaleSchema(raw); raw.close()
     for(let i=0;i<2;i++) {
       const db=new Database(path)
-      try {assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 15); assert.deepEqual(db.all('SELECT * FROM payments ORDER BY id'),payments);assert.deepEqual(db.all('SELECT * FROM inventory_movements ORDER BY id'),movements);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)} finally {db.close()}
+      try {assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 16); assert.deepEqual(db.all('SELECT * FROM payments ORDER BY id'),payments);assert.deepEqual(db.all('SELECT * FROM inventory_movements ORDER BY id'),movements);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)} finally {db.close()}
     }
   } finally {if(!closed)await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
@@ -323,7 +325,7 @@ test('AS-08 售后照片本人上传、限3张、同号同内容、读取隔离�
     assert.equal((await f.call('POST',`/member/order/${order}/after-sales`,{requestKey:applicationKey,kind:'return-quality',description:'质量问题照片说明',items:[{skuId:f.sku.id,count:1}],imageIds:[img.imageId]})).status,200)
     assert.equal((await f.ctx.app.inject({method:'GET',url:img.path,headers:{authorization:'Bearer '+f.merchant.token}})).statusCode,200)
     const backup = await createBackup({databasePath:join(root,'data','mall.sqlite'),uploadsPath:join(root,'uploads'),destination:join(root,'backup')})
-    assert.equal(backup.manifest.schemaVersion, 15)
+    assert.equal(backup.manifest.schemaVersion, 16)
     assert.deepEqual(backup.manifest.issues,[])
     await verifyBackup(join(root,'backup'))
     await writeFile(join(root,'uploads',img.imageId+'.jpg'),Buffer.from([255,216,255,0]))
@@ -358,7 +360,7 @@ test('AS-09 重启启动扫描继续处理超时申请和旧数据备份', async
 test('AS-01 迁移12、申请原子确认收货、下单价和剩余数量、权限与幂等', async () => {
   const f = await fixture()
   try {
-    assert.equal(f.ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 15)
+    assert.equal(f.ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 16)
     const id = await f.create(), key = randomUUID()
     assert.equal((await f.apply(id, 'return-no-reason', 2, randomUUID(), f.other.token)).status, 403)
     assert.equal((await f.apply(id, 'return-no-reason', 4)).status, 409)
@@ -416,7 +418,8 @@ test('AS-03 部分退货、逐项验收入库一次、部分退款后有效支�
     assert.equal((await f.apply(order, 'refund-missing', 2)).status, 409)
     const last = await f.requested(order, 'refund-missing', 1)
     assert.equal((await f.action(last, 'approve')).status, 200)
-    assert.equal(f.ctx.db.one<{ n: number }>('SELECT SUM(amount) n FROM refunds')!.n, 7425)
+    assert.equal(f.ctx.db.one<{ n: number }>("SELECT SUM(amount) n FROM refunds WHERE reason<>'shipping'")!.n, 7425)
+    assert.equal(f.ctx.db.one<{ n: number }>("SELECT SUM(amount) n FROM refunds WHERE reason='shipping'")!.n, 1)
     assert.throws(() => f.ctx.db.run("INSERT INTO refunds(id,payment_id,amount,reason,state,created) SELECT 'extra',payment_id,1,'late','pending',0 FROM refunds LIMIT 1"), /refund|Refund/)
   } finally { await f.ctx.app.close() }
 })
@@ -449,7 +452,7 @@ test('AS-05 48小时有地址自动同意、7天未寄回关闭、10天自动退
     f.advance(10 * DAY); await f.ctx.afterSales.processDue(); await f.ctx.afterSales.processDue()
     await f.ctx.payments.reconcile()
     assert.equal(f.ctx.db.one<{ n: number }>("SELECT COUNT(*) n FROM inventory_movements WHERE kind='return'")!.n, 0)
-    assert.equal(f.ctx.db.one<{ n: number }>('SELECT COUNT(*) n FROM refunds')!.n, 1)
+    assert.equal(f.ctx.db.one<{ n: number }>('SELECT COUNT(*) n FROM refunds')!.n, 2)
   } finally { await f.ctx.app.close() }
 })
 
