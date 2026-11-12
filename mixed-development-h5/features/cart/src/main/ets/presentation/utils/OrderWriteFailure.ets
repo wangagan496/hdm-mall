@@ -20,6 +20,7 @@ function friendlyBusinessMessage(message: string, status: number): string {
   if (status === 403) return '当前账号无法执行此操作'
   if (message === 'PRICE_CHANGED' || message.includes('价格')) return '价格已更新，请核对后提交'
   const readable: string[] = ['订单不能收货', '该订单不能评价', '评价内容不符合要求', '订单已取消',
+    '内容包含不适合发布的词，请修改后再发布', '请修改评价内容后再发布',
     '付款已确认，请重新申请取消', '取消结果待确认，请稍后查询']
   if (readable.includes(message)) return message
   return '当前操作无法完成，请刷新订单后重试'

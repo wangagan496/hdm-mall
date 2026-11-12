@@ -5,6 +5,7 @@ import { getGuessLikeAPI, getOrderAttentionCountAPI } from '../../data/api'
 import { RequestAxios } from 'network'
 
 interface AccountNotice { id: string; message: string; created: number }
+interface ServiceUnread { count: number }
 
 @Component
 export struct MineView {
@@ -23,6 +24,7 @@ export struct MineView {
   @Consume
   stackPath: NavPathStack
   @State attentionCount: number = 0
+  @State serviceUnread: number = 0
   @State accountNotice: string = ''
   private attentionVisible: boolean = false
   private attentionToken: string = ''
@@ -48,6 +50,7 @@ export struct MineView {
     this.attentionToken = ''
     this.attentionSequence++
     this.attentionCount = 0
+    this.serviceUnread = 0
     this.refreshOrderAttention()
   }
 
@@ -61,6 +64,7 @@ export struct MineView {
     const sequence: number = ++this.attentionSequence
     this.attentionToken = token
     void this.refreshAccountNotice(token, sequence)
+    void this.refreshServiceUnread(token, sequence)
     if (!token || !this.attentionVisible) {
       this.attentionCount = 0
       return
@@ -81,6 +85,20 @@ export struct MineView {
       const notices = await RequestAxios.getForSession<AccountNotice[]>('/member/account-notices', token)
       if (sequence === this.attentionSequence && token === this.user.token) this.accountNotice = notices.length ? notices[0].message : ''
     } catch { }
+  }
+
+  private async refreshServiceUnread(token: string, sequence: number): Promise<void> {
+    if (!token || !this.attentionVisible || this.user.role === 'merchant') { this.serviceUnread = 0; return }
+    try {
+      const result = await RequestAxios.getForSession<ServiceUnread>('/member/service/unread', token)
+      if (this.attentionVisible && sequence === this.attentionSequence && token === this.attentionToken && token === this.user.token) this.serviceUnread = result.count
+    } catch { }
+  }
+
+  private openService(): void {
+    if (!this.user.token) { this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }); return }
+    this.stackPath.pushPath({ name: this.user.role === 'merchant' ? 'MerchantServiceView' : PAGE_PATH.CUSTOMER_SERVICE_PAGE,
+      onPop: () => this.refreshAttentionOnOrdersReturn() })
   }
 
   private openOrders(orderState: number): void {
@@ -179,6 +197,7 @@ export struct MineView {
                 .fontSize(10)
                 .padding(0)
                 .backgroundColor('#7E2C1A')
+                .fontColor(Color.White)
             }
             .padding({ left: 8, right: 8 })
             .width('100%')
@@ -197,15 +216,20 @@ export struct MineView {
           })
 
           if (this.user.role === 'merchant') {
+            Button('客服留言').id('merchant-service-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.openService())
             Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
               .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))
             Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')
+              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))
             Button('库存管理').margin({ top: 12 })
+              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))
             Button('商品管理').margin({ top: 12 })
+              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MANAGE_PAGE }))
             Button($r('app.string.after_sale_manage')).margin({ top: 12 })
+              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_MANAGE_PAGE }))
           }
           if (this.user.status === 'deleting') {
@@ -215,6 +239,7 @@ export struct MineView {
           }
           if (this.accountNotice && this.user.token) { Text(this.accountNotice).fontSize(14).padding(12).width('100%') }
           Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
+            .backgroundColor($r('[ui_components].color.red')).fontColor(Color.White)
             .margin({ top: 12, bottom: 12 })
             .onClick(() => {
               this.stackPath.pushPath({ name: this.user.token ? PAGE_PATH.FAMILY_PAGE : PAGE_PATH.LOGIN_PAGE })
@@ -245,14 +270,17 @@ export struct MineView {
               }
 
               GridCol() {
+                Column() {
                 HDMNavCol({
                   icon: $r('app.media.ic_user_service'),
                   text: '我的客服',
                   color: $r('[ui_components].color.text'),
                   onNavClick: () => {
-                    this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE })
+                    this.openService()
                   }
                 })
+                if (this.serviceUnread > 0) { Text('● 有新回复').id('service-unread').fontSize(12).fontColor($r('[ui_components].color.red')) }
+                }
               }
             }
             .width('100%')

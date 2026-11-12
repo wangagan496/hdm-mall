@@ -95,14 +95,14 @@ export struct ProductManageView {
         HDMNavBar({ title: '商品管理' })
         Scroll() {
           Column({ space: 12 }) {
-            Button('新建商品').onClick(() => this.edit(''))
+            Button('新建商品').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.edit(''))
             Row({ space: 8 }) {
-              Button('全部').onClick(() => { this.filter = ''; void this.load(1) })
-              Button('在售').onClick(() => { this.filter = 'on'; void this.load(1) })
-              Button('已下架').onClick(() => { this.filter = 'off'; void this.load(1) })
+              Button('全部').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => { this.filter = ''; void this.load(1) })
+              Button('在售').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => { this.filter = 'on'; void this.load(1) })
+              Button('已下架').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => { this.filter = 'off'; void this.load(1) })
             }
             if (this.message) { Text(this.message).id('product-manage-message').fontColor(this.messageColor()) }
-            Button(this.loading ? '正在读取' : '刷新').enabled(!this.loading).onClick(() => this.load(this.page))
+            Button(this.loading ? '正在读取' : '刷新').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.loading).onClick(() => this.load(this.page))
             ForEach(this.items, (item: ProductData) => {
               Column({ space: 8 }) {
                 Row({ space: 12 }) {
@@ -110,8 +110,9 @@ export struct ProductManageView {
                   Column({ space: 6 }) { Text(item.name).fontSize(18).fontColor($r('[ui_components].color.black')); Text(this.price(item)).fontColor($r('[ui_components].color.text')); Text('库存：' + this.stock(item) + ' · ' + this.status(item)).fontColor($r('[ui_components].color.text')) }.alignItems(HorizontalAlign.Start).layoutWeight(1)
                 }
                 Row({ space: 12 }) {
-                  Button('编辑').id('product-edit-' + item.id).onClick(() => this.edit(item.id))
-                  Button(this.hasPending(item.id) ? '确认保存结果' : item.status === 'off' ? '上架' : '下架').id('product-toggle-' + item.id).enabled(!this.busy.includes(item.id)).onClick(() => this.toggle(item))
+                  Button('编辑').id('product-edit-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.edit(item.id))
+                  Button('评价').id('product-reviews-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.stackPath.pushPath({ name: 'ReviewManageView', param: item.id }))
+                  Button(this.hasPending(item.id) ? '确认保存结果' : item.status === 'off' ? '上架' : '下架').id('product-toggle-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy.includes(item.id)).onClick(() => this.toggle(item))
                 }
               }.padding(16).width('100%').backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }, (item: ProductData) => item.id + ':' + item.revision)
