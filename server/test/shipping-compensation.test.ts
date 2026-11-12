@@ -140,7 +140,7 @@ test('A1 v16运费退款超过货款，图片与独立退款备份校验及恢�
     assert.equal((await f.act('inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
     const destination = join(f.root, 'backup')
     const backup = await createBackup({ databasePath: f.databasePath, uploadsPath: f.uploadsPath, destination })
-    assert.equal(backup.manifest.schemaVersion, 16)
+    assert.equal(backup.manifest.schemaVersion, 17)
     assert.deepEqual(backup.manifest.issues, [])
     await verifyBackup(destination)
     const restored = await restoreBackup({ backupPath: destination, destination: join(f.root, 'restored') })
@@ -226,7 +226,7 @@ test('A2 v15历史订单和售后迁移016后金额不变，重复打开不重�
     for (let iteration = 0; iteration < 2; iteration++) {
       const db = new Database(f.databasePath)
       try {
-        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 16)
+        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 17)
         assert.deepEqual(db.all('PRAGMA foreign_key_check'), [])
         assert.equal(db.one<{amount: number}>('SELECT amount FROM orders WHERE id=?', f.orderId)!.amount, Math.round(before.payMoney * 100))
         assert.equal(db.one<{state: string}>('SELECT state FROM after_sales WHERE id=?', f.saleId)!.state, 'refunded')

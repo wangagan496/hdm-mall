@@ -16,6 +16,10 @@ import { AccountLifecycle } from './account-lifecycle.ts'
 import { auditPage, deniedAudit } from './audit.ts'
 import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
 import { currentPromotion, editPromotion } from './promotions.ts'
+import { invoiceSchema, issueInvoice, registerCompletedInvoice } from './invoices.ts'
+import { hideReview, merchantReviews, resetAvatar } from './moderation.ts'
+import { ServiceMessages } from './service-messages.ts'
+import { BackupScheduler, type BackupOptions } from './backup-scheduler.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
 import { AppError, ensure } from './errors.ts'
 import { TestFixtures, registerFixtureRoutes } from './test-fixtures.ts'
@@ -23,7 +27,7 @@ import { systemClock, type Clock } from './clock.ts'
 import { validateRuntimeOptions, type RuntimeOptions } from './config.ts'
 import { inventoryPage, stockMovements, adjustStock, adjustmentReceipt } from './inventory.ts'
 
-export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock }
+export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions }
 const idSchema = z.string().min(1).max(100)
 const credentials = z.object({ account: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/), password: z.string().min(8).max(128) })
 const pageSchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(10), orderState: z.coerce.number().int().min(0).max(6).default(0) })
@@ -45,6 +49,7 @@ export async function buildApp(options: AppOptions) {
     (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret) : undefined)
   const payments = new Payments(db, accounts, paymentChannel, paymentCallbackSecret, clock)
   const lifecycle = new AccountLifecycle(db, accounts, clock, options.uploadsPath)
+  const service = new ServiceMessages(db, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
   orders.attachPayments(payments)
   const afterSales = new AfterSales(db, payments, clock)
@@ -90,7 +95,8 @@ export async function buildApp(options: AppOptions) {
         '/member/order/:id/receipt','/member/order/:id/payments/refresh',
         '/member/order/:id/after-sales','/member/after-sales/images','/member/order/:id/cancel-requests',
         '/member/order/:id/cancel-requests/:cancelRequestId/withdraw',
-        '/member/after-sales/:id/withdraw','/member/after-sales/:id/ship-back'
+        '/member/after-sales/:id/withdraw','/member/after-sales/:id/ship-back',
+        '/member/service/messages','/member/service/images','/member/service/read'
       ]
       ensure(user.status!=='deleting'||method==='GET'||followUp.includes(url),403,'账号正在注销中')
       return ok(await handler(req,user))
@@ -98,6 +104,32 @@ export async function buildApp(options: AppOptions) {
   }
 
   protectedRoute('GET','/merchant/audit-log',(req,user)=>auditPage(db,user,req.query))
+  protectedRoute('GET', '/member/service/messages', (req, user) => service.history(user, user.id, req.query))
+  protectedRoute('POST', '/member/service/messages', (req, user) => service.send(user, user.id, req.body))
+  protectedRoute('GET', '/member/service/unread', (_req, user) => service.unread(user.id))
+  protectedRoute('POST', '/member/service/read', (req, user) => service.read(user, req.body))
+  protectedRoute('GET', '/merchant/service', (req, user) => service.list(user, req.query))
+  protectedRoute('GET', '/merchant/service/:id/messages', (req, user) => service.history(user, key(req), req.query))
+  protectedRoute('POST', '/merchant/service/:id/messages', (req, user) => service.send(user, key(req), req.body))
+  protectedRoute('POST', '/member/service/images', async (req, user) => {
+    let image: Buffer | undefined
+    let requestKey: string | undefined
+    for await (const part of req.parts({ limits: { fileSize: 512 * 1024, files: 1, fields: 1, parts: 2, fieldSize: 100 } })) {
+      if (part.type === 'file') {
+        ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg', 400, '仅支持JPEG照片')
+        image = await part.toBuffer()
+        ensure(!part.file.truncated, 413, '照片不能超过512KB')
+      } else {
+        ensure(part.fieldname === 'requestKey' && requestKey === undefined, 400, '上传参数不正确')
+        requestKey = z.string().uuid().parse(part.value)
+      }
+    }
+    ensure(image && requestKey, 400, '请选择照片')
+    return service.upload(user, user.id, requestKey, image, options.uploadsPath)
+  })
+  protectedRoute('GET', '/merchant/goods/:id/reviews', (req, user) => merchantReviews(db, user, key(req), req.query))
+  protectedRoute('POST', '/merchant/reviews/:id/hide', (req, user) => hideReview(db, user, key(req), req.body, clock.now()))
+  protectedRoute('POST', '/merchant/members/:id/avatar/reset', (req, user) => resetAvatar(db, user, key(req), req.body, clock.now()))
   protectedRoute('POST','/member/consents',(req,user)=>lifecycle.consent(user,req.body))
   protectedRoute('POST','/member/consents/withdraw',(req,user)=>lifecycle.withdrawConsent(user,req.body))
   protectedRoute('GET','/member/account-deletion',(_req,user)=>lifecycle.status(user))
@@ -161,7 +193,8 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('PUT', '/merchant/products/:id', (req, user) => products.edit(user, key(req), productEditSchema.parse(req.body)))
   app.options('/*', async (_req, reply) => reply.code(204).send())
-  app.get('/health', async () => ok({ status: 'ok', mockPayments: options.mockPayments }))
+  const backups = options.backup ? new BackupScheduler({ ...options.backup, databasePath: options.databasePath, uploadsPath: options.uploadsPath, clock, logError: message => app.log.error(message) }) : undefined
+  app.get('/health', async () => ok({ mockPayments: options.mockPayments, ...(backups?.health() ?? { status: 'degraded', lastSuccessfulBackupAt: null, backupConfigured: false }) }))
   app.get('/ready', async () => ok(db.one('SELECT 1 AS ready')))
   app.post('/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async req => {
     const data = credentials.parse(req.body); return ok(accounts.register(data.account, data.password))
@@ -188,7 +221,9 @@ export async function buildApp(options: AppOptions) {
   })
   app.get('/uploads/:name', async (req, reply) => {
     const { name } = z.object({ name: z.string().uuid().transform(v => v) }).parse({ name: (req.params as { name: string }).name.replace(/\.jpg$/, '') })
+    ensure(!db.one('SELECT path FROM account_file_deletions WHERE path=?', '/uploads/' + name + '.jpg'), 404, '图片不存在')
     if (db.one('SELECT image_id FROM after_sale_images WHERE image_id=?', name)) afterSales.canReadImage(accounts.authenticate(req.headers.authorization),name)
+    if (db.one('SELECT image_id FROM service_images WHERE image_id=?', name)) service.canReadImage(accounts.authenticate(req.headers.authorization), name)
     try { return reply.type('image/jpeg').send(await readFile(join(options.uploadsPath, name + '.jpg'))) }
     catch { throw new AppError(404, '图片不存在') }
   })
@@ -223,7 +258,8 @@ export async function buildApp(options: AppOptions) {
     const productId = key(req), query = pageSchema.parse(req.query)
     // 先校验，再以同一商品条件计数和取页；EXISTS 避免同单多个规格重复展示评价。
     const from = `FROM evaluations e JOIN orders o ON o.id=e.order_id JOIN users u ON u.id=o.owner_id
-      WHERE EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=e.order_id AND i.product_id=?)`
+      WHERE NOT EXISTS(SELECT 1 FROM review_moderation m WHERE m.order_id=e.order_id)
+      AND EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=e.order_id AND i.product_id=?)`
     const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count ${from}`, productId)!.count
     const offset = (query.page - 1) * query.pageSize
     // 超出总数时直接返回空页，也避免极大页码的偏移量溢出 SQLite 整数范围。
@@ -270,7 +306,9 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('GET', '/member/order/by-request/:requestKey', (req, user) => orders.byRequest(user,
     z.object({ requestKey: z.string().min(16).max(100) }).parse(req.params).requestKey))
-  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional(),expectedPromotionRevision:z.number().int().positive().safe().optional() }).parse(req.body)))
+  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional(),expectedPromotionRevision:z.number().int().positive().safe().optional(),invoice:invoiceSchema.optional() }).parse(req.body)))
+  protectedRoute('POST', '/merchant/orders/:id/invoice/issued', (req, user) => issueInvoice(db, user, key(req), req.body, clock.now()))
+  protectedRoute('PUT', '/member/order/:id/invoice', (req, user) => registerCompletedInvoice(db, user, key(req), req.body, clock.now()))
   protectedRoute('GET', '/member/order', (req, user) => {
     const query = pageSchema.parse(req.query)
     return orders.listPage(user, query.orderState, query.page, query.pageSize)
@@ -365,6 +403,7 @@ export async function buildApp(options: AppOptions) {
     void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
     void lifecycle.scan().catch(() => app.log.error('Account lifecycle scan failed'))
   }, 30_000).unref()
-  app.addHook('onClose', async () => { clearInterval(timer); db.close() })
-  return { app, db, accounts, catalog, orders, payments, afterSales, lifecycle, clock, fixtures }
+  await backups?.start()
+  app.addHook('onClose', async () => { clearInterval(timer); await backups?.stop(); db.close() })
+  return { app, db, accounts, catalog, orders, payments, afterSales, lifecycle, clock, fixtures, backups }
 }

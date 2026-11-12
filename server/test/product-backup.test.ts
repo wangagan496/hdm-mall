@@ -26,7 +26,7 @@ test('v10 备份包含登记图、现封面和历史订单图，换域名恢复�
     const order = f.orders.create(buyer, { requestKey: randomUUID(), addressId: address.id, expectedAmountCents: 2000, goods: [{ skuId: 'backup-sku', count: 1 }] })
     f.db.run('UPDATE order_items SET picture=? WHERE order_id=?', 'http://old.example' + paths[2], order.id)
     const backup = await createBackup({ databasePath, uploadsPath, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 16)
+    assert.equal(backup.manifest.schemaVersion, 17)
     assert.equal(backup.counts.product_images, 2)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.manifest.files.length, 4)

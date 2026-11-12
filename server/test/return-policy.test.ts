@@ -153,14 +153,14 @@ test('RP08 014迁移旧商品订单默认支持且未确认，备份14兼容和1
   assert.equal(oldBackup.manifest.schemaVersion,14)
   const next=new Database(path)
   try{
-   assert.equal(next.one<{user_version:number}>('PRAGMA user_version')!.user_version,16)
+   assert.equal(next.one<{user_version:number}>('PRAGMA user_version')!.user_version,17)
    assert.deepEqual({...next.one<Record<string,unknown>>('SELECT return_policy,return_policy_reason,return_policy_note,return_policy_confirmed FROM order_items WHERE order_id=?',order)},
     {return_policy:'standard',return_policy_reason:'',return_policy_note:'',return_policy_confirmed:0})
    assert.equal(next.one<{return_policy:string}>('SELECT return_policy FROM products WHERE id=?',f.product.id)!.return_policy,'standard')
    assert.deepEqual(next.all('SELECT * FROM payments'),before)
   }finally{next.close()}
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'v15')})
-  assert.equal(backup.manifest.schemaVersion,16);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion,17);assert.deepEqual(backup.manifest.issues,[])
   const restored=await restoreBackup({backupPath:backup.root,destination:join(root,'restored')})
   const db=new Database(join(restored.root,'mall.sqlite'));try{assert.equal(db.one<{return_policy:string}>('SELECT return_policy FROM order_items WHERE order_id=?',order)!.return_policy,'standard')}finally{db.close()}
   const broken=new DatabaseSync(path);try{broken.exec("PRAGMA ignore_check_constraints=ON; UPDATE products SET return_policy='confirm-required',return_policy_reason='defect',return_policy_note=''")}finally{broken.close()}

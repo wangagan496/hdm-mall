@@ -6,7 +6,8 @@ import { ensure } from './errors.ts'
 export const auditActions = ['product.create','product.edit','product.status','product.return_policy','sku.price','sku.enable','sku.stock','stock.adjust',
   'order.ship','order.reject_and_ship','cancel.approve','cancel.auto_approve','aftersale.approve','aftersale.reject','aftersale.inspect',
   'aftersale.refund_reject','aftersale.auto_approve','aftersale.auto_close','aftersale.auto_refund','refund.create','refund.result',
-  'refund.retry','payment.review','settings.return_address','access.denied','promotion.edit','aftersale.shipping_comp'] as const
+  'refund.retry','payment.review','settings.return_address','access.denied','promotion.edit','aftersale.shipping_comp','invoice.request','invoice.issued',
+  'review.hide','review.republish','avatar.reset'] as const
 export type AuditAction = typeof auditActions[number]
 type Target = 'product'|'sku'|'order'|'after_sale'|'refund'|'payment'|'settings'
 export interface AuditSummary {

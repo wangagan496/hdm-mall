@@ -20,12 +20,13 @@ export function inspectAudit(db:DatabaseSync){
   }
   for(const r of db.prepare('SELECT a.*,u.role FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id').iterate()){
     const action=String(r.action)
-    if(!auditActions.includes(action as typeof auditActions[number])||(version<15&&action==='product.return_policy')||(version<16&&['promotion.edit','aftersale.shipping_comp'].includes(action)))throw new Error('审计操作类型无效')
+    if(!auditActions.includes(action as typeof auditActions[number])||(version<15&&action==='product.return_policy')||(version<16&&['promotion.edit','aftersale.shipping_comp'].includes(action))||
+      (version<17&&['invoice.request','invoice.issued','review.hide','review.republish','avatar.reset'].includes(action)))throw new Error('审计操作类型无效')
     if((r.actor_kind==='system')!==(r.actor_id===null)||(r.actor_id!==null&&r.actor_kind!==r.role))throw new Error('审计操作人无效')
     if((action==='access.denied')!==(r.result==='denied'))throw new Error('审计结果无效')
     const summary=summarySchema.parse(JSON.parse(String(r.summary)))
     if(summary.payerId&&!db.prepare('SELECT id FROM users WHERE id=?').get(summary.payerId))throw new Error('审计退款对象无效')
-    const type=action.startsWith('product.')?'product':action.startsWith('sku.')||action==='stock.adjust'?'sku':action.startsWith('order.')||action.startsWith('cancel.')?'order':action.startsWith('aftersale.')?'after_sale':action.startsWith('refund.')?'refund':action==='payment.review'?'payment':'settings'
+    const type=action.startsWith('product.')?'product':action.startsWith('sku.')||action==='stock.adjust'?'sku':action.startsWith('order.')||action.startsWith('cancel.')||action.startsWith('invoice.')||action.startsWith('review.')?'order':action.startsWith('aftersale.')?'after_sale':action.startsWith('refund.')?'refund':action==='payment.review'?'payment':'settings'
     if(r.target_type!==type)throw new Error('审计对象类型无效')
     const table={product:'products',sku:'skus',order:'orders',after_sale:'after_sales',refund:'refunds',payment:'payments',settings:null}[type]
     if(table&&!db.prepare(`SELECT id FROM ${table} WHERE id=?`).get(r.target_id!))throw new Error('审计对象不存在')

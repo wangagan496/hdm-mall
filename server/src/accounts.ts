@@ -3,6 +3,7 @@ import { Database } from './database.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { AppError, ensure } from './errors.ts'
 import { localAvatarPath } from './avatar.ts'
+import { checkPublicContent } from './content-filter.ts'
 
 export interface User { id: string; account: string; nickname: string; role: 'buyer' | 'merchant'; profile: string; status?: 'active' | 'deleting' | 'deleted'; deletion_due_at?: number | null }
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')
@@ -57,6 +58,7 @@ export class Accounts {
       status: user.status ?? 'active', deletionDueAt: user.deletion_due_at ?? null }
   }
   updateProfile(user: User, data: Record<string, string>) {
+    if (data.nickname !== undefined) checkPublicContent(data.nickname)
     const latest = this.db.one<User>('SELECT * FROM users WHERE id=?', user.id)!
     const profile = { ...JSON.parse(latest.profile), ...data }
     const path = localAvatarPath(profile.avatar)

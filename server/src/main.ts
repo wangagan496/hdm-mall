@@ -1,8 +1,9 @@
 import { buildApp } from './app.ts'
 import { readConfig } from './config.ts'
+import { backupOptionsFromEnvironment } from './backup-store.ts'
 
 const config = readConfig(process.env)
-const { app, accounts, db } = await buildApp(config.appOptions)
+const { app, accounts, db } = await buildApp({ ...config.appOptions, backup: backupOptionsFromEnvironment(process.env) })
 if (config.merchantAccount) {
   const existing = db.one<{ role: string }>('SELECT role FROM users WHERE account=?', config.merchantAccount)
   if (existing && existing.role !== 'merchant') throw new Error('Merchant account name already belongs to a buyer')

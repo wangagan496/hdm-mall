@@ -1,7 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'node:fs'
+import { removeServiceSchema } from './legacy-v16.ts'
 
 export function removePromotionShippingSchema(db: DatabaseSync) {
+  removeServiceSchema(db)
   if (!db.prepare("SELECT name FROM sqlite_master WHERE name='promotions'").get()) return
   const foreignKeys = Number(db.prepare('PRAGMA foreign_keys').get()!.foreign_keys)
   db.exec('PRAGMA foreign_keys=OFF')

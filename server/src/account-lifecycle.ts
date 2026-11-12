@@ -124,6 +124,8 @@ export class AccountLifecycle {
    if(this.user(user.id).status!=='deleting'||this.matters(user.id).length)return
    const now=this.clock.now()
    this.queueFile(JSON.parse(user.profile).avatar)
+   for(const image of this.db.all<{path:string}>('SELECT path FROM service_images WHERE buyer_id=? AND message_id IS NULL',user.id))this.queueFile(image.path)
+   this.db.run('DELETE FROM service_images WHERE buyer_id=? AND message_id IS NULL',user.id)
    this.db.run("UPDATE users SET status='deleted',account=?,nickname='已注销用户',password='',profile='{}',deleted_at=? WHERE id=?",'deleted:'+user.id,now,user.id)
    for(const table of ['addresses','address_save_sessions','address_tombstones','carts','cart_requests','sessions','account_notices'])this.db.run(`DELETE FROM ${table} WHERE user_id=?`,user.id)
    this.db.run('DELETE FROM relations WHERE owner_id=? OR friend_id=?',user.id,user.id)
@@ -135,6 +137,10 @@ export class AccountLifecycle {
    const retention=new Date(completed??user.deletion_requested_at??now);retention.setUTCFullYear(retention.getUTCFullYear()+3)
    // Legacy refunds without a completion timestamp retain from this scan rather than guessing an earlier date.
    this.db.run('UPDATE orders SET retain_until=MAX(COALESCE(retain_until,0),?) WHERE owner_id=?',retention.getTime(),user.id)
+   const serviceRetention = new Date(now)
+   serviceRetention.setUTCFullYear(serviceRetention.getUTCFullYear()+3)
+   const lastOrderRetention = this.db.one<{until:number|null}>('SELECT MAX(retain_until) until FROM orders WHERE owner_id=?',user.id)?.until??0
+   this.db.run('UPDATE service_threads SET retain_until=MAX(COALESCE(retain_until,0),?,?) WHERE buyer_id=?',serviceRetention.getTime(),lastOrderRetention,user.id)
   })
  }
  async scan(){
@@ -148,7 +154,17 @@ export class AccountLifecycle {
     for(const key of ['receiver','contact','address','fullLocation','provinceCode','cityCode','countyCode'])address[key]=''
     for(const photo of this.db.all<{path:string}>('SELECT path FROM after_sale_images WHERE order_id=?',order.id))this.queueFile(photo.path)
     this.db.run('DELETE FROM after_sale_images WHERE order_id=?',order.id)
+    this.db.run('DELETE FROM invoices WHERE order_id=?',order.id)
+    this.db.run("UPDATE orders SET request_body=json_remove(request_body,'$.invoice') WHERE id=?",order.id)
     this.db.run('UPDATE orders SET address=?,personal_data_cleared_at=? WHERE id=?',JSON.stringify(address),now,order.id)
+   })
+  }
+  for(const thread of this.db.all<{buyer_id:string}>('SELECT buyer_id FROM service_threads WHERE retain_until<=?',now)){
+   this.db.transaction(()=>{
+    for(const image of this.db.all<{path:string}>('SELECT path FROM service_images WHERE buyer_id=?',thread.buyer_id))this.queueFile(image.path)
+    this.db.run('DELETE FROM service_images WHERE buyer_id=?',thread.buyer_id)
+    this.db.run('DELETE FROM service_messages WHERE buyer_id=?',thread.buyer_id)
+    this.db.run('DELETE FROM service_threads WHERE buyer_id=?',thread.buyer_id)
    })
   }
   for(const file of this.db.all<{path:string}>('SELECT path FROM account_file_deletions')){
