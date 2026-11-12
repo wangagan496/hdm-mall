@@ -144,7 +144,7 @@ export struct CustomerServiceView {
             Text(this.user.role === 'merchant' ? this.buyerName : '留言后商家会在这里回复，照片仅你和商家可见。').fontColor($r('[ui_components].color.gray'))
             if (this.orderId) { Text(this.orderLabel(this.orderName, this.orderCreatedAt)).id('service-linked-order').fontColor($r('[ui_components].color.text')) }
             if (this.message) { Text(this.message).id('service-message').fontColor(this.messageColor()) }
-            if (!this.user.token) { Button('登录后留言').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })) }
+            if (!this.user.token) { Button('登录后留言').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })) }
             Button(this.loading ? '读取中' : '刷新留言').id('service-refresh').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.loading).onClick(() => this.load())
             if (this.hasMore) { Button('查看更早留言').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.loading).onClick(() => this.load(true)) }
             ForEach(this.items, (item: ServiceMessage) => {
@@ -165,7 +165,7 @@ export struct CustomerServiceView {
               }
             }, (photo: AfterSalePhoto) => photo.requestKey)
             if (this.user.role !== 'merchant') { Button(this.choosing ? '读取照片中' : '选择照片（最多3张JPEG）').id('service-photo').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.pending && !this.choosing && this.photos.length < 3).onClick(() => this.choosePhoto()) }
-            Button(this.sending ? '发送中' : this.pending ? '重试发送' : '发送留言').id('service-send').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).enabled(!this.sending && !this.choosing && !!this.user.token).onClick(() => this.send())
+            Button(this.sending ? '发送中' : this.pending ? '重试发送' : '发送留言').id('service-send').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.sending && !this.choosing && !!this.user.token).onClick(() => this.send())
           }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
         }.layoutWeight(1).width('100%').align(Alignment.Bottom)
       }.width('100%').height('100%').padding({ top: this.topHeight, bottom: this.bottomHeight }).backgroundColor($r('[ui_components].color.under'))

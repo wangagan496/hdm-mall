@@ -73,6 +73,7 @@ struct PayView {
   }
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @State order: OrderItem | null = null
   @State loading: boolean = true
   @State loadFailed: boolean = false
@@ -489,7 +490,7 @@ struct PayView {
               .layoutWeight(1)
               Button(this.paying ? '支付中...' :
                 this.order.paymentState === 'confirming' || this.order.paymentState === 'review' ? '付款结果确认中' :
-                  '确认支付 ¥' + this.order.payMoney.toFixed(2)).fontColor($r('[ui_components].color.white'))
+                  '确认支付 ¥' + this.order.payMoney.toFixed(2)).fontColor($r('[ui_components].color.on_primary'))
                 .height(44)
                 .fontSize(14)
                 .fontWeight(500)
@@ -512,7 +513,7 @@ struct PayView {
     .hideTitleBar(true)
     .onShown(() => this.showCashier())
     .onHidden(() => this.aboutToDisappear())
-    .padding({ top: this.topHeight })
+    .padding({ top: this.topHeight, bottom: this.safeBottom })
   }
 }
 

@@ -27,6 +27,7 @@ export struct CartView {
   user: HDMUser = {} as HDMUser
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @State
   cartList: CartGoodsModel[] = []
   @State private cartListRevision: number = 0
@@ -528,7 +529,7 @@ export struct CartView {
     }
     .hideTitleBar(true)
     // 和订单页一致，让出系统状态栏高度，避免标题栏和返回键压在时间、电量上。
-    .padding({ top: this.topHeight })
+    .padding({ top: this.topHeight, bottom: this.standalone ? this.safeBottom : 0 })
     .bindContentCover($$this.showClearCartConfirm, this.ClearCartConfirmBuilder())
   }
 }

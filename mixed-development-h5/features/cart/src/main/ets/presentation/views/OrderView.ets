@@ -30,6 +30,7 @@ export struct OrderView {
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY)
   @Watch('onUserChanged')
   user: HDMUser = {
@@ -597,7 +598,7 @@ export struct OrderView {
             this.requestCancelOrder(order)
           })
         if (canOpenPayment(order)) {
-          Button('去支付').fontColor($r('[ui_components].color.white'))
+          Button('去支付').fontColor($r('[ui_components].color.on_primary'))
             .enabled(!this.busyOrderId && this.canUseOrder(order.id))
             .height(32)
             .fontSize(12)
@@ -644,7 +645,7 @@ export struct OrderView {
           .backgroundColor($r('[ui_components].color.white'))
           .border({ width: 0.5, color: $r('[ui_components].color.border') })
           .onClick(() => this.openOrderDetail(order.id))
-        Button(this.isBusy(order.id) ? '确认中...' : '确认收货').fontColor($r('[ui_components].color.white'))
+        Button(this.isBusy(order.id) ? '确认中...' : '确认收货').fontColor($r('[ui_components].color.on_primary'))
           .height(32)
           .fontSize(12)
           .backgroundColor($r('[ui_components].color.red'))
@@ -825,7 +826,7 @@ export struct OrderView {
       .backgroundColor($r('[ui_components].color.under'))
     }
     .hideTitleBar(true)
-    .padding({ top: this.topHeight })
+    .padding({ top: this.topHeight, bottom: this.safeBottom })
     .onShown(() => {
       this.refreshOnReturn()
     })

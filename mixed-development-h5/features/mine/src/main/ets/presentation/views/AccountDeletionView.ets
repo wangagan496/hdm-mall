@@ -14,6 +14,7 @@ interface CancelDeletionRequest { requestKey: string }
 export struct AccountDeletionView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) user: HDMUser = {} as HDMUser
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @Consume stackPath: NavPathStack
   @State info: DeletionStatus = { status: 'active', canCancel: false, message: '', matters: [] }
@@ -150,14 +151,14 @@ export struct AccountDeletionView {
               }
               Button(this.busy ? '正在提交' : '提交注销申请').id('submit-deletion')
                 .enabled(this.loaded && this.acknowledged && this.password.length >= 8 && !this.busy)
-                .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.white'))
+                .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
                 .onClick(() => this.submitDeletion())
             }
             if (this.error) { Text(this.error).fontColor($r('[ui_components].color.red')) }
           }.padding({ top: 20, left: 20, right: 20, bottom: 48 }).width('100%')
         }.layoutWeight(1).width('100%')
       }.height('100%').width('100%').backgroundColor($r('[ui_components].color.under'))
-    }.hideTitleBar(true).padding({ top: this.topHeight }).onShown(() => this.shown()).onHidden(() => this.hidden())
+    }.hideTitleBar(true).padding({ top: this.topHeight, bottom: this.safeBottom }).onShown(() => this.shown()).onHidden(() => this.hidden())
   }
 }
 

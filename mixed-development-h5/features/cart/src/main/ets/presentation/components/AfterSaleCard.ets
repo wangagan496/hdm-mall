@@ -93,7 +93,7 @@ export struct AfterSaleCard {
         Text('运单截图必填，1张JPEG，不超过512KB').fontColor($r('[ui_components].color.gray')).fontSize(13)
         if(this.shippingPhotos.length){Image('data:image/jpeg;base64,'+this.shippingPhotos[0].bytes).width(120).height(100).objectFit(ImageFit.Contain)}
         Button(this.shippingPhotos.length?'更换运单截图':'选择运单截图').id('after-sale-shipping-photo').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.ready&&!this.pending&&!this.busy).onClick(()=>this.chooseShippingPhoto())
-        Button('提交寄回信息').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).id('after-sale-ship-back').enabled(this.ready&&!this.pending&&!this.busy).onClick(()=>this.act('ship-back'))
+        Button('提交寄回信息').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).id('after-sale-ship-back').enabled(this.ready&&!this.pending&&!this.busy).onClick(()=>this.act('ship-back'))
       }
       if(this.sale.state==='returned') {
         if(this.owner){Text((this.sale.carrier||'')+' '+(this.sale.trackingNo||'')).fontColor($r('[ui_components].color.text'))}
@@ -104,7 +104,7 @@ export struct AfterSaleCard {
       if(this.owner&&this.sale.shippingImage){AfterSalePhotos({images:[this.sale.shippingImage],loadImage:(path:string):Promise<string>=>this.photo(path)})}
       if(this.owner&&(this.sale.images||[]).length>0){AfterSalePhotos({images:this.sale.images||[],loadImage:(path:string):Promise<string>=>this.photo(path)})}
       if(this.message){Text(this.message).fontColor($r('[ui_components].color.text'))}
-      if(this.pending&&this.owner){Button('重试确认结果').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).id('after-sale-retry').enabled(!this.busy&&this.ready).onClick(()=>this.act('withdraw'))}
+      if(this.pending&&this.owner){Button('重试确认结果').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).id('after-sale-retry').enabled(!this.busy&&this.ready).onClick(()=>this.act('withdraw'))}
     }.alignItems(HorizontalAlign.Start).width('100%').padding(14).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
   }
 }

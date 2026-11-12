@@ -14,6 +14,7 @@ export struct SearchResultView {
   // 顶部安全区域
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   safeTop: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.BREAK_POINT_KEY)
   breakPoint: string = ""
   // 页面实际显示的商品；每次翻页追加，重新搜索时清空。
@@ -272,11 +273,11 @@ export struct SearchResultView {
               .fontSize(12).fontColor($r('[ui_components].color.text'))
             Row({ space: 12 }) {
               if (this.loadFailed) {
-                Button('重新加载').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.white'))
+                Button('重新加载').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
                   .onClick(() => this.restartSearch())
               } else {
                 Button(this.emptyActionLabel()).id('empty-action')
-                  .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.white'))
+                  .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
                   .onClick(() => this.resolveEmpty())
               }
               Button(this.backLabel()).id('empty-back')
@@ -318,6 +319,7 @@ export struct SearchResultView {
         }
       }
     }
+    .padding({ bottom: this.safeBottom })
     .hideTitleBar(true)
   }
 }

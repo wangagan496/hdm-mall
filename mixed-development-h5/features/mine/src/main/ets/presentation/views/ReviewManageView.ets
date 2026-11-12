@@ -70,7 +70,7 @@ export struct ReviewManageView {
                 ForEach(this.reasons, (reason: string) => {
                   Button(reason).id('moderation-reason-' + reason).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({ width: this.reason === reason ? 2 : 0, color: $r('[ui_components].color.red') }).enabled(!this.busy).onClick(() => { this.reason = reason })
                 })
-                Button(this.busy ? '处理中' : '确认处理').id('moderation-submit').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).enabled(!this.busy).onClick(() => this.submit())
+                Button(this.busy ? '处理中' : '确认处理').id('moderation-submit').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.busy).onClick(() => this.submit())
                 Button('暂不处理').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => { this.selected = null })
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }

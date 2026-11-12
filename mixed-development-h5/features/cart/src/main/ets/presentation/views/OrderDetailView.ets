@@ -572,7 +572,7 @@ export struct OrderDetailView {
             Column({ space: 12 }) {
               if(this.order.canApplyAfterSale) {
                 Button('申请售后').id('order-apply-after-sale').enabled(this.canOperateOrder()&&!this.busy)
-                  .backgroundColor($r('[ui_components].color.red')).fontColor(Color.White)
+                  .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
                   .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:this.orderId}))
               }
               if(this.order.afterSaleNotice) {
@@ -640,7 +640,7 @@ export struct OrderDetailView {
                     Text('发票由商家线下开具').fontColor($r('[ui_components].color.gray'))
                   } else if (this.invoiceEditing) {
                     InvoiceForm({ value: this.invoiceDraft, disabled: this.invoiceSaving, onChange: value => { this.invoiceDraft = value; this.invoiceMessage = '' } })
-                    Button(this.invoiceSaving ? '登记中' : '保存开票信息').id('invoice-save').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).enabled(!this.invoiceSaving).onClick(() => this.saveInvoice())
+                    Button(this.invoiceSaving ? '登记中' : '保存开票信息').id('invoice-save').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.invoiceSaving).onClick(() => this.saveInvoice())
                   } else {
                     Button('补登记开票信息').id('invoice-register').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => { this.invoiceEditing = true })
                   }
@@ -729,7 +729,7 @@ export struct OrderDetailView {
                   if (this.evaluation?.hiddenReason) {
                     Text('已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
                     if (this.order.canEvaluate) {
-                      Button('修改后重新发布').id('review-republish').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(() => this.runComment())
+                      Button('修改后重新发布').id('review-republish').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.runComment())
                     }
                   }
                 }

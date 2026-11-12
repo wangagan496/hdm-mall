@@ -25,6 +25,10 @@
       "value": "#FF5B67"
     },
     {
+      "name": "on_primary",
+      "value": "#191919"
+    },
+    {
       "name": "linear_begin",
       "value": "#FD3F8F"
     },

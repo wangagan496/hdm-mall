@@ -8,8 +8,8 @@ test('CD-L08 协议为独立文字链接，两个选择共用同一按钮样式�
  assert.match(s,/ForEach\(\['不同意', '同意'\]/)
  assert.match(s,/autoCancel: false/)
  assert.match(s,/Row\(\{ space: 12 \}\)/)
- assert.match(s,/Text\('隐私与协议'\).*fontColor\('#222222'\)/)
- assert.match(s,/Text\(params.message\).*fontColor\('#222222'\)/)
+ assert.match(s,/Text\('隐私与协议'\).*fontColor\(\$r\('app\.color\.consent_text'\)\)/)
+ assert.match(s,/Text\(params.message\).*fontColor\(\$r\('app\.color\.consent_text'\)\)/)
 })
 
 test('CD-L10 同意弹层仅显式选择后关闭，重复点击只结算一次并释放内容',async()=>{

@@ -602,7 +602,7 @@ export struct EvaluationView {
 
           Column() {
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':'提交评价').fontColor($r('[ui_components].color.white'))
+            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':'提交评价').fontColor($r('[ui_components].color.on_primary'))
               .width('100%')
               .height(44)
               .fontSize(15)

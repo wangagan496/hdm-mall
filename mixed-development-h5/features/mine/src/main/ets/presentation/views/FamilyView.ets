@@ -28,6 +28,7 @@ function FamilyViewBuilder() {
 export struct FamilyView {
   @Consume stackPath: NavPathStack
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) safeTop: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount')
   user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
@@ -835,7 +836,7 @@ export struct FamilyView {
             }
           }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
         }.layoutWeight(1).width('100%').align(Alignment.TopStart)
-      }.width('100%').height('100%').padding({ top: this.safeTop }).backgroundColor($r('[ui_components].color.under'))
+      }.width('100%').height('100%').padding({ top: this.safeTop, bottom: this.safeBottom }).backgroundColor($r('[ui_components].color.under'))
     }.hideTitleBar(true)
     .bindSheet($$this.showCancelResolution, this.CancelResolutionSheet(), {
       height: SheetSize.FIT_CONTENT,

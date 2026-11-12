@@ -27,6 +27,7 @@ export struct LoginView {
   @State isRegistrationMode: boolean = false
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @Consume
   stackPath: NavPathStack
 
@@ -282,11 +283,11 @@ export struct LoginView {
                 Text() {
                   Span(this.consentAlreadyAccepted ? '已同意' : '查看并同意')
                   Span('《隐私政策》')
-                    .fontColor('#007DFB')
+                    .fontColor($r('[ui_components].color.red'))
                     .onClick(()=>this.openAgreement('privacy'))
                   Span('和')
                   Span('《用户协议》')
-                    .fontColor('#007DFB')
+                    .fontColor($r('[ui_components].color.red'))
                     .onClick(()=>this.openAgreement('terms'))
                 }
                 .layoutWeight(1)
@@ -308,7 +309,7 @@ export struct LoginView {
               Row() {
                 Blank()
                 Text(this.isRegistrationMode ? '已有账号，去登录' : '没有账号，去注册')
-                  .fontColor('#007DFB')
+                  .fontColor($r('[ui_components].color.red'))
                   .fontSize(12)
                   .onClick(() => {
                     if (!this.submitting) {
@@ -358,7 +359,7 @@ export struct LoginView {
       }
     }
     .padding({
-      top: this.topHeight
+      top: this.topHeight, bottom: this.safeBottom
     })
     .hideTitleBar(true)
     .onBackPressed(()=>{if(this.documentTitle){this.closeAgreement();return true}return false})

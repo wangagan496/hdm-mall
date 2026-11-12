@@ -28,7 +28,7 @@ export struct HomeNewGoodsSection {
       .width('100%').height(116).scrollBar(BarState.Off).listDirection(Axis.Horizontal)
     }
     .width('100%').height(156).padding(10)
-    .backgroundColor('#F7EFF5').borderRadius(8)
+    .backgroundColor($r('[ui_components].color.white')).borderRadius(8)
     .alignItems(HorizontalAlign.Start)
   }
 }
