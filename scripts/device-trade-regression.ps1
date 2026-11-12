@@ -1,12 +1,12 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe, $TradeNetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
 if ($emulator.Name -ne 'Emulator.exe' -or $emulator.CommandLine -notmatch '"Pura 90 API24"') { throw 'Target 5555 is not the allocated Pura 90 API24 instance.' }
 $StartedAt = Get-Date
-$Mode = if ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
+$Mode = if ($TradeNetworkProbe) { 'TradeNetworkProbe' } elseif ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
 $PackagePath = "$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app"
 $PackageSha256 = (Get-FileHash $PackagePath -Algorithm SHA256).Hash
@@ -20,7 +20,7 @@ if ($ReturnPolicyProbe) { $Mode = 'ReturnPolicyProbe' }
 if ($PromotionProbe) { $Mode = 'PromotionProbe' }
 if ($ServiceProbe) { $Mode = 'ServiceProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
-$Output = Join-Path $Root $(if ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
+$Output = Join-Path $Root $(if ($TradeNetworkProbe) { '_device_acceptance/trade-network-probe' } elseif ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
 if ($AfterSaleProbe) { $Output = Join-Path $Root '_device_acceptance/after-sale-probe' }
 if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
@@ -2139,7 +2139,8 @@ function Invoke-UxProbe {
 }
 . (Join-Path $PSScriptRoot 'device-promotion-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-service-probe.ps1')
-$Existing = @(& $Hdc -t $Target fport ls)
+. (Join-Path $PSScriptRoot 'device-trade-network-probe.ps1'); if ($TradeNetworkProbe) { return }
+$Existing = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
 $Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
 if (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) { throw 'Fixture port 3103 is already in use.' }
 $HadOriginal = ($Existing -join "`n") -match 'tcp:3000 tcp:3000\s+\[Reverse\]'
@@ -2211,10 +2212,10 @@ try {
     Wait-Text 'device_buyer'
     Tap-Text '亲友中心 · 代付与代收'
     Tap-Text '关系管理'
-    Tap-Text '关系下一页'
+    Scroll-Text '关系下一页'
     Wait-Text '我的亲友：probe_00'
     Capture 'relations-page-2'
-    Tap-Text '解除绑定'
+    Scroll-Text '解除绑定'
     Wait-Text '我的亲友：probe_10'
     $Relations = Api 'device_buyer' '/member/relations/page?page=1&pageSize=10'
     if ($Relations.counts -ne 10 -or $Relations.pages -ne 1) { throw 'Relation last-page recovery proof failed' }
@@ -2398,7 +2399,7 @@ try {
       if(Test-Path -LiteralPath $FixtureUploads){Remove-Item -LiteralPath $FixtureUploads -Recurse -Force}
       $UploadsRemoved=!(Test-Path -LiteralPath $FixtureUploads)
     }
-    $After = @(& $Hdc -t $Target fport ls)
+    $After = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
     $After | Set-Content -LiteralPath "$Output/ports-after.txt"
     $Clean = (($Existing -join "`n") -eq ($After -join "`n")) -and -not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) -and -not (Get-Process -Id $Fixture.Id -ErrorAction SilentlyContinue)
     @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue));uploadsRemoved=$UploadsRemoved} | ConvertTo-Json | Set-Content "$Output/cleanup.json"
