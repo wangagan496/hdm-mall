@@ -1,4 +1,5 @@
 import { AfterSale } from './AfterSaleModels'
+import { InvoiceInput, InvoiceDetail } from './InvoiceModels'
 import { ReturnPolicyFields } from './ReturnPolicy'
 
 export interface HDMGoodsItem extends ReturnPolicyFields {
@@ -210,6 +211,7 @@ export interface CreateOrderParamsGoods {
 }
 
 export interface CreateOrderParams {
+  invoice?: InvoiceInput
   expectedPromotionRevision?: number
   returnPolicyConfirmed?: boolean
   expectedReturnPolicyToken?: string
@@ -229,6 +231,7 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  invoice?: InvoiceDetail | null
   afterSales?: AfterSale[]
   canApplyAfterSale?: boolean
   afterSaleActive?: boolean
@@ -407,6 +410,7 @@ export interface PayResultParams {
 
 /** 本地演示评价：仅用于补齐「待评价」演示闭环，不会提交到后端。 */
 export interface LocalEvaluationItem {
+  hiddenReason?: string | null
   orderId: string
   score: number
   content: string

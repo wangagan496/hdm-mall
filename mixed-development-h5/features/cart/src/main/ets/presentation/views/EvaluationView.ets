@@ -241,10 +241,14 @@ export struct EvaluationView {
       if(this.pendingEvaluation) {
         const snapshot=this.pendingEvaluation,evaluation=orderToReview.evaluation
         this.resultUnknown=false;this.stopEvaluationMonitor()
-        if(evaluation&&evaluation.score===snapshot.score&&evaluation.content===snapshot.content.trim()){
+        if(evaluation?.hiddenReason){this.errorText='已被商家隐藏：'+evaluation.hiddenReason+'，请修改后重新发布';this.pendingEvaluation=undefined;this.saveDraft()}
+        else if(evaluation&&evaluation.score===snapshot.score&&evaluation.content===snapshot.content.trim()){
           this.submitted=true;this.pendingEvaluation=undefined;this.errorText='评价已发布';this.saveDraft()
         }else if(evaluation){this.errorText='订单已有不同评价，本次输入已保留';this.pendingEvaluation=undefined;this.saveDraft()}
         else {this.errorText='尚未查到本次评价，可以继续提交';this.pendingEvaluation=undefined;this.saveDraft()}
+      } else if (orderToReview.evaluation?.hiddenReason) {
+        this.errorText = '已被商家隐藏：' + orderToReview.evaluation.hiddenReason + '，请修改后重新发布'
+        if (!this.content) { this.content = orderToReview.evaluation.content; this.score = orderToReview.evaluation.score }
       } else if (orderToReview.evaluation) {
         this.errorText = '该订单已评价，当前输入保留为本机草稿'
       } else if (!orderToReview.canEvaluate) {
@@ -330,6 +334,9 @@ export struct EvaluationView {
       return
     }
     // 空字符串表示评分和文字均通过检查；否则直接显示具体原因。
+    if (this.order.evaluation?.hiddenReason && this.content.trim() === this.order.evaluation.content) {
+      this.errorText = '请修改评价内容后再发布'; return
+    }
     const validationMessage = validateEvaluation(this.score, this.content)
     if (validationMessage) {
       this.errorText = validationMessage
@@ -352,7 +359,7 @@ export struct EvaluationView {
             // 回应丢失时按已保存内容确认；其他评价不冒充本次提交成功。
             const confirmed = await getOrderDetailAPI(orderId, token).catch(() => null)
             if (!this.isCurrentEvaluation(generation, token, orderId)) return
-            if (!confirmed?.evaluation || confirmed.evaluation.score !== score ||
+            if (!confirmed?.evaluation || confirmed.evaluation.hiddenReason || confirmed.evaluation.score !== score ||
               confirmed.evaluation.content !== content.trim()) throw error as Error
           }
           if (!this.isCurrentEvaluation(generation, token, orderId)) return
@@ -595,7 +602,7 @@ export struct EvaluationView {
 
           Column() {
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':'提交评价').fontColor($r('[ui_components].color.white'))
+            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':'提交评价').fontColor($r('[ui_components].color.white'))
               .width('100%')
               .height(44)
               .fontSize(15)

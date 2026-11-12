@@ -16,6 +16,11 @@ import { OrderCountdown } from '../components'
 import { orderCancellation } from '../utils/OrderCancellation'
 import { AfterSaleCard } from '../components/AfterSaleCard'
 import { AfterSale } from 'models'
+import { InvoiceInput, InvoiceDetail, normalizedInvoice, invoiceInputError } from 'models'
+import { RequestAxios } from 'network'
+import { InvoiceForm } from '../components/InvoiceForm'
+
+interface OrderServiceRoute { orderId: string; orderName: string; orderCreatedAt: number }
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -24,6 +29,32 @@ function OrderDetailViewBuilder() {
 
 @Component
 export struct OrderDetailView {
+  @State invoiceDraft: InvoiceInput = { titleType: 'individual', title: '', email: '' }
+  @State invoiceEditing: boolean = false
+  @State invoiceSaving: boolean = false
+  @State invoiceMessage: string = ''
+  @State invoiceMessageOk: boolean = false
+  private canRegisterInvoice(): boolean {
+    return this.canOperateOrder() && this.order?.ownerAccount === this.user.account &&
+      (this.order?.orderState === 4 || this.order?.orderState === 5) && !this.order?.invoice
+  }
+  private async saveInvoice(): Promise<void> {
+    if (this.invoiceSaving || !this.canRegisterInvoice()) return
+    this.invoiceMessageOk = false
+    this.invoiceMessage = invoiceInputError(this.invoiceDraft)
+    if (this.invoiceMessage) return
+    const token = this.detailToken, generation = this.pageGeneration, orderId = this.orderId
+    this.invoiceSaving = true
+    try {
+      const invoice = await RequestAxios.putForSession<InvoiceDetail>('/member/order/' + encodeURIComponent(orderId) + '/invoice', normalizedInvoice(this.invoiceDraft), token)
+      if (this.isCurrentDetail(generation, token, orderId) && this.order) {
+        const updated = JSON.parse(JSON.stringify(this.order)) as OrderItem
+        updated.invoice = invoice; this.order = updated; this.invoiceEditing = false; this.invoiceMessageOk = true; this.invoiceMessage = '开票信息已登记'
+      }
+    } catch {
+      if (this.isCurrentDetail(generation, token, orderId)) this.invoiceMessage = '暂未确认登记结果，请重试；相同信息不会重复登记'
+    } finally { if (this.isCurrentDetail(generation, token, orderId)) this.invoiceSaving = false }
+  }
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   private querySequence: number = 0
@@ -101,6 +132,7 @@ export struct OrderDetailView {
     this.querySequence++
     this.busy = ''
     this.loading = false
+    this.invoiceSaving = false
   }
 
   private showOrderDetail(): void {
@@ -122,6 +154,8 @@ export struct OrderDetailView {
       return
     }
     this.detailToken = token
+    this.invoiceDraft = { titleType: 'individual', title: '', email: '' }
+    this.invoiceEditing = false; this.invoiceSaving = false; this.invoiceMessage = ''
     this.stopPendingChecks()
     this.receiptPending = false
     this.detailOrderId = this.orderId
@@ -575,6 +609,11 @@ export struct OrderDetailView {
                 Text('订单号 ' + this.order.id)
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
+                if (this.order.ownerAccount === this.user.account) {
+                  Button('联系客服').id('order-service').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => {
+                    if (this.order) this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE, param: { orderId: this.order.id, orderName: this.order.skus[0]?.name || '', orderCreatedAt: new Date(this.order.createTime).getTime() || 0 } as OrderServiceRoute })
+                  })
+                }
                 if (this.order.createTime) {
                   Text(formatBeijingTime(this.order.createTime) + ' 下单')
                   .fontSize(11)
@@ -590,6 +629,24 @@ export struct OrderDetailView {
               .borderRadius(8)
               .alignItems(HorizontalAlign.Start)
 
+              if (this.order.invoice || this.canRegisterInvoice()) {
+                Column({ space: 10 }) {
+                  Text('开票信息').fontSize(16).fontColor($r('[ui_components].color.text'))
+                  if (this.order.invoice) {
+                    Text(this.order.invoice.status === 'issued' ? '已开票' : '已登记，等待商家开票').id('buyer-invoice-status').fontColor($r('[ui_components].color.red'))
+                    Text(this.order.invoice.title).fontColor($r('[ui_components].color.text'))
+                    Text('接收邮箱：' + this.order.invoice.email).fontColor($r('[ui_components].color.text'))
+                    if (this.order.invoice.number) { Text('发票号码：' + this.order.invoice.number).fontColor($r('[ui_components].color.text')) }
+                    Text('发票由商家线下开具').fontColor($r('[ui_components].color.gray'))
+                  } else if (this.invoiceEditing) {
+                    InvoiceForm({ value: this.invoiceDraft, disabled: this.invoiceSaving, onChange: value => { this.invoiceDraft = value; this.invoiceMessage = '' } })
+                    Button(this.invoiceSaving ? '登记中' : '保存开票信息').id('invoice-save').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).enabled(!this.invoiceSaving).onClick(() => this.saveInvoice())
+                  } else {
+                    Button('补登记开票信息').id('invoice-register').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => { this.invoiceEditing = true })
+                  }
+                  if (this.invoiceMessage) { Text(this.invoiceMessage).fontColor(this.invoiceMessageOk ? $r('[ui_components].color.text') : $r('[ui_components].color.red')) }
+                }.width('100%').padding(12).backgroundColor($r('[ui_components].color.white')).borderRadius(8).alignItems(HorizontalAlign.Start)
+              }
               if (this.order.refunds && this.order.refunds.length > 0) {
                 Column({ space: 6 }) {
                   ForEach(this.order.refunds, (refund: OrderRefund) => {
@@ -669,6 +726,12 @@ export struct OrderDetailView {
                     .lineHeight(22)
                     .fontColor($r('[ui_components].color.text'))
                     .width('100%')
+                  if (this.evaluation?.hiddenReason) {
+                    Text('已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
+                    if (this.order.canEvaluate) {
+                      Button('修改后重新发布').id('review-republish').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(() => this.runComment())
+                    }
+                  }
                 }
                 .width('100%')
                 .padding(12)

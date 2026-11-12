@@ -9,6 +9,7 @@ import { inspectAfterSales } from './after-sale-backup.ts'
 import { inspectAudit } from './audit-backup.ts'
 import { inspectReturnPolicy } from './return-policy-backup.ts'
 import { inspectPromotionShipping } from './promotion-shipping-backup.ts'
+import { inspectServices } from './service-backup.ts'
 
 const imageName = avatarFileName
 const tables = ['users', 'sessions', 'relations', 'products', 'skus', 'carts', 'addresses',
@@ -26,10 +27,12 @@ const issueSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('after-sale-mismatch'), orderId: z.string() }).strict(),
   z.object({ type: z.literal('missing-after-sale-image'), path: z.string() }).strict(),
   z.object({ type: z.literal('after-sale-image-hash-mismatch'), imageId: z.string() }).strict(),
+  z.object({ type: z.literal('missing-service-image'), path: z.string() }).strict(),
+  z.object({ type: z.literal('service-image-hash-mismatch'), imageId: z.string() }).strict(),
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14), z.literal(15), z.literal(16)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14), z.literal(15), z.literal(16), z.literal(17)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -117,7 +120,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12 && version !== 13 && version !== 14 && version !== 15 && version !== 16) throw new Error('仅支持数据库版本 2 至 16')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12 && version !== 13 && version !== 14 && version !== 15 && version !== 16 && version !== 17) throw new Error('仅支持数据库版本 2 至 17')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -126,7 +129,8 @@ function inspectDatabase(path: string) {
       ...(version >= 9 ? ['cart_requests'] : []), ...(version >= 10 ? ['product_images', 'product_changes'] : []),
       ...(version >= 12 ? ['after_sales','after_sale_items','after_sale_images','after_sale_actions','merchant_settings'] : []),
       ...(version >= 13 ? ['consents','consent_requests','account_deletions','account_notices','account_file_deletions'] : []),
-      ...(version >= 14 ? ['audit_log'] : []), ...(version >= 16 ? ['promotions','promotion_changes'] : [])]) {
+      ...(version >= 14 ? ['audit_log'] : []), ...(version >= 16 ? ['promotions','promotion_changes'] : []),
+      ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -224,8 +228,10 @@ function inspectDatabase(path: string) {
         uploads.add(path.slice(1))
       }
     }
-    return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages,
-      issues, schemaVersion: version as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 }
+    const serviceImages = version >= 17 ? inspectServices(db) : []
+    for (const image of serviceImages) uploads.add(image.path)
+    return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages, serviceImages,
+      issues, schemaVersion: version as Manifest['schemaVersion'] }
   } finally { db.close() }
 }
 
@@ -238,7 +244,9 @@ function snapshotIssues(database: ReturnType<typeof inspectDatabase>, files: Man
     ...database.registeredImages.filter(row => files.some(file => file.path === row.path && file.sha256 !== row.sha256))
       .map(row => ({ type: 'product-image-hash-mismatch' as const, imageId: row.imageId })),
     ...database.afterSaleImages.filter(row => !images.includes(row.path)).map(row => ({type:'missing-after-sale-image' as const,path:row.path})),
-    ...database.afterSaleImages.filter(row => files.some(file => file.path===row.path && file.sha256!==row.sha256)).map(row => ({type:'after-sale-image-hash-mismatch' as const,imageId:row.imageId}))]
+     ...database.afterSaleImages.filter(row => files.some(file => file.path===row.path && file.sha256!==row.sha256)).map(row => ({type:'after-sale-image-hash-mismatch' as const,imageId:row.imageId})),
+     ...database.serviceImages.filter(row => !images.includes(row.path)).map(row => ({type:'missing-service-image' as const,path:row.path})),
+     ...database.serviceImages.filter(row => files.some(file => file.path===row.path && file.sha256!==row.sha256)).map(row => ({type:'service-image-hash-mismatch' as const,imageId:row.imageId}))]
 }
 
 // 备份文件不携带 WAL；恢复时只需要快照本身，不能混入旁边的旧日志。

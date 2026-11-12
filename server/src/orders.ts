@@ -11,6 +11,8 @@ import type { AfterSales } from './after-sales.ts'
 import { localAvatarPath } from './avatar.ts'
 import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
+import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
+import { checkPublicContent } from './content-filter.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -64,6 +66,7 @@ export interface CreateOrder {
   returnPolicyConfirmed?: boolean
   expectedReturnPolicyToken?: string
   expectedPromotionRevision?: number
+  invoice?: InvoiceInput
 }
 interface CancelRequest {
   id: string
@@ -196,6 +199,7 @@ export class Orders {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
     const evaluation = this.db.one<{ score: number; content: string; created: number }>('SELECT * FROM evaluations WHERE order_id=?', order.id)
+    const hiddenReason = this.db.one<{ reason: string }>('SELECT reason FROM review_moderation WHERE order_id=?', order.id)?.reason ?? null
     const paymentFields = this.payments?.orderFields(order, user)
     const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&
       !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
@@ -209,7 +213,7 @@ export class Orders {
       receivedAt: order.received_at, serverManaged: true,
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
-      canEvaluate: isOrderOwner && order.state === ORDER_STATE.AWAITING_REVIEW,
+      canEvaluate: isOrderOwner && (order.state === ORDER_STATE.AWAITING_REVIEW || Boolean(hiddenReason)),
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
       countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
@@ -224,7 +228,8 @@ export class Orders {
         ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
-      evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created } : null,
+      evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created, hiddenReason } : null,
+      ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
       ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
         canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner }),
@@ -351,7 +356,8 @@ export class Orders {
       addressId: data.addressId,
       expectedAmountCents: data.expectedAmountCents,
       goods: [...data.goods].sort((left, right) => left.skuId.localeCompare(right.skuId)),
-      returnPolicyConfirmed:data.returnPolicyConfirmed??false,expectedReturnPolicyToken:data.expectedReturnPolicyToken??'',expectedPromotionRevision:data.expectedPromotionRevision??null
+      returnPolicyConfirmed:data.returnPolicyConfirmed??false,expectedReturnPolicyToken:data.expectedReturnPolicyToken??'',expectedPromotionRevision:data.expectedPromotionRevision??null,
+      invoice: data.invoice ?? null
     })
     // 查重、扣库存、保存订单和移除购物车商品必须一起成功；任何一步失败都回滚。
     return this.db.transaction(() => {
@@ -361,7 +367,8 @@ export class Orders {
         const previous = JSON.parse(existing.request_body) as Omit<CreateOrder, 'requestKey'>
         const previousBody = JSON.stringify({ source: previous.source ?? 'cart', addressId: previous.addressId,
           expectedAmountCents: previous.expectedAmountCents, goods: previous.goods,
-          returnPolicyConfirmed:previous.returnPolicyConfirmed??false,expectedReturnPolicyToken:previous.expectedReturnPolicyToken??'',expectedPromotionRevision:previous.expectedPromotionRevision??null })
+          returnPolicyConfirmed:previous.returnPolicyConfirmed??false,expectedReturnPolicyToken:previous.expectedReturnPolicyToken??'',expectedPromotionRevision:previous.expectedPromotionRevision??null,
+          invoice: previous.invoice ?? null })
         ensure(previousBody === normalizedRequestBody, 409, '同一次下单不能修改来源、商品或地址，请重新结算')
         return { id: existing.id }
       }
@@ -389,6 +396,7 @@ export class Orders {
       }
       this.reserveStock(items)
       const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items, data.returnPolicyConfirmed===true)
+      if (data.invoice) requestInvoice(this.db, user, id, data.invoice, this.clock.now())
       for (const item of items) {
         recordStockMovement(this.db, { kind: 'reserve', skuId: item.id, delta: -item.count, orderId: id, actorId: user.id }, this.clock)
         if (data.source !== 'buy-now') this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
@@ -687,11 +695,19 @@ export class Orders {
     })
   }
   evaluate(user: User, id: string, score: number, content: string) {
+    checkPublicContent(content)
     return this.db.transaction(() => {
       const order = this.get(id)
       this.owner(user, order)
-      ensure(order.state === ORDER_STATE.AWAITING_REVIEW, 409, '订单未收货或已评价')
-      this.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, score, content, this.clock.now())
+      const hidden = this.db.one('SELECT order_id FROM review_moderation WHERE order_id=?', id)
+      ensure(order.state === ORDER_STATE.AWAITING_REVIEW || order.state === ORDER_STATE.COMPLETED && hidden, 409, '订单未收货或已评价')
+      if (hidden) {
+        const previous = this.db.one<{ content: string }>('SELECT content FROM evaluations WHERE order_id=?', id)!
+        ensure(previous.content !== content, 409, '请修改评价内容后再发布')
+        this.db.run('UPDATE evaluations SET score=?,content=?,created=? WHERE order_id=?', score, content, this.clock.now(), id)
+        this.db.run('DELETE FROM review_moderation WHERE order_id=?', id)
+        appendAudit(this.db, { created: this.clock.now(), actor: user, action: 'review.republish', targetType: 'order', targetId: id, orderId: id })
+      } else this.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, score, content, this.clock.now())
       this.db.run('UPDATE orders SET state=5 WHERE id=?', id)
       return { id }
     })

@@ -12,6 +12,8 @@ function policyLabel(value: string | number | boolean | undefined): string {
 
 export function auditActionLabel(action: string): string {
   const labels: Record<string, string> = {
+    'invoice.request': '登记开票信息', 'invoice.issued': '标记已开票', 'review.hide': '隐藏评价',
+    'review.republish': '修改后重新发布评价', 'avatar.reset': '重置违规头像',
     'promotion.edit': '修改满减规则', 'aftersale.shipping_comp': '补偿退货运费',
     'product.create': '新建商品', 'product.edit': '修改商品', 'product.status': '上架或下架',
     'product.return_policy': '修改退货规则',

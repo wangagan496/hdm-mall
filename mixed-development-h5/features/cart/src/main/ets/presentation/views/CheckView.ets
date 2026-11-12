@@ -8,6 +8,8 @@ import { connection } from '@kit.NetworkKit'
 import { createOrderAPI, getPreOrderAPI, updateCheckoutCartAPI } from '../../data/api'
 import { normalizeCheckoutAddress } from '../utils/CartPresentation'
 import { ReturnPolicyConfirmation, ReturnPolicyGoods, returnPolicyLabel } from 'models'
+import { InvoiceInput, normalizedInvoice, invoiceInputError } from 'models'
+import { InvoiceForm } from '../components/InvoiceForm'
 
 // 用业务名称区分弹层，避免读者猜测 1、2 各代表什么。
 enum CheckoutSheet {
@@ -30,6 +32,9 @@ export struct CheckView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   // 本次要购买的商品：由服务端根据购物袋中已勾选的商品返回。
   @State goodsList: OrderGoodsItem[] = []
+  @State invoiceEnabled: boolean = false
+  @State invoiceDraft: InvoiceInput = { titleType: 'individual', title: '', email: '' }
+  @State invoiceError: string = ''
   @State returnPolicy: ReturnPolicyConfirmation = new ReturnPolicyConfirmation()
   private checkoutScroller: Scroller = new Scroller()
   @State excludedNotice: string = ''
@@ -150,6 +155,11 @@ export struct CheckView {
     this.checkoutLoading = false
     this.showSheet = false
     this.activeSheet = CheckoutSheet.None
+    if (!token || changedAccount) {
+      this.invoiceEnabled = false
+      this.invoiceDraft = { titleType: 'individual', title: '', email: '' }
+      this.invoiceError = ''
+    }
     if (!changedAccount) return
     this.returnPolicy = new ReturnPolicyConfirmation()
     this.requestSummary = ''
@@ -488,6 +498,8 @@ export struct CheckView {
     if (!this.canSubmitOrder()) {
       return
     }
+    this.invoiceError = this.invoiceEnabled ? invoiceInputError(this.invoiceDraft) : ''
+    if (this.invoiceError) { this.safeToast(this.invoiceError); return }
     this.showSheet = false
     await this.createOrderAndOpenCashier()
   }
@@ -508,9 +520,10 @@ export struct CheckView {
 
   // 只提交商品规格、数量和地址等下单信息；金额由服务端核算。
   private buildOrderRequest(): CreateOrderParams {
+    const invoice: InvoiceInput | undefined = this.invoiceEnabled ? normalizedInvoice(this.invoiceDraft) : undefined
     const source: 'cart' | 'buy-now' = this.checkoutSelection ? 'buy-now' : 'cart'
     const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100), expectedPromotionRevision: this.promotion.rule.revision || undefined,
-      returnPolicyConfirmed: this.returnPolicy.confirmed, expectedReturnPolicyToken: this.returnPolicy.token,
+      returnPolicyConfirmed: this.returnPolicy.confirmed, expectedReturnPolicyToken: this.returnPolicy.token, invoice,
       goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({ skuId: item.skuId, count: item.count }))
         .sort((left: CreateOrderParamsGoods, right: CreateOrderParamsGoods) => left.skuId.localeCompare(right.skuId)) })
     if (!GlobalVariable.DEMO_ORDER_FLOW && this.requestSummary && this.requestSummary !== summary) {
@@ -519,6 +532,7 @@ export struct CheckView {
     this.requestSummary = summary
     return {
       source,
+      invoice,
       requestKey: this.orderRequestKey,
       expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
       expectedPromotionRevision: this.promotion.rule.revision || undefined,
@@ -803,6 +817,17 @@ export struct CheckView {
               Column() {
                 HDMCell({ title: '配送时间', value: '时间不限' })
                 HDMCell({ title: '留言', value: '建议留言前先和卖家沟通' })
+                Row({ space: 12 }) {
+                  Text('登记开票信息（选填）').fontColor($r('[ui_components].color.text')).layoutWeight(1)
+                  Toggle({ type: ToggleType.Switch, isOn: this.invoiceEnabled }).id('invoice-enabled')
+                    .selectedColor($r('[ui_components].color.red')).enabled(!this.isSubmittingOrder && !this.confirmingOrder)
+                    .onChange(value => { this.invoiceEnabled = value; this.invoiceError = '' })
+                }.padding(12)
+                if (this.invoiceEnabled) {
+                  InvoiceForm({ value: this.invoiceDraft, disabled: this.isSubmittingOrder || this.confirmingOrder,
+                    onChange: value => { this.invoiceDraft = value; this.invoiceError = '' } })
+                }
+                if (this.invoiceError) { Text(this.invoiceError).fontColor($r('[ui_components].color.red')) }
               }
               .padding({ left: 8, right: 8 })
               .backgroundColor($r('[ui_components].color.white'))

@@ -227,7 +227,7 @@ test('AL09 013迁移补录可确认历史且重开不重复，当前版本备份
   const db=new Database(path)
   let rows:unknown[]=[]
   try{
-   assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 16)
+   assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 17)
    assert.deepEqual(db.all('SELECT * FROM product_changes ORDER BY rowid'),receipts)
    rows=db.all('SELECT * FROM audit_log ORDER BY id')
    const price=db.one<{summary:string}>("SELECT summary FROM audit_log WHERE action='sku.price'")!
@@ -238,7 +238,7 @@ test('AL09 013迁移补录可确认历史且重开不重复，当前版本备份
   }finally{db.close()}
   const next=new Database(path);try{assert.deepEqual(next.all('SELECT * FROM audit_log ORDER BY id'),rows)}finally{next.close()}
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion, 16);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 17);assert.deepEqual(backup.manifest.issues,[])
   const broken=new DatabaseSync(path);try{broken.exec('DROP TRIGGER audit_log_no_delete')}finally{broken.close()}
   await assert.rejects(createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'broken')}),/审计只追加保护无效/)
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}

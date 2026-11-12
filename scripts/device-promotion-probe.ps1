@@ -33,14 +33,16 @@ function Add-ReturnShippingProof([string]$Amount='1.00') {
 }
 
 function Remove-ReturnShippingMedia {
+  $Removed=@()
   foreach($Uri in $script:ShippingMedia){
     $Result=Invoke-Hdc @('shell','mediatool','delete',$Uri)
     if(($Result -join '') -notmatch 'delete success'){throw 'Could not remove the probe-created screenshot'}
     $Name=($Uri -split '/')[-1]
     $Remaining=Invoke-Hdc @('shell','mediatool','query',$Name,'-u')
     if(($Remaining -join '') -notmatch 'find 0 result'){throw 'Probe screenshot remains in the media library'}
+    $Removed+=@{uri=$Uri;deleteResult=($Result -join "`n");queryResult=($Remaining -join "`n")}
   }
-  @{created=$script:ShippingMedia.Count;removed=$script:ShippingMedia.Count}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $Output 'media-cleanup.json')
+  @{created=$script:ShippingMedia.Count;removed=$script:ShippingMedia.Count;entries=$Removed}|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $Output 'media-cleanup.json')
 }
 
 function Invoke-PromotionProbe {
