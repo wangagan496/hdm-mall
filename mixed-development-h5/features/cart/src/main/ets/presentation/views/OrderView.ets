@@ -104,6 +104,10 @@ export struct OrderView {
     this.pendingReceipts = this.pendingReceipts.filter(value => value !== id)
     this.orders = this.orders.map(item => item.id === id ? order : item)
       .filter(item => isOrderStateInTab(item.orderState, this.selectedState))
+    if (this.loadedToken === token && this.loadedState === this.selectedState) {
+      this.loadFailed = false
+      this.replaceOnNextLoad = false
+    }
     return !this.pendingOrderIds().includes(id)
   }
 
