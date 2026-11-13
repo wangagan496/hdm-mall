@@ -212,7 +212,7 @@ export struct MineView {
           .padding({ left: 16, right: 16, top: this.safeTop })
           .linearGradient({
             angle: 180,
-            colors: [['#FFF1E5', 0], [$r('[ui_components].color.under'), 1]]
+            colors: [[$r('[ui_components].color.yellow'), 0], [$r('[ui_components].color.under'), 1]]
           })
 
           if (this.user.role === 'merchant') {
@@ -239,7 +239,7 @@ export struct MineView {
           }
           if (this.accountNotice && this.user.token) { Text(this.accountNotice).fontSize(14).padding(12).width('100%') }
           Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
-            .backgroundColor($r('[ui_components].color.red')).fontColor(Color.White)
+            .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
             .margin({ top: 12, bottom: 12 })
             .onClick(() => {
               this.stackPath.pushPath({ name: this.user.token ? PAGE_PATH.FAMILY_PAGE : PAGE_PATH.LOGIN_PAGE })
@@ -286,7 +286,7 @@ export struct MineView {
             .width('100%')
             .linearGradient({
               angle: 180,
-              colors: [['#FFF1E5', 0], [$r('[ui_components].color.white'), 0.15], [$r('[ui_components].color.white'), 1]]
+              colors: [[$r('[ui_components].color.yellow'), 0], [$r('[ui_components].color.white'), 0.15], [$r('[ui_components].color.white'), 1]]
             })
             .borderRadius(10)
 

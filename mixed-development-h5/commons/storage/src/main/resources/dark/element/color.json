@@ -1,0 +1,7 @@
+{
+  "color": [
+    { "name": "consent_surface", "value": "#1D1D1D" },
+    { "name": "consent_text", "value": "#F2F2F2" },
+    { "name": "consent_action", "value": "#FF8A82" }
+  ]
+}

@@ -56,7 +56,7 @@ export struct MerchantServiceView {
                 Text(item.buyerName + (item.awaitingReply ? ' · 待回复' : ' · 已回复')).fontColor($r('[ui_components].color.text'))
                 Text(item.lastMessage).maxLines(3).textOverflow({ overflow: TextOverflow.Ellipsis }).fontColor($r('[ui_components].color.text'))
                 Text(formatBeijingTime(item.updatedAt)).fontColor($r('[ui_components].color.gray'))
-                Button('查看并回复').id('service-thread-' + item.buyerId).backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(() => this.open(item))
+                Button('查看并回复').id('service-thread-' + item.buyerId).backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.open(item))
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12).alignItems(HorizontalAlign.Start)
             }, (item: ServiceThread) => item.buyerId + ':' + item.updatedAt + ':' + item.awaitingReply)
             if (!this.loading && this.items.length === 0) { Text(this.filter === 'pending' ? '暂时没有待回复留言' : '还没有客服留言').fontColor($r('[ui_components].color.gray')) }

@@ -88,6 +88,7 @@ export struct AddressView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount') user: HDMUser = {} as HDMUser
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @State addresses: AddressItem[] = []
   @State loading: boolean = false
   @State loadFailed: boolean = false
@@ -897,7 +898,7 @@ export struct AddressView {
           .height(42)
           .margin({ top: 12, bottom: 4 })
           .fontSize(14)
-          .fontColor($r('[ui_components].color.white'))
+          .fontColor($r('[ui_components].color.on_primary'))
           .backgroundColor($r('[ui_components].color.red'))
           .onClick(() => this.openCreate())
         if (this.refreshError && this.addresses.length > 0) {
@@ -964,6 +965,6 @@ export struct AddressView {
       return true
     })
     .bindContentCover($$this.showDeleteConfirm, this.DeleteConfirmBuilder())
-    .padding({ top: this.topHeight })
+    .padding({ top: this.topHeight, bottom: this.safeBottom })
   }
 }

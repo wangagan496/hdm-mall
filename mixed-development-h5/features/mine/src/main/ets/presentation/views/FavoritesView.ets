@@ -13,6 +13,7 @@ function FavoritesViewBuilder() {
 export struct FavoritesView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @State
   favoriteGoods: LocalGoodsItem[] = []
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount')
@@ -152,6 +153,6 @@ export struct FavoritesView {
     .hideTitleBar(true)
     .onShown(() => this.showLocalGoods())
     .onHidden(() => this.aboutToDisappear())
-    .padding({ top: this.topHeight })
+    .padding({ top: this.topHeight, bottom: this.safeBottom })
   }
 }

@@ -12,6 +12,7 @@ function InventoryViewBuilder() { InventoryView() }
 export struct InventoryView {
   @Consume stackPath: NavPathStack
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) safeTop: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('accountChanged')
   user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
@@ -225,8 +226,8 @@ export struct InventoryView {
   @Builder
   private AdjustmentEditor() {
     if (this.selected) {
-      Text('调整：' + this.selected.name + ' · ' + this.selected.spec).fontSize(18).fontColor('#1F2329')
-      Text('当前可售库存：' + this.selected.stock).fontSize(14).fontColor('#1F2329')
+      Text('调整：' + this.selected.name + ' · ' + this.selected.spec).fontSize(18).fontColor($r('[ui_components].color.text'))
+      Text('当前可售库存：' + this.selected.stock).fontSize(14).fontColor($r('[ui_components].color.text'))
       Row({ space: 12 }) {
         Button(this.increase ? '增加库存 ✓' : '增加库存').enabled(this.canAdjust()).onClick(() => this.increase = true)
         Button(this.increase ? '减少库存' : '减少库存 ✓').enabled(this.canAdjust()).onClick(() => this.increase = false)
@@ -253,38 +254,38 @@ export struct InventoryView {
         HDMNavBar({ title: '库存管理', onLeftClick: () => this.stackPath.pop() })
         Scroll(this.scroller) {
           Column({ space: 12 }) {
-            if (this.message) { Text(this.message).fontSize(14).fontColor('#B34D36').width('100%') }
-            if (this.loadError) { Text(this.loadError).fontSize(14).fontColor('#B34D36').width('100%') }
-            if (this.pendingError) { Text(this.pendingError).fontSize(14).fontColor('#B34D36').width('100%') }
+            if (this.message) { Text(this.message).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%') }
+            if (this.loadError) { Text(this.loadError).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%') }
+            if (this.pendingError) { Text(this.pendingError).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%') }
             if (this.user.role === 'merchant') {
               Button(this.loading ? '读取中…' : '刷新库存').enabled(!this.loading && !this.submitting).onClick(() => this.load(this.page))
               if (this.pending) {
-                Text('正在确认库存调整结果').fontSize(18).fontColor('#1F2329')
-                Text('数量变化：' + this.pending.delta + '\n原因：' + this.pending.reason).fontSize(14).fontColor('#1F2329')
+                Text('正在确认库存调整结果').fontSize(18).fontColor($r('[ui_components].color.text'))
+                Text('数量变化：' + this.pending.delta + '\n原因：' + this.pending.reason).fontSize(14).fontColor($r('[ui_components].color.text'))
                 if (this.recoveryExhausted || this.pendingError) {
                   Button('确认调整结果').enabled(!this.submitting && !this.pendingError).onClick(() => this.submit())
                 }
               }
-              if (!this.loading && !this.loadError && this.ready && this.items.length === 0) { Text('暂无库存记录').fontSize(14).fontColor('#1F2329') }
+              if (!this.loading && !this.loadError && this.ready && this.items.length === 0) { Text('暂无库存记录').fontSize(14).fontColor($r('[ui_components].color.text')) }
               ForEach(this.items, (item: InventoryItem) => {
                 Column({ space: 8 }) {
-                  Text(item.name + ' · ' + item.spec).fontSize(18).fontColor('#1F2329')
-                  Text('可售库存：' + item.stock).fontSize(16).fontColor('#1F2329')
-                  if (item.difference !== 0) { Text('库存与流水差异：' + item.difference + '，请先核查记录').fontColor('#B34D36') }
+                  Text(item.name + ' · ' + item.spec).fontSize(18).fontColor($r('[ui_components].color.text'))
+                  Text('可售库存：' + item.stock).fontSize(16).fontColor($r('[ui_components].color.text'))
+                  if (item.difference !== 0) { Text('库存与流水差异：' + item.difference + '，请先核查记录').fontColor($r('[ui_components].color.red')) }
                   Button('调整库存').enabled(this.canAdjust() && item.difference === 0).onClick(() => this.select(item))
                   if (this.selected?.skuId === item.skuId && !this.pending) { this.AdjustmentEditor() }
-                }.width('100%').padding(16).backgroundColor(Color.White).borderRadius(12).alignItems(HorizontalAlign.Start)
+                }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12).alignItems(HorizontalAlign.Start)
               // 接口返回普通对象；数据变化时重建该行，更新显示和按钮捕获的库存基准。
               }, (item: InventoryItem) => JSON.stringify(item))
               Row({ space: 16 }) {
                 Button('上一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.page > 1 && !this.loading && !this.submitting).onClick(() => this.load(this.page - 1))
-                Text(this.page + ' / ' + Math.max(1, this.pages)).fontColor('#1F2329')
+                Text(this.page + ' / ' + Math.max(1, this.pages)).fontColor($r('[ui_components].color.text'))
                 Button('下一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).enabled(this.page < this.pages && !this.loading && !this.submitting).onClick(() => this.load(this.page + 1))
               }
             }
           }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
         }.layoutWeight(1).width('100%')
-      }.width('100%').height('100%').padding({ top: this.safeTop }).backgroundColor('#F6F5F3')
+      }.width('100%').height('100%').padding({ top: this.safeTop, bottom: this.safeBottom }).backgroundColor($r('[ui_components].color.under'))
     }.hideTitleBar(true)
     .onShown(() => this.showInventory())
     .onHidden(() => this.aboutToDisappear())

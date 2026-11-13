@@ -18,11 +18,15 @@
     },
     {
       "name": "gray",
-      "value": "#A6A3AD"
+      "value": "#6B6873"
     },
     {
       "name": "red",
-      "value": "#FF2737"
+      "value": "#D91B2B"
+    },
+    {
+      "name": "on_primary",
+      "value": "#FFFFFF"
     },
     {
       "name": "linear_begin",

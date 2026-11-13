@@ -254,14 +254,14 @@ export struct AfterSaleManageView {
       if(sale.state==='refunded'){Text(this.restockText(sale)).id('after-sale-restock-result').fontColor($r('[ui_components].color.text'))}
       if(sale.carrier){Text('寄回：'+sale.carrier+' '+sale.trackingNo).fontColor($r('[ui_components].color.text'))}
       if(sale.rejectReason){Text(sale.rejectReason).fontColor($r('[ui_components].color.red'))}
-      if(this.hasPending(sale)){Button('重试确认结果').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(()=>this.open(sale,'resume'))}
+      if(this.hasPending(sale)){Button('重试确认结果').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(()=>this.open(sale,'resume'))}
       else if(sale.state==='pending') {
         Row({space:12}) {
-          Button('同意').id('after-sale-approve-'+sale.id).backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(()=>this.open(sale,'approve'))
+          Button('同意').id('after-sale-approve-'+sale.id).backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(()=>this.open(sale,'approve'))
           Button('拒绝').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.open(sale,'reject'))
         }
       } else if(sale.state==='returned') {
-        Button('验收并退款').id('after-sale-inspect-'+sale.id).backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).onClick(()=>this.open(sale,'inspect'))
+        Button('验收并退款').id('after-sale-inspect-'+sale.id).backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(()=>this.open(sale,'inspect'))
         if(sale.kind==='return-no-reason'){Button('拒绝退款').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')}).onClick(()=>this.open(sale,'refund-reject'))}
       }
     }.alignItems(HorizontalAlign.Start).width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12)

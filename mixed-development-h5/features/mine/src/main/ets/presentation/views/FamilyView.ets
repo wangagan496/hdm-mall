@@ -28,6 +28,7 @@ function FamilyViewBuilder() {
 export struct FamilyView {
   @Consume stackPath: NavPathStack
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) safeTop: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('reloadForCurrentAccount')
   user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
@@ -66,6 +67,8 @@ export struct FamilyView {
   @State checkingFamilyOrders: string[] = []
   private familyChecks: Map<string, RecoveryQuery> = new Map<string, RecoveryQuery>()
   private familyQueries: Set<string> = new Set<string>()
+  private cancelChecks: Map<string, RecoveryQuery> = new Map<string, RecoveryQuery>()
+  private cancelQueries: Set<string> = new Set<string>()
 
   private visibleFamilyOrders(): OrderItem[] {
     return this.familyOrders.filter((order: OrderItem) => this.familyGroup === 'all' ||
@@ -127,6 +130,9 @@ export struct FamilyView {
   }
 
   private stopFamilyChecks(): void {
+    this.cancelChecks.forEach((job: RecoveryQuery) => job.cancel())
+    this.cancelChecks.clear()
+    this.cancelQueries.clear()
     this.familyChecks.forEach((job: RecoveryQuery) => job.cancel())
     this.familyChecks.clear()
     this.familyQueries.clear()
@@ -191,7 +197,13 @@ export struct FamilyView {
     if (!this.isPageActive) this.aboutToAppear()
   }
   private refreshAfterForeground(): void {
-    if (!this.isPageActive || this.isSubmitting) return
+    if (!this.isPageActive) return
+    if (this.pendingCancelActions.length) {
+      this.scheduleCancelChecks()
+      for (const id of this.pendingCancelActions) void this.checkCancelAction(id).catch(() => {})
+      return
+    }
+    if (this.isSubmitting) return
     if (this.pendingFamilyOrders.length) {
       for (const id of this.pendingFamilyOrders) void this.checkFamilyOrder(id).catch(() => {})
     } else this.loadFamilyCenter()
@@ -318,14 +330,56 @@ export struct FamilyView {
     } finally {
       if (this.isCurrentQuery(currentRequestId, generation, token)) {
         this.loading = false
+        this.scheduleCancelChecks()
         for (const order of this.familyOrders) {
           if (this.pendingFamilyOrders.includes(order.id) || order.paymentState === 'confirming' || order.paymentState === 'review') this.scheduleFamilyCheck(order.id)
         }
       }
     }
-    if (this.isCurrentQuery(currentRequestId, generation, token) && !this.isSubmitting && !this.errorText) this.recoverCancelActions()
+    if (this.isCurrentQuery(currentRequestId, generation, token) && !this.isSubmitting && !this.errorText && this.cancelQueries.size === 0) this.recoverCancelActions()
   }
+  private scheduleCancelChecks(): void {
+    if (!this.isCurrentFamilySession(this.pageGeneration, this.sessionToken) || this.sessionRole !== 'merchant') return
+    const stored: string[] = cancelActions.pending().filter(record => record.action === 'approve' || record.action === 'reject-and-ship').map(record => record.orderId)
+    this.pendingCancelActions = Array.from(new Set<string>([...this.pendingCancelActions, ...stored]))
+    for (const id of this.pendingCancelActions) {
+      if (this.cancelChecks.has(id)) continue
+      const job: RecoveryQuery = new RecoveryQuery()
+      this.cancelChecks.set(id, job)
+      job.start(() => this.checkCancelAction(id), () => {
+        if (this.cancelChecks.get(id) === job) this.cancelChecks.delete(id)
+      })
+    }
+  }
+
+  private async checkCancelAction(id: string): Promise<boolean> {
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const query: number = this.loadRequestId
+    if (!this.isCurrentFamilySession(generation, token) || this.sessionRole !== 'merchant') return true
+    if (this.loading || this.cancelQueries.size > 0) return false
+    this.cancelQueries.add(id)
+    try {
+      await cancelActions.inspectPending(id, token)
+      if (!this.isCurrentQuery(query, generation, token)) return false
+      const refresh: Promise<void> = this.loadFamilyCenter()
+      const refreshQuery: number = this.loadRequestId
+      await refresh
+      if (!this.isCurrentFamilySession(generation, token)) return true
+      if (refreshQuery !== this.loadRequestId) return false
+      if (this.errorText || this.loading) return false
+      this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'approve' || record.action === 'reject-and-ship').map(record => record.orderId)
+      if (this.pendingCancelActions.includes(id)) return false
+      if (this.resolvingOrder?.id === id) this.closeCancelResolution(true)
+      this.isSubmitting = false
+      return true
+    } finally {
+      if (this.isCurrentFamilySession(generation, token)) this.cancelQueries.delete(id)
+    }
+  }
+
   private async recoverCancelActions(): Promise<void> {
+    this.scheduleCancelChecks()
     if (!this.canManageFamily() || this.sessionRole !== 'merchant') return
     const generation: number = this.pageGeneration
     const token: string = this.sessionToken
@@ -335,7 +389,12 @@ export struct FamilyView {
     }
   }
 
-  private closeCancelResolution(): void {
+  private closeCancelResolution(confirmed: boolean = false): void {
+    if (!confirmed && this.isCurrentFamilySession(this.resolutionGeneration, this.resolutionToken) &&
+      this.resolvingOrder && (this.isSubmitting || this.pendingCancelActions.includes(this.resolvingOrder.id))) {
+      this.showCancelResolution = true
+      return
+    }
     this.showCancelResolution = false
     this.resolvingOrder = null
     this.rejectReason = ''
@@ -396,7 +455,6 @@ export struct FamilyView {
     const query: number = this.loadRequestId
     const token: string = this.sessionToken
     const cancelRequestId: string = current?.cancelRequest?.id || ''
-    this.closeCancelResolution()
     this.isSubmitting = true
     try {
       if (resume) await cancelActions.recover(orderId, token)
@@ -404,14 +462,21 @@ export struct FamilyView {
         const intent: CancelActionIntent = { orderId, cancelRequestId, action, reason }
         await cancelActions.confirm(intent, token)
       }
-      if (this.isCurrentQuery(query, generation, token)) this.safeToast('取消操作已确认')
+      if (this.isCurrentQuery(query, generation, token)) {
+        this.closeCancelResolution(true)
+        this.safeToast('取消操作已确认')
+      }
     } catch (error) {
       if (this.isCurrentQuery(query, generation, token)) this.safeToast((error as Error).message)
     } finally {
       if (this.isCurrentFamilySession(generation, token)) {
         this.pendingCancelActions = cancelActions.pending().filter(record => record.action === 'approve' || record.action === 'reject-and-ship').map(record => record.orderId)
         if (query === this.loadRequestId) await this.loadFamilyCenter()
-        if (this.isCurrentFamilySession(generation, token)) this.isSubmitting = false
+        if (this.isCurrentFamilySession(generation, token)) {
+          this.isSubmitting = this.showCancelResolution && this.pendingCancelActions.includes(orderId)
+          this.resolutionQuery = this.loadRequestId
+          this.scheduleCancelChecks()
+        }
       }
     }
   }
@@ -613,7 +678,8 @@ export struct FamilyView {
   @Builder
   private CancelResolutionSheet() {
     Column({ space: 12 }) {
-      Text('处理取消申请').fontSize(20)
+      Text(this.pendingCancelActions.includes(this.resolvingOrder?.id || '') ? '正在核对取消结果' :
+        this.isSubmitting ? '正在提交取消处理' : '处理取消申请').fontSize(20)
       Button('同意取消').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.isSubmitting && !this.loading)
         .onClick(() => this.approveCancellation())
       Text('拒绝并发货：提交后订单将进入待收货').fontSize(14)
@@ -770,7 +836,11 @@ export struct FamilyView {
             TextInput({ placeholder: '输入亲友的商城账号', text: $$this.friendAccount }).maxLength(32)
               .fontColor($r('[ui_components].color.text')).placeholderColor($r('[ui_components].color.gray')).backgroundColor($r('[ui_components].color.white'))
             Button('发送绑定邀请').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(this.canManageFamily() && this.friendAccount.trim().length >= 3).onClick(() => this.sendFamilyInvitation())
-            if (this.errorText) { Text(this.errorText).fontColor($r('[ui_components].color.red')) }
+            if (this.errorText) {
+              Text(this.errorText).fontColor($r('[ui_components].color.red'))
+              Button('重试加载').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.loading && !this.isSubmitting)
+                .onClick(() => this.loadFamilyCenter())
+            }
             if (!this.loading && this.familyRelations.length === 0) { Text('暂无亲友关系').fontColor($r('[ui_components].color.text')) }
             ForEach(this.familyRelations, (relation: FamilyRelation) => {
               Column({ space: 8 }) {
@@ -795,10 +865,8 @@ export struct FamilyView {
               }
             }
             }
-            if (!this.relationsExpanded) {
-              if (this.errorText) { Text(this.errorText).fontColor($r('[ui_components].color.red')) }
-            }
-            if (this.errorText) {
+            if (!this.relationsExpanded && this.errorText) {
+              Text(this.errorText).fontColor($r('[ui_components].color.red'))
               Button('重试加载').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.loading && !this.isSubmitting)
                 .onClick(() => this.loadFamilyCenter())
             }
@@ -835,7 +903,7 @@ export struct FamilyView {
             }
           }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
         }.layoutWeight(1).width('100%').align(Alignment.TopStart)
-      }.width('100%').height('100%').padding({ top: this.safeTop }).backgroundColor($r('[ui_components].color.under'))
+      }.width('100%').height('100%').padding({ top: this.safeTop, bottom: this.safeBottom }).backgroundColor($r('[ui_components].color.under'))
     }.hideTitleBar(true)
     .bindSheet($$this.showCancelResolution, this.CancelResolutionSheet(), {
       height: SheetSize.FIT_CONTENT,

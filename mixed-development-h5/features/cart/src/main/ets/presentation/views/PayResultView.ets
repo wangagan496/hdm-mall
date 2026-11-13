@@ -20,6 +20,7 @@ export struct PayResultView {
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   // 服务端管理的订单必须查询确认，不能直接把导航参数当作付款凭证。
   @State paymentSucceeded: boolean = false
   // 要查询哪笔订单就用哪个订单号，与接收查询结果的变量名无关。
@@ -478,7 +479,7 @@ export struct PayResultView {
                   .fontSize(14)
                   .height(36)
                   .backgroundColor($r('[ui_components].color.red'))
-                  .fontColor($r('[ui_components].color.white'))
+                  .fontColor($r('[ui_components].color.on_primary'))
                   .border({ width: this.shouldOpenCashier() ? 0 : 0.5, color: $r('[ui_components].color.border') })
                   .onClick(() => {
                     this.openOrderListOrCashier()
@@ -529,7 +530,7 @@ export struct PayResultView {
     .onShown(() => this.aboutToAppear())
     .onHidden(() => this.aboutToDisappear())
     .padding({
-      top: this.topHeight
+      top: this.topHeight, bottom: this.safeBottom
     })
   }
 }

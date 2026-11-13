@@ -12,6 +12,7 @@ function ProductManageViewBuilder() { ProductManageView() }
 export struct ProductManageView {
   @Consume stackPath: NavPathStack
   @StorageProp(GlobalVariable.SAFE_AREA_TOP) safeTop: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('accountChanged') user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @State items: ProductData[] = []
   @State page: number = 1
@@ -123,7 +124,7 @@ export struct ProductManageView {
             }
           }.padding(16).width('100%')
         }.align(Alignment.Top).layoutWeight(1).width('100%')
-      }.padding({ top: this.safeTop }).width('100%').height('100%').backgroundColor($r('[ui_components].color.under'))
+      }.padding({ top: this.safeTop, bottom: this.safeBottom }).width('100%').height('100%').backgroundColor($r('[ui_components].color.under'))
     }.hideTitleBar(true).onShown(() => this.shown()).onHidden(() => this.aboutToDisappear())
   }
 }

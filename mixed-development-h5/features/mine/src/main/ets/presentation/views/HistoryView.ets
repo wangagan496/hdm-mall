@@ -13,6 +13,7 @@ function HistoryViewBuilder() {
 export struct HistoryView {
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
+  @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @State
   browsedGoods: LocalGoodsItem[] = []
   @State clearing: boolean = false
@@ -217,6 +218,6 @@ export struct HistoryView {
     .onShown(() => this.showLocalGoods())
     .onHidden(() => this.aboutToDisappear())
     .bindContentCover($$this.showClearDialog, this.ClearHistoryBuilder())
-    .padding({ top: this.topHeight })
+    .padding({ top: this.topHeight, bottom: this.safeBottom })
   }
 }

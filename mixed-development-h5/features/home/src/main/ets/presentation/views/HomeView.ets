@@ -395,11 +395,11 @@ export struct HomeView {
         Row() {
           Row({ space: 4 }) {
             Image($r('[ui_components].media.ic_public_search'))
-              .width(16).height(16).fillColor($r('[ui_components].color.white'))
+              .width(16).height(16).fillColor($r('[ui_components].color.text'))
             Text('搜索...')
-              .fontSize(14).fontColor($r('[ui_components].color.white'))
+              .fontSize(14).fontColor($r('[ui_components].color.text'))
           }
-          .backgroundColor('#33191919')
+          .backgroundColor($r('[ui_components].color.white'))
           .width('100%').height(40).borderRadius(20).padding({ left: 12 })
           .focusable(true)
           .accessibilityText('搜索商品')

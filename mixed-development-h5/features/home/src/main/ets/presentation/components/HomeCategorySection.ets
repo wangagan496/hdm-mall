@@ -18,7 +18,7 @@ export struct HomeCategorySection {
               .aspectRatio(1)
             Text(item.name)
               .fontSize(10)
-              .fontColor('#CC191919')
+              .fontColor($r('[ui_components].color.text'))
           }
           .width(60).height(80).borderRadius(30).clip(true)
           .backgroundImage(item.picture)

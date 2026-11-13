@@ -34,7 +34,7 @@ export struct CategoryContent {
                 .justifyContent(FlexAlign.Center)
               }
               .aspectRatio(1)
-              .backgroundColor('#f6f6f6')
+              .backgroundColor($r('[ui_components].color.under'))
               .borderRadius(8)
               .onClick(() => this.onSubClick(sub))
             }

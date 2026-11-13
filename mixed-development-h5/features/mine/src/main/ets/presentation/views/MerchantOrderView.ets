@@ -82,7 +82,7 @@ export struct MerchantOrderView {
                 Text('发票由商家线下开具').fontColor($r('[ui_components].color.gray'))
                 if (this.order.invoice.status === 'requested' && this.order.orderState >= 2 && this.order.orderState <= 5) {
                   TextInput({ text: this.invoiceNumber, placeholder: '发票号码（选填）' }).id('invoice-number').maxLength(100).fontColor($r('[ui_components].color.text')).backgroundColor($r('[ui_components].color.white')).enabled(!this.issuing && !this.issueKey).onChange(value => { this.invoiceNumber = value })
-                  Button(this.issuing ? '标记中' : this.issueKey ? '重试标记已开票' : '标记已开票').id('invoice-issue').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).enabled(!this.issuing).onClick(() => this.issueInvoice())
+                  Button(this.issuing ? '标记中' : this.issueKey ? '重试标记已开票' : '标记已开票').id('invoice-issue').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.issuing).onClick(() => this.issueInvoice())
                 } else if (this.order.invoice.number) { Text('发票号码：' + this.order.invoice.number).fontColor($r('[ui_components].color.text')) }
               }
               Button('操作记录').id('merchant-order-audit').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.stackPath.pushPath({ name: 'AuditLogView', param: { orderId: this.orderId } as AuditFilter }))

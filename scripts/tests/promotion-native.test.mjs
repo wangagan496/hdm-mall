@@ -6,7 +6,7 @@ test('买家售后入口明确使用主题红，不使用系统蓝', () => {
   const page = sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets')
   const button = page.slice(page.indexOf("Button('申请售后')"), page.indexOf("if(this.order.afterSaleNotice)"))
   assert.match(button, /backgroundColor\(\$r\('\[ui_components\]\.color\.red'\)\)/)
-  assert.match(button, /fontColor\(Color.White\)/)
+  assert.match(button, /fontColor\(\$r\('\[ui_components\]\.color\.on_primary'\)\)/)
 })
 
 test('商家售后卡片的所有操作明确设置主题颜色', () => {

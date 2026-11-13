@@ -96,7 +96,7 @@ export struct PromotionSettingView {
             Row() { Text('启用满减').fontColor($r('[ui_components].color.text')); Blank(); Toggle({ type: ToggleType.Switch, isOn: this.promotionEnabled }).id('promotion-enabled').selectedColor($r('[ui_components].color.red')).enabled(!this.busy && !this.loading && !this.pending).onChange((value: boolean) => this.promotionEnabled = value) }.width('100%')
             Text('优惠金额较大时，低价商品可能被抵扣为 0 元').fontSize(14).fontColor($r('[ui_components].color.gray')).width('100%')
             if (this.message) { Text(this.message).id('promotion-message').fontColor($r('[ui_components].color.text')).width('100%') }
-            Button(this.busy ? '正在保存' : this.pending ? '重试确认结果' : '保存满减规则').id('promotion-save').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).width('100%').enabled(!this.busy && !this.loading && !!this.rule).onClick(() => this.save())
+            Button(this.busy ? '正在保存' : this.pending ? '重试确认结果' : '保存满减规则').id('promotion-save').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).width('100%').enabled(!this.busy && !this.loading && !!this.rule).onClick(() => this.save())
             Button('重新加载').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({ width: 1, color: $r('[ui_components].color.red') }).enabled(!this.busy && !this.loading).onClick(() => this.load())
           }.width('100%').padding(20)
         }.layoutWeight(1).width('100%')
