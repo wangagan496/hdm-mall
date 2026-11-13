@@ -15,28 +15,38 @@ export function inspectAfterSales(db: DatabaseSync): string[] {
       sale.payment_state === 'succeeded' && sale.channel_paid_at === sale.paid_at
     const items = db.prepare(`SELECT a.*,i.price,i.count AS bought FROM after_sale_items a LEFT JOIN order_items i ON i.order_id=? AND i.sku_id=a.sku_id WHERE a.after_sale_id=?`).all(sale.order_id!,sale.id!)
     valid &&= items.length > 0 && items.every(i => i.price !== null && Number(i.count) <= Number(i.bought)) && items.reduce((sum,i) => sum + Number(i.price) * Number(i.count) - (version >= 16 ? Number(i.discount_share) : 0),0) === sale.amount
+    const actions = db.prepare('SELECT a.*,u.role FROM after_sale_actions a LEFT JOIN users u ON u.id=a.actor_id WHERE after_sale_id=? ORDER BY a.rowid').all(sale.id!)
+    const inspections = actions.filter(a => a.action === 'inspect' || a.action === 'refund-reject')
+    valid &&= inspections.length <= 1
+    const inspection = inspections.find(a => a.action === 'inspect')
+    const inspectedItems: { skuId: string; restockCount: number }[] = inspection ? JSON.parse(String(inspection.request_body)).items ?? [] : []
+    if (inspection) valid &&= inspectedItems.length === items.length && new Set(inspectedItems.map(i => i.skuId)).size === items.length
     for (const item of items) {
       const movement = db.prepare('SELECT * FROM inventory_movements WHERE business_key=?').get(`return:${sale.id}:${item.sku_id}`)
-      if (Number(item.restock_count) > 0) valid &&= !!movement && movement.kind === 'return' && movement.sku_id === item.sku_id && movement.order_id === sale.order_id && movement.delta === item.restock_count && movement.actor_id === sale.resolved_by
+      valid &&= inspection ? inspectedItems.some(i => i.skuId === item.sku_id && i.restockCount === item.restock_count) : Number(item.restock_count) === 0
+      if (Number(item.restock_count) > 0) valid &&= !!inspection && !!movement && movement.kind === 'return' && movement.sku_id === item.sku_id && movement.order_id === sale.order_id && movement.delta === item.restock_count && movement.actor_id === inspection.actor_id
       else valid &&= !movement
     }
     if (sale.return_address !== null) valid &&= returnAddressSchema.safeParse(JSON.parse(String(sale.return_address))).success
     if (sale.refund_id !== null) valid &&= Number(sale.amount) > 0 && sale.refund_reason === 'after-sale' && sale.refund_sale === sale.id && sale.refund_payment === sale.payment_id && sale.refund_amount === sale.amount && (sale.state === 'refunded') === (sale.refund_state === 'succeeded')
     if (sale.state === 'completed') valid &&= Number(sale.amount) === 0 && sale.refund_id === null
-    const actions = db.prepare('SELECT a.*,u.role FROM after_sale_actions a LEFT JOIN users u ON u.id=a.actor_id WHERE after_sale_id=? ORDER BY a.rowid').all(sale.id!)
     valid &&= actions.filter(a=>a.action==='request').length === 1 && actions[0]?.action === 'request'
     const transitions: Record<string,[string,string]> = { request:['','pending'],withdraw:['pending','withdrawn'],reject:['pending','rejected'],
       approve:['pending',sale.kind==='refund-missing'?(Number(sale.amount)===0?'completed':'refunding'):'awaiting-return'], 'auto-approve':['pending',sale.kind==='refund-missing'?(Number(sale.amount)===0?'completed':'refunding'):'awaiting-return'],
       'ship-back':['awaiting-return','returned'],inspect:['returned',Number(sale.amount)===0?'completed':'refunding'],'auto-refund':['returned',Number(sale.amount)===0?'completed':'refunding'],close:['awaiting-return','closed'],'refund-reject':['returned','refund-rejected'] }
-    let current = ''
+    let current = '', autoRefunded = false
     for (const action of actions) {
       const transition = transitions[String(action.action)], body = JSON.parse(String(action.request_body)), result = JSON.parse(String(action.result))
-      valid &&= !!transition && (transition[0] === current || action.action === 'withdraw' && current === 'awaiting-return')
-      current = transition?.[1] ?? ''
+      const lateInspection = action.action === 'inspect' && autoRefunded && ['refunding','completed'].includes(current)
+      valid &&= !!transition && (lateInspection || transition[0] === current || action.action === 'withdraw' && current === 'awaiting-return')
+      if (lateInspection) valid &&= body.shippingCompensationCents === undefined && body.shippingAdjustmentReason === undefined
+      else current = transition?.[1] ?? ''
+      const appliedStates = lateInspection && current === 'refunding' ? ['refunding','refunded'] : [current]
+      if (action.action === 'auto-refund') autoRefunded = true
       const system = ['auto-approve','auto-refund','close'].includes(String(action.action)), owner = ['request','withdraw','ship-back'].includes(String(action.action))
       valid &&= system ? action.actor_id === null : owner ? action.actor_id === sale.requested_by : action.role === 'merchant'
       valid &&= body?.action === action.action && (action.action === 'request' ? body?.orderId === sale.order_id : body?.afterSaleId === sale.id) &&
-        result?.id === action.id && result?.afterSaleId === sale.id && result?.orderId === sale.order_id && result?.appliedState === current && result?.appliedAt === action.created &&
+        result?.id === action.id && result?.afterSaleId === sale.id && result?.orderId === sale.order_id && appliedStates.includes(result?.appliedState) && result?.appliedAt === action.created &&
         result?.refundId === (current === 'refunding' ? sale.refund_id : null)
     }
     valid &&= current === (sale.state === 'refunded' ? 'refunding' : sale.state)

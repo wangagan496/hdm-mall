@@ -9,6 +9,7 @@ import type { Payments } from './payments.ts'
 import { ensure } from './errors.ts'
 import { appendAudit, type AuditAction } from './audit.ts'
 import { canReturnNoReason, requiresCondition, type PolicyRow } from './return-policy.ts'
+import { inspectionState, pendingReturnInspection } from './inventory.ts'
 
 const DAY = 86400000
 const active = ['pending', 'awaiting-return', 'returned', 'refunding']
@@ -176,23 +177,27 @@ export class AfterSales {
         ensure(image.changes === 1, 400, '请上传本人本次寄回的运单截图')
         this.db.run("UPDATE after_sales SET state='returned',carrier=?,tracking_no=?,returned_at=?,inspect_deadline=?,shipping_amount=?,shipping_image_id=? WHERE id=?", data.carrier, data.trackingNo, now, now + 10 * DAY, data.shippingAmountCents, data.shippingImageId, id)
       } else {
-        ensure(current.state === 'returned', 409, '售后进度已变化，请刷新')
+        const lateInspection = action === 'inspect' && ['refunding','refunded','completed'].includes(current.state) &&
+          !!this.db.one("SELECT id FROM after_sale_actions WHERE after_sale_id=? AND action='auto-refund'", id)
+        ensure((current.state === 'returned' || lateInspection) && inspectionState(this.db, id) === 'pending', 409, '售后进度已变化，请刷新')
+        if (lateInspection) ensure(data.shippingCompensationCents === undefined && data.shippingAdjustmentReason === undefined, 409, '退款已处理，补验收只记录入库数量')
         if (action === 'refund-reject') {
           ensure(current.kind === 'return-no-reason', 409, '仅无理由退货可因商品不完好拒绝退款')
           ensure(data.reason, 400, '请填写5到200字的原因')
           this.db.run("UPDATE after_sales SET state='refund-rejected',reject_reason=?,resolved_at=?,resolved_by=? WHERE id=?", data.reason, now, user.id, id)
-        } else this.inspect(current, user, data)
+        } else this.inspect(current, user, data, !lateInspection)
       }
       const updated = this.sale(id)
-      if (updated.refund_id) refundIds.push(updated.refund_id)
-      if (updated.shipping_refund_id) refundIds.push(updated.shipping_refund_id)
+      // A late inspection changes only physical stock; refund retries keep their own schedule.
+      if (updated.refund_id && !current.refund_id) refundIds.push(updated.refund_id)
+      if (updated.shipping_refund_id && !current.shipping_refund_id) refundIds.push(updated.shipping_refund_id)
       return this.receipt(updated, user, action, data.requestKey, body)
     })
     if (refundIds.length) await this.payments.reconcile(this.clock.now(), { refundIds })
     if (action === 'approve' && data.returnAddress) await this.processDue()
     return result
   }
-  private inspect(sale: Sale, user: User, data: ActionData) {
+  private inspect(sale: Sale, user: User, data: ActionData, refund = true) {
     const items = this.db.all<{ sku_id: string; count: number }>('SELECT * FROM after_sale_items WHERE after_sale_id=?', sale.id)
     ensure(data.items && data.items.length === items.length && new Set(data.items.map(i => i.skuId)).size === items.length, 400, '请逐项填写合格入库数量')
     for (const item of data.items) {
@@ -206,7 +211,7 @@ export class AfterSales {
       this.db.run('UPDATE skus SET stock=stock+? WHERE id=?', item.restockCount, item.skuId)
       this.db.run("INSERT INTO inventory_movements(sku_id,order_id,actor_id,kind,delta,balance,business_key,created) VALUES(?,?,?,'return',?,?,?,?)", item.skuId, sale.order_id, user.id, item.restockCount, stock + item.restockCount, `return:${sale.id}:${item.skuId}`, this.clock.now())
     }
-    this.refund(sale, user, data)
+    if (refund) this.refund(sale, user, data)
   }
   async processDue() {
     const now = this.clock.now(), failed: string[] = [], refundIds: string[] = []
@@ -233,6 +238,7 @@ export class AfterSales {
     return { failed }
   }
   private present(sale: Sale, details: boolean) {
+    const inspection = inspectionState(this.db, sale.id)
     const payer = this.db.one<{ account: string }>("SELECT CASE WHEN u.status='deleted' THEN '已注销用户' ELSE u.account END account FROM payments p JOIN users u ON u.id=p.payer_id WHERE p.id=?", sale.payment_id)!.account
     const refund = sale.refund_id ? this.db.one<{ state: string; review_at: number | null }>('SELECT state,review_at FROM refunds WHERE id=?', sale.refund_id) : undefined
     return { id: sale.id, orderId: sale.order_id, sequence: sale.sequence, kind: sale.kind, state: sale.state, amountCents: sale.amount, amountMessage: sale.amount === 0 ? '货款 0 元，无需退款' : '', payerAccount: payer,
@@ -244,7 +250,9 @@ export class AfterSales {
       ...(details ? { description: sale.description, returnAddress: sale.return_address ? JSON.parse(sale.return_address) as ReturnAddress : null,
         shippingImage: sale.shipping_image_id ? this.db.one<{imageId:string;path:string}>('SELECT image_id imageId,path FROM after_sale_images WHERE image_id=?',sale.shipping_image_id) : null,
         carrier: sale.carrier ?? '', trackingNo: sale.tracking_no ?? '', rejectReason: sale.reject_reason ?? '',
-        items: this.db.all<{ skuId: string; name: string; spec: string; priceCents: number; count: number; restockCount: number;conditionDeclared:string|null;returnPolicyReason:string }>(`SELECT a.sku_id AS skuId,i.name,i.spec,i.price AS priceCents,a.count,a.restock_count AS restockCount,a.condition_declared conditionDeclared,i.return_policy_reason returnPolicyReason FROM after_sale_items a JOIN order_items i ON i.order_id=? AND i.sku_id=a.sku_id WHERE a.after_sale_id=?`, sale.order_id, sale.id),
+        inspectionState: inspection, inspectionPending: inspection === 'pending',
+        items: this.db.all<{ skuId: string; name: string; spec: string; priceCents: number; count: number; restockCount: number;conditionDeclared:string|null;returnPolicyReason:string }>(`SELECT a.sku_id AS skuId,i.name,i.spec,i.price AS priceCents,a.count,a.restock_count AS restockCount,a.condition_declared conditionDeclared,i.return_policy_reason returnPolicyReason FROM after_sale_items a JOIN order_items i ON i.order_id=? AND i.sku_id=a.sku_id WHERE a.after_sale_id=?`, sale.order_id, sale.id)
+          .map(item => ({ ...item, pendingInspectionCount: inspection === 'pending' ? item.count : 0, rejectedCount: ['inspected','rejected'].includes(inspection) ? item.count - item.restockCount : 0 })),
         images: this.db.all<{ imageId: string; path: string }>('SELECT image_id AS imageId,path FROM after_sale_images WHERE after_sale_id=? AND image_id IS NOT ?', sale.id, sale.shipping_image_id),
         needsReturnAddress: sale.state === 'pending' && sale.kind !== 'refund-missing' && this.clock.now() >= sale.review_deadline && !this.address()
       } : {}) }
@@ -264,10 +272,11 @@ export class AfterSales {
   }
   async list(user: User, state: string, page: number, pageSize: number) {
     this.merchant(user); await this.processDue()
-    const where = state === 'all' ? '' : 'WHERE state=?', params = state === 'all' ? [] : [state]
-    const counts = this.db.one<{ n: number }>(`SELECT COUNT(*) n FROM after_sales ${where}`, ...params)!.n
-    const rows = this.db.all<Sale>(`SELECT * FROM after_sales ${where} ORDER BY created DESC,id LIMIT ? OFFSET ?`, ...params, pageSize, (page-1)*pageSize)
-    const stateCounts = this.db.one<{ pending: number; returned: number; all: number }>("SELECT COUNT(*) AS 'all',COUNT(CASE WHEN state='pending' THEN 1 END) AS pending,COUNT(CASE WHEN state='returned' THEN 1 END) AS returned FROM after_sales")!
+    const where = state === 'all' ? '' : state === 'returned' ? `WHERE ${pendingReturnInspection}` : 'WHERE s.state=?'
+    const params = state === 'all' || state === 'returned' ? [] : [state]
+    const counts = this.db.one<{ n: number }>(`SELECT COUNT(*) n FROM after_sales s ${where}`, ...params)!.n
+    const rows = this.db.all<Sale>(`SELECT s.* FROM after_sales s ${where} ORDER BY s.created DESC,s.id LIMIT ? OFFSET ?`, ...params, pageSize, (page-1)*pageSize)
+    const stateCounts = this.db.one<{ pending: number; returned: number; all: number }>(`SELECT COUNT(*) AS 'all',COUNT(CASE WHEN s.state='pending' THEN 1 END) AS pending,COUNT(CASE WHEN ${pendingReturnInspection} THEN 1 END) AS returned FROM after_sales s`)!
     return { items: rows.map(s => ({ ...this.present(s,true), buyerAccount: this.db.one<{account:string}>('SELECT account FROM users WHERE id=?',s.requested_by)!.account, serverNow: this.clock.now() })), stateCounts, counts, pages: Math.ceil(counts/pageSize), page, pageSize }
   }
   uploadImage(user: User, orderId: string, applicationKey: string, requestKey: string, bytes: Buffer, uploadsPath: string) {

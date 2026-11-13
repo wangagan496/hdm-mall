@@ -24,18 +24,54 @@ export function recordStockMovement(db: Database, movement: Movement, clock: Clo
 
 interface PageQuery { page: number; pageSize: number }
 
+// Physical returns are separate from refund state; the action receipt also distinguishes
+// an all-rejected inspection (restock_count=0) from goods that have not been inspected.
+const hasReturnInspection = `EXISTS(SELECT 1 FROM after_sale_actions a WHERE a.after_sale_id=s.id AND a.action IN ('inspect','refund-reject'))`
+export const pendingReturnInspection = `s.kind<>'refund-missing' AND s.returned_at IS NOT NULL AND NOT ${hasReturnInspection}`
+
+export function inspectionState(db: Database, afterSaleId: string): 'none' | 'pending' | 'inspected' | 'rejected' {
+  const row = db.one<{ returned_at: number | null; action: string | null }>(`SELECT s.returned_at,
+    (SELECT a.action FROM after_sale_actions a WHERE a.after_sale_id=s.id AND a.action IN ('inspect','refund-reject') LIMIT 1) action
+    FROM after_sales s WHERE s.id=? AND s.kind<>'refund-missing'`, afterSaleId)
+  if (!row || row.returned_at === null) return 'none'
+  return row.action === 'inspect' ? 'inspected' : row.action === 'refund-reject' ? 'rejected' : 'pending'
+}
+
+interface ReturnRecord { afterSaleId: string; orderId: string; skuId: string; buyerAccount: string; createdAt: number; sequence: number; count: number; restockCount: number; pendingInspectionCount: number; rejectedCount: number }
+function returnOverview(db: Database, skuId: string) {
+  const from = `FROM after_sale_items i JOIN after_sales s ON s.id=i.after_sale_id`
+  const where = `i.sku_id=? AND s.kind<>'refund-missing' AND s.returned_at IS NOT NULL`
+  // Aggregate every return in SQL, but materialize only pending goods and three rejected records.
+  const totals = db.one<{ pendingInspectionCount: number; rejectedReturnCount: number; rejectedRecords: number }>(`SELECT
+    COALESCE(SUM(CASE WHEN ${pendingReturnInspection} THEN i.count ELSE 0 END),0) pendingInspectionCount,
+    COALESCE(SUM(CASE WHEN ${hasReturnInspection} THEN i.count-i.restock_count ELSE 0 END),0) rejectedReturnCount,
+    COUNT(CASE WHEN ${hasReturnInspection} AND i.count>i.restock_count THEN 1 END) rejectedRecords
+    ${from} WHERE ${where}`, skuId)!
+  const records = `SELECT s.id afterSaleId,s.order_id orderId,i.sku_id skuId,i.count,i.restock_count restockCount,
+    CASE WHEN u.status='deleted' THEN '已注销用户' ELSE u.account END buyerAccount,s.created createdAt,s.sequence,
+    CASE WHEN ${pendingReturnInspection} THEN i.count ELSE 0 END pendingInspectionCount,
+    CASE WHEN ${hasReturnInspection}
+      THEN i.count-i.restock_count ELSE 0 END rejectedCount
+    ${from} JOIN users u ON u.id=s.requested_by WHERE ${where}`
+  const pending = totals.pendingInspectionCount > 0 ? db.all<ReturnRecord>(`${records} AND ${pendingReturnInspection} ORDER BY s.created DESC,s.id`, skuId) : []
+  const rejected = totals.rejectedRecords > 0 ? db.all<ReturnRecord>(`${records} AND ${hasReturnInspection} AND i.count>i.restock_count ORDER BY s.created DESC,s.id LIMIT 3`, skuId) : []
+  return { pendingInspectionCount: totals.pendingInspectionCount, rejectedReturnCount: totals.rejectedReturnCount,
+    hiddenRejectedRecordCount: Math.max(0, totals.rejectedRecords - rejected.length), returnRecords: [...pending, ...rejected] }
+}
+
 export function inventoryPage(db: Database, user: User, query: PageQuery & { skuId?: string }) {
   ensure(user.role === 'merchant', 403, '需要商家权限')
   const where = query.skuId ? 'WHERE s.id=?' : ''
   const values = query.skuId ? [query.skuId] : []
   const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM skus s ${where}`, ...values)!.count
-  const items = db.all(`SELECT s.id AS skuId,p.name,s.spec,s.stock,
+  const rows = db.all<{ skuId: string; name: string; spec: string; stock: number; recordedStock: number; difference: number; confirmingCount: number }>(`SELECT s.id AS skuId,p.name,s.spec,s.stock,
     COALESCE((SELECT SUM(m.delta) FROM inventory_movements m WHERE m.sku_id=s.id),0) AS recordedStock,
     s.stock-COALESCE((SELECT SUM(m.delta) FROM inventory_movements m WHERE m.sku_id=s.id),0) AS difference,
     COALESCE((SELECT SUM(i.count) FROM order_items i JOIN orders o ON o.id=i.order_id
       JOIN payments p ON p.order_id=o.id AND p.state='pending' WHERE i.sku_id=s.id AND o.state=1),0) AS confirmingCount
     FROM skus s JOIN products p ON p.id=s.product_id ${where} ORDER BY s.id LIMIT ? OFFSET ?`,
     ...values, query.pageSize, (query.page - 1) * query.pageSize)
+  const items = rows.map(row => ({ ...row, ...returnOverview(db, row.skuId) }))
   return { items, counts, pages: Math.ceil(counts / query.pageSize), ...query }
 }
 
