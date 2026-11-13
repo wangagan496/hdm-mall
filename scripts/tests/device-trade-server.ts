@@ -43,6 +43,31 @@ const buyer = f.accounts.login('device_buyer', fixturePassword)
 const user = f.accounts.authenticate(`Bearer ${buyer.token}`)
 const address = s1 ? undefined : f.testData.address({ userId: user.id, receiver: '设备验收', contact: '13800138000', fullLocation: '测试省 测试市 测试区',
   provinceCode: 'test', cityCode: 'test', countyCode: 'test', address: '独立模拟器验收地址', isDefault: 0 })
+// Inventory mode prepares returned goods only; inspection is performed through the native UI.
+if (process.argv.includes('--inventory-probe')) {
+  const merchantLogin = f.accounts.login('device_merchant', fixturePassword)
+  const merchant = f.accounts.authenticate('Bearer ' + merchantLogin.token)
+  const returned: { orderId: string; afterSaleId: string; count: number }[] = []
+  const prepareReturn = async (item: typeof sku, count: number, bought: number) => {
+    const order = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: item.priceCents * bought, addressId: address!.id, goods: [{ skuId: item.id, count: bought }] })
+    await f.orders.pay(user, order.id, item.priceCents * bought)
+    await f.orders.ship(merchant, order.id)
+    const request = await f.afterSales.request(user, order.id, { requestKey: randomUUID(), kind: 'return-quality', description: '库存验收测试商品退回', items: [{ skuId: item.id, count }] })
+    await f.afterSales.act(merchant, request.afterSaleId, 'approve', { requestKey: randomUUID(), returnAddress: { receiver: '验收仓库', contact: '13800138000', address: '库存验收测试仓库' } })
+    const key = randomUUID()
+    const image = f.afterSales.uploadImage(user, order.id, key, randomUUID(), Buffer.from([255, 216, 255, 224, 255, 217]), uploadsPath)
+    await f.afterSales.act(user, request.afterSaleId, 'ship-back', { requestKey: key, carrier: 'SF', trackingNo: 'SF123456789', shippingAmountCents: 100, shippingImageId: image.imageId })
+    return { orderId: order.id, afterSaleId: request.afterSaleId, count }
+  }
+  for (const count of [2, 1]) returned.push(await prepareReturn(sku, count, 3))
+  const historySku = f.testData.product({ name: '库存历史验证商品', skus: [{ spec: '标准款', priceCents: 1000, stock: 40 }] }).skus[0]!
+  for (let index = 0; index < 5; index++) {
+    const history = await prepareReturn(historySku, 1, 1)
+    await f.afterSales.act(merchant, history.afterSaleId, 'inspect', { requestKey: randomUUID(), items: [{ skuId: historySku.id, restockCount: 0 }] })
+  }
+  const emptySku = f.testData.product({ name: '库存对照商品', skus: [{ spec: '标准款', priceCents: 900, stock: 7 }] }).skus[0]!
+  f.app.get('/device-fixture/inventory', async () => ({ returned, historySkuId: historySku.id, emptySkuId: emptySku.id }))
+}
 f.app.get<{Params:{account:string}}>('/device-fixture/form/:account',async(req,reply)=>{
  if(!/^device_(buyer|friend|merchant)$/.test(req.params.account))return reply.code(404).send({code:'0'})
  return {code:'1',result:{fixture:'device-trade-form',password:fixturePassword}}

@@ -1,6 +1,6 @@
 import { ReturnPolicyFields, returnConditionError } from './ReturnPolicy'
 export interface AfterSaleAddress { receiver: string; contact: string; address: string; fullLocation?: string }
-export interface AfterSaleLine extends ReturnPolicyFields { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number; afterSaleKinds?: string[]; conditionDeclared?: string; discountShareCents?: number; boughtCount?: number }
+export interface AfterSaleLine extends ReturnPolicyFields { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number; pendingInspectionCount?: number; rejectedCount?: number; afterSaleKinds?: string[]; conditionDeclared?: string; discountShareCents?: number; boughtCount?: number }
 export interface AfterSaleImage { imageId: string; path: string }
 export interface AfterSale {
   id: string; orderId: string; sequence: number; kind: string; state: string; amountCents: number; payerAccount: string
@@ -10,6 +10,7 @@ export interface AfterSale {
   refundId: string | null; refundState: string; refundReview: boolean
   description?: string; returnAddress?: AfterSaleAddress | null; carrier?: string; trackingNo?: string; rejectReason?: string
   items?: AfterSaleLine[]; images?: AfterSaleImage[]; needsReturnAddress?: boolean; buyerAccount?: string; serverNow?: number
+  inspectionState?: string; inspectionPending?: boolean
 }
 export interface AfterSaleQuantity { skuId: string; count: number; conditionDeclared?: string }
 export interface AfterSaleRestock { skuId: string; restockCount: number }

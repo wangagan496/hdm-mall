@@ -36,7 +36,7 @@ test('R4 商家筛选计数、选中态、类型提示、十二小时提醒与�
  p.message='任意成功提示';p.messageType='success';assert.equal(p.messageColor(),'[ui_components].color.text')
  p.messageType='error';assert.equal(p.messageColor(),'[ui_components].color.red');p.now=1000
  assert.equal(p.urgent({state:'pending',reviewDeadline:1000+11*3600000}),true)
- assert.match(p.restockText({items:[{count:2,restockCount:1}]}),/已入库 1 件，未入库 1 件/)
+ assert.equal(p.restockText({items:[{count:2,restockCount:1}]}),'退回 2 件，合格入库 1 件，不合格 1 件（不入可售库存）')
  const s=sourceOf(merchant);assert.doesNotMatch(s,/sale\.orderAddress|sale\.orderId\+|Button\(this\.loading\?'读取中':'刷新'\)/);assert.match(s,/HorizontalAlign.Start/)
 })
 test('R5 买家卡片时限、地址分行和主色按钮',()=>{

@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe, $TradeNetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe, $TradeNetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -12,6 +12,7 @@ $PackagePath = "$Root/mixed-development-h5/build/outputs/default/mixed-developme
 $PackageSha256 = (Get-FileHash $PackagePath -Algorithm SHA256).Hash
 if ($ProductProbe) { $Mode = 'ProductProbe' }
 if ($AfterSaleProbe) { $Mode = 'AfterSaleProbe' }
+if ($InventoryProbe) { $Mode = 'InventoryProbe' }
 if ($UxProbe) { $Mode = 'UxProbe' }
 if ($ConsentProbe) { $Mode = 'ConsentProbe' }
 if ($DeletionProbe) { $Mode = 'DeletionProbe' }
@@ -23,6 +24,7 @@ $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($TradeNetworkProbe) { '_device_acceptance/trade-network-probe' } elseif ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
 if ($AfterSaleProbe) { $Output = Join-Path $Root '_device_acceptance/after-sale-probe' }
+if ($InventoryProbe) { $Output = Join-Path $Root '_device_acceptance/inventory-probe' }
 if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
 if ($AuditProbe) { $Output = Join-Path $Root '_device_acceptance/audit-probe' }
 if ($ReturnPolicyProbe) { $Output = Join-Path $Root '_device_acceptance/return-policy-probe' }
@@ -1545,7 +1547,7 @@ function Invoke-AfterSaleProbe {
   $ReturnRefundSeconds=[math]::Round($RefundTimer.Elapsed.TotalSeconds,3)
   Product-Control 'after-sale-filter-all'
   Scroll-Text '七日无理由退货 · 已退款' -ViewOnly
-  Wait-Text '已入库 1 件，未入库 1 件'
+  Wait-Text '退回 2 件，合格入库 1 件，不合格 1 件（不入可售库存）'
   if(@($script:Nodes|Where-Object {$_.text -match '订单收货地址|设备验收 13800138000'}).Count){throw 'Buyer order address exposed'}
   Capture '07-after-sale-merchant-refunded'
   $FirstProof=Payment-Proof $First
@@ -2137,6 +2139,7 @@ function Invoke-UxProbe {
   Save-Result @{profileNickname=$Profile.nickname;cartQuantity=$Cart[0].count;orderId=$OrderId;paymentCount=$Proof.payments.Count;checks=@('accepted-agreement-no-checkbox','agreement-links-preserve-consent','profile-return-flush','family-groups-selected-counts-no-refresh-status-bar','cart-five-increments','cart-clear-confirm','address-delete-confirm','category-empty-source-copy-actions','payment-low-frequency-pending-indicator-action-order')}
   Write-Output "SCRIPT $PSCommandPath RESULT UxProbe passed"
 }
+. (Join-Path $PSScriptRoot 'device-inventory-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-promotion-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-service-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-trade-network-probe.ps1'); if ($TradeNetworkProbe) { return }
@@ -2153,6 +2156,7 @@ if ($CancelFamilyProbe) { $FixtureArguments += '--cancel-family' }
 if ($S1) { $FixtureArguments += '--s1' }
 if ($S2) { $FixtureArguments += '--s2' }
 if ($LoginProbe) { $FixtureArguments += '--login-probe' }
+if ($InventoryProbe) { $FixtureArguments += '--inventory-probe' }
 $Fixture = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList $FixtureArguments -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput "$Output/server.stdout.log" -RedirectStandardError "$Output/server.stderr.log"
 $Mapped = $false
 $OriginalRemoved = $false
@@ -2183,6 +2187,7 @@ try {
   if ($AuditProbe) { Invoke-AuditProbe; return }
   if ($ProductProbe) { Invoke-ProductProbe; return }
   if ($AfterSaleProbe) { Invoke-AfterSaleProbe; return }
+  if ($InventoryProbe) { Invoke-InventoryProbe; return }
   if ($ReturnPolicyProbe) { Invoke-ReturnPolicyProbe; return }
   if ($PromotionProbe) { Invoke-PromotionProbe; return }
   if ($ServiceProbe) { Invoke-ServiceProbe; return }
@@ -2369,7 +2374,7 @@ try {
   $Failure = $_
   try { Capture 'failure' } catch { Write-Warning 'Failure screenshot or layout could not be captured' }
   $FailureData = @{ error=$Failure.Exception.Message; scriptStackTrace=$Failure.ScriptStackTrace }
-  if($AfterSaleProbe){
+  if($AfterSaleProbe -or $InventoryProbe){
     try{$FailureData.orders=@(Orders);$FailureData.ledgers=@($FailureData.orders|ForEach-Object {Payment-Proof $_.id})}catch{Write-Warning 'After-sale failure evidence unavailable'}
   }
   if (($S1 -or $S2 -or $NetworkProbe -or $LoginProbe -or $WriteNetworkProbe) -and $null -ne $script:BuyerChecks) { $FailureData.checkpoints = $script:BuyerChecks.ToArray() }
