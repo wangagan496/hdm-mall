@@ -1,8 +1,8 @@
 import { GlobalVariable } from 'constants'
-import { HDMUser } from 'models'
+import { HDMUser, formatBeijingTime } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
-import { InventoryItem, InventoryPage, StockAdjustmentDraft, StockAdjustmentReceipt } from '../../data/api/inventory'
+import { InventoryItem, InventoryPage, InventoryReturnRecord, StockAdjustmentDraft, StockAdjustmentReceipt } from '../../data/api/inventory'
 import { inventoryAdjustment } from '../utils/InventoryAdjustment'
 
 @Builder
@@ -42,6 +42,17 @@ export struct InventoryView {
   private recoveryTimer: number = -1
   private recoveryAttempts: number = 0
   @State recoveryExhausted: boolean = false
+
+  private returnSummary(item: InventoryItem): string {
+    const pending: number = item.pendingInspectionCount || 0, rejected: number = item.rejectedReturnCount || 0
+    return pending > 0 || rejected > 0 ? '已寄回待验收：' + pending + ' 件；验收不合格：' + rejected + ' 件（均不入可售库存）' : ''
+  }
+  private returnRecordLabel(record: InventoryReturnRecord): string {
+    return record.buyerAccount + ' · ' + formatBeijingTime(record.createdAt) + ' · 售后第 ' + record.sequence + ' 次'
+  }
+  private moreRejectedText(item: InventoryItem): string {
+    return (item.hiddenRejectedRecordCount || 0) > 0 ? '另有 ' + item.hiddenRejectedRecordCount + ' 条不合格记录' : ''
+  }
 
   aboutToAppear(): void { this.active = true; this.load(this.page) }
   aboutToDisappear(): void {
@@ -271,6 +282,20 @@ export struct InventoryView {
                 Column({ space: 8 }) {
                   Text(item.name + ' · ' + item.spec).fontSize(18).fontColor($r('[ui_components].color.text'))
                   Text('可售库存：' + item.stock).fontSize(16).fontColor($r('[ui_components].color.text'))
+                  if (this.returnSummary(item)) {
+                    Text(this.returnSummary(item)).id('inventory-return-summary-' + item.skuId).fontSize(14).fontColor($r('[ui_components].color.text'))
+                  }
+                  ForEach(item.returnRecords || [], (record: InventoryReturnRecord, index: number) => {
+                    Column({ space: 4 }) {
+                      Text(this.returnRecordLabel(record)).id('inventory-return-label-' + item.skuId + '-' + index).fontSize(12).fontColor($r('[ui_components].color.gray'))
+                      Text(record.pendingInspectionCount > 0 ? '已寄回待验收 ' + record.pendingInspectionCount + ' 件' :
+                        '退回 ' + record.count + ' 件，合格入库 ' + record.restockCount + ' 件，验收不合格 ' + record.rejectedCount + ' 件（不入可售库存）')
+                        .fontSize(14).fontColor($r('[ui_components].color.text'))
+                    }.width('100%').alignItems(HorizontalAlign.Start)
+                  }, (record: InventoryReturnRecord) => JSON.stringify(record))
+                  if (this.moreRejectedText(item)) {
+                    Text(this.moreRejectedText(item)).id('inventory-return-more-' + item.skuId).fontSize(14).fontColor($r('[ui_components].color.gray'))
+                  }
                   if (item.difference !== 0) { Text('库存与流水差异：' + item.difference + '，请先核查记录').fontColor($r('[ui_components].color.red')) }
                   Button('调整库存').enabled(this.canAdjust() && item.difference === 0).onClick(() => this.select(item))
                   if (this.selected?.skuId === item.skuId && !this.pending) { this.AdjustmentEditor() }
