@@ -1,4 +1,4 @@
-import { FamilyRelation, FamilyRelationPage, OrderAttentionCount, OrderItem, OrderPage, PaymentStartResult } from 'models'
+import { FamilyRelation, FamilyRelationPage, OrderAttentionCount, OrderItem, OrderPage, PaymentStartResult, ShipmentInput } from 'models'
 import { RequestAxios } from 'network'
 export { requestOrderCancelAPI, withdrawOrderCancelAPI, resolveOrderCancelAPI, getCancelActionReceiptAPI } from 'storage'
 
@@ -65,6 +65,6 @@ export const getOrderAttentionCountAPI = (token: string): Promise<OrderAttention
   return RequestAxios.getForSession<OrderAttentionCount>('/member/order/attention', token)
 }
 
-export const shipOrderAPI = (id: string, token: string): Promise<FamilyActionResult> => {
-  return RequestAxios.postWithSession<FamilyActionResult>(`/merchant/orders/${id}/ship`, EMPTY_PAYLOAD, token)
+export const shipOrderAPI = (id: string, token: string, data: ShipmentInput): Promise<FamilyActionResult> => {
+  return RequestAxios.postWithSession<FamilyActionResult>(`/merchant/orders/${id}/ship`, data, token)
 }
