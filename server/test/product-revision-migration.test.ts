@@ -24,7 +24,7 @@ test('已有 v10 商品和回执迁移到 v11，库存不再影响版本，重�
     for (let attempt = 0; attempt < 2; attempt++) {
       const db = new Database(path)
       try {
-        assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
+        assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
         db.run("UPDATE skus SET stock=stock-1 WHERE id='s'")
         assert.equal(db.one<{ revision: number }>("SELECT revision FROM products WHERE id='p'")!.revision, before)
         assert.equal(db.one<{ name: string }>("SELECT name FROM products WHERE id='p'")!.name, '保留商品')

@@ -17,7 +17,7 @@ test('D18 渠道账单、对账和物流备份恢复，签收时间与事件不�
   await f.call('POST','/merchant/reconciliation/run',{date:'2026-11-11'},f.merchant.token)
   const args={databasePath:join(f.root,'data','mall.sqlite'),uploadsPath:join(f.root,'uploads')}
   const backup=await createBackup({...args,destination:join(f.root,'backup')})
-  assert.equal(backup.manifest.schemaVersion,18)
+  assert.equal(backup.manifest.schemaVersion,19)
   assert.equal((await verifyBackup(backup.root)).counts.shipments,1)
   assert.equal(backup.counts.mock_channel_bill,1)
   const restored=await restoreBackup({backupPath:backup.root,destination:join(f.root,'restored')})
@@ -63,7 +63,7 @@ test('D18 真实v17数据库恢复后迁移018保留历史付款和发货，未�
   for(let attempt=0;attempt<2;attempt++){
    const db=new Database(join(restored.root,'mall.sqlite'))
    try{
-    assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version,18)
+    assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version,19)
     assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',id)!.state,4)
     assert.equal(db.one<{id:null}>('SELECT channel_transaction_id id FROM payments')!.id,null)
     assert.equal(db.one<{n:number}>('SELECT COUNT(*) n FROM shipments')!.n,0)
