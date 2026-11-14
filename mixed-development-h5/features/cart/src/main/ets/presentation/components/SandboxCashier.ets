@@ -6,19 +6,29 @@ export struct SandboxCashier {
   @Prop checkoutUrl: string = ''
   onClose: () => void = () => {}
   private controller: webview.WebviewController = new webview.WebviewController()
-  @State blocked: boolean = false
+  @State navigationMessage: string = ''
 
   private allowsNavigation(value: string): boolean {
     // 只允许支付宝 HTTPS 网页；自定义协议/外部应用跳转留待真实兼容性验收。
     return /^https:\/\/([a-z0-9-]+\.)*(alipay\.com|alipaydev\.com)(?::443)?(?:[/?#]|$)/i.test(value)
   }
 
+  private interceptNavigation(value: string): boolean {
+    const blocked: boolean = !this.allowsNavigation(value)
+    if (blocked) {
+      this.navigationMessage = /^alipays?:\/\//i.test(value)
+        ? '请在下方网页中选择「继续浏览器付款」完成支付'
+        : '该付款跳转暂不支持，请关闭收银台并核对结果。'
+    }
+    return blocked
+  }
+
   build() {
     Column({ space: 8 }) {
       Text('沙箱测试，不会真实扣款').fontSize(16).fontWeight(600).id('sandbox-payment-notice')
       Text('请使用沙箱买家账号；页面返回不代表付款成功。').fontSize(12)
-      if (this.blocked) {
-        Text('该付款跳转暂不支持，请关闭收银台并核对结果。').fontSize(14)
+      if (this.navigationMessage) {
+        Text(this.navigationMessage).fontSize(14).id('sandbox-navigation-message')
       }
       Web({ src: this.checkoutUrl, controller: this.controller })
         .javaScriptAccess(true)
@@ -27,9 +37,7 @@ export struct SandboxCashier {
         .mixedMode(MixedMode.None)
         .onLoadIntercept((event) => {
           if (!event) return true
-          const blocked: boolean = !this.allowsNavigation(event.data.getRequestUrl())
-          if (blocked) this.blocked = true
-          return blocked
+          return this.interceptNavigation(event.data.getRequestUrl())
         })
         .layoutWeight(1)
       Button('关闭并核对付款结果').id('sandbox-close-cashier').onClick(() => this.onClose())
