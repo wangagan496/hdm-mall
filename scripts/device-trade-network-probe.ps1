@@ -179,6 +179,7 @@ function Invoke-TradeNetworkProbe {
     } else {
       Input-Type 'TextArea' 0 'Already packed for shipment'
       Back
+      Product-Control 'shipping-tracking-number' 'SF12345678'
       Save-TradeNetworkCheckpoint ($Case+'-entered-reason') @($Case) $OrderId '商家填写拒绝原因，提交前可见'
       Rapid-TradeTap '拒绝并发货' ($Case+'-merchant-resolve')
     }

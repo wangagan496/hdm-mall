@@ -38,7 +38,7 @@ function fixture() {
     if (action === 'invite') { page.friendAccount = ' friend '; page.sendFamilyInvitation() }
     if (action === 'accept') page.acceptFamilyInvitation('relation')
     if (action === 'revoke') page.removeFamilyRelation('relation')
-    if (action === 'ship') page.shipOrder(page.ordersToShip[0] || shipment)
+    if (action === 'ship') { page.shipOrder(page.ordersToShip[0] || shipment); page.shippingTrackingNo = 'SF12345678'; void page.submitShipment() }
     if (action === 'pay' || action === 'receipt') {
       if (action === 'pay') page.confirmFamilyPayment(page.familyOrders.find(item => item.id === 'pay') || payment)
       else page.confirmFamilyReceipt(page.familyOrders.find(item => item.id === 'receipt') || receipt)
@@ -118,7 +118,7 @@ test('亲友全部写入口固定凭证，旧成功失败及收尾不能干扰�
     for (const changedAccount of [false, true]) for (const failed of [false, true]) {
     const f = fixture(), old = deferred(), newer = deferred(); await f.page.loadFamilyCenter()
     f.setMutation(() => old.promise); f.invoke(action)
-    assert.equal(f.writes.length, 1); assert.equal(f.writes[0].at(-1), 'token-a')
+    assert.equal(f.writes.length, 1); assert.equal(action === 'ship' ? f.writes[0][2] : f.writes[0].at(-1), 'token-a')
     f.page.aboutToDisappear()
     if (changedAccount) f.page.user = { ...f.page.user, token: 'token-b' }
     f.page.aboutToAppear(); await tick()

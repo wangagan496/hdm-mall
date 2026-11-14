@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { mkdtempSync } from 'node:fs'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
+import { beijingDate } from '../../server/src/channel-bill.ts'
 const paymentCallbackSecret = randomUUID()
 const channel = new MockPaymentChannel(paymentCallbackSecret)
 const refund = channel.refund.bind(channel)
@@ -51,7 +52,7 @@ if (process.argv.includes('--inventory-probe')) {
   const prepareReturn = async (item: typeof sku, count: number, bought: number) => {
     const order = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: item.priceCents * bought, addressId: address!.id, goods: [{ skuId: item.id, count: bought }] })
     await f.orders.pay(user, order.id, item.priceCents * bought)
-    await f.orders.ship(merchant, order.id)
+    await f.orders.ship(merchant, order.id, { carrier: '顺丰', trackingNo: 'SF12345678' })
     const request = await f.afterSales.request(user, order.id, { requestKey: randomUUID(), kind: 'return-quality', description: '库存验收测试商品退回', items: [{ skuId: item.id, count }] })
     await f.afterSales.act(merchant, request.afterSaleId, 'approve', { requestKey: randomUUID(), returnAddress: { receiver: '验收仓库', contact: '13800138000', address: '库存验收测试仓库' } })
     const key = randomUUID()
@@ -72,6 +73,26 @@ f.app.get<{Params:{account:string}}>('/device-fixture/form/:account',async(req,r
  if(!/^device_(buyer|friend|merchant)$/.test(req.params.account))return reply.code(404).send({code:'0'})
  return {code:'1',result:{fixture:'device-trade-form',password:fixturePassword}}
 })
+if (process.argv.includes('--logistics-probe')) {
+  f.app.post<{ Body: { orderId: string; events: unknown } }>('/device-fixture/logistics', async req =>
+    f.logistics.pushMock(req.body.orderId, req.body.events))
+}
+if (process.argv.includes('--reconcile-probe')) {
+  let prepared = false
+  f.app.post('/device-fixture/reconciliation', async (_req, reply) => {
+    if (prepared) return reply.code(409).send({ error: 'Reconciliation fixture already prepared' })
+    prepared = true
+    for (let i = 0; i < 3; i++) {
+      const order = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents,
+        addressId: address!.id, goods: [{ skuId: sku.id, count: 1 }] })
+      await f.orders.pay(user, order.id, sku.priceCents)
+    }
+    const date = beijingDate(f.clock.now()), rows = channel.exportBill(date)
+    channel.setBill(date, [{ ...rows[0]!, businessId: 'external-only', channelId: 'external-channel-only' },
+      { ...rows[1]!, amountCents: sku.priceCents + 100 }, { ...rows[2]!, state: 'pending' }])
+    return { date, expectedCategories: ['amount', 'channel-only', 'local-only', 'state'] }
+  })
+}
 f.app.post<{Body:{milliseconds:number}}>('/device-fixture/advance',async(req,reply)=>{
  if(!Number.isSafeInteger(req.body.milliseconds)||req.body.milliseconds<0||req.body.milliseconds>4*366*86400000)return reply.code(400).send({error:'invalid clock advance'})
  clockOffset+=req.body.milliseconds

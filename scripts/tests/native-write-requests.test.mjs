@@ -122,7 +122,7 @@ test('订单列表详情提醒和收货固定原会话，真实路由拒绝无�
     }
     await assert.rejects(api.receiptOrderAPI(id, buyer.token))
     assert.equal(requests.length, 4)
-    const shipped = await f.app.inject({ method: 'POST', url: `/merchant/orders/${id}/ship`, headers: { authorization: `Bearer ${merchant.token}` }, payload: {} })
+    const shipped = await f.app.inject({ method: 'POST', url: `/merchant/orders/${id}/ship`, headers: { authorization: `Bearer ${merchant.token}` }, payload: { carrier: '顺丰', trackingNo: 'SF12345678' } })
     assert.equal(shipped.statusCode, 200)
     current = buyer
     const receiving = api.receiptOrderAPI(id, buyer.token)
@@ -191,7 +191,7 @@ test('结算预览和下单固定发起账号，切换登录态后仍保留原�
   } finally { await f.app.close() }
 })
 
-test('原生无业务参数的发货收货与注销发送有效 JSON，保留正文及指定会话且不重发失败操作', async () => {
+test('原生发货运单及无业务参数的收货注销发送有效 JSON，保留正文及指定会话且不重发失败操作', async () => {
   const f = await buildApp({ databasePath: ':memory:', uploadsPath: './unused', publicUrl: 'http://fixture', mockPayments: true })
   try {
     for (const account of ['native_buyer', 'native_merchant']) f.accounts.register(account, 'native-test-password', account.endsWith('merchant') ? 'merchant' : 'buyer')
@@ -221,9 +221,9 @@ test('原生无业务参数的发货收货与注销发送有效 JSON，保留正
       current = buyer
       await RequestAxios.post(`/member/order/${order.id}/mock-pay`, { amountCents: 1900 })
       current = merchant
-      await RequestAxios[post](`/merchant/orders/${order.id}/ship`)
+      await RequestAxios[post](`/merchant/orders/${order.id}/ship`, { carrier: '顺丰', trackingNo: 'SF12345678' })
       const attempts = requests.length
-      await assert.rejects(RequestAxios[post](`/merchant/orders/${order.id}/ship`))
+      await assert.rejects(RequestAxios[post](`/merchant/orders/${order.id}/ship`, { carrier: '顺丰', trackingNo: 'SF12345678' }))
       assert.equal(requests.length, attempts + 1)
       current = buyer
       const received = await RequestAxios[put](`/member/order/${order.id}/receipt`)
@@ -235,7 +235,7 @@ test('原生无业务参数的发货收货与注销发送有效 JSON，保留正
     assert.equal(requests.at(-1).headers.Authorization, `Bearer ${merchant.token}`)
     for (const request of requests) {
       assert.equal(request.headers['Content-Type'], 'application/json')
-      assert.deepEqual(JSON.parse(request.data), request.url.endsWith('/mock-pay') ? { amountCents: 1900 } : {})
+      assert.deepEqual(JSON.parse(request.data), request.url.endsWith('/mock-pay') ? { amountCents: 1900 } : request.url.endsWith('/ship') ? { carrier: '顺丰', trackingNo: 'SF12345678' } : {})
     }
   } finally { await f.app.close() }
 })
