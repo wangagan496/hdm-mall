@@ -37,7 +37,7 @@ for (const decision of ['withdraw', 'approve', 'reject-and-ship']) {
       const path = decision === 'withdraw' ? '/member/order/' + orderId + '/cancel-requests/' + request.cancelRequestId + '/withdraw'
         : '/merchant/orders/' + orderId + '/cancel-requests/' + request.cancelRequestId + '/resolve'
       const payload = decision === 'withdraw' ? { requestKey: actionKey } : { requestKey: actionKey, decision,
-        ...(decision === 'reject-and-ship' ? { reason: 'Already prepared for shipment' } : {}) }
+        ...(decision === 'reject-and-ship' ? { carrier:'顺丰',trackingNo:'SF12345678',reason: 'Already prepared for shipment' } : {}) }
       const token = decision === 'withdraw' ? buyer.token : merchant.token
       await call('POST', '/device-fixture/response-barrier', { kind, hold: true })
       const actionTask = call('POST', path, payload, token).then(response => response)

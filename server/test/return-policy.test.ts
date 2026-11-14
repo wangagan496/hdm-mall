@@ -35,7 +35,7 @@ async function fixture(databasePath=':memory:',uploadsPath='./unused') {
     const q=await quote(),r=await create({...body(),returnPolicyConfirmed:true,expectedReturnPolicyToken:q.returnPolicyToken})
     assert.equal(r.status,200);const id=r.body.result.id as string
     assert.equal((await call('POST',`/member/order/${id}/mock-pay`,{amountCents:1900},buyer.token)).status,200)
-    assert.equal((await call('POST',`/merchant/orders/${id}/ship`,{})).status,200)
+    assert.equal((await call('POST',`/merchant/orders/${id}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'})).status,200)
     return id
   }
   const detail=async(id:string)=>(await call('GET',`/member/order/${id}`,undefined,buyer.token)).body.result
@@ -119,7 +119,7 @@ test('RP06 未确认的第七条快照按标准处理，同单按规格筛选',a
   await f.edit('custom')
   const r=await f.create({...f.body(),expectedAmountCents:2000,goods:[{skuId:f.sku.id,count:1},{skuId:other.id,count:1}]});assert.equal(r.status,200)
   const mixed=r.body.result.id
-  await f.call('POST',`/member/order/${mixed}/mock-pay`,{amountCents:2000},f.buyer.token);await f.call('POST',`/merchant/orders/${mixed}/ship`,{})
+  await f.call('POST',`/member/order/${mixed}/mock-pay`,{amountCents:2000},f.buyer.token);await f.call('POST',`/merchant/orders/${mixed}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'})
   const d=await f.detail(mixed)
   assert.ok(d.afterSaleKinds.includes('return-no-reason'));assert.ok(!d.skus.find((s:{id:string})=>s.id===f.sku.id).afterSaleKinds.includes('return-no-reason'))
   assert.ok(d.skus.find((s:{id:string})=>s.id===other.id).afterSaleKinds.includes('return-no-reason'))
@@ -146,21 +146,21 @@ test('RP08 014迁移旧商品订单默认支持且未确认，备份14兼容和1
  await mkdir(uploads)
  const f=await fixture(path,uploads)
  try{
-  const order=await f.paid(),before=f.ctx.db.all('SELECT * FROM payments')
+  const order=await f.paid(),before=f.ctx.db.all<Record<string,unknown>>('SELECT * FROM payments').map(row=>Object.assign(Object.create(null),row,{channel_transaction_id:null}))
   await f.ctx.app.close()
   const legacy=new DatabaseSync(path);try{removeReturnPolicySchema(legacy)}finally{legacy.close()}
   const oldBackup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'v14')})
   assert.equal(oldBackup.manifest.schemaVersion,14)
   const next=new Database(path)
   try{
-   assert.equal(next.one<{user_version:number}>('PRAGMA user_version')!.user_version,17)
+   assert.equal(next.one<{user_version:number}>('PRAGMA user_version')!.user_version, 18)
    assert.deepEqual({...next.one<Record<string,unknown>>('SELECT return_policy,return_policy_reason,return_policy_note,return_policy_confirmed FROM order_items WHERE order_id=?',order)},
     {return_policy:'standard',return_policy_reason:'',return_policy_note:'',return_policy_confirmed:0})
    assert.equal(next.one<{return_policy:string}>('SELECT return_policy FROM products WHERE id=?',f.product.id)!.return_policy,'standard')
    assert.deepEqual(next.all('SELECT * FROM payments'),before)
   }finally{next.close()}
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'v15')})
-  assert.equal(backup.manifest.schemaVersion,17);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 18);assert.deepEqual(backup.manifest.issues,[])
   const restored=await restoreBackup({backupPath:backup.root,destination:join(root,'restored')})
   const db=new Database(join(restored.root,'mall.sqlite'));try{assert.equal(db.one<{return_policy:string}>('SELECT return_policy FROM order_items WHERE order_id=?',order)!.return_policy,'standard')}finally{db.close()}
   const broken=new DatabaseSync(path);try{broken.exec("PRAGMA ignore_check_constraints=ON; UPDATE products SET return_policy='confirm-required',return_policy_reason='defect',return_policy_note=''")}finally{broken.close()}

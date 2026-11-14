@@ -37,7 +37,7 @@ async function fixture(databasePath = ':memory:') {
     return id
   }
   const request = (id: string, requestKey = randomUUID(), token = buyer.token) => call('POST', '/member/order/' + id + '/cancel-requests', token, { requestKey })
-  const resolve = (id: string, cancelRequestId: string, decision = 'approve', reason?: string, requestKey = randomUUID()) => call('POST', '/merchant/orders/' + id + '/cancel-requests/' + cancelRequestId + '/resolve', merchant.token, { requestKey, decision, ...(reason === undefined ? {} : { reason }) })
+  const resolve = (id: string, cancelRequestId: string, decision = 'approve', reason?: string, requestKey = randomUUID()) => call('POST', '/merchant/orders/' + id + '/cancel-requests/' + cancelRequestId + '/resolve', merchant.token, { requestKey, decision, ...(decision === 'reject-and-ship' ? {carrier:'顺丰',trackingNo:'SF12345678'} : {}), ...(reason === undefined ? {} : { reason }) })
   const withdraw = (id: string, cancelRequestId: string, requestKey = randomUUID()) => call('POST', '/member/order/' + id + '/cancel-requests/' + cancelRequestId + '/withdraw', buyer.token, { requestKey })
   const order = (id: string) => ctx.db.one<{ state: number; shipped_at: number | null }>('SELECT state,shipped_at FROM orders WHERE id=?', id)!
   const stock = () => ctx.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', sku.id)!.stock
@@ -48,7 +48,7 @@ async function fixture(databasePath = ':memory:') {
 test('B-80 RED1：空库迁移至8且取消两表为空', () => {
   const db = new Database(':memory:')
   try {
-    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_actions')!.count, 0)
   } finally { db.close() }
@@ -157,12 +157,12 @@ test('B-63 B-77 RED6：普通发货与申请两种落库顺序及已取消提示
   try {
     const id = await f.create()
     const requestId = (await f.request(id)).body.result.cancelRequestId
-    assert.equal((await f.call('POST', '/merchant/orders/' + id + '/ship', f.merchant.token)).body.msg, '买家已申请取消，请先处理取消申请')
+    assert.equal((await f.call('POST', '/merchant/orders/' + id + '/ship', f.merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).body.msg, '买家已申请取消，请先处理取消申请')
     assert.equal(f.order(id).state, 2)
     await f.resolve(id, requestId)
-    assert.equal((await f.call('POST', '/merchant/orders/' + id + '/ship', f.merchant.token)).body.msg, '买家已取消，不能发货')
+    assert.equal((await f.call('POST', '/merchant/orders/' + id + '/ship', f.merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).body.msg, '买家已取消，不能发货')
     const shipped = await f.create()
-    assert.equal((await f.call('POST', '/merchant/orders/' + shipped + '/ship', f.merchant.token)).status, 200)
+    assert.equal((await f.call('POST', '/merchant/orders/' + shipped + '/ship', f.merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 200)
     assert.equal((await f.request(shipped)).body.msg, '已发货，请联系售后')
     assert.equal(f.order(shipped).state, 3)
     assert.equal(f.ctx.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM refunds')!.count, 1)
@@ -264,7 +264,7 @@ test('B-80 RED10：版本8备份统计、合法取消不误报并恢复到期申
     const pendingId = await f.create()
     await f.request(pendingId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 17)
+    assert.equal(backup.manifest.schemaVersion, 18)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.counts.order_cancel_requests, 2)
     assert.equal(backup.counts.order_cancel_actions, 3)
@@ -328,8 +328,8 @@ test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据�
     for (let startup = 0; startup < 2; startup++) {
       const migrated = new Database(path)
       try {
-        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
-        for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), table === 'refunds' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{after_sale_id:null,completed_at:null})) : before[table])
+        assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
+        for (const table of preserved) assert.deepEqual(migrated.all('SELECT * FROM ' + table + ' ORDER BY id'), table === 'refunds' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{after_sale_id:null,completed_at:null,channel_refund_id:null})) : table === 'payments' ? before[table]!.map(row=>Object.assign(Object.create(null),row,{channel_transaction_id:null})) : before[table])
         assert.deepEqual(migrated.all("SELECT name,sql FROM sqlite_master WHERE name IN ('payment_notices','refund_retry_actions') ORDER BY name"), schemas)
         assert.equal(migrated.one<{ count: number }>('SELECT COUNT(*) AS count FROM order_cancel_requests')!.count, 0)
         assert.deepEqual(migrated.all('PRAGMA foreign_key_check'), [])
@@ -337,7 +337,7 @@ test('B-80：真实版本7数据升级12，退款新增售后关联且旧数据�
     }
     const oldRestore = await restoreBackup({ backupPath: oldBackup.root, destination: join(root, 'old-restored') })
     const upgraded = new Database(join(oldRestore.root, 'mall.sqlite'))
-    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17) } finally { upgraded.close() }
+    try { assert.equal(upgraded.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18) } finally { upgraded.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -359,7 +359,7 @@ test('B-80：008中途失败回滚已建表索引及版本，修复后可重试'
       inspected.exec('DROP TABLE order_cancel_actions')
     } finally { inspected.close() }
     const recovered = new Database(path)
-    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17) } finally { recovered.close() }
+    try { assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18) } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
@@ -448,7 +448,7 @@ test('B-63 B-76 B-77：到点普通发货先自动取消，人工同意不能抢
     const due = (await f.call('GET', '/member/order/' + ids[1])).body.result
     assert.equal(due.canWithdrawCancel, false)
     assert.equal(due.cancelRequestNotice, '已到自动处理时间，正在处理')
-    assert.equal((await f.call('POST', '/merchant/orders/' + ids[1] + '/ship', f.merchant.token)).body.msg, '买家已取消，不能发货')
+    assert.equal((await f.call('POST', '/merchant/orders/' + ids[1] + '/ship', f.merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).body.msg, '买家已取消，不能发货')
     assert.equal((await f.resolve(ids[2]!, requests[2]!)).body.reason, 'CANCEL_REQUEST_EXPIRED')
     assert.deepEqual(await f.ctx.orders.processDueCancelRequests(), { processed: 0, failed: [] })
     assert.equal(f.stock(), 20)

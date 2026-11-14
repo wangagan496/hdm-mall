@@ -36,7 +36,7 @@ async function fixture(kind = 'return-no-reason', family = false) {
     assert.equal((await call('PUT', `/member/order/${orderId}/payer`, { friendId: friend.id })).status, 200)
   }
   assert.equal((await call('POST', `/member/order/${orderId}/mock-pay`, { amountCents: 100 }, family ? friend.token : buyer.token)).status, 200)
-  assert.equal((await call('POST', `/merchant/orders/${orderId}/ship`, {}, merchant.token)).status, 200)
+  assert.equal((await call('POST', `/merchant/orders/${orderId}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, merchant.token)).status, 200)
   const requested = await call('POST', `/member/order/${orderId}/after-sales`, { requestKey: randomUUID(), kind, description: '收到商品后发现问题', items: [{ skuId: sku.id, count: 1 }] })
   assert.equal(requested.status, 200)
   const saleId = requested.body.result.afterSaleId
@@ -140,7 +140,7 @@ test('A1 v16运费退款超过货款，图片与独立退款备份校验及恢�
     assert.equal((await f.act('inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
     const destination = join(f.root, 'backup')
     const backup = await createBackup({ databasePath: f.databasePath, uploadsPath: f.uploadsPath, destination })
-    assert.equal(backup.manifest.schemaVersion, 17)
+    assert.equal(backup.manifest.schemaVersion, 18)
     assert.deepEqual(backup.manifest.issues, [])
     await verifyBackup(destination)
     const restored = await restoreBackup({ backupPath: destination, destination: join(f.root, 'restored') })
@@ -226,7 +226,7 @@ test('A2 v15历史订单和售后迁移016后金额不变，重复打开不重�
     for (let iteration = 0; iteration < 2; iteration++) {
       const db = new Database(f.databasePath)
       try {
-        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 17)
+        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 18)
         assert.deepEqual(db.all('PRAGMA foreign_key_check'), [])
         assert.equal(db.one<{amount: number}>('SELECT amount FROM orders WHERE id=?', f.orderId)!.amount, Math.round(before.payMoney * 100))
         assert.equal(db.one<{state: string}>('SELECT state FROM after_sales WHERE id=?', f.saleId)!.state, 'refunded')
@@ -252,7 +252,7 @@ test('A2 零元货款退货无需货款退款渠道，运费仍单独补偿', as
     assert.equal(created.status, 200)
     const zeroOrderId = created.body.result.id
     assert.equal((await f.call('POST', `/member/order/${zeroOrderId}/mock-pay`, { amountCents: 1 })).status, 200)
-    assert.equal((await f.call('POST', `/merchant/orders/${zeroOrderId}/ship`, {}, f.merchant.token)).status, 200)
+    assert.equal((await f.call('POST', `/merchant/orders/${zeroOrderId}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, f.merchant.token)).status, 200)
     const requested = await f.call('POST', `/member/order/${zeroOrderId}/after-sales`, { requestKey: randomUUID(), kind: 'return-no-reason',
       items: [{ skuId: product.skus[0]!.id, count: 1 }] })
     assert.equal(requested.status, 200, '实付0分商品仍可申请退货')

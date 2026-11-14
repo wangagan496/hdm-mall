@@ -31,7 +31,7 @@ export async function serviceFixture(fileBacked = false) {
   const complete = async (id: string) => {
     for (const [method, url, payload, token] of [
       ['POST', `/member/order/${id}/mock-pay`, { amountCents: 1000 }, buyer.token],
-      ['POST', `/merchant/orders/${id}/ship`, {}, merchant.token],
+      ['POST', `/merchant/orders/${id}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, merchant.token],
       ['PUT', `/member/order/${id}/receipt`, {}, buyer.token]
     ] as const) {
       const response = await call(method, url, payload, token)

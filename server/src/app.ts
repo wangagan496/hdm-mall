@@ -12,6 +12,9 @@ import { Catalog } from './catalog.ts'
 import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
 import { Payments } from './payments.ts'
+import { Reconciliation } from './reconciliation.ts'
+import { billDateSchema } from './channel-bill.ts'
+import { Logistics, MockLogisticsChannel, type LogisticsChannel } from './logistics.ts'
 import { AccountLifecycle } from './account-lifecycle.ts'
 import { auditPage, deniedAudit } from './audit.ts'
 import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
@@ -27,7 +30,7 @@ import { systemClock, type Clock } from './clock.ts'
 import { validateRuntimeOptions, type RuntimeOptions } from './config.ts'
 import { inventoryPage, stockMovements, adjustStock, adjustmentReceipt } from './inventory.ts'
 
-export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions }
+export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel }
 const idSchema = z.string().min(1).max(100)
 const credentials = z.object({ account: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/), password: z.string().min(8).max(128) })
 const pageSchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(10), orderState: z.coerce.number().int().min(0).max(6).default(0) })
@@ -46,8 +49,12 @@ export async function buildApp(options: AppOptions) {
   const products = new Products(db, options.publicUrl, clock)
   const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
   const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
-    (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret) : undefined)
+    (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret, db, clock) : undefined)
+  if(paymentChannel instanceof MockPaymentChannel)paymentChannel.attachStore(db,clock)
   const payments = new Payments(db, accounts, paymentChannel, paymentCallbackSecret, clock)
+  const reconciliation = new Reconciliation(db, clock, paymentChannel)
+  const logistics = new Logistics(db,clock,options.logisticsChannel??(options.mockPayments||options.testMode?new MockLogisticsChannel():undefined),
+    (user,id) => orders.readable(user,id))
   const lifecycle = new AccountLifecycle(db, accounts, clock, options.uploadsPath)
   const service = new ServiceMessages(db, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
@@ -55,7 +62,7 @@ export async function buildApp(options: AppOptions) {
   const afterSales = new AfterSales(db, payments, clock)
   orders.attachAfterSales(afterSales)
   if (!options.testFixtures) catalog.seed()
-  const fixtures = options.testFixtures ? new TestFixtures(accounts, options.testFixtures.credential, payments) : undefined
+  const fixtures = options.testFixtures ? new TestFixtures(accounts, options.testFixtures.credential, payments, logistics) : undefined
   const app = Fastify({ logger: options.logger ?? false, logController: new LogController({ disableRequestLogging: true }),
     bodyLimit: 1024 * 1024, trustProxy: options.trustedProxies?.length ? options.trustedProxies : false })
   if (options.production && options.corsOrigins?.includes('null')) app.log.warn('CORS_ORIGINS 显式允许 Origin null：已开放打包 ArkWeb 等不透明来源，请仅在需要内嵌 H5 时启用并保留 Bearer token 鉴权')
@@ -104,6 +111,10 @@ export async function buildApp(options: AppOptions) {
   }
 
   protectedRoute('GET','/merchant/audit-log',(req,user)=>auditPage(db,user,req.query))
+  protectedRoute('POST', '/merchant/reconciliation/run', (req,user) => reconciliation.run(user,z.object({ date: billDateSchema }).parse(req.body).date))
+  protectedRoute('GET', '/merchant/reconciliation/bill', (req,user) => reconciliation.bill(user,z.object({ date: billDateSchema }).parse(req.query).date))
+  protectedRoute('GET', '/merchant/reconciliation', (req,user) => reconciliation.report(user,z.object({ date: billDateSchema }).parse(req.query).date))
+  protectedRoute('POST', '/merchant/reconciliation/differences/:id/resolve', (req,user) => reconciliation.resolve(user,key(req),req.body))
   protectedRoute('GET', '/member/service/messages', (req, user) => service.history(user, user.id, req.query))
   protectedRoute('POST', '/member/service/messages', (req, user) => service.send(user, user.id, req.body))
   protectedRoute('GET', '/member/service/unread', (_req, user) => service.unread(user.id))
@@ -349,6 +360,7 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/cancel', (req, user) => orders.cancel(user, key(req)))
   protectedRoute('POST', '/member/order/:id/reminder', (req, user) => orders.remind(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/receipt', (req, user) => orders.receive(user, key(req)))
+  protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req)))
   protectedRoute('PUT', '/member/order/:id/evaluation', (req, user) => {
     const data = z.object({ score: z.number().int().min(1).max(5), content: z.string().trim().min(5).max(500) }).parse(req.body)
     return orders.evaluate(user, key(req), data.score, data.content)
@@ -384,9 +396,9 @@ export async function buildApp(options: AppOptions) {
     z.object({ cancelRequestId: z.string().uuid() }).parse(req.params).cancelRequestId,
     z.discriminatedUnion('decision', [
       z.object({ requestKey: z.string().uuid(), decision: z.literal('approve') }).strict(),
-      z.object({ requestKey: z.string().uuid(), decision: z.literal('reject-and-ship'), reason: z.string().optional() }).strict()
+      z.object({ requestKey: z.string().uuid(), decision: z.literal('reject-and-ship'), reason: z.string().optional(),carrier:z.string().optional(),trackingNo:z.string().optional() }).strict()
     ]).parse(req.body)))
-  protectedRoute('POST', '/merchant/orders/:id/ship', (req, user) => orders.ship(user, key(req)))
+  protectedRoute('POST', '/merchant/orders/:id/ship', (req, user) => orders.ship(user, key(req),req.body))
   const processCancelRequests = async () => {
     const result = await orders.processDueCancelRequests(clock.now())
     if (result.failed.length) app.log.error({ cancelRequestIds: result.failed }, 'Order cancellation processing failed')
@@ -395,6 +407,11 @@ export async function buildApp(options: AppOptions) {
   const processAfterSales = async () => { const result = await afterSales.processDue(); if (result.failed.length) app.log.error({ afterSaleIds: result.failed }, 'After-sale processing failed') }
   await processAfterSales().catch(() => app.log.error('After-sale startup scan failed'))
   await lifecycle.scan().catch(() => app.log.error('Account lifecycle startup scan failed'))
+  const processReconciliation = async () => {
+    const result = await reconciliation.scan()
+    if (result.failed.length) app.log.error('Daily reconciliation failed; retry retained')
+  }
+  await processReconciliation().catch(() => app.log.error('Daily reconciliation startup scan failed'))
   const timer = setInterval(() => {
     try { orders.expire() } catch { app.log.error('Order expiration failed') }
     try { catalog.cleanupCartRequests() } catch { app.log.error('Cart request cleanup failed') }
@@ -402,8 +419,9 @@ export async function buildApp(options: AppOptions) {
     void processAfterSales().catch(() => app.log.error('After-sale scan failed'))
     void payments.reconcile().catch(() => app.log.error('Payment reconciliation failed'))
     void lifecycle.scan().catch(() => app.log.error('Account lifecycle scan failed'))
+    void processReconciliation().catch(() => app.log.error('Daily reconciliation scan failed'))
   }, 30_000).unref()
   await backups?.start()
-  app.addHook('onClose', async () => { clearInterval(timer); await backups?.stop(); db.close() })
-  return { app, db, accounts, catalog, orders, payments, afterSales, lifecycle, clock, fixtures, backups }
+  app.addHook('onClose', async () => { clearInterval(timer); await reconciliation.stop(); await backups?.stop(); db.close() })
+  return { app, db, accounts, catalog, orders, payments, reconciliation, logistics, afterSales, lifecycle, clock, fixtures, backups }
 }

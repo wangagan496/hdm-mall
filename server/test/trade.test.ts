@@ -53,7 +53,7 @@ async function fixture(databasePath = ':memory:') {
       assert.equal((await call('PUT', `/member/order/${id}/payer`, users.buyer!.token, { friendId: users.payer!.id })).status, 200)
     }
     assert.equal((await call('POST', `/member/order/${id}/mock-pay`, users[family ? 'payer' : 'buyer']!.token, { amountCents: priceCents })).status, 200)
-    assert.equal((await call('POST', `/merchant/orders/${id}/ship`, users.merchant!.token)).status, 200)
+    assert.equal((await call('POST', `/merchant/orders/${id}/ship`, users.merchant!.token, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 200)
     return id
   }
   return { ...ctx, call, users, bind, create, paidOrder, login, addressId: address.body.result.id as string }
@@ -106,6 +106,19 @@ test('亲友代付后所有已绑定代收人都有资格，无需每单指定�
     assert.ok(['receiver','another'].includes(order.receivedByAccount))
     assert.equal(order.payerAccount, 'payer'); assert.equal(order.orderState, 4)
     assert.equal((await f.call('PUT', `/member/order/${id}/evaluation`, f.users.payer!.token, { score: 5, content: '亲友不能代替评价' })).status, 403)
+  } finally { await f.app.close() }
+})
+
+test('亲友代付订单的代收人可以查看物流轨迹，陌生人不能', async () => {
+  const f = await fixture()
+  try {
+    await f.bind('receiver')
+    const id = await f.paidOrder(true)
+    for (const name of ['buyer','payer','receiver']) {
+      assert.equal((await f.call('GET', `/member/order/${id}/logistics`, f.users[name]!.token)).status, 200, name)
+    }
+    assert.equal((await f.call('GET', `/member/order/${id}/logistics`, f.users.merchant!.token)).status, 200)
+    assert.equal((await f.call('GET', `/member/order/${id}/logistics`, f.users.stranger!.token)).status, 403)
   } finally { await f.app.close() }
 })
 
@@ -191,7 +204,7 @@ test('购买人无发货权限，提醒不改变状态，注销撤销会话', as
   try {
     const id = (await f.create()).body.result.id, token = f.users.buyer!.token
     await f.call('POST', `/member/order/${id}/mock-pay`, token, { amountCents: priceCents })
-    assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, token)).status, 403)
+    assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, token, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 403)
     assert.equal((await f.call('POST', `/member/order/${id}/reminder`, token)).status, 200)
     assert.equal((await f.call('GET', `/member/order/${id}`, token)).body.result.orderState, 2)
     assert.equal((await f.call('PUT', `/member/order/${id}/receipt`, token)).status, 409)

@@ -175,14 +175,14 @@ test('无有效支付的订单不进入商家待发货列表且不能发货', as
     const sellerOrders = await f.call('GET', '/merchant/orders', f.merchant.token)
     assert.equal(sellerOrders.body.result.some((order: { id: string }) => order.id === orderId), false)
     f.ctx.db.run('UPDATE orders SET state=2 WHERE id=?', orderId)
-    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, f.merchant.token)).status, 409)
+    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, f.merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 409)
     assert.equal(f.ctx.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', orderId)!.state, 2)
 
     const refundedOrder = await f.createOrder()
     const paid = await f.call('POST', `/member/order/${refundedOrder}/mock-pay`, f.buyer.token, { amountCents })
     f.ctx.db.run("INSERT INTO refunds(id,payment_id,amount,reason,state,attempts,next_attempt_at,created) VALUES(?,?,?,'late','pending',0,?,?)",
       randomUUID(), paid.body.result.paymentId, amountCents, f.clock.now(), f.clock.now())
-    assert.equal((await f.call('POST', `/merchant/orders/${refundedOrder}/ship`, f.merchant.token)).status, 409)
+    assert.equal((await f.call('POST', `/merchant/orders/${refundedOrder}/ship`, f.merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 409)
     assert.equal(f.ctx.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', refundedOrder)!.state, 2)
   } finally { await f.ctx.app.close() }
 })
@@ -213,7 +213,7 @@ test('迁移 007 将版本 6 历史已付款订单补成有效支付且重复启
   let migrated: Database | undefined
   try {
     migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
     assert.deepEqual(migrated.all<{ order_id: string; payer_id: string; amount: number; state: string; created: number; channel_paid_at: number }>(
       'SELECT order_id,payer_id,amount,state,created,channel_paid_at FROM payments').map(row => ({ ...row })), [
       { order_id: 'paid-order', payer_id: 'buyer', amount: 2475, state: 'succeeded', created: 2000, channel_paid_at: 2000 }
@@ -225,7 +225,7 @@ test('迁移 007 将版本 6 历史已付款订单补成有效支付且重复启
     assert.ok(migrated.one("SELECT name FROM sqlite_master WHERE type='index' AND name='refund_retry_actions_refund'"))
     migrated.close(); migrated = undefined
     migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
     assert.equal(migrated.all('SELECT id FROM payments').length, 1)
     migrated.close(); migrated = undefined
   } finally { migrated?.close(); await rm(root, { recursive: true, force: true }) }
@@ -423,7 +423,7 @@ test('B-46 与 B-58：未知结果在宽限期后查单并于 24 小时转人工
     assert.equal((await f.call('PUT', `/merchant/payments/${paymentId}/resolution`, merchant.token, resolution)).status, 200)
     assert.equal((await f.call('PUT', `/merchant/payments/${paymentId}/resolution`, merchant.token, resolution)).status, 200)
     assert.equal(f.ctx.db.all('SELECT id FROM payment_review_resolutions WHERE payment_id=?', paymentId).length, 1)
-    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, merchant.token)).status, 409)
+    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 409)
   } finally { await f.ctx.app.close() }
 })
 
@@ -656,7 +656,7 @@ test('商家登记已扣款走正常成功结算规则并保留审计记录', as
     assert.deepEqual({ ...f.ctx.db.one<{ state: number; paid_by: string; paid_at: number }>(
       'SELECT state,paid_by,paid_at FROM orders WHERE id=?', orderId)! }, { state: 2, paid_by: f.buyer.id, paid_at: graceDeadline })
     assert.equal(f.ctx.catalog.sku(f.sku.id).stock, 6)
-    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, merchantToken)).status, 200)
+    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, merchantToken, {carrier:'顺丰',trackingNo:'SF12345678'})).status, 200)
   } finally { await f.ctx.app.close() }
 })
 
@@ -912,7 +912,7 @@ test('迁移 007 中途外键失败整体回滚，修复历史付款人后可重
     } finally { afterForeignKey.close() }
     const migrated = new Database(path)
     try {
-      assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+      assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
       assert.ok(migrated.one("SELECT name FROM sqlite_master WHERE type='table' AND name='refund_retry_actions'"))
     }
     finally { migrated.close() }
@@ -933,7 +933,7 @@ test('v7 备份统计支付、退款与退款重试审计，并报告缺少有�
     await f.app.inject({ method: 'POST', url: `/member/order/${orderId}/mock-pay`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
     f.db.run('DELETE FROM payments WHERE order_id=?', orderId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 17)
+    assert.equal(backup.manifest.schemaVersion, 18)
     assert.equal(backup.counts.payments, 0)
     assert.equal(backup.counts.refunds, 0)
     assert.equal(backup.counts.refund_retry_actions, 0)

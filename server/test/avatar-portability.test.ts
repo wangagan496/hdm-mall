@@ -87,7 +87,7 @@ test('旧版绝对头像随备份恢复迁移，登录读取和资料保存均�
       const stored = JSON.parse(next.db.one<{ profile: string }>('SELECT profile FROM users WHERE id=?', login.id)!.profile)
       assert.equal(stored.avatar, path)
       assert.equal(stored.profession, '修改后职业')
-      assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+      assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
       const address = await next.app.listen({ host: '127.0.0.1', port: 0 })
       const httpProfile = await fetch(address + '/member/profile', { headers })
       assert.equal(httpProfile.status, 200)
@@ -147,7 +147,7 @@ test('头像迁移中途失败时资料与版本一起回滚，修复后可重�
     } finally { check.close() }
     const recovered = new Database(options.databasePath)
     try {
-      assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+      assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
       assert.equal(JSON.parse(recovered.one<{ profile: string }>("SELECT profile FROM users WHERE account='legacy_buyer'")!.profile).avatar, path)
     } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }

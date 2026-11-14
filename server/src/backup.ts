@@ -10,6 +10,7 @@ import { inspectAudit } from './audit-backup.ts'
 import { inspectReturnPolicy } from './return-policy-backup.ts'
 import { inspectPromotionShipping } from './promotion-shipping-backup.ts'
 import { inspectServices } from './service-backup.ts'
+import { inspectReconciliationLogistics } from './reconciliation-logistics-backup.ts'
 
 const imageName = avatarFileName
 const tables = ['users', 'sessions', 'relations', 'products', 'skus', 'carts', 'addresses',
@@ -32,7 +33,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14), z.literal(15), z.literal(16), z.literal(17)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14), z.literal(15), z.literal(16), z.literal(17), z.literal(18)]), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -120,7 +121,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12 && version !== 13 && version !== 14 && version !== 15 && version !== 16 && version !== 17) throw new Error('仅支持数据库版本 2 至 17')
+    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12 && version !== 13 && version !== 14 && version !== 15 && version !== 16 && version !== 17 && version !== 18) throw new Error('仅支持数据库版本 2 至 18')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -130,13 +131,15 @@ function inspectDatabase(path: string) {
       ...(version >= 12 ? ['after_sales','after_sale_items','after_sale_images','after_sale_actions','merchant_settings'] : []),
       ...(version >= 13 ? ['consents','consent_requests','account_deletions','account_notices','account_file_deletions'] : []),
       ...(version >= 14 ? ['audit_log'] : []), ...(version >= 16 ? ['promotions','promotion_changes'] : []),
-      ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : [])]) {
+      ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : []),
+      ...(version >= 18 ? ['mock_channel_bill','reconciliation_runs','reconciliation_differences','shipments','logistics_events'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
     if(version>=14)inspectAudit(db)
     if(version>=15)inspectReturnPolicy(db)
     if(version>=16)inspectPromotionShipping(db)
+    if(version>=18)inspectReconciliationLogistics(db)
     if(version>=13){
       if(db.prepare("SELECT id FROM users WHERE status='deleted' AND (password<>'' OR profile<>'{}' OR account<>'deleted:'||id OR nickname<>'已注销用户' OR deleted_at IS NULL)").get())throw new Error('已注销账号资料未清理')
       if(db.prepare("SELECT id FROM users WHERE status='deleting' AND (deletion_requested_at IS NULL OR deletion_due_at IS NULL OR deletion_due_at<>deletion_requested_at+1296000000)").get())throw new Error('注销冷静期无效')

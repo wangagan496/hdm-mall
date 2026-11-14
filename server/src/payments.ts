@@ -22,6 +22,7 @@ interface PaymentRow {
   created: number
   grace_deadline: number
   channel_paid_at: number | null
+  channel_transaction_id: string | null
   closed_at: number | null
   callback_state: 'success' | 'fail' | 'unknown' | 'closed' | null
   mismatch_count: number
@@ -32,6 +33,7 @@ interface PaymentRow {
 }
 interface RefundRow {
   id: string
+  channel_refund_id: string | null
   payment_id: string
   amount: number
   reason: 'late' | 'duplicate' | 'cancelled' | 'after-sale' | 'shipping'
@@ -200,6 +202,7 @@ export class Payments {
         return
       }
       if (query.state === 'success') {
+        if (query.channelTransactionId) this.db.run('UPDATE payments SET channel_transaction_id=? WHERE id=?', query.channelTransactionId, paymentId)
         result = { state: this.settleSuccess(payment, query.paidAt!, now, refundIds) }
       } else if (query.state === 'fail' || query.state === 'closed') {
         result = { state: this.settleFailure(payment, now) }
@@ -360,7 +363,7 @@ export class Payments {
       const next = result === 'success' || current.review_at !== null ? null : now + REFUND_RETRY_DELAYS[Math.min(attempts - 1, REFUND_RETRY_DELAYS.length - 1)]!
       this.db.run('UPDATE refunds SET state=?,attempts=?,next_attempt_at=?,review_at=CASE WHEN ? THEN NULL ELSE review_at END WHERE id=?',
         result === 'success' ? 'succeeded' : 'failed', attempts, next, result === 'success' ? 1 : 0, refund.id)
-      if (result === 'success') this.db.run('UPDATE refunds SET completed_at=? WHERE id=?',now,refund.id)
+      if (result === 'success') this.db.run('UPDATE refunds SET completed_at=?,channel_refund_id=? WHERE id=?',now,this.channel?.refundReference?.(refund.id) ?? null,refund.id)
       if (result === 'success') this.db.run("UPDATE after_sales SET state='refunded' WHERE refund_id=? AND state='refunding'", refund.id)
       appendAudit(this.db,{created:now,action:'refund.result',targetType:'refund',targetId:refund.id,orderId:this.payment(refund.payment_id)!.order_id,summary:{outcome:result,amountCents:refund.amount}})
     })
@@ -583,7 +586,7 @@ export class Payments {
       FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id`, order.id)
       .filter(refund => user.id === order.owner_id || visiblePayments.some(payment => payment.id === refund.payment_id))
     const refunds = visibleRefunds.map(refund => ({ id: refund.id, amount: refund.amount / 100, payerAccount: this.account(refund.payer_id), paidAt: refund.channel_paid_at,
-        state: refund.state === 'pending' ? '退款中' : refund.state === 'succeeded' ? '已退款' : '退款失败重试中', reason: refund.reason }))
+        state: refund.state === 'pending' ? '退款中' : refund.state === 'succeeded' ? '已退款' : '退款失败重试中', reason: refund.reason, channelRefundId: refund.channel_refund_id }))
     const review = pending?.review_at !== null && pending?.review_at !== undefined
     const paymentState = effective ? 'paid' : review ? 'review' : pending ? 'confirming' : 'none'
     const refundNotices = visibleRefunds.map(refund => {
@@ -601,7 +604,7 @@ export class Payments {
           pending ? '正在确认付款结果，请勿重复付款' : payments.some(payment => payment.state === 'failed') ?
           (this.clock.now() < order.expires ? '付款未成功，未扣款。可以重新付款。' : '付款未成功，订单已超时取消，未扣款。') : ''
     const needsAttention = !!this.db.one('SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1', order.id, user.id)
-    return { paymentState, refunds, paymentNotice: notice, needsAttention,
+    return { paymentState, refunds, channelTransactionId: effective?.channel_transaction_id ?? null, paymentNotice: notice, needsAttention,
       canPay: order.state === 1 && this.clock.now() < order.expires && !pending &&
         (order.invited_payer ? order.invited_payer === user.id && this.accounts.bound(order.owner_id, user.id) : order.owner_id === user.id),
       canCancel: order.state === 1 && order.owner_id === user.id,
