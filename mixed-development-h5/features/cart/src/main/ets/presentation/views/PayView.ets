@@ -1,10 +1,11 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { FamilyRelationPage, HDMUser, OrderItem, PayResultParams, formatBeijingTime } from 'models'
+import { FamilyRelationPage, HDMUser, OrderItem, PaymentStartResult, PayResultParams, formatBeijingTime } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { auth, demoOrderStore, RecoveryQuery } from 'storage'
-import { getOrderDetailAPI, startPaymentAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
+import { getOrderDetailAPI, startPaymentAPI, resumePaymentAPI, refreshPaymentAPI, invitePayerAPI, getPayerRelationsPageAPI, FamilyRelation } from '../../data/api'
 import { mergeOrderState, readPhoneClockMillis, secondsLeftToPay } from '../utils/OrderPresentation'
 import { OrderCountdown } from '../components'
+import { SandboxCashier } from '../components/SandboxCashier'
 
 interface PaymentErrorResponse { status?: number }
 interface PaymentError { message?: string; httpStatus?: number; response?: PaymentErrorResponse }
@@ -48,6 +49,10 @@ struct PayView {
     this.cashierCheckBusy = true
     const sequence: number = this.querySequence
     try {
+      if (this.order?.paymentChannel === 'alipay-sandbox') {
+        await refreshPaymentAPI(id, token)
+        if (!this.isCurrentQuery(sequence, generation, token, id)) return true
+      }
       const order: OrderItem = await getOrderDetailAPI(id, token)
       if (!this.isCurrentQuery(sequence, generation, token, id)) return true
       if (order.id !== id) return false
@@ -78,6 +83,7 @@ struct PayView {
   @State loading: boolean = true
   @State loadFailed: boolean = false
   @State paying: boolean = false
+  @State sandboxCheckoutUrl: string = ''
   @State relatives: FamilyRelation[] = []
   @State relativePage: number = 1
   @State relativePages: number = 0
@@ -99,6 +105,7 @@ struct PayView {
   }
 
   aboutToDisappear(): void {
+    this.sandboxCheckoutUrl = ''
     this.stopCashierCheck()
     this.active = false
     this.pageGeneration++
@@ -122,6 +129,7 @@ struct PayView {
     if (token === this.sessionToken && this.orderId === this.sessionOrderId) return
     this.stopCashierCheck()
     this.invitationUnknown = false
+    this.sandboxCheckoutUrl = ''
     this.sessionToken = token
     this.sessionOrderId = this.orderId
     this.pageGeneration++
@@ -161,6 +169,55 @@ struct PayView {
       name: PAGE_PATH.PAY_RESULT_PAGE,
       param: { payResult: true, orderId } as PayResultParams
     })
+  }
+
+  private canResumeSandbox(): boolean {
+    return this.isCurrentCashier(this.pageGeneration, this.sessionToken, this.orderId) &&
+      this.loadedToken === this.sessionToken && !this.loading && !this.loadFailed && !this.paying &&
+      this.order?.id === this.orderId && this.order.orderState === 1 &&
+      this.order.paymentChannel === 'alipay-sandbox' && this.order.canResumePayment === true
+  }
+
+  private acceptSandboxCheckout(result: PaymentStartResult | undefined, orderId: string): void {
+    if (!result || result.orderId !== orderId || result.sandbox !== true ||
+      !result.checkoutUrl || !/^https:\/\/openapi-sandbox\.dl\.alipaydev\.com\/gateway\.do\?[^\s#]+$/.test(result.checkoutUrl)) {
+      this.safeToast('沙箱收银台地址无效，请核对付款结果')
+      return
+    }
+    this.stopCashierCheck()
+    this.sandboxCheckoutUrl = result.checkoutUrl
+  }
+
+  private async closeSandboxCashier(): Promise<void> {
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.orderId
+    this.sandboxCheckoutUrl = ''
+    if (!this.isCurrentCashier(generation, token, orderId)) return
+    try { await refreshPaymentAPI(orderId, token) }
+    catch {
+      if (this.isCurrentCashier(generation, token, orderId)) this.safeToast('付款结果暂未确认，请稍后重试')
+    }
+    if (this.isCurrentCashier(generation, token, orderId)) await this.load()
+  }
+
+  private async resumeSandboxPayment(): Promise<void> {
+    if (!this.canResumeSandbox()) return
+    const generation: number = this.pageGeneration
+    const token: string = this.sessionToken
+    const orderId: string = this.orderId
+    this.paying = true
+    try {
+      const result: PaymentStartResult = await resumePaymentAPI(orderId, token)
+      if (this.isCurrentCashier(generation, token, orderId)) this.acceptSandboxCheckout(result, orderId)
+    } catch {
+      if (this.isCurrentCashier(generation, token, orderId)) {
+        this.safeToast('收银台未能打开，请核对付款结果')
+        await this.load()
+      }
+    } finally {
+      if (this.isCurrentCashier(generation, token, orderId)) this.paying = false
+    }
   }
 
   private async choosePayer(friendId: string | null): Promise<void> {
@@ -300,7 +357,13 @@ struct PayView {
     const amount: number = this.order.payMoney
     try {
       if (serverManaged) {
-        await startPaymentAPI(orderId, amount, token)
+        const result: PaymentStartResult = await startPaymentAPI(orderId, amount, token)
+        if (!this.isCurrentCashier(generation, token, orderId)) return
+        if (this.order?.paymentChannel === 'alipay-sandbox' || result?.sandbox === true) {
+          this.acceptSandboxCheckout(result, orderId)
+          if (!this.sandboxCheckoutUrl) await this.load()
+          return
+        }
       } else {
         await demoOrderStore.setOverlay(orderId, 2)
       }
@@ -314,7 +377,10 @@ struct PayView {
           this.safeToast(failure.message || '付款未能发起，请刷新订单')
           await this.load()
         } else if (serverManaged) {
-          this.openPaymentResult(orderId)
+          if (this.order?.paymentChannel === 'alipay-sandbox') {
+            this.safeToast('付款发起结果未确认，请核对付款结果')
+            await this.load()
+          } else this.openPaymentResult(orderId)
         } else {
           this.querySequence++
           this.loading = false
@@ -331,12 +397,15 @@ struct PayView {
     NavDestination() {
       Column() {
         HDMNavBar({
-          title: '确认付款',
+          title: this.sandboxCheckoutUrl ? '支付宝沙箱' : '确认付款',
           onLeftClick: () => {
-            this.stackPath.pop()
+            if (this.sandboxCheckoutUrl) void this.closeSandboxCashier()
+            else this.stackPath.pop()
           }
         })
-        if (this.loading) {
+        if (this.sandboxCheckoutUrl) {
+          SandboxCashier({ checkoutUrl: this.sandboxCheckoutUrl, onClose: () => { void this.closeSandboxCashier() } })
+        } else if (this.loading) {
           Column() {
             LoadingProgress().width(40).height(40).color($r('[ui_components].color.red'))
             Text('正在加载订单...').fontSize(12).fontColor($r('[ui_components].color.gray')).margin({ top: 12 })
@@ -388,7 +457,7 @@ struct PayView {
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
                 Row({ space: 6 }) {
-                  Text(this.order.totalNum.toString() + ' 件商品')
+                  Text(this.order.totalNum !== undefined ? this.order.totalNum.toString() + ' 件商品' : '代付订单')
                     .fontSize(11)
                     .fontColor($r('[ui_components].color.gray'))
                   Text('|')
@@ -454,11 +523,11 @@ struct PayView {
               Column({ space: 6 }) {
                 Row({ space: 6 }) {
                   Image($r('[ui_components].media.ic_public_check_filled')).width(14).height(14).fillColor('#07C160')
-                  Text('模拟支付，不产生真实扣款')
+                  Text(this.order.paymentChannel === 'alipay-sandbox' ? '沙箱测试，不会真实扣款' : '模拟支付，不产生真实扣款')
                     .fontSize(11)
                     .fontColor($r('[ui_components].color.gray'))
                 }
-                Text(GlobalVariable.DEMO_ORDER_FLOW ? '本页为演示支付，不产生真实扣款。点「确认支付」后订单进入待发货。' :
+                Text(this.order.paymentChannel === 'alipay-sandbox' ? '请使用沙箱买家账号付款；关闭收银台后，以服务端查单结果为准。' : GlobalVariable.DEMO_ORDER_FLOW ? '本页为演示支付，不产生真实扣款。点「确认支付」后订单进入待发货。' :
                   '模拟支付不产生真实扣款。提交后会确认付款结果，请勿重复付款。')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
@@ -476,6 +545,11 @@ struct PayView {
           .scrollBar(BarState.Off)
 
           Column({ space: 8 }) {
+            if (this.order.canResumePayment && this.order.paymentChannel === 'alipay-sandbox') {
+              Button('继续沙箱付款').id('sandbox-resume-payment')
+                .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
+                .enabled(this.canResumeSandbox()).onClick(() => this.resumeSandboxPayment())
+            }
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
             Row({ space: 12 }) {
               Column({ space: 2 }) {

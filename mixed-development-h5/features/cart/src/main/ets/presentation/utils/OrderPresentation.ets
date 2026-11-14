@@ -61,6 +61,8 @@ export function shouldShowPaymentCountdown(order: OrderItem): boolean {
 }
 
 export function canOpenPayment(order: OrderItem): boolean {
+  if (order.orderState === OrderState.AWAITING_PAYMENT && order.serverManaged &&
+    order.paymentChannel === 'alipay-sandbox' && order.canResumePayment === true) return true
   return order.orderState === OrderState.AWAITING_PAYMENT &&
     (order.serverManaged ? order.canPay === true : true) &&
     order.paymentState !== 'confirming' && order.paymentState !== 'review'

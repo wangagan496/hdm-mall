@@ -787,7 +787,8 @@ export struct OrderDetailView {
                     .fontSize(13)
                     .fontColor($r('[ui_components].color.gray'))
                   Blank()
-                  Text(this.order.serverManaged ? (this.order.paymentMode === 'family' ? '亲友模拟代付' : '本人模拟支付') : '在线支付')
+                  Text(this.order.paymentChannel === 'alipay-sandbox' ? '沙箱测试，不会真实扣款' :
+                    this.order.serverManaged ? (this.order.paymentMode === 'family' ? '亲友模拟代付' : '本人模拟支付') : '在线支付')
                     .fontSize(13)
                 }
                 .width('100%')

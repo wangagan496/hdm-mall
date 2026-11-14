@@ -251,6 +251,8 @@ export interface OrderItem {
   invitedPayerAccount?: string
   receivedByAccount?: string
   paymentMode?: string
+  paymentChannel?: string
+  canResumePayment?: boolean
   paymentState?: 'none' | 'confirming' | 'paid' | 'review'
   refunds?: OrderRefund[]
   paymentNotice?: string
@@ -357,6 +359,8 @@ export interface PaymentStartResult {
   orderId: string
   paymentId: string
   state: string
+  checkoutUrl?: string
+  sandbox?: boolean
 }
 
 export interface OrderAttentionCount {
@@ -364,6 +368,8 @@ export interface OrderAttentionCount {
 }
 
 export interface PaymentFields {
+  paymentChannel?: string
+  canResumePayment?: boolean
   paymentState: string
   refunds: OrderRefund[]
   paymentNotice: string

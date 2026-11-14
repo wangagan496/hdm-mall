@@ -17,6 +17,7 @@ export {
   receiptOrderAPI,
   commentOrderAPI,
   startPaymentAPI,
+  resumePaymentAPI,
   refreshPaymentAPI,
   invitePayerAPI,
   getFamilyRelationsAPI,

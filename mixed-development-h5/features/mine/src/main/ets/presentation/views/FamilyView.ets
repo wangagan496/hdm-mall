@@ -618,6 +618,13 @@ export struct FamilyView {
   }
   private confirmFamilyPayment(order: OrderItem): void {
     const current: OrderItem | undefined = this.familyOrders.find((item: OrderItem) => item.id === order.id)
+    if (current?.paymentChannel === 'alipay-sandbox') {
+      if (!this.canManageFamily() || current.orderState !== OrderState.AWAITING_PAYMENT ||
+        (!current.canPay && !current.canResumePayment)) return
+      this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: current.id,
+        onPop: () => this.showFamilyCenter() })
+      return
+    }
     if (!this.canManageFamily() || this.pendingFamilyOrders.includes(order.id) || !current?.canPay || current.orderState !== OrderState.AWAITING_PAYMENT ||
       current.paymentState === 'confirming' || current.paymentState === 'review') return
     const orderId: string = current.id
@@ -791,7 +798,11 @@ export struct FamilyView {
           Button('帮助与客服').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))
         }
         // 服务端决定当前亲友能否代付、代收，页面只按权限展示按钮。
-        if (order.canPay && order.paymentState !== 'confirming' && order.paymentState !== 'review') {
+        if (order.paymentChannel === 'alipay-sandbox' && (order.canPay || order.canResumePayment)) {
+          Button(order.canResumePayment ? '继续沙箱代付' : '沙箱代付').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
+            .enabled(this.canManageFamily()).onClick(() => this.confirmFamilyPayment(order))
+          Text('沙箱测试，不会真实扣款').fontSize(12).fontColor($r('[ui_components].color.gray'))
+        } else if (order.canPay && order.paymentState !== 'confirming' && order.paymentState !== 'review') {
           Button('确认模拟代付').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
             .enabled(this.canManageFamily() && !this.pendingFamilyOrders.includes(order.id))
             .onClick(() => this.confirmFamilyPayment(order))
