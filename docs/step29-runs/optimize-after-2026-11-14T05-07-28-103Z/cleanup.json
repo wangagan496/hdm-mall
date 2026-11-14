@@ -1,0 +1,16 @@
+{
+  "temporaryPaths": {
+    "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IpkemH",
+    "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IpkemH\\mall.sqlite",
+    "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IpkemH\\uploads"
+  },
+  "rootRemoved": true,
+  "databaseRemoved": true,
+  "uploadsRemoved": true,
+  "serviceExit": {
+    "code": 0,
+    "signal": null
+  },
+  "port": 61356,
+  "portReleased": true
+}

@@ -1,0 +1,122 @@
+{
+  "taskId": "finish-e-optimize-20261114-01",
+  "baseline": "7a92a4637f79b34daf47d4a4aa03865b2b329a4d",
+  "before": "D:\\hdm-mall\\docs\\step29-runs\\optimize-before-2026-11-14T04-48-27-490Z",
+  "after": "D:\\hdm-mall\\docs\\step29-runs\\optimize-after-2026-11-14T05-07-28-103Z",
+  "beforeStartedAt": "2026-11-14T04:48:31.667Z",
+  "afterFinishedAt": "2026-11-14T05:08:50.064Z",
+  "dataset": {
+    "users": 501,
+    "products": 200,
+    "skus": 400,
+    "orders": 20000,
+    "order_items": 40000,
+    "payments": 16000,
+    "evaluations": 12000,
+    "categories": 210,
+    "relations": 500,
+    "inventory_movements": 48400
+  },
+  "categoryGrowth": [
+    {
+      "products": 200,
+      "categories": 210,
+      "samples": 20,
+      "before": {
+        "n": 20,
+        "p50": 21.133300000001327,
+        "p95": 24.78280000000086,
+        "p99": 25.6877000000095,
+        "max": 25.6877000000095,
+        "mean": 20.770799999998417
+      },
+      "after": {
+        "n": 20,
+        "p50": 0.860899999999674,
+        "p95": 0.9619000000093365,
+        "p99": 1.868400000006659,
+        "max": 1.868400000006659,
+        "mean": 0.9220000000015716
+      },
+      "p95ReductionPercent": 96.11867908384322,
+      "semanticHashEqual": true,
+      "summaryHash": "8bbc271c4a2376808f004970615c5fc055a4b0ca776552387007fcc82b8bf527"
+    },
+    {
+      "products": 1000,
+      "categories": 1010,
+      "samples": 20,
+      "before": {
+        "n": 20,
+        "p50": 529.6621000000014,
+        "p95": 617.7391000000061,
+        "p99": 644.0445999999938,
+        "max": 644.0445999999938,
+        "mean": 505.12296000000134
+      },
+      "after": {
+        "n": 20,
+        "p50": 4.176000000006752,
+        "p95": 5.152900000000955,
+        "p99": 15.711499999990338,
+        "max": 15.711499999990338,
+        "mean": 4.82843499999799
+      },
+      "p95ReductionPercent": 99.16584525732613,
+      "semanticHashEqual": true,
+      "summaryHash": "0876be7ee3b62207071126406ce02a5ac9110f58b454b99240de0f4e5165457d"
+    },
+    {
+      "products": 2000,
+      "categories": 2010,
+      "samples": 20,
+      "before": {
+        "n": 20,
+        "p50": 2035.4979000000021,
+        "p95": 2352.8145000000077,
+        "p99": 2377.6291999999958,
+        "max": 2377.6291999999958,
+        "mean": 2000.480384999999
+      },
+      "after": {
+        "n": 20,
+        "p50": 9.721300000004703,
+        "p95": 11.194000000003143,
+        "p99": 12.507200000007288,
+        "max": 12.507200000007288,
+        "mean": 9.90884000000151
+      },
+      "p95ReductionPercent": 99.52422938569943,
+      "semanticHashEqual": true,
+      "summaryHash": "1038ae6e548a3ee9c14697afcd800eb1c88a1fc714ae6d569a4e2d3a70da6a82"
+    }
+  ],
+  "family": {
+    "rps": 2,
+    "seconds": 60,
+    "requestsPerPhase": 120,
+    "before": {
+      "n": 120,
+      "p50": 87.99020000000019,
+      "p95": 101.08090000000084,
+      "p99": 106.87859999999637,
+      "max": 108.41000000000349,
+      "mean": 84.96024499999973
+    },
+    "after": {
+      "n": 120,
+      "p50": 44.22140000000218,
+      "p95": 46.49879999999757,
+      "p99": 49.344600000000355,
+      "max": 51.27180000000226,
+      "mean": 44.20542666666676
+    },
+    "beforeCountQueries": 5,
+    "afterCountQueries": 4,
+    "unexpectedErrorsBefore": 0,
+    "unexpectedErrorsAfter": 0,
+    "p95ReductionPercent": 53.99843095975878
+  },
+  "cleanupVerified": true,
+  "scope": "One shared-host round per phase; no production, 20-rps family, or native UI latency claim"
+}

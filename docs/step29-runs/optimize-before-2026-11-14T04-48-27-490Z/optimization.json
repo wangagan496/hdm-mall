@@ -1,0 +1,304 @@
+{
+  "phase": "before",
+  "scope": "Warm in-process category summaries; real HTTP family requests are in family.json; no native rendering claim",
+  "categoryGrowth": [
+    {
+      "products": 200,
+      "categories": 210,
+      "summaryHash": "8bbc271c4a2376808f004970615c5fc055a4b0ca776552387007fcc82b8bf527",
+      "payloadBytes": 20215,
+      "summary": {
+        "milliseconds": {
+          "n": 20,
+          "p50": 21.133300000001327,
+          "p95": 24.78280000000086,
+          "p99": 25.6877000000095,
+          "max": 25.6877000000095,
+          "mean": 20.770799999998417
+        },
+        "samples": [
+          21.301900000005844,
+          21.436899999986053,
+          20.981999999989057,
+          20.63269999998738,
+          23.195800000001327,
+          25.6877000000095,
+          20.462899999998626,
+          14.236999999993714,
+          15.389499999990221,
+          21.382500000006985,
+          21.363200000007055,
+          23.345899999985704,
+          21.68289999999979,
+          21.409599999999045,
+          17.16260000001057,
+          21.133300000001327,
+          20.813399999999092,
+          20.883400000006077,
+          24.78280000000086,
+          18.129999999990105
+        ]
+      },
+      "plans": [
+        {
+          "sql": "\n      SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc\n        JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id\n        WHERE (child.id=c.id OR child.parent_id=c.id)\n          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)\n        ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture\n      FROM categories c ORDER BY c.rowid",
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN c"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 23,
+              "parent": 9,
+              "notused": 223,
+              "detail": "SCAN p USING INDEX sqlite_autoindex_products_1"
+            },
+            {
+              "id": 28,
+              "parent": 9,
+              "notused": 47,
+              "detail": "SEARCH pc USING INDEX sqlite_autoindex_product_categories_1 (product_id=?)"
+            },
+            {
+              "id": 37,
+              "parent": 9,
+              "notused": 46,
+              "detail": "SEARCH child USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 50,
+              "parent": 9,
+              "notused": 0,
+              "detail": "BLOOM FILTER ON s (enabled=?)"
+            },
+            {
+              "id": 66,
+              "parent": 9,
+              "notused": 53,
+              "detail": "SEARCH s EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (enabled=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "products": 1000,
+      "categories": 1010,
+      "summaryHash": "0876be7ee3b62207071126406ce02a5ac9110f58b454b99240de0f4e5165457d",
+      "payloadBytes": 97817,
+      "summary": {
+        "milliseconds": {
+          "n": 20,
+          "p50": 529.6621000000014,
+          "p95": 617.7391000000061,
+          "p99": 644.0445999999938,
+          "max": 644.0445999999938,
+          "mean": 505.12296000000134
+        },
+        "samples": [
+          559.8780000000115,
+          529.6621000000014,
+          524.5375000000058,
+          568.0050999999949,
+          566.4825000000128,
+          513.2792000000045,
+          571.1647999999986,
+          541.6606999999931,
+          542.053899999999,
+          644.0445999999938,
+          617.7391000000061,
+          608.8077000000048,
+          556.6419000000024,
+          415.457699999999,
+          397.88640000000305,
+          399.11909999999625,
+          403.91279999999097,
+          389.00470000000496,
+          387.60869999999704,
+          365.5127000000066
+        ]
+      },
+      "plans": [
+        {
+          "sql": "\n      SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc\n        JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id\n        WHERE (child.id=c.id OR child.parent_id=c.id)\n          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)\n        ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture\n      FROM categories c ORDER BY c.rowid",
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN c"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 23,
+              "parent": 9,
+              "notused": 223,
+              "detail": "SCAN p USING INDEX sqlite_autoindex_products_1"
+            },
+            {
+              "id": 28,
+              "parent": 9,
+              "notused": 47,
+              "detail": "SEARCH pc USING INDEX sqlite_autoindex_product_categories_1 (product_id=?)"
+            },
+            {
+              "id": 37,
+              "parent": 9,
+              "notused": 46,
+              "detail": "SEARCH child USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 50,
+              "parent": 9,
+              "notused": 0,
+              "detail": "BLOOM FILTER ON s (enabled=?)"
+            },
+            {
+              "id": 66,
+              "parent": 9,
+              "notused": 53,
+              "detail": "SEARCH s EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (enabled=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "products": 2000,
+      "categories": 2010,
+      "summaryHash": "1038ae6e548a3ee9c14697afcd800eb1c88a1fc714ae6d569a4e2d3a70da6a82",
+      "payloadBytes": 196817,
+      "summary": {
+        "milliseconds": {
+          "n": 20,
+          "p50": 2035.4979000000021,
+          "p95": 2352.8145000000077,
+          "p99": 2377.6291999999958,
+          "max": 2377.6291999999958,
+          "mean": 2000.480384999999
+        },
+        "samples": [
+          2227.676900000006,
+          2008.1535999999905,
+          2035.4979000000021,
+          1619.2244999999966,
+          1605.5963000000047,
+          1735.175099999993,
+          1752.048999999999,
+          1603.9137000000046,
+          1539.339799999987,
+          1545.7456999999995,
+          1584.858500000002,
+          2307.4716999999946,
+          2330.4338999999745,
+          2268.552400000015,
+          2248.2943999999843,
+          2312.0256000000227,
+          2377.6291999999958,
+          2204.180399999983,
+          2350.974600000016,
+          2352.8145000000077
+        ]
+      },
+      "plans": [
+        {
+          "sql": "\n      SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc\n        JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id\n        WHERE (child.id=c.id OR child.parent_id=c.id)\n          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)\n        ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture\n      FROM categories c ORDER BY c.rowid",
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN c"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 23,
+              "parent": 9,
+              "notused": 223,
+              "detail": "SCAN p USING INDEX sqlite_autoindex_products_1"
+            },
+            {
+              "id": 28,
+              "parent": 9,
+              "notused": 47,
+              "detail": "SEARCH pc USING INDEX sqlite_autoindex_product_categories_1 (product_id=?)"
+            },
+            {
+              "id": 37,
+              "parent": 9,
+              "notused": 46,
+              "detail": "SEARCH child USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 50,
+              "parent": 9,
+              "notused": 0,
+              "detail": "BLOOM FILTER ON s (enabled=?)"
+            },
+            {
+              "id": 66,
+              "parent": 9,
+              "notused": 53,
+              "detail": "SEARCH s EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (enabled=?)"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "family": {
+    "counts": 6,
+    "groupCounts": {
+      "pay": 0,
+      "receipt": 0,
+      "pending": 0,
+      "all": 6
+    },
+    "countQueries": [
+      {
+        "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (o.state=1 AND o.expires>? AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted') AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND (p.state='pending' OR (p.state='closed' AND p.next_query_at IS NOT NULL))))",
+        "calls": 1
+      },
+      {
+        "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted') AND NOT (o.paid_by IS NOT ? AND EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?)))",
+        "calls": 1
+      },
+      {
+        "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (((EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND (p.state='pending' OR (p.state='closed' AND p.next_query_at IS NOT NULL))) AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.state='succeeded' AND\n      p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at AND NOT EXISTS(\n      SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled')))) OR EXISTS(SELECT 1 FROM payment_notices n WHERE n.order_id=o.id AND n.recipient_id=? AND n.viewed_at IS NULL)))",
+        "calls": 1
+      },
+      {
+        "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (1=1)",
+        "calls": 2
+      }
+    ],
+    "countCalls": 5
+  },
+  "database": {
+    "version": 18,
+    "integrity": {
+      "integrity_check": "ok"
+    },
+    "foreignKeys": [],
+    "products": 200,
+    "indexes": []
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "scope": "Syntax, service type check and directly related existing regression suites; no device, H5 build or full-repository acceptance claimed",
+  "checks": [
+    {
+      "name": "syntax-analyze.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\analyze.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 64,
+      "error": null
+    },
+    {
+      "name": "syntax-audit-callers.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\audit-callers.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 58,
+      "error": null
+    },
+    {
+      "name": "syntax-check.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\check.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 58,
+      "error": null
+    },
+    {
+      "name": "syntax-common.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\common.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 62,
+      "error": null
+    },
+    {
+      "name": "syntax-fixture.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\fixture.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 66,
+      "error": null
+    },
+    {
+      "name": "syntax-report.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\report.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 63,
+      "error": null
+    },
+    {
+      "name": "syntax-run.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\run.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 61,
+      "error": null
+    },
+    {
+      "name": "syntax-service.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\service.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 66,
+      "error": null
+    },
+    {
+      "name": "syntax-verify.mjs",
+      "args": [
+        "--check",
+        "scripts\\perf\\verify.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 57,
+      "error": null
+    },
+    {
+      "name": "server-types",
+      "args": [
+        "node_modules/typescript/bin/tsc",
+        "--noEmit"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2869,
+      "error": null
+    },
+    {
+      "name": "server-related",
+      "args": [
+        "--test",
+        "--test-reporter=tap",
+        "--test-concurrency=1",
+        "test/catalog-pagination.test.ts",
+        "test/order-center-pagination.test.ts",
+        "test/optimization.test.ts",
+        "test/inventory.test.ts",
+        "test/browse-relations.test.ts"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 9058,
+      "error": null
+    },
+    {
+      "name": "client-related",
+      "args": [
+        "--test",
+        "--test-reporter=tap",
+        "--test-concurrency=1",
+        "scripts/tests/browse-relations.test.mjs",
+        "scripts/tests/family-pagination.test.mjs",
+        "scripts/tests/order-loading.test.mjs",
+        "scripts/tests/product-sort.test.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2882,
+      "error": null
+    }
+  ],
+  "reuse": {
+    "note": "Both existing lockfiles pin TypeScript 6.0.3; reuse the already restored package through a temporary local junction, without installing H5 packages or editing imports",
+    "temporaryJunctionRemoved": true,
+    "temporaryParentRemoved": true
+  },
+  "passed": true,
+  "finishedAt": "2026-11-13T17:16:22.543Z"
+}

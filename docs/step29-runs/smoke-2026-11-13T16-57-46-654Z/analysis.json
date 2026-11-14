@@ -1,0 +1,3810 @@
+{
+  "scope": "In-process warm microbenchmarks, HTTP service stopped; temporary data only; native UI/render/network unmeasured",
+  "operations": {
+    "buyer-page-1": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 3.427299999995739,
+        "p95": 3.759699999995064,
+        "p99": 3.759699999995064,
+        "max": 3.759699999995064,
+        "mean": 3.480159999997704
+      },
+      "samples": [
+        3.759699999995064,
+        3.427299999995739,
+        3.6970000000001164,
+        3.262300000002142,
+        3.25449999999546
+      ],
+      "queryCalls": 137,
+      "sql": [
+        {
+          "method": "one",
+          "sql": "SELECT id FROM orders WHERE state=1 AND expires<=? LIMIT 1",
+          "params": [
+            1794589109761
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 50,
+              "detail": "SEARCH orders USING INDEX order_expiry (state=? AND expires<?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT expires FROM orders WHERE state=1\n      AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=orders.id AND p.state='pending') ORDER BY expires LIMIT 1",
+          "params": [],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH orders USING INDEX order_expiry (state=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 15,
+              "parent": 11,
+              "notused": 43,
+              "detail": "SEARCH p USING COVERING INDEX payments_one_pending_per_order (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE 1=1 AND o.owner_id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 53,
+              "detail": "SEARCH o USING COVERING INDEX order_owner (owner_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT o.* FROM orders o WHERE 1=1 AND o.owner_id=? ORDER BY o.created DESC,o.id LIMIT ? OFFSET ?",
+          "params": [
+            "perf-user-0",
+            10,
+            0
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM evaluations WHERE order_id=?",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH evaluations USING INDEX sqlite_autoindex_evaluations_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT reason FROM review_moderation WHERE order_id=?",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH review_moderation USING INDEX sqlite_autoindex_review_moderation_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT r.*,p.payer_id,p.channel_paid_at\n      FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN r"
+            },
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_payments_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0",
+            "perf-user-0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payment_notices USING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH order_cancel_requests USING INDEX sqlite_autoindex_order_cancel_requests_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM orders WHERE id=?",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH orders USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH after_sales USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id\n      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH i USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 33,
+              "parent": 25,
+              "notused": 61,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            },
+            {
+              "id": 64,
+              "parent": 25,
+              "notused": 47,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_after_sale_items_1 (after_sale_id=? AND sku_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 17,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH users USING INDEX sqlite_autoindex_users_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT title_type titleType,title,tax_id taxId,email,status,number,requested_at requestedAt,issued_at issuedAt FROM invoices WHERE order_id=?",
+          "params": [
+            "1da963c4-51ce-4ec5-a01e-9881172488f0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH invoices USING INDEX sqlite_autoindex_invoices_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')",
+          "params": [
+            "payment-history-19500"
+          ],
+          "calls": 4,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 45,
+              "detail": "SEARCH refunds USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT p.id FROM payments p JOIN orders o ON o.id=p.order_id\n      WHERE o.id=? AND p.state='succeeded' AND p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at\n      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled'))\n      ORDER BY p.created,p.id LIMIT 1",
+          "params": [
+            "history-19500"
+          ],
+          "calls": 2,
+          "plan": [
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH o USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            },
+            {
+              "id": 14,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 33,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 38,
+              "parent": 33,
+              "notused": 45,
+              "detail": "SEARCH r USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 21793,
+      "itemCount": 10
+    },
+    "buyer-page-4": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 3.6313999999983935,
+        "p95": 4.614799999995739,
+        "p99": 4.614799999995739,
+        "max": 4.614799999995739,
+        "mean": 3.9091399999990246
+      },
+      "samples": [
+        4.614799999995739,
+        3.6313999999983935,
+        3.486000000004424,
+        3.6002000000007683,
+        4.213299999995797
+      ],
+      "queryCalls": 156,
+      "sql": [
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE 1=1 AND o.owner_id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 53,
+              "detail": "SEARCH o USING COVERING INDEX order_owner (owner_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT o.* FROM orders o WHERE 1=1 AND o.owner_id=? ORDER BY o.created DESC,o.id LIMIT ? OFFSET ?",
+          "params": [
+            "perf-user-0",
+            10,
+            30
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM evaluations WHERE order_id=?",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH evaluations USING INDEX sqlite_autoindex_evaluations_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT reason FROM review_moderation WHERE order_id=?",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH review_moderation USING INDEX sqlite_autoindex_review_moderation_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')",
+          "params": [
+            "payment-history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 45,
+              "detail": "SEARCH refunds USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT r.*,p.payer_id,p.channel_paid_at\n      FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN r"
+            },
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_payments_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1",
+          "params": [
+            "history-05500",
+            "perf-user-0"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payment_notices USING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH order_cancel_requests USING INDEX sqlite_autoindex_order_cancel_requests_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM orders WHERE id=?",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH orders USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH after_sales USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id\n      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH i USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 33,
+              "parent": 25,
+              "notused": 61,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            },
+            {
+              "id": 64,
+              "parent": 25,
+              "notused": 47,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_after_sale_items_1 (after_sale_id=? AND sku_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 34,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH users USING INDEX sqlite_autoindex_users_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT title_type titleType,title,tax_id taxId,email,status,number,requested_at requestedAt,issued_at issuedAt FROM invoices WHERE order_id=?",
+          "params": [
+            "history-05500"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH invoices USING INDEX sqlite_autoindex_invoices_1 (order_id=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 21482,
+      "itemCount": 10
+    },
+    "merchant-page-1": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 3.779599999994389,
+        "p95": 9.222999999998137,
+        "p99": 9.222999999998137,
+        "max": 9.222999999998137,
+        "mean": 4.898579999999493
+      },
+      "samples": [
+        9.222999999998137,
+        3.618300000001909,
+        4.203000000001339,
+        3.779599999994389,
+        3.669000000001688
+      ],
+      "queryCalls": 162,
+      "sql": [
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE o.state=?",
+          "params": [
+            2
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 52,
+              "detail": "SEARCH o USING COVERING INDEX order_expiry (state=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT o.* FROM orders o WHERE o.state=? ORDER BY o.created ASC,o.id LIMIT ? OFFSET ?",
+          "params": [
+            2,
+            10,
+            0
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH o USING INDEX order_expiry (state=?)"
+            },
+            {
+              "id": 44,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM evaluations WHERE order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH evaluations USING INDEX sqlite_autoindex_evaluations_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT reason FROM review_moderation WHERE order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH review_moderation USING INDEX sqlite_autoindex_review_moderation_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')",
+          "params": [
+            "payment-history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 45,
+              "detail": "SEARCH refunds USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT r.*,p.payer_id,p.channel_paid_at\n      FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN r"
+            },
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_payments_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1",
+          "params": [
+            "history-09000",
+            "perf-merchant"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payment_notices USING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1",
+          "params": [
+            "history-09000",
+            "perf-merchant"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH order_cancel_requests USING INDEX sqlite_autoindex_order_cancel_requests_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT p.id FROM payments p JOIN orders o ON o.id=p.order_id\n      WHERE o.id=? AND p.state='succeeded' AND p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at\n      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled'))\n      ORDER BY p.created,p.id LIMIT 1",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH o USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            },
+            {
+              "id": 14,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 33,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 38,
+              "parent": 33,
+              "notused": 45,
+              "detail": "SEARCH r USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM orders WHERE id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH orders USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH after_sales USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id\n      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH i USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 33,
+              "parent": 25,
+              "notused": 61,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            },
+            {
+              "id": 64,
+              "parent": 25,
+              "notused": 47,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_after_sale_items_1 (after_sale_id=? AND sku_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 20,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH users USING INDEX sqlite_autoindex_users_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT title_type titleType,title,tax_id taxId,email,status,number,requested_at requestedAt,issued_at issuedAt FROM invoices WHERE order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH invoices USING INDEX sqlite_autoindex_invoices_1 (order_id=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 18792,
+      "itemCount": 10
+    },
+    "merchant-page-200": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 5.444799999997485,
+        "p95": 7.012600000001839,
+        "p99": 7.012600000001839,
+        "max": 7.012600000001839,
+        "mean": 5.599519999999029
+      },
+      "samples": [
+        4.5296999999991385,
+        5.105199999998149,
+        5.905299999998533,
+        5.444799999997485,
+        7.012600000001839
+      ],
+      "queryCalls": 162,
+      "sql": [
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE o.state=?",
+          "params": [
+            2
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 52,
+              "detail": "SEARCH o USING COVERING INDEX order_expiry (state=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT o.* FROM orders o WHERE o.state=? ORDER BY o.created ASC,o.id LIMIT ? OFFSET ?",
+          "params": [
+            2,
+            10,
+            1990
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH o USING INDEX order_expiry (state=?)"
+            },
+            {
+              "id": 44,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM evaluations WHERE order_id=?",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH evaluations USING INDEX sqlite_autoindex_evaluations_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT reason FROM review_moderation WHERE order_id=?",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH review_moderation USING INDEX sqlite_autoindex_review_moderation_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')",
+          "params": [
+            "payment-history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 45,
+              "detail": "SEARCH refunds USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT r.*,p.payer_id,p.channel_paid_at\n      FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN r"
+            },
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_payments_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1",
+          "params": [
+            "history-19990",
+            "perf-merchant"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payment_notices USING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1",
+          "params": [
+            "history-19990",
+            "perf-merchant"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH order_cancel_requests USING INDEX sqlite_autoindex_order_cancel_requests_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT p.id FROM payments p JOIN orders o ON o.id=p.order_id\n      WHERE o.id=? AND p.state='succeeded' AND p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at\n      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled'))\n      ORDER BY p.created,p.id LIMIT 1",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH o USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            },
+            {
+              "id": 14,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 33,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 38,
+              "parent": 33,
+              "notused": 45,
+              "detail": "SEARCH r USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM orders WHERE id=?",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH orders USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH after_sales USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id\n      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH i USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 33,
+              "parent": 25,
+              "notused": 61,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            },
+            {
+              "id": 64,
+              "parent": 25,
+              "notused": 47,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_after_sale_items_1 (after_sale_id=? AND sku_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?",
+          "params": [
+            "perf-user-490"
+          ],
+          "calls": 20,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH users USING INDEX sqlite_autoindex_users_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT title_type titleType,title,tax_id taxId,email,status,number,requested_at requestedAt,issued_at issuedAt FROM invoices WHERE order_id=?",
+          "params": [
+            "history-19990"
+          ],
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH invoices USING INDEX sqlite_autoindex_invoices_1 (order_id=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 18844,
+      "itemCount": 10
+    },
+    "family-page-with-counts": {
+      "milliseconds": {
+        "n": 3,
+        "p50": 59.072100000004866,
+        "p95": 61.19279999999708,
+        "p99": 61.19279999999708,
+        "max": 61.19279999999708,
+        "mean": 59.566700000000615
+      },
+      "samples": [
+        59.072100000004866,
+        61.19279999999708,
+        58.435199999999895
+      ],
+      "queryCalls": 102,
+      "sql": [
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (o.state=1 AND o.expires>? AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted') AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND (p.state='pending' OR (p.state='closed' AND p.next_query_at IS NOT NULL))))",
+          "params": [
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            1794589109892,
+            "perf-user-0",
+            "perf-user-0"
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 8,
+              "parent": 0,
+              "notused": 50,
+              "detail": "SEARCH o USING INDEX order_expiry (state=? AND expires>?)"
+            },
+            {
+              "id": 21,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 26,
+              "parent": 21,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 81,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 86,
+              "parent": 81,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 101,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 106,
+              "parent": 101,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH r EXISTS USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted') AND NOT (o.paid_by IS NOT ? AND EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?)))",
+          "params": [
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0"
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 8,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH o USING INDEX order_expiry (state=?)"
+            },
+            {
+              "id": 21,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 26,
+              "parent": 21,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 52,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 57,
+              "parent": 52,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 80,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 85,
+              "parent": 80,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 102,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 107,
+              "parent": 102,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 120,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH r EXISTS USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (((EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND (p.state='pending' OR (p.state='closed' AND p.next_query_at IS NOT NULL))) AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.state='succeeded' AND\n      p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at AND NOT EXISTS(\n      SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled')))) OR EXISTS(SELECT 1 FROM payment_notices n WHERE n.order_id=o.id AND n.recipient_id=? AND n.viewed_at IS NULL)))",
+          "params": [
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0"
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN o"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 14,
+              "parent": 9,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 43,
+              "parent": 38,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 65,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 70,
+              "parent": 65,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 85,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 90,
+              "parent": 85,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 113,
+              "parent": 108,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_reconcile (state=?)"
+            },
+            {
+              "id": 128,
+              "parent": 108,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 133,
+              "parent": 128,
+              "notused": 45,
+              "detail": "SEARCH r USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            },
+            {
+              "id": 149,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 7"
+            },
+            {
+              "id": 153,
+              "parent": 149,
+              "notused": 55,
+              "detail": "SEARCH n USING COVERING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (1=1)",
+          "params": [
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0"
+          ],
+          "calls": 2,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN o"
+            },
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 15,
+              "parent": 10,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 39,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 44,
+              "parent": 39,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 66,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 71,
+              "parent": 66,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT o.* FROM orders o WHERE (1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))) AND (1=1) ORDER BY o.created DESC,o.id LIMIT ? OFFSET ?",
+          "params": [
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            "perf-user-0",
+            10,
+            0
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN o"
+            },
+            {
+              "id": 16,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 21,
+              "parent": 16,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 50,
+              "parent": 45,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 72,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 77,
+              "parent": 72,
+              "notused": 39,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+            },
+            {
+              "id": 118,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM evaluations WHERE order_id=?",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH evaluations USING INDEX sqlite_autoindex_evaluations_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT reason FROM review_moderation WHERE order_id=?",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH review_moderation USING INDEX sqlite_autoindex_review_moderation_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')",
+          "params": [
+            "payment-history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 45,
+              "detail": "SEARCH refunds USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT r.*,p.payer_id,p.channel_paid_at\n      FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN r"
+            },
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_payments_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1",
+          "params": [
+            "history-15499",
+            "perf-user-0"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payment_notices USING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH order_cancel_requests USING INDEX sqlite_autoindex_order_cancel_requests_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 30,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH users USING INDEX sqlite_autoindex_users_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM orders WHERE id=?",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH orders USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH after_sales USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id\n      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?",
+          "params": [
+            "history-15499"
+          ],
+          "calls": 6,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH i USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 33,
+              "parent": 25,
+              "notused": 61,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            },
+            {
+              "id": 64,
+              "parent": 25,
+              "notused": 47,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_after_sale_items_1 (after_sale_id=? AND sku_id=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 11627,
+      "itemCount": 6
+    },
+    "category-summary": {
+      "milliseconds": {
+        "n": 3,
+        "p50": 12.640399999996589,
+        "p95": 12.978200000005018,
+        "p99": 12.978200000005018,
+        "max": 12.978200000005018,
+        "mean": 12.561066666668921
+      },
+      "samples": [
+        12.640399999996589,
+        12.064600000005157,
+        12.978200000005018
+      ],
+      "queryCalls": 1,
+      "sql": [
+        {
+          "method": "all",
+          "sql": "\n      SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc\n        JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id\n        WHERE (child.id=c.id OR child.parent_id=c.id)\n          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)\n        ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture\n      FROM categories c ORDER BY c.rowid",
+          "params": [],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN c"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 23,
+              "parent": 9,
+              "notused": 223,
+              "detail": "SCAN p USING INDEX sqlite_autoindex_products_1"
+            },
+            {
+              "id": 28,
+              "parent": 9,
+              "notused": 47,
+              "detail": "SEARCH pc USING INDEX sqlite_autoindex_product_categories_1 (product_id=?)"
+            },
+            {
+              "id": 37,
+              "parent": 9,
+              "notused": 46,
+              "detail": "SEARCH child USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 50,
+              "parent": 9,
+              "notused": 0,
+              "detail": "BLOOM FILTER ON s (enabled=?)"
+            },
+            {
+              "id": 66,
+              "parent": 9,
+              "notused": 53,
+              "detail": "SEARCH s EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (enabled=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 20215,
+      "itemCount": 10
+    },
+    "search-page": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.4275000000052387,
+        "p95": 0.4415999999982887,
+        "p99": 0.4415999999982887,
+        "max": 0.4415999999982887,
+        "mean": 0.42721999999921534
+      },
+      "samples": [
+        0.42889999999897555,
+        0.41849999999976717,
+        0.4195999999938067,
+        0.4415999999982887,
+        0.4275000000052387
+      ],
+      "queryCalls": 2,
+      "sql": [
+        {
+          "method": "one",
+          "sql": "SELECT COUNT(*) AS count FROM (SELECT p.id FROM products p JOIN skus s ON s.product_id=p.id\n      WHERE p.status='on' AND s.enabled=1 AND s.stock>0 AND (instr(p.name,?)>0 OR instr(p.category,?)>0) GROUP BY p.id)",
+          "params": [
+            "",
+            ""
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE (subquery-1)"
+            },
+            {
+              "id": 11,
+              "parent": 2,
+              "notused": 208,
+              "detail": "SCAN s USING INDEX product_enabled_spec"
+            },
+            {
+              "id": 16,
+              "parent": 2,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_products_1 (id=?)"
+            },
+            {
+              "id": 29,
+              "parent": 2,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR GROUP BY"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 82,
+              "detail": "SCAN (subquery-1)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT p.id,p.name,p.picture,p.description,MIN(s.price) AS price FROM products p JOIN skus s ON s.product_id=p.id\n      WHERE p.status='on' AND s.enabled=1 AND s.stock>0 AND (instr(p.name,?)>0 OR instr(p.category,?)>0) GROUP BY p.id\n        ORDER BY price ASC,p.id COLLATE BINARY ASC LIMIT ? OFFSET ?",
+          "params": [
+            "",
+            "",
+            20,
+            0
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 16,
+              "parent": 0,
+              "notused": 208,
+              "detail": "SCAN s USING INDEX product_enabled_spec"
+            },
+            {
+              "id": 21,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_products_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR GROUP BY"
+            },
+            {
+              "id": 84,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 3674,
+      "itemCount": 20
+    },
+    "legacy-product-array": {
+      "milliseconds": {
+        "n": 3,
+        "p50": 0.5057999999989988,
+        "p95": 0.5553999999974621,
+        "p99": 0.5553999999974621,
+        "max": 0.5553999999974621,
+        "mean": 0.5171333333322158
+      },
+      "samples": [
+        0.5553999999974621,
+        0.5057999999989988,
+        0.49020000000018626
+      ],
+      "queryCalls": 1,
+      "sql": [
+        {
+          "method": "all",
+          "sql": "SELECT p.id,p.name,p.picture,p.description,MIN(s.price) AS price FROM products p JOIN skus s ON s.product_id=p.id\n      WHERE p.status='on' AND s.enabled=1 AND s.stock>0 AND (instr(p.name,?)>0 OR instr(p.category,?)>0) GROUP BY p.id\n      ORDER BY p.id COLLATE BINARY DESC",
+          "params": [
+            "",
+            ""
+          ],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 208,
+              "detail": "SCAN s USING INDEX product_enabled_spec"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_products_1 (id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR GROUP BY"
+            },
+            {
+              "id": 73,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 36093,
+      "itemCount": 200
+    },
+    "legacy-category-array": {
+      "milliseconds": {
+        "n": 2,
+        "p50": 82.10770000000048,
+        "p95": 91.7416000000012,
+        "p99": 91.7416000000012,
+        "max": 91.7416000000012,
+        "mean": 86.92465000000084
+      },
+      "samples": [
+        91.7416000000012,
+        82.10770000000048
+      ],
+      "queryCalls": 421,
+      "sql": [
+        {
+          "method": "all",
+          "sql": "SELECT id,name,parent_id FROM categories ORDER BY rowid",
+          "params": [],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN categories"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM categories WHERE id=?",
+          "params": [
+            "perf-category-0"
+          ],
+          "calls": 210,
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH categories USING COVERING INDEX sqlite_autoindex_categories_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT p.id,p.name,p.picture,p.description,MIN(s.price) AS price FROM products p JOIN skus s ON s.product_id=p.id\n      WHERE p.status='on' AND s.enabled=1 AND s.stock>0 AND (instr(p.name,?)>0 OR instr(p.category,?)>0) AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id\n        WHERE pc.product_id=p.id AND (c.id=? OR c.parent_id=?)) GROUP BY p.id\n      ORDER BY p.id COLLATE BINARY DESC",
+          "params": [
+            "",
+            "",
+            "perf-category-0",
+            "perf-category-0"
+          ],
+          "calls": 210,
+          "plan": [
+            {
+              "id": 10,
+              "parent": 0,
+              "notused": 208,
+              "detail": "SCAN s USING INDEX product_enabled_spec"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_products_1 (id=?)"
+            },
+            {
+              "id": 29,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 36,
+              "parent": 29,
+              "notused": 47,
+              "detail": "SEARCH pc USING INDEX sqlite_autoindex_product_categories_1 (product_id=?)"
+            },
+            {
+              "id": 42,
+              "parent": 29,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR GROUP BY"
+            },
+            {
+              "id": 100,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 94499,
+      "itemCount": 10
+    },
+    "legacy-merchant-array": {
+      "milliseconds": {
+        "n": 1,
+        "p50": 757.9366999999984,
+        "p95": 757.9366999999984,
+        "p99": 757.9366999999984,
+        "max": 757.9366999999984,
+        "mean": 757.9366999999984
+      },
+      "samples": [
+        757.9366999999984
+      ],
+      "queryCalls": 32001,
+      "sql": [
+        {
+          "method": "all",
+          "sql": "SELECT * FROM orders WHERE state=2 ORDER BY created",
+          "params": [],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH orders USING INDEX order_expiry (state=?)"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 28,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM evaluations WHERE order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH evaluations USING INDEX sqlite_autoindex_evaluations_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT reason FROM review_moderation WHERE order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH review_moderation USING INDEX sqlite_autoindex_review_moderation_1 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')",
+          "params": [
+            "payment-history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 45,
+              "detail": "SEARCH refunds USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT r.*,p.payer_id,p.channel_paid_at\n      FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? ORDER BY COALESCE(p.channel_paid_at,p.created),p.id",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN r"
+            },
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_payments_1 (id=?)"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1",
+          "params": [
+            "history-09000",
+            "perf-merchant"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payment_notices USING INDEX payment_notices_unread (recipient_id=? AND viewed_at=? AND order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1",
+          "params": [
+            "history-09000",
+            "perf-merchant"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence DESC LIMIT 1",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH order_cancel_requests USING INDEX sqlite_autoindex_order_cancel_requests_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT p.id FROM payments p JOIN orders o ON o.id=p.order_id\n      WHERE o.id=? AND p.state='succeeded' AND p.payer_id=o.paid_by AND p.channel_paid_at=o.paid_at\n      AND p.amount=o.amount AND NOT EXISTS(SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.reason IN ('late','duplicate','cancelled'))\n      ORDER BY p.created,p.id LIMIT 1",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH o USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            },
+            {
+              "id": 14,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+            },
+            {
+              "id": 33,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 38,
+              "parent": 33,
+              "notused": 45,
+              "detail": "SEARCH r USING INDEX refunds_one_payment_reversal (payment_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT * FROM orders WHERE id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH orders USING INDEX sqlite_autoindex_orders_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH after_sales USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "all",
+          "sql": "SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id\n      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH i USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+            },
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 33,
+              "parent": 25,
+              "notused": 61,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_after_sales_3 (order_id=?)"
+            },
+            {
+              "id": 64,
+              "parent": 25,
+              "notused": 47,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_after_sale_items_1 (after_sale_id=? AND sku_id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT CASE WHEN status='deleted' THEN '已注销用户' ELSE account END account FROM users WHERE id=?",
+          "params": [
+            "perf-user-0"
+          ],
+          "calls": 4000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH users USING INDEX sqlite_autoindex_users_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "method": "one",
+          "sql": "SELECT title_type titleType,title,tax_id taxId,email,status,number,requested_at requestedAt,issued_at issuedAt FROM invoices WHERE order_id=?",
+          "params": [
+            "history-09000"
+          ],
+          "calls": 2000,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH invoices USING INDEX sqlite_autoindex_invoices_1 (order_id=?)"
+            }
+          ]
+        }
+      ],
+      "payloadBytes": 3754801,
+      "itemCount": 2000
+    }
+  },
+  "queries": [
+    {
+      "name": "buyer-first",
+      "sql": "SELECT o.* FROM orders o WHERE o.owner_id=? ORDER BY o.created DESC,o.id LIMIT ? OFFSET ?",
+      "params": [
+        "perf-user-0",
+        10,
+        0
+      ],
+      "plan": [
+        {
+          "id": 10,
+          "parent": 0,
+          "notused": 61,
+          "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+        },
+        {
+          "id": 52,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.05489999999554129,
+        "p95": 0.060899999996763654,
+        "p99": 0.060899999996763654,
+        "max": 0.060899999996763654,
+        "mean": 0.055859999997483104
+      },
+      "samples": [
+        0.055399999997462146,
+        0.05489999999554129,
+        0.060899999996763654,
+        0.054799999998067506,
+        0.053299999999580905
+      ]
+    },
+    {
+      "name": "buyer-page-4",
+      "sql": "SELECT o.* FROM orders o WHERE o.owner_id=? ORDER BY o.created DESC,o.id LIMIT ? OFFSET ?",
+      "params": [
+        "perf-user-0",
+        10,
+        30
+      ],
+      "plan": [
+        {
+          "id": 10,
+          "parent": 0,
+          "notused": 61,
+          "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+        },
+        {
+          "id": 52,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.07499999999708962,
+        "p95": 0.07849999999598367,
+        "p99": 0.07849999999598367,
+        "max": 0.07849999999598367,
+        "mean": 0.0743399999992107
+      },
+      "samples": [
+        0.07849999999598367,
+        0.07499999999708962,
+        0.0771999999997206,
+        0.07119999999849824,
+        0.06980000000476139
+      ]
+    },
+    {
+      "name": "merchant-first",
+      "sql": "SELECT o.* FROM orders o WHERE o.state=? ORDER BY o.created ASC,o.id LIMIT ? OFFSET ?",
+      "params": [
+        2,
+        10,
+        0
+      ],
+      "plan": [
+        {
+          "id": 10,
+          "parent": 0,
+          "notused": 61,
+          "detail": "SEARCH o USING INDEX order_expiry (state=?)"
+        },
+        {
+          "id": 44,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.17650000000139698,
+        "p95": 0.19169999999576248,
+        "p99": 0.19169999999576248,
+        "max": 0.19169999999576248,
+        "mean": 0.1785600000002887
+      },
+      "samples": [
+        0.17650000000139698,
+        0.19169999999576248,
+        0.1746999999959371,
+        0.1789000000062515,
+        0.17100000000209548
+      ]
+    },
+    {
+      "name": "merchant-page-200",
+      "sql": "SELECT o.* FROM orders o WHERE o.state=? ORDER BY o.created ASC,o.id LIMIT ? OFFSET ?",
+      "params": [
+        2,
+        10,
+        1990
+      ],
+      "plan": [
+        {
+          "id": 10,
+          "parent": 0,
+          "notused": 61,
+          "detail": "SEARCH o USING INDEX order_expiry (state=?)"
+        },
+        {
+          "id": 44,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.9255000000048312,
+        "p95": 1.1830000000045402,
+        "p99": 1.1830000000045402,
+        "max": 1.1830000000045402,
+        "mean": 0.9836400000014691
+      },
+      "samples": [
+        0.9727999999959138,
+        0.9255000000048312,
+        0.9236999999993714,
+        0.9132000000026892,
+        1.1830000000045402
+      ]
+    },
+    {
+      "name": "order-items",
+      "sql": "SELECT * FROM order_items WHERE order_id=? ORDER BY rowid",
+      "params": [
+        "history-00000"
+      ],
+      "plan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "notused": 62,
+          "detail": "SEARCH order_items USING INDEX sqlite_autoindex_order_items_1 (order_id=?)"
+        },
+        {
+          "id": 28,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.02019999999902211,
+        "p95": 0.022499999999126885,
+        "p99": 0.022499999999126885,
+        "max": 0.022499999999126885,
+        "mean": 0.0202000000004773
+      },
+      "samples": [
+        0.022499999999126885,
+        0.021600000000034925,
+        0.02019999999902211,
+        0.01870000000053551,
+        0.018000000003667083
+      ]
+    },
+    {
+      "name": "payments-by-order",
+      "sql": "SELECT * FROM payments WHERE order_id=? ORDER BY created,id",
+      "params": [
+        "history-00000"
+      ],
+      "plan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "notused": 62,
+          "detail": "SEARCH payments USING INDEX payments_order_created (order_id=?)"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.016199999998207204,
+        "p95": 0.01659999999537831,
+        "p99": 0.01659999999537831,
+        "max": 0.01659999999537831,
+        "mean": 0.016059999997378328
+      },
+      "samples": [
+        0.01599999999598367,
+        0.01630000000295695,
+        0.016199999998207204,
+        0.015199999994365498,
+        0.01659999999537831
+      ]
+    },
+    {
+      "name": "sku-by-product",
+      "sql": "SELECT * FROM skus WHERE product_id=?",
+      "params": [
+        "hdm-100"
+      ],
+      "plan": [
+        {
+          "id": 2,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN skus"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.019500000002153683,
+        "p95": 0.03510000000096625,
+        "p99": 0.03510000000096625,
+        "max": 0.03510000000096625,
+        "mean": 0.022439999999187422
+      },
+      "samples": [
+        0.018899999995483086,
+        0.01959999999962747,
+        0.03510000000096625,
+        0.019099999997706618,
+        0.019500000002153683
+      ]
+    },
+    {
+      "name": "session-expiry",
+      "sql": "SELECT COUNT(*) n FROM sessions WHERE expires<?",
+      "params": [
+        1794589113091
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN sessions"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.018300000003364403,
+        "p95": 0.05909999999857973,
+        "p99": 0.05909999999857973,
+        "max": 0.05909999999857973,
+        "mean": 0.026460000000952277
+      },
+      "samples": [
+        0.018499999998311978,
+        0.05909999999857973,
+        0.018300000003364403,
+        0.01810000000114087,
+        0.018300000003364403
+      ]
+    },
+    {
+      "name": "category-children",
+      "sql": "SELECT id,name FROM categories WHERE parent_id=?",
+      "params": [
+        "perf-category-0"
+      ],
+      "plan": [
+        {
+          "id": 2,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN categories"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.021500000002561137,
+        "p95": 0.026200000000244472,
+        "p99": 0.026200000000244472,
+        "max": 0.026200000000244472,
+        "mean": 0.022500000000582075
+      },
+      "samples": [
+        0.021300000000337604,
+        0.021500000002561137,
+        0.022299999996903352,
+        0.026200000000244472,
+        0.021200000002863817
+      ]
+    },
+    {
+      "name": "family-readable-count",
+      "sql": "SELECT COUNT(*) n FROM orders o WHERE 1=1 AND o.owner_id<>? AND (\n      EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id AND p.payer_id=?) OR\n      (o.state<>6 AND (o.paid_by=? OR o.received_by=? OR\n      (o.state=1 AND o.invited_payer=? AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')) OR\n      (o.state=3 AND o.paid_by IS NOT NULL AND o.paid_by<>o.owner_id AND EXISTS(SELECT 1 FROM relations r WHERE r.owner_id=o.owner_id AND r.friend_id=? AND r.status='accepted')))))",
+      "params": [
+        "perf-user-0",
+        "perf-user-0",
+        "perf-user-0",
+        "perf-user-0",
+        "perf-user-0",
+        "perf-user-0",
+        "perf-user-0"
+      ],
+      "plan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN o"
+        },
+        {
+          "id": 9,
+          "parent": 0,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 14,
+          "parent": 9,
+          "notused": 62,
+          "detail": "SEARCH p USING INDEX payments_order_created (order_id=?)"
+        },
+        {
+          "id": 38,
+          "parent": 0,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 2"
+        },
+        {
+          "id": 43,
+          "parent": 38,
+          "notused": 39,
+          "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+        },
+        {
+          "id": 65,
+          "parent": 0,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 3"
+        },
+        {
+          "id": 70,
+          "parent": 65,
+          "notused": 39,
+          "detail": "SEARCH r USING INDEX sqlite_autoindex_relations_2 (owner_id=? AND friend_id=?)"
+        }
+      ],
+      "milliseconds": {
+        "n": 5,
+        "p50": 13.24649999999383,
+        "p95": 14.980299999995623,
+        "p99": 14.980299999995623,
+        "max": 14.980299999995623,
+        "mean": 13.347660000000905
+      },
+      "samples": [
+        13.24649999999383,
+        12.634000000005472,
+        12.5966000000044,
+        14.980299999995623,
+        13.280900000005204
+      ]
+    }
+  ],
+  "indexExperiments": [
+    {
+      "name": "merchant-order-index",
+      "ddl": "CREATE INDEX perf_orders_state_created_id ON orders(state,created,id)",
+      "sql": "SELECT o.* FROM orders o WHERE o.state=? ORDER BY o.created ASC,o.id LIMIT ? OFFSET ?",
+      "params": [
+        2,
+        10,
+        1990
+      ],
+      "before": {
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX order_expiry (state=?)"
+          },
+          {
+            "id": 44,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 1.029899999994086,
+          "p95": 1.1423999999969965,
+          "p99": 1.1423999999969965,
+          "max": 1.1423999999969965,
+          "mean": 1.0525199999974575
+        },
+        "samples": [
+          1.0280999999959022,
+          1.0221000000019558,
+          1.040099999998347,
+          1.029899999994086,
+          1.1423999999969965
+        ]
+      },
+      "after": {
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX perf_orders_state_created_id (state=?)"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.08610000000044238,
+          "p95": 0.12199999999575084,
+          "p99": 0.12199999999575084,
+          "max": 0.12199999999575084,
+          "mean": 0.09525999999896158
+        },
+        "samples": [
+          0.12199999999575084,
+          0.08610000000044238,
+          0.08499999999912689,
+          0.08389999999781139,
+          0.09930000000167638
+        ]
+      },
+      "semanticsEqual": true,
+      "rolledBack": true
+    },
+    {
+      "name": "buyer-order-index",
+      "ddl": "CREATE INDEX perf_orders_owner_created_id ON orders(owner_id,created DESC,id)",
+      "sql": "SELECT o.* FROM orders o WHERE o.owner_id=? ORDER BY o.created DESC,o.id LIMIT ? OFFSET ?",
+      "params": [
+        "perf-user-0",
+        10,
+        30
+      ],
+      "before": {
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+          },
+          {
+            "id": 52,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.08000000000174623,
+          "p95": 0.10440000000380678,
+          "p99": 0.10440000000380678,
+          "max": 0.10440000000380678,
+          "mean": 0.08467999999993481
+        },
+        "samples": [
+          0.08000000000174623,
+          0.07799999999406282,
+          0.10440000000380678,
+          0.07940000000235159,
+          0.08159999999770662
+        ]
+      },
+      "after": {
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 62,
+            "detail": "SEARCH o USING INDEX perf_orders_owner_created_id (owner_id=?)"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.06009999999514548,
+          "p95": 0.08100000000558794,
+          "p99": 0.08100000000558794,
+          "max": 0.08100000000558794,
+          "mean": 0.0635599999994156
+        },
+        "samples": [
+          0.08100000000558794,
+          0.05949999999575084,
+          0.06450000000040745,
+          0.06009999999514548,
+          0.052700000000186265
+        ]
+      },
+      "semanticsEqual": true,
+      "rolledBack": true
+    },
+    {
+      "name": "sku-product-index",
+      "ddl": "CREATE INDEX perf_skus_product ON skus(product_id,enabled,stock,price)",
+      "sql": "SELECT * FROM skus WHERE product_id=?",
+      "params": [
+        "hdm-100"
+      ],
+      "before": {
+        "plan": [
+          {
+            "id": 2,
+            "parent": 0,
+            "notused": 216,
+            "detail": "SCAN skus"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.021000000000640284,
+          "p95": 0.0217999999949825,
+          "p99": 0.0217999999949825,
+          "max": 0.0217999999949825,
+          "mean": 0.020859999999811408
+        },
+        "samples": [
+          0.021099999998114072,
+          0.021000000000640284,
+          0.019800000001851004,
+          0.020600000003469177,
+          0.0217999999949825
+        ]
+      },
+      "after": {
+        "plan": [
+          {
+            "id": 3,
+            "parent": 0,
+            "notused": 62,
+            "detail": "SEARCH skus USING INDEX perf_skus_product (product_id=?)"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.009899999997287523,
+          "p95": 0.01690000000235159,
+          "p99": 0.01690000000235159,
+          "max": 0.01690000000235159,
+          "mean": 0.010599999999976717
+        },
+        "samples": [
+          0.01690000000235159,
+          0.009899999997287523,
+          0.008099999999103602,
+          0.007700000001932494,
+          0.010399999999208376
+        ]
+      },
+      "semanticsEqual": true,
+      "rolledBack": true
+    },
+    {
+      "name": "category-parent-index",
+      "ddl": "CREATE INDEX perf_categories_parent ON categories(parent_id)",
+      "sql": "SELECT id,name FROM categories WHERE parent_id=?",
+      "params": [
+        "perf-category-0"
+      ],
+      "before": {
+        "plan": [
+          {
+            "id": 2,
+            "parent": 0,
+            "notused": 216,
+            "detail": "SCAN categories"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.021699999997508712,
+          "p95": 0.040899999999965075,
+          "p99": 0.040899999999965075,
+          "max": 0.040899999999965075,
+          "mean": 0.025560000001860317
+        },
+        "samples": [
+          0.040899999999965075,
+          0.021600000000034925,
+          0.021699999997508712,
+          0.02140000000508735,
+          0.022200000006705523
+        ]
+      },
+      "after": {
+        "plan": [
+          {
+            "id": 3,
+            "parent": 0,
+            "notused": 62,
+            "detail": "SEARCH categories USING INDEX perf_categories_parent (parent_id=?)"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.0202999999964959,
+          "p95": 0.10510000000067521,
+          "p99": 0.10510000000067521,
+          "max": 0.10510000000067521,
+          "mean": 0.03737999999866588
+        },
+        "samples": [
+          0.020100000001548324,
+          0.10510000000067521,
+          0.0202999999964959,
+          0.02500000000145519,
+          0.01639999999315478
+        ]
+      },
+      "semanticsEqual": true,
+      "rolledBack": true
+    },
+    {
+      "name": "session-expiry-index",
+      "ddl": "CREATE INDEX perf_sessions_expires ON sessions(expires)",
+      "sql": "SELECT COUNT(*) n FROM sessions WHERE expires<?",
+      "params": [
+        1794589113293
+      ],
+      "before": {
+        "plan": [
+          {
+            "id": 3,
+            "parent": 0,
+            "notused": 216,
+            "detail": "SCAN sessions"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.018799999998009298,
+          "p95": 0.019400000004679896,
+          "p99": 0.019400000004679896,
+          "max": 0.019400000004679896,
+          "mean": 0.01889999999984866
+        },
+        "samples": [
+          0.019400000004679896,
+          0.01900000000023283,
+          0.018599999995785765,
+          0.01870000000053551,
+          0.018799999998009298
+        ]
+      },
+      "after": {
+        "plan": [
+          {
+            "id": 3,
+            "parent": 0,
+            "notused": 189,
+            "detail": "SEARCH sessions USING COVERING INDEX perf_sessions_expires (expires<?)"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.004000000000814907,
+          "p95": 0.005799999998998828,
+          "p99": 0.005799999998998828,
+          "max": 0.005799999998998828,
+          "mean": 0.004319999998551793
+        },
+        "samples": [
+          0.005799999998998828,
+          0.004099999998288695,
+          0.003899999996065162,
+          0.0037999999985913746,
+          0.004000000000814907
+        ]
+      },
+      "semanticsEqual": true,
+      "rolledBack": true
+    }
+  ],
+  "categoryGrowth": [
+    {
+      "products": 200,
+      "summary": {
+        "milliseconds": {
+          "n": 2,
+          "p50": 12.59769999999844,
+          "p95": 13.249199999998382,
+          "p99": 13.249199999998382,
+          "max": 13.249199999998382,
+          "mean": 12.923449999998411
+        },
+        "samples": [
+          13.249199999998382,
+          12.59769999999844
+        ]
+      },
+      "legacy": {
+        "milliseconds": {
+          "n": 1,
+          "p50": 96.5048999999999,
+          "p95": 96.5048999999999,
+          "p99": 96.5048999999999,
+          "max": 96.5048999999999,
+          "mean": 96.5048999999999
+        },
+        "samples": [
+          96.5048999999999
+        ]
+      },
+      "payloadBytes": 20215,
+      "categoryRows": 210,
+      "summaryPlanBefore": [
+        {
+          "method": "all",
+          "sql": "\n      SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc\n        JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id\n        WHERE (child.id=c.id OR child.parent_id=c.id)\n          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)\n        ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture\n      FROM categories c ORDER BY c.rowid",
+          "params": [],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN c"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 23,
+              "parent": 9,
+              "notused": 223,
+              "detail": "SCAN p USING INDEX sqlite_autoindex_products_1"
+            },
+            {
+              "id": 28,
+              "parent": 9,
+              "notused": 47,
+              "detail": "SEARCH pc USING INDEX sqlite_autoindex_product_categories_1 (product_id=?)"
+            },
+            {
+              "id": 37,
+              "parent": 9,
+              "notused": 46,
+              "detail": "SEARCH child USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 50,
+              "parent": 9,
+              "notused": 0,
+              "detail": "BLOOM FILTER ON s (enabled=?)"
+            },
+            {
+              "id": 66,
+              "parent": 9,
+              "notused": 53,
+              "detail": "SEARCH s EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (enabled=?)"
+            }
+          ]
+        }
+      ],
+      "summaryWithCandidateIndexes": {
+        "milliseconds": {
+          "n": 2,
+          "p50": 0.8777000000045518,
+          "p95": 0.8894000000000233,
+          "p99": 0.8894000000000233,
+          "max": 0.8894000000000233,
+          "mean": 0.8835500000022876
+        },
+        "samples": [
+          0.8894000000000233,
+          0.8777000000045518
+        ]
+      },
+      "summaryPlanAfter": [
+        {
+          "method": "all",
+          "sql": "\n      SELECT c.id,c.name,c.parent_id,(SELECT p.picture FROM product_categories pc\n        JOIN categories child ON child.id=pc.category_id JOIN products p ON p.id=pc.product_id\n        WHERE (child.id=c.id OR child.parent_id=c.id)\n          AND p.status='on' AND EXISTS(SELECT 1 FROM skus s WHERE s.product_id=p.id AND s.enabled=1 AND s.stock>0)\n        ORDER BY p.id COLLATE BINARY DESC LIMIT 1) AS picture\n      FROM categories c ORDER BY c.rowid",
+          "params": [],
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN c"
+            },
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 23,
+              "parent": 9,
+              "notused": 0,
+              "detail": "MULTI-INDEX OR"
+            },
+            {
+              "id": 24,
+              "parent": 23,
+              "notused": 0,
+              "detail": "INDEX 1"
+            },
+            {
+              "id": 31,
+              "parent": 24,
+              "notused": 46,
+              "detail": "SEARCH child USING INDEX sqlite_autoindex_categories_1 (id=?)"
+            },
+            {
+              "id": 35,
+              "parent": 23,
+              "notused": 0,
+              "detail": "INDEX 2"
+            },
+            {
+              "id": 42,
+              "parent": 35,
+              "notused": 62,
+              "detail": "SEARCH child USING INDEX perf_categories_parent (parent_id=?)"
+            },
+            {
+              "id": 54,
+              "parent": 9,
+              "notused": 62,
+              "detail": "SEARCH pc USING INDEX product_categories_category (category_id=?)"
+            },
+            {
+              "id": 60,
+              "parent": 9,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_products_1 (id=?)"
+            },
+            {
+              "id": 68,
+              "parent": 9,
+              "notused": 47,
+              "detail": "SEARCH s EXISTS USING COVERING INDEX perf_skus_product (product_id=? AND enabled=? AND stock>?)"
+            },
+            {
+              "id": 89,
+              "parent": 9,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ],
+      "semanticsEqual": true
+    }
+  ],
+  "password": {
+    "scryptSync64": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 28.754000000000815,
+        "p95": 32.23909999999887,
+        "p99": 32.23909999999887,
+        "max": 32.23909999999887,
+        "mean": 29.08255999999965
+      },
+      "samples": [
+        28.754000000000815,
+        27.46549999999843,
+        26.884400000002643,
+        30.069799999997485,
+        32.23909999999887
+      ]
+    },
+    "verifyPassword": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 27.762199999997392,
+        "p95": 30.56369999999879,
+        "p99": 30.56369999999879,
+        "max": 30.56369999999879,
+        "mean": 28.503639999999724
+      },
+      "samples": [
+        30.56369999999879,
+        29.107300000003306,
+        27.762199999997392,
+        27.711199999997916,
+        27.37380000000121
+      ]
+    }
+  },
+  "deepPage": {
+    "scope": "temporary skew sensitivity, 10000 history orders assigned to one buyer; rolled back",
+    "offsetBaseline": [
+      {
+        "offset": 0,
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+          },
+          {
+            "id": 52,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.06139999999868451,
+          "p95": 0.0676000000021304,
+          "p99": 0.0676000000021304,
+          "max": 0.0676000000021304,
+          "mean": 0.06174000000028172
+        },
+        "samples": [
+          0.060500000006868504,
+          0.061799999995855615,
+          0.0573999999978696,
+          0.06139999999868451,
+          0.0676000000021304
+        ]
+      },
+      {
+        "offset": 990,
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+          },
+          {
+            "id": 52,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 0.7931000000025961,
+          "p95": 0.8064000000013039,
+          "p99": 0.8064000000013039,
+          "max": 0.8064000000013039,
+          "mean": 0.7656000000017229
+        },
+        "samples": [
+          0.8052999999999884,
+          0.8064000000013039,
+          0.7087000000028638,
+          0.7145000000018626,
+          0.7931000000025961
+        ]
+      },
+      {
+        "offset": 4990,
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+          },
+          {
+            "id": 52,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 3.0078000000066822,
+          "p95": 3.6489000000001397,
+          "p99": 3.6489000000001397,
+          "max": 3.6489000000001397,
+          "mean": 3.1299800000022513
+        },
+        "samples": [
+          3.2340000000040163,
+          3.0078000000066822,
+          2.8502000000007683,
+          2.9089999999996508,
+          3.6489000000001397
+        ]
+      },
+      {
+        "offset": 9990,
+        "plan": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH o USING INDEX order_owner (owner_id=?)"
+          },
+          {
+            "id": 52,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          }
+        ],
+        "milliseconds": {
+          "n": 5,
+          "p50": 7.073100000001432,
+          "p95": 7.451300000000629,
+          "p99": 7.451300000000629,
+          "max": 7.451300000000629,
+          "mean": 7.054179999999178
+        },
+        "samples": [
+          7.451300000000629,
+          6.702299999997194,
+          7.073100000001432,
+          6.815099999999802,
+          7.2290999999968335
+        ]
+      }
+    ],
+    "indexedOffset": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.33209999999962747,
+        "p95": 0.6372000000046683,
+        "p99": 0.6372000000046683,
+        "max": 0.6372000000046683,
+        "mean": 0.38522000000084516
+      },
+      "samples": [
+        0.6372000000046683,
+        0.31979999999748543,
+        0.35599999999976717,
+        0.33209999999962747,
+        0.28100000000267755
+      ]
+    },
+    "keysetSql": "SELECT * FROM orders WHERE owner_id=? AND created<=? AND (created<? OR id>?) ORDER BY created DESC,id LIMIT 10",
+    "keysetPlan": [
+      {
+        "id": 5,
+        "parent": 0,
+        "notused": 50,
+        "detail": "SEARCH orders USING INDEX perf_orders_owner_created_id (owner_id=? AND created<?)"
+      }
+    ],
+    "keyset": {
+      "milliseconds": {
+        "n": 5,
+        "p50": 0.045100000003003515,
+        "p95": 0.0956000000005588,
+        "p99": 0.0956000000005588,
+        "max": 0.0956000000005588,
+        "mean": 0.054420000001846346
+      },
+      "samples": [
+        0.0956000000005588,
+        0.04579999999987194,
+        0.045100000003003515,
+        0.04280000000289874,
+        0.04280000000289874
+      ]
+    },
+    "semanticsEqual": true
+  },
+  "after": {
+    "version": 17,
+    "foreignKeys": [],
+    "integrity": {
+      "integrity_check": "ok"
+    },
+    "experimentIndexes": []
+  }
+}

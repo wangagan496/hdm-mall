@@ -1,0 +1,586 @@
+{
+  "name": "login",
+  "requests": 40,
+  "successes": 40,
+  "unexpectedErrors": 0,
+  "errorRate": 0,
+  "statuses": {
+    "200": 40
+  },
+  "latencyMs": {
+    "n": 40,
+    "p50": 30.951600000000326,
+    "p95": 38.0570000000007,
+    "p99": 42.697000000000116,
+    "max": 42.697000000000116,
+    "mean": 32.21266499999983
+  },
+  "successLatencyMs": {
+    "n": 40,
+    "p50": 30.951600000000326,
+    "p95": 38.0570000000007,
+    "p99": 42.697000000000116,
+    "max": 42.697000000000116,
+    "mean": 32.21266499999983
+  },
+  "scheduledLatencyMs": {
+    "n": 40,
+    "p50": 39.80659999999989,
+    "p95": 47.71810000000187,
+    "p99": 52.11479999999938,
+    "max": 52.11479999999938,
+    "mean": 39.33173750000096
+  },
+  "schedulerLagMs": {
+    "n": 40,
+    "p50": 6.536599999999453,
+    "p95": 14.132400000002235,
+    "p99": 14.945800000001327,
+    "max": 14.945800000001327,
+    "mean": 7.1190725000011295
+  },
+  "jsonParseMs": {
+    "n": 40,
+    "p50": 0.013300000002345769,
+    "p95": 0.019499999998515705,
+    "p99": 0.03950000000259024,
+    "max": 0.03950000000259024,
+    "mean": 0.014510000000245781
+  },
+  "bytes": {
+    "n": 40,
+    "p50": 361,
+    "p95": 361,
+    "p99": 361,
+    "max": 361,
+    "mean": 360.25
+  },
+  "offeredRps": 20,
+  "durationSeconds": 2,
+  "elapsedMs": 1996.2878999999994,
+  "completedRps": 20.03719002654878,
+  "maxInFlight": 1,
+  "server": {
+    "cpuMs": 249,
+    "elapsedMs": 1996.6971,
+    "oneCorePercent": 12.470594563391712,
+    "rssBytes": 113713152,
+    "eventLoopMs": {
+      "p50": 23.511039,
+      "p95": 37.748735,
+      "p99": 46.333951,
+      "max": 51.150847
+    },
+    "serverResponseMs": {
+      "n": 40,
+      "p50": 30.225800000000163,
+      "p95": 37.0971999999997,
+      "p99": 41.79899999999998,
+      "max": 41.79899999999998,
+      "mean": 31.482847499999963
+    },
+    "responses": 40
+  },
+  "byKind": {
+    "login": {
+      "name": "login",
+      "requests": 40,
+      "successes": 40,
+      "unexpectedErrors": 0,
+      "errorRate": 0,
+      "statuses": {
+        "200": 40
+      },
+      "latencyMs": {
+        "n": 40,
+        "p50": 30.951600000000326,
+        "p95": 38.0570000000007,
+        "p99": 42.697000000000116,
+        "max": 42.697000000000116,
+        "mean": 32.21266499999983
+      },
+      "successLatencyMs": {
+        "n": 40,
+        "p50": 30.951600000000326,
+        "p95": 38.0570000000007,
+        "p99": 42.697000000000116,
+        "max": 42.697000000000116,
+        "mean": 32.21266499999983
+      },
+      "scheduledLatencyMs": {
+        "n": 40,
+        "p50": 39.80659999999989,
+        "p95": 47.71810000000187,
+        "p99": 52.11479999999938,
+        "max": 52.11479999999938,
+        "mean": 39.33173750000096
+      },
+      "schedulerLagMs": {
+        "n": 40,
+        "p50": 6.536599999999453,
+        "p95": 14.132400000002235,
+        "p99": 14.945800000001327,
+        "max": 14.945800000001327,
+        "mean": 7.1190725000011295
+      },
+      "jsonParseMs": {
+        "n": 40,
+        "p50": 0.013300000002345769,
+        "p95": 0.019499999998515705,
+        "p99": 0.03950000000259024,
+        "max": 0.03950000000259024,
+        "mean": 0.014510000000245781
+      },
+      "bytes": {
+        "n": 40,
+        "p50": 361,
+        "p95": 361,
+        "p99": 361,
+        "max": 361,
+        "mean": 360.25
+      }
+    }
+  },
+  "samples": [
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 33.377700000000914,
+      "scheduledMs": 40.38800000000265,
+      "lagMs": 7.010300000001735,
+      "parseMs": 0.013600000002043089,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.832399999999325,
+      "scheduledMs": 32.395800000002055,
+      "lagMs": 2.56340000000273,
+      "parseMs": 0.013000000002648449,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 28.550599999998667,
+      "scheduledMs": 41.344600000000355,
+      "lagMs": 12.794000000001688,
+      "parseMs": 0.01480000000083237,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 30.951600000000326,
+      "scheduledMs": 41.300200000001496,
+      "lagMs": 10.34860000000117,
+      "parseMs": 0.012200000001030276,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 28.482599999999366,
+      "scheduledMs": 35.9958000000006,
+      "lagMs": 7.513200000001234,
+      "parseMs": 0.011500000000523869,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.73819999999978,
+      "scheduledMs": 34.99920000000202,
+      "lagMs": 5.261000000002241,
+      "parseMs": 0.011300000001938315,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 30.357499999998254,
+      "scheduledMs": 32.554400000000896,
+      "lagMs": 2.1969000000026426,
+      "parseMs": 0.013200000001234002,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 35.293000000001484,
+      "scheduledMs": 47.26530000000275,
+      "lagMs": 11.972300000001269,
+      "parseMs": 0.013000000002648449,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 33.7644999999975,
+      "scheduledMs": 42.38409999999931,
+      "lagMs": 8.61960000000181,
+      "parseMs": 0.014299999998911517,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 31.15810000000056,
+      "scheduledMs": 36.489400000002206,
+      "lagMs": 5.331300000001647,
+      "parseMs": 0.03950000000259024,
+      "bytes": 358,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 37.64470000000074,
+      "scheduledMs": 38.85540000000037,
+      "lagMs": 1.2106999999996333,
+      "parseMs": 0.019499999998515705,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.449000000000524,
+      "scheduledMs": 42.26770000000033,
+      "lagMs": 12.818699999999808,
+      "parseMs": 0.01299999999901047,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.91009999999733,
+      "scheduledMs": 39.34389999999985,
+      "lagMs": 9.43380000000252,
+      "parseMs": 0.012499999997089617,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 28.899399999998423,
+      "scheduledMs": 33.789199999999255,
+      "lagMs": 4.889800000000832,
+      "parseMs": 0.012299999998504063,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 27.6974999999984,
+      "scheduledMs": 29.791300000000774,
+      "lagMs": 2.093800000002375,
+      "parseMs": 0.011900000001332955,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 31.82969999999841,
+      "scheduledMs": 44.45690000000104,
+      "lagMs": 12.627200000002631,
+      "parseMs": 0.01569999999992433,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 35.0554000000011,
+      "scheduledMs": 43.316500000000815,
+      "lagMs": 8.261099999999715,
+      "parseMs": 0.01359999999840511,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 34.20769999999902,
+      "scheduledMs": 37.963700000000244,
+      "lagMs": 3.7560000000012224,
+      "parseMs": 0.014100000000325963,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 27.98949999999968,
+      "scheduledMs": 42.93530000000101,
+      "lagMs": 14.945800000001327,
+      "parseMs": 0.011500000000523869,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 30.201399999998102,
+      "scheduledMs": 40.32519999999931,
+      "lagMs": 10.12380000000121,
+      "parseMs": 0.015599999998812564,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 27.686900000000605,
+      "scheduledMs": 34.22350000000006,
+      "lagMs": 6.536599999999453,
+      "parseMs": 0.011399999999412103,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 26.737700000001496,
+      "scheduledMs": 29.093700000001263,
+      "lagMs": 2.355999999999767,
+      "parseMs": 0.011300000001938315,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.278200000000652,
+      "scheduledMs": 29.44220000000132,
+      "lagMs": 0.1640000000006694,
+      "parseMs": 0.012800000000424916,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 31.095400000001973,
+      "scheduledMs": 43.422700000002806,
+      "lagMs": 12.327300000000832,
+      "parseMs": 0.012900000001536682,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 31.121500000001106,
+      "scheduledMs": 40.73500000000058,
+      "lagMs": 9.613499999999476,
+      "parseMs": 0.01419999999779975,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.989599999997154,
+      "scheduledMs": 36.42859999999928,
+      "lagMs": 6.439000000002125,
+      "parseMs": 0.014400000000023283,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 28.644400000001042,
+      "scheduledMs": 31.282500000001164,
+      "lagMs": 2.6381000000001222,
+      "parseMs": 0.012800000000424916,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 32.10330000000249,
+      "scheduledMs": 45.7397000000019,
+      "lagMs": 13.636399999999412,
+      "parseMs": 0.011399999999412103,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 30.810099999998783,
+      "scheduledMs": 40.49799999999959,
+      "lagMs": 9.687900000000809,
+      "parseMs": 0.013699999999516876,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 29.31840000000011,
+      "scheduledMs": 35.61800000000221,
+      "lagMs": 6.299600000002101,
+      "parseMs": 0.013300000002345769,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 28.62250000000131,
+      "scheduledMs": 31.926800000001094,
+      "lagMs": 3.3042999999997846,
+      "parseMs": 0.011699999999109423,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 31.72910000000047,
+      "scheduledMs": 32.76130000000194,
+      "lagMs": 1.0322000000014668,
+      "parseMs": 0.015299999999115244,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 37.98239999999714,
+      "scheduledMs": 52.11479999999938,
+      "lagMs": 14.132400000002235,
+      "parseMs": 0.013499999997293344,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 37.59979999999996,
+      "scheduledMs": 39.80659999999989,
+      "lagMs": 2.20679999999993,
+      "parseMs": 0.016700000000128057,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 38.0570000000007,
+      "scheduledMs": 46.637800000000425,
+      "lagMs": 8.580799999999726,
+      "parseMs": 0.018199999998614658,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 42.38379999999961,
+      "scheduledMs": 47.71810000000187,
+      "lagMs": 5.3343000000022585,
+      "parseMs": 0.019800000001851004,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 42.697000000000116,
+      "scheduledMs": 44.18280000000232,
+      "lagMs": 1.4858000000022002,
+      "parseMs": 0.01870000000053551,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 37.02249999999913,
+      "scheduledMs": 51.4372000000003,
+      "lagMs": 14.414700000001176,
+      "parseMs": 0.012200000001030276,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 34.29170000000158,
+      "scheduledMs": 35.82210000000123,
+      "lagMs": 1.530399999999645,
+      "parseMs": 0.016400000000430737,
+      "bytes": 361,
+      "reason": null
+    },
+    {
+      "kind": "login",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 36.94470000000001,
+      "scheduledMs": 46.21620000000257,
+      "lagMs": 9.271500000002561,
+      "parseMs": 0.013600000002043089,
+      "bytes": 361,
+      "reason": null
+    }
+  ]
+}

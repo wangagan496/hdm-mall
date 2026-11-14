@@ -1,0 +1,820 @@
+{
+  "name": "inventory-race",
+  "requests": 80,
+  "successes": 80,
+  "unexpectedErrors": 0,
+  "errorRate": 0,
+  "statuses": {
+    "200": 20,
+    "409": 60
+  },
+  "latencyMs": {
+    "n": 80,
+    "p50": 33.85759999999573,
+    "p95": 51.839899999999034,
+    "p99": 55.04110000000219,
+    "max": 55.04110000000219,
+    "mean": 32.838688750000344
+  },
+  "successLatencyMs": {
+    "n": 80,
+    "p50": 33.85759999999573,
+    "p95": 51.839899999999034,
+    "p99": 55.04110000000219,
+    "max": 55.04110000000219,
+    "mean": 32.838688750000344
+  },
+  "scheduledLatencyMs": {
+    "n": 80,
+    "p50": 34.57800000000134,
+    "p95": 53.920899999997346,
+    "p99": 57.27139999999781,
+    "max": 57.27139999999781,
+    "mean": 33.65885499999858
+  },
+  "schedulerLagMs": {
+    "n": 80,
+    "p50": 0.5267000000021653,
+    "p95": 2.080999999998312,
+    "p99": 2.230299999995623,
+    "max": 2.230299999995623,
+    "mean": 0.8201662499982376
+  },
+  "jsonParseMs": {
+    "n": 80,
+    "p50": 0.005599999996775296,
+    "p95": 0.013200000001234002,
+    "p99": 0.018499999998311978,
+    "max": 0.018499999998311978,
+    "mean": 0.006357500000103755
+  },
+  "bytes": {
+    "n": 80,
+    "p50": 225,
+    "p95": 225,
+    "p99": 225,
+    "max": 225,
+    "mean": 185.5
+  },
+  "rounds": [
+    {
+      "round": 0,
+      "pass": true,
+      "replayPass": true,
+      "successes": 10,
+      "expectedStockRejections": 30,
+      "snapshot": {
+        "stock": 0,
+        "orders": 10,
+        "reservations": 10
+      },
+      "afterReplay": {
+        "stock": 0,
+        "orders": 10,
+        "reservations": 10
+      }
+    },
+    {
+      "round": 1,
+      "pass": true,
+      "replayPass": true,
+      "successes": 10,
+      "expectedStockRejections": 30,
+      "snapshot": {
+        "stock": 0,
+        "orders": 10,
+        "reservations": 10
+      },
+      "afterReplay": {
+        "stock": 0,
+        "orders": 10,
+        "reservations": 10
+      }
+    }
+  ],
+  "expectedBusinessRejections": 60,
+  "rawNon2xxRate": 0.75,
+  "interpretation": "409 stock shortage is expected; unexpected error rate excludes the validated stock rejections",
+  "samples": [
+    {
+      "status": 200,
+      "elapsedMs": 8.569400000000314,
+      "scheduledMs": 8.70969999999943,
+      "lagMs": 0.14029999999911524,
+      "parseMs": 0.007700000001932494,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 9.401900000004389,
+      "scheduledMs": 9.641199999998207,
+      "lagMs": 0.23929999999381835,
+      "parseMs": 0.0054000000018277206,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 22.156600000002072,
+      "scheduledMs": 22.420500000000175,
+      "lagMs": 0.26389999999810243,
+      "parseMs": 0.0028000000020256266,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 23.98700000000099,
+      "scheduledMs": 24.378399999994144,
+      "lagMs": 0.3913999999931548,
+      "parseMs": 0.004600000000209548,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 10.596299999997427,
+      "scheduledMs": 11.065599999994447,
+      "lagMs": 0.46929999999701977,
+      "parseMs": 0.005099999994854443,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 12.4887000000017,
+      "scheduledMs": 13.020299999996496,
+      "lagMs": 0.5315999999947962,
+      "parseMs": 0.004099999998288695,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 14.637000000002445,
+      "scheduledMs": 15.205699999998615,
+      "lagMs": 0.5686999999961699,
+      "parseMs": 0.0022000000026309863,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 18.556799999998475,
+      "scheduledMs": 19.159499999994296,
+      "lagMs": 0.6026999999958207,
+      "parseMs": 0.007799999999406282,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 25.650299999993877,
+      "scheduledMs": 26.31359999999404,
+      "lagMs": 0.663300000000163,
+      "parseMs": 0.002799999994749669,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 27.535100000000966,
+      "scheduledMs": 28.24079999999958,
+      "lagMs": 0.7056999999986147,
+      "parseMs": 0.003200000006472692,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 28.56470000000263,
+      "scheduledMs": 29.321799999997893,
+      "lagMs": 0.7570999999952619,
+      "parseMs": 0.01630000000295695,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 29.965700000000652,
+      "scheduledMs": 30.75669999999809,
+      "lagMs": 0.7909999999974389,
+      "parseMs": 0.005799999998998828,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 30.675999999999476,
+      "scheduledMs": 31.52799999999843,
+      "lagMs": 0.8519999999989523,
+      "parseMs": 0.0054000000018277206,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 31.35360000000219,
+      "scheduledMs": 32.26589999999851,
+      "lagMs": 0.9122999999963213,
+      "parseMs": 0.007400000002235174,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 32.24859999999899,
+      "scheduledMs": 33.230499999997846,
+      "lagMs": 0.9818999999988591,
+      "parseMs": 0.008699999998498242,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 33.148400000005495,
+      "scheduledMs": 34.20509999999922,
+      "lagMs": 1.0566999999937252,
+      "parseMs": 0.006900000000314321,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 33.85759999999573,
+      "scheduledMs": 34.98809999999503,
+      "lagMs": 1.1304999999993015,
+      "parseMs": 0.006000000001222361,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 35.122699999999895,
+      "scheduledMs": 36.31559999999445,
+      "lagMs": 1.1928999999945518,
+      "parseMs": 0.007099999995261896,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 35.90810000000056,
+      "scheduledMs": 37.15259999999398,
+      "lagMs": 1.2444999999934225,
+      "parseMs": 0.0063999999983934686,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 36.678500000001804,
+      "scheduledMs": 37.974999999998545,
+      "lagMs": 1.2964999999967404,
+      "parseMs": 0.0062000000034458935,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 37.46429999999964,
+      "scheduledMs": 38.80829999999696,
+      "lagMs": 1.3439999999973224,
+      "parseMs": 0.005599999996775296,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 38.22699999999895,
+      "scheduledMs": 39.62869999999384,
+      "lagMs": 1.4016999999948894,
+      "parseMs": 0.006299999993643723,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 39.51010000000679,
+      "scheduledMs": 40.959100000000035,
+      "lagMs": 1.448999999993248,
+      "parseMs": 0.013200000001234002,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 40.15479999999661,
+      "scheduledMs": 41.82659999999305,
+      "lagMs": 1.6717999999964377,
+      "parseMs": 0.008899999993445817,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 41.556799999998475,
+      "scheduledMs": 43.31219999999303,
+      "lagMs": 1.7553999999945518,
+      "parseMs": 0.007599999997182749,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 42.20499999999447,
+      "scheduledMs": 44.00919999999314,
+      "lagMs": 1.8041999999986729,
+      "parseMs": 0.00789999999688007,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 43.038800000002084,
+      "scheduledMs": 44.87649999999849,
+      "lagMs": 1.8376999999964028,
+      "parseMs": 0.0063999999983934686,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 43.91569999999774,
+      "scheduledMs": 45.781599999994796,
+      "lagMs": 1.8658999999970547,
+      "parseMs": 0.018499999998311978,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 44.714700000004086,
+      "scheduledMs": 46.60609999999724,
+      "lagMs": 1.8913999999931548,
+      "parseMs": 0.007299999997485429,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 45.88620000000083,
+      "scheduledMs": 47.80199999999604,
+      "lagMs": 1.9157999999952153,
+      "parseMs": 0.014600000002246816,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 47.84230000000389,
+      "scheduledMs": 49.78489999999874,
+      "lagMs": 1.9425999999948544,
+      "parseMs": 0.011800000000221189,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 48.748200000001816,
+      "scheduledMs": 50.71419999999489,
+      "lagMs": 1.9659999999930733,
+      "parseMs": 0.00789999999688007,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 49.560899999996764,
+      "scheduledMs": 51.549999999995634,
+      "lagMs": 1.9890999999988708,
+      "parseMs": 0.005899999996472616,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 50.42090000000462,
+      "scheduledMs": 52.45079999999871,
+      "lagMs": 2.029899999994086,
+      "parseMs": 0.005700000001525041,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 51.08159999999771,
+      "scheduledMs": 53.13499999999476,
+      "lagMs": 2.0533999999970547,
+      "parseMs": 0.005199999999604188,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 51.839899999999034,
+      "scheduledMs": 53.920899999997346,
+      "lagMs": 2.080999999998312,
+      "parseMs": 0.008699999998498242,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 52.65899999999965,
+      "scheduledMs": 54.76429999999527,
+      "lagMs": 2.105299999995623,
+      "parseMs": 0.006099999998696148,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 53.41580000000249,
+      "scheduledMs": 55.54509999999573,
+      "lagMs": 2.1292999999932363,
+      "parseMs": 0.003400000001420267,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 54.279600000001665,
+      "scheduledMs": 56.43359999999666,
+      "lagMs": 2.153999999994994,
+      "parseMs": 0.006099999998696148,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 55.04110000000219,
+      "scheduledMs": 57.27139999999781,
+      "lagMs": 2.230299999995623,
+      "parseMs": 0.005499999999301508,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 3.2615999999979977,
+      "scheduledMs": 3.2946000000010827,
+      "lagMs": 0.033000000003085006,
+      "parseMs": 0.0054000000018277206,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 5.489199999996345,
+      "scheduledMs": 5.589299999999639,
+      "lagMs": 0.10010000000329455,
+      "parseMs": 0.006500000003143214,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 8.051899999998568,
+      "scheduledMs": 8.169699999998556,
+      "lagMs": 0.11779999999998836,
+      "parseMs": 0.006199999996169936,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 10.542800000002899,
+      "scheduledMs": 10.672700000002806,
+      "lagMs": 0.12989999999990687,
+      "parseMs": 0.005600000004051253,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 12.662200000006123,
+      "scheduledMs": 12.804300000003423,
+      "lagMs": 0.14209999999729916,
+      "parseMs": 0.004100000005564652,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 14.913399999997637,
+      "scheduledMs": 15.066500000000815,
+      "lagMs": 0.15310000000317814,
+      "parseMs": 0.00420000000303844,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 16.78240000000369,
+      "scheduledMs": 16.94640000000072,
+      "lagMs": 0.1639999999970314,
+      "parseMs": 0.0039000000033411197,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 18.701600000000326,
+      "scheduledMs": 18.876400000001013,
+      "lagMs": 0.17480000000068685,
+      "parseMs": 0.003700000001117587,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 20.676400000003923,
+      "scheduledMs": 20.861900000003516,
+      "lagMs": 0.18549999999959255,
+      "parseMs": 0.003400000001420267,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 200,
+      "elapsedMs": 22.6704000000027,
+      "scheduledMs": 22.8663000000015,
+      "lagMs": 0.19589999999880092,
+      "parseMs": 0.007100000002537854,
+      "bytes": 67,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 23.72099999999773,
+      "scheduledMs": 23.92740000000049,
+      "lagMs": 0.20640000000275904,
+      "parseMs": 0.009100000002945308,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 24.55949999999575,
+      "scheduledMs": 24.77629999999772,
+      "lagMs": 0.21680000000196742,
+      "parseMs": 0.005899999996472616,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 25.32209999999759,
+      "scheduledMs": 25.54989999999816,
+      "lagMs": 0.22780000000057044,
+      "parseMs": 0.005299999997077975,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 26.037799999998242,
+      "scheduledMs": 26.275900000000547,
+      "lagMs": 0.23810000000230502,
+      "parseMs": 0.005299999997077975,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 26.786400000004505,
+      "scheduledMs": 27.035000000003492,
+      "lagMs": 0.2485999999989872,
+      "parseMs": 0.005500000006577466,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 27.56199999999808,
+      "scheduledMs": 27.82140000000072,
+      "lagMs": 0.25940000000264263,
+      "parseMs": 0.005199999999604188,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 29.18880000000354,
+      "scheduledMs": 29.45850000000064,
+      "lagMs": 0.26969999999710126,
+      "parseMs": 0.007499999999708962,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 30,
+      "scheduledMs": 30.279900000001362,
+      "lagMs": 0.27990000000136206,
+      "parseMs": 0.005700000001525041,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 30.77100000000064,
+      "scheduledMs": 31.061500000003434,
+      "lagMs": 0.29050000000279397,
+      "parseMs": 0.0051000000021304,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 31.451399999998102,
+      "scheduledMs": 31.752000000000407,
+      "lagMs": 0.300600000002305,
+      "parseMs": 0.004899999999906868,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 32.35689999999886,
+      "scheduledMs": 32.66790000000037,
+      "lagMs": 0.3110000000015134,
+      "parseMs": 0.005600000004051253,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 32.94859999999608,
+      "scheduledMs": 33.2722999999969,
+      "lagMs": 0.32370000000082655,
+      "parseMs": 0.005099999994854443,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 33.54820000000473,
+      "scheduledMs": 33.9233000000022,
+      "lagMs": 0.3750999999974738,
+      "parseMs": 0.005000000004656613,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 34.18830000000162,
+      "scheduledMs": 34.57800000000134,
+      "lagMs": 0.3896999999997206,
+      "parseMs": 0.005000000004656613,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 34.84689999999682,
+      "scheduledMs": 35.24779999999737,
+      "lagMs": 0.40090000000054715,
+      "parseMs": 0.004999999997380655,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 35.51140000000305,
+      "scheduledMs": 35.9233000000022,
+      "lagMs": 0.41189999999915017,
+      "parseMs": 0.005499999999301508,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 36.18100000000413,
+      "scheduledMs": 36.60420000000158,
+      "lagMs": 0.4231999999974505,
+      "parseMs": 0.0051000000021304,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 36.88470000000234,
+      "scheduledMs": 37.319400000000314,
+      "lagMs": 0.4346999999979744,
+      "parseMs": 0.006300000000919681,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 37.87120000000141,
+      "scheduledMs": 38.31680000000051,
+      "lagMs": 0.4455999999991036,
+      "parseMs": 0.013400000003457535,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 39.18840000000637,
+      "scheduledMs": 39.64560000000347,
+      "lagMs": 0.45719999999710126,
+      "parseMs": 0.005700000001525041,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 39.88380000000325,
+      "scheduledMs": 40.35770000000048,
+      "lagMs": 0.4738999999972293,
+      "parseMs": 0.0051000000021304,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 40.614199999996345,
+      "scheduledMs": 41.09969999999885,
+      "lagMs": 0.48550000000250293,
+      "parseMs": 0.004999999997380655,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 41.30300000000716,
+      "scheduledMs": 41.799400000003516,
+      "lagMs": 0.4963999999963562,
+      "parseMs": 0.004900000007182825,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 41.97729999999865,
+      "scheduledMs": 42.48449999999866,
+      "lagMs": 0.5072000000000116,
+      "parseMs": 0.005299999997077975,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 42.82249999999476,
+      "scheduledMs": 43.34919999999693,
+      "lagMs": 0.5267000000021653,
+      "parseMs": 0.005799999998998828,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 43.62829999999667,
+      "scheduledMs": 44.16649999999936,
+      "lagMs": 0.5382000000026892,
+      "parseMs": 0.0054000000018277206,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 44.393300000003364,
+      "scheduledMs": 44.94290000000183,
+      "lagMs": 0.5495999999984633,
+      "parseMs": 0.005499999999301508,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 45.03809999999794,
+      "scheduledMs": 45.59850000000006,
+      "lagMs": 0.5604000000021188,
+      "parseMs": 0.005199999999604188,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 45.70159999999305,
+      "scheduledMs": 46.2725999999966,
+      "lagMs": 0.5710000000035507,
+      "parseMs": 0.005299999997077975,
+      "bytes": 225,
+      "ok": true
+    },
+    {
+      "status": 409,
+      "elapsedMs": 46.389799999997194,
+      "scheduledMs": 46.97780000000057,
+      "lagMs": 0.588000000003376,
+      "parseMs": 0.005299999997077975,
+      "bytes": 225,
+      "ok": true
+    }
+  ]
+}
