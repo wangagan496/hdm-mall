@@ -170,6 +170,10 @@ export function refreshPaymentAPI(orderId: string, token: string): Promise<Payme
   return RequestAxios.postWithSession<PaymentFields>(`/member/order/${orderId}/payments/refresh`, EMPTY_PARAMS, token)
 }
 
+export function resumePaymentAPI(orderId: string, token: string): Promise<PaymentStartResult> {
+  return RequestAxios.postWithSession<PaymentStartResult>(`/member/order/${orderId}/payments/checkout`, EMPTY_PARAMS, token)
+}
+
 export function invitePayerAPI(orderId: string, friendId: string | null, token: string): Promise<OrderStateResult> {
   const data: PayerPayload = { friendId }
   return RequestAxios.putForSession<OrderStateResult>(`/member/order/${orderId}/payer`, data, token)

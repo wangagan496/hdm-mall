@@ -22,7 +22,7 @@ function fixture() {
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets', 'FamilyView', {}, {
     cancelActions: emptyCancelActions, cancelActionFailure,
     OrderState,
-    PAGE_PATH: { ORDER_DETAIL_PAGE: 'detail' },
+    PAGE_PATH: { ORDER_DETAIL_PAGE: 'detail', PAY_PAGE: 'pay' },
     getFamilyRelationsPageAPI: (p, token) => { queries.push(['relations', p, token]); return api.relations(p, token) },
     getFamilyOrdersPageAPI: (p, token, group) => { queries.push(['family', p, token]); return api.family(p, token, group) },
     getFamilyOrderDetailAPI: async (id, token) => { queries.push(['detail', id, token]); return (await api.family(1, token)).items.find(item => item.id === id) },
@@ -47,6 +47,21 @@ function fixture() {
   }
   return { page, api, queries, writes, messages, dialogs, invoke, setMutation: fn => { mutation = fn } }
 }
+
+test('G：亲友沙箱付款与续付打开统一收银台，失效账号不跳转', async () => {
+  for (const resume of [false,true]) {
+    const f=fixture(),navigations=[]
+    f.api.family=async p=>pageResult([{...payment,paymentChannel:'alipay-sandbox',canPay:!resume,canResumePayment:resume,paymentState:resume?'confirming':'none'}],p)
+    f.page.stackPath={pushPath:path=>navigations.push(path)}
+    await f.page.loadFamilyCenter()
+    f.page.confirmFamilyPayment(f.page.familyOrders[0])
+    assert.equal(navigations[0]?.name,'pay');assert.equal(navigations[0]?.param,'pay')
+    assert.equal(f.dialogs.length,0);assert.equal(f.writes.length,0)
+    f.page.user={token:'new-token',role:'buyer'}
+    f.page.confirmFamilyPayment(f.page.familyOrders[0]);assert.equal(navigations.length,1)
+    f.page.aboutToDisappear()
+  }
+})
 
 test('亲友中心首次加载、刷新及失败保留的列表不能执行写操作', async () => {
   const f = fixture(); f.page.friendAccount = 'friend'; f.page.sendFamilyInvitation(); await tick()

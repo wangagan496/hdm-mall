@@ -30,6 +30,8 @@ function fixture() {
     getOrderDetailAPI: (id, token) => { queries.push(['order', id, token]); return load(id, token) },
     getPayerRelationsPageAPI: (p, token) => { queries.push(['relatives', p, token]); return relations(p, token) },
     startPaymentAPI: (...args) => { writes.push(['pay', ...args]); return mutation(...args) },
+    resumePaymentAPI: (...args) => { writes.push(['resume', ...args]); return mutation(...args) },
+    refreshPaymentAPI: (...args) => { queries.push(['refresh', ...args]); return Promise.resolve({paymentState:'confirming'}) },
     invitePayerAPI: (...args) => { writes.push(['payer', ...args]); return mutation(...args) },
   })
   const page = new PayView(); page.user = user; page.orderId = orderId
@@ -192,4 +194,49 @@ test('B-54：重进收银页仍为确认中时不能再次发起付款', async (
   await f.page.load()
   assert.equal(f.navigations.at(-1).name, 'result')
   assert.equal(f.writes.length, 0)
+})
+
+test('G：沙箱下单打开收银台，关闭只核对订单，不把网页返回当付款成功', async () => {
+  const f = fixture(); f.setLoad(async id => row(id, { paymentChannel: 'alipay-sandbox' })); await f.page.load()
+  const url = 'https://openapi-sandbox.dl.alipaydev.com/gateway.do?test=1'
+  f.setMutation(async () => ({ id:'order-a', orderId:'order-a', paymentId:'p1', checkoutUrl:url, sandbox:true }))
+  await f.page.handlePayment()
+  assert.equal(f.page.sandboxCheckoutUrl, url); assert.equal(f.navigations.length, 0)
+  f.setLoad(async id => row(id, { paymentChannel:'alipay-sandbox', paymentState:'confirming', canPay:false, canResumePayment:true }))
+  await f.page.closeSandboxCashier()
+  assert.ok(f.queries.some(q=>q[0]==='refresh' && q[1]==='order-a' && q[2]==='token-a'))
+  assert.equal(f.page.sandboxCheckoutUrl, ''); assert.equal(f.navigations.length, 0)
+  assert.equal(f.page.order.paymentState, 'confirming')
+  f.page.aboutToDisappear()
+})
+
+test('G：沙箱续付复用接口，换账号和隐藏后旧响应不能打开收银台', async () => {
+  for (const stale of [false, true]) {
+    const f = fixture(); f.setLoad(async id => row(id, { paymentChannel:'alipay-sandbox', paymentState:'confirming', canPay:false, canResumePayment:true })); await f.page.load()
+    const gate = deferred(); f.setMutation(() => gate.promise)
+    const pending = f.page.resumeSandboxPayment(); assert.deepEqual(f.writes[0], ['resume','order-a','token-a'])
+    if (stale) { f.setUser({token:'token-b'}); f.page.reloadForCurrentAccount(); f.page.aboutToDisappear() }
+    gate.resolve({id:'order-a',orderId:'order-a',checkoutUrl:'https://openapi-sandbox.dl.alipaydev.com/gateway.do?test=1',sandbox:true})
+    await pending
+    assert.equal(Boolean(f.page.sandboxCheckoutUrl), !stale); assert.equal(f.navigations.length,0)
+    f.page.aboutToDisappear(); assert.equal(f.page.sandboxCheckoutUrl,'')
+  }
+})
+
+test('G：沙箱返回错误订单或非固定 HTTPS 沙箱域名时不打开页面', async () => {
+  for (const url of ['https://openapi-sandbox.dl.alipaydev.com.evil.test/gateway.do','https://openapi.alipay.com/gateway.do','http://openapi-sandbox.dl.alipaydev.com/gateway.do','https://evil.test/']) {
+    const f = fixture(); f.setLoad(async id => row(id,{paymentChannel:'alipay-sandbox'})); await f.page.load()
+    f.setMutation(async () => ({id:'order-a',orderId:'order-a',checkoutUrl:url,sandbox:true}))
+    await f.page.handlePayment(); assert.equal(f.page.sandboxCheckoutUrl,''); assert.equal(f.navigations.length,0)
+    f.page.aboutToDisappear()
+  }
+})
+
+test('G：订单列表可续开同一沙箱支付单，模拟确认中仍禁止重付', () => {
+  const presentation = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderPresentation.ets'), {
+    models: execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/OrderState.ets')),
+    '@kit.BasicServicesKit': {systemDateTime:{TimeType:{STARTUP:0},getUptime:()=>1000}},
+  })
+  assert.equal(presentation.canOpenPayment(row('o',{canPay:false,paymentState:'confirming',paymentChannel:'alipay-sandbox',canResumePayment:true})),true)
+  assert.equal(presentation.canOpenPayment(row('o',{canPay:false,paymentState:'confirming'})),false)
 })

@@ -9,8 +9,8 @@ export const shipmentSchema = z.object({ carrier:z.string().trim().min(2).max(30
 export const logisticsEventSchema = z.object({id:z.string().min(1).max(120),state:z.enum(['collected','transit','delivering','signed']),
   occurredAt:z.number().int().nonnegative().safe(),description:z.string().trim().min(1).max(200)}).strict()
 export type LogisticsEvent = z.infer<typeof logisticsEventSchema>
-interface Shipment {orderId:string;carrier:string;trackingNo:string;source:string;state:string;created:number}
-export interface LogisticsChannel { query(shipment:Shipment):Promise<LogisticsEvent[]>|LogisticsEvent[] }
+export interface Shipment {orderId:string;carrier:string;trackingNo:string;source:string;state:string;created:number}
+export interface LogisticsChannel { readonly source?: 'carrier'; query(shipment:Shipment):Promise<LogisticsEvent[]>|LogisticsEvent[] }
 export class MockLogisticsChannel implements LogisticsChannel {
   private events = new Map<string,LogisticsEvent[]>()
   push(id:string,events:LogisticsEvent[]) { this.events.set(id,events.map(event=>structuredClone(event))) }
@@ -55,6 +55,7 @@ export class Logistics {
         if(ranks[event.state]!>ranks[state]!) state=event.state
       }
       this.db.run('UPDATE shipments SET state=? WHERE order_id=?',state,id)
+      if(this.channel?.source === 'carrier') this.db.run("UPDATE shipments SET source='carrier' WHERE order_id=?",id)
       const signed=this.db.one<{at:number|null}>("SELECT MIN(occurred_at) at FROM logistics_events WHERE order_id=? AND state='signed'",id)!.at
       if(signed!==null)this.db.run('UPDATE orders SET signed_at=? WHERE id=?',signed,id)
     })
