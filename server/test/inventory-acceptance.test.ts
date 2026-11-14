@@ -307,7 +307,7 @@ test('INV-12 备份恢复和schema17重开保留待验收及不合格，补验�
     assert.equal((await f.action(late.id, 'inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
     const expected = f.snapshot(), expectedInventory = await f.inventory()
     const backup = await createBackup({ databasePath: f.databasePath, uploadsPath: f.uploadsPath, destination: join(f.root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 18); assert.deepEqual(backup.manifest.issues, [])
+    assert.equal(backup.manifest.schemaVersion, 19); assert.deepEqual(backup.manifest.issues, [])
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(f.root, 'restored') })
     const legacy = new DatabaseSync(join(restored.root, 'mall.sqlite'))
     removeServiceSchema(legacy); legacy.exec('PRAGMA user_version=16'); legacy.close()
@@ -316,7 +316,7 @@ test('INV-12 备份恢复和schema17重开保留待验收及不合格，补验�
       try {
         assert.deepEqual(next.db.all('SELECT id,stock FROM skus ORDER BY id'), expected.stocks)
         assert.deepEqual(next.db.all('SELECT * FROM inventory_movements ORDER BY id'), expected.movements)
-        assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
+        assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
         const user = next.db.one<User>('SELECT id,account,role FROM users WHERE id=?', f.merchant.id)!
         const row = inventoryPage(next.db, user, { page: 1, pageSize: 20, skuId: f.sku.id }).items[0]
         assert.deepEqual(JSON.parse(JSON.stringify(row)), expectedInventory)

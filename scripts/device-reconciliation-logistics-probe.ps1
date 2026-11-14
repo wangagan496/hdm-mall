@@ -63,6 +63,22 @@ function Invoke-ReconcileProbe {
   Capture '01-four-reconciliation-differences'
   $Report = Api 'device_merchant' "/merchant/reconciliation?date=$Date"
   if(($Report.differences.category | Sort-Object) -join ',' -ne 'amount,channel-only,local-only,state'){throw 'Four reconciliation categories missing'}
+  $Linked = $Report.differences | Where-Object { $_.orderId } | Select-Object -First 1
+  if(!$Linked -or !$Linked.buyerAccount -or !$Linked.orderCreatedAt -or !$Linked.orderItems.Count){throw 'Reconciliation order display fields missing'}
+  $Summary = Read-Nodes | Where-Object id -eq ('reconciliation-order-summary-'+$Linked.id) | Select-Object -First 1
+  if(!$Summary -or $Summary.text -notlike "*$($Linked.buyerAccount)*" -or $Summary.text -notlike "*$($Linked.orderItems[0].name)*" -or $Summary.text -notmatch '× 1' -or $Summary.text -match '业务编号'){throw 'Reconciliation card did not show buyer and order items'}
+  Capture '02a-readable-order-summary'
+  Product-Control ('reconciliation-order-'+$Linked.id)
+  Wait-Text '商家订单详情'
+  Wait-Text ('实付 ¥' + ($AmountCents / 100).ToString('F2', [Globalization.CultureInfo]::InvariantCulture))
+  Capture '02b-reconciliation-order-detail'
+  Back
+  Wait-Text '差异 4 条 · 待处理 4 条'
+  Scroll-Text '系统内无对应订单' -ViewOnly
+  Capture '02c-channel-only-no-order'
+  $External = $Report.differences | Where-Object category -eq 'channel-only' | Select-Object -First 1
+  if($External.orderId -or @(Read-Nodes | Where-Object id -eq ('reconciliation-order-'+$External.id)).Count){throw 'Channel-only card must not link an unrelated order'}
+  Scroll-Text $Report.differences[0].description -ViewOnly -Reverse
   foreach($Difference in $Report.differences){Scroll-Text $Difference.description -ViewOnly}
   Capture '02-reconciliation-readable-differences'
   Product-Control 'reconciliation-run'
@@ -94,6 +110,6 @@ function Invoke-ReconcileProbe {
   if($Resolved.state -ne 'resolved' -or $Resolved.reason -ne 'Verified channel difference' -or $Resolved.handlerAccount -ne 'device_merchant' -or !$Resolved.handledAt){throw 'Resolution reason or actor/time missing'}
   $Audit=Api 'device_merchant' '/merchant/audit-log?action=reconciliation.resolve'
   if($Audit.counts -ne 1 -or $Audit.items[0].actorAccount -ne 'device_merchant'){throw 'Resolution audit missing or duplicated'}
-  Save-Result @{date=$Date;initial=$Report;final=$Final;audit=$Audit;checks=@('native-mine-entry','date-entry','four-categories','rerun-idempotent','reason-required','native-resolve','resolved-state-retained','actor-time-audit')}
+  Save-Result @{date=$Date;initial=$Report;final=$Final;audit=$Audit;checks=@('native-mine-entry','date-entry','four-categories','readable-buyer-order-items','native-order-detail','channel-only-no-order','rerun-idempotent','reason-required','native-resolve','resolved-state-retained','actor-time-audit')}
   Write-Output "SCRIPT $PSCommandPath RESULT ReconcileProbe passed"
 }

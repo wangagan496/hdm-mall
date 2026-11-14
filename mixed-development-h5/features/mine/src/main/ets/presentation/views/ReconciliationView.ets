@@ -4,7 +4,8 @@ import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
 import { reconciliationDay, validReconciliationDate } from '../utils/ReconciliationDate'
 
-interface ReconciliationDifference { id: string; kind: string; businessId: string; category: string; description: string; state: string; reason?: string; handledAt?: number; handlerAccount?: string }
+interface ReconciliationOrderItem { name: string; count: number }
+interface ReconciliationDifference { id: string; kind: string; businessId: string; category: string; description: string; state: string; reason?: string; handledAt?: number; handlerAccount?: string; orderId?: string | null; buyerAccount?: string | null; orderCreatedAt?: number | null; orderItems: ReconciliationOrderItem[] }
 interface ReconciliationReport { date: string; paymentCount: number; paymentAmountCents: number; refundCount: number; refundAmountCents: number; differenceCount: number; pendingCount: number; checkedAt?: number; state: string; differences: ReconciliationDifference[] }
 interface ReconciliationDateBody { date: string }
 interface ReconciliationReasonBody { reason: string }
@@ -51,6 +52,15 @@ export struct ReconciliationView {
       if (this.current(query, token, account)) this.message = run ? '对账结果未确认，请重新查询；系统会保留失败任务重试' : '对账记录读取失败，请重试'
     } finally { if (this.current(query, token, account)) this.working = false }
   }
+  private orderSummary(item: ReconciliationDifference): string {
+    if (!item.orderId) return '系统内无对应订单'
+    const goods: string = item.orderItems.map((goods: ReconciliationOrderItem) => goods.name + ' × ' + goods.count).join('、')
+    return (item.buyerAccount || '买家账号暂无') + ' · ' + formatBeijingTime(item.orderCreatedAt || 0) + ' · ' + goods
+  }
+  private openOrder(item: ReconciliationDifference): void {
+    if (!this.allowed() || this.working || !item.orderId || !this.report?.differences.some(row => row.id === item.id && row.orderId === item.orderId)) return
+    this.stackPath.pushPath({ name: 'MerchantOrderView', param: item.orderId })
+  }
   private choose(item: ReconciliationDifference): void {
     if (!this.allowed() || this.working || item.state !== 'pending') return
     this.selectedId = item.id; this.reason = ''; this.message = ''
@@ -76,7 +86,10 @@ export struct ReconciliationView {
     Column({ space: 8 }) {
       Text(item.state === 'resolved' ? '已处理' : '待处理').fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
       Text(item.description).id('reconciliation-description-' + item.id).fontSize(15).fontColor($r('[ui_components].color.text'))
-      Text('业务编号：' + item.businessId).fontSize(11).fontColor($r('[ui_components].color.gray'))
+      Text(this.orderSummary(item)).id('reconciliation-order-summary-' + item.id).fontSize(13).fontColor($r('[ui_components].color.gray'))
+      if (item.orderId) {
+        Button('查看订单详情').id('reconciliation-order-' + item.id).enabled(!this.working).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.openOrder(item))
+      }
       if (item.state === 'resolved') {
         Text('处理原因：' + (item.reason || '')).fontSize(14).fontColor($r('[ui_components].color.text'))
         Text((item.handlerAccount || '') + ' · ' + formatBeijingTime(item.handledAt || 0)).fontSize(12).fontColor($r('[ui_components].color.gray'))

@@ -1,0 +1,10 @@
+{
+  "pid": 25652,
+  "servicePid": 35012,
+  "port": 56054,
+  "temporaryPaths": {
+    "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IlbgaX",
+    "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IlbgaX\\mall.sqlite",
+    "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IlbgaX\\uploads"
+  }
+}

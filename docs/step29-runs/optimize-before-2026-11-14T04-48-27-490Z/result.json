@@ -1,0 +1,271 @@
+{
+  "taskId": "finish-e-optimize-20261114-01",
+  "runId": "optimize-before-2026-11-14T04-48-27-490Z",
+  "smoke": false,
+  "optimization": "before",
+  "startedAt": "2026-11-14T04:48:31.667Z",
+  "baseCommit": "7a92a4637f79b34daf47d4a4aa03865b2b329a4d",
+  "temporaryPaths": {
+    "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-42EchY",
+    "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-42EchY\\mall.sqlite",
+    "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-42EchY\\uploads"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "sqlite": "3.53.0",
+    "platform": "win32",
+    "release": "10.0.22631",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12500H",
+    "logicalCpus": 16,
+    "totalMemoryBytes": 33959702528,
+    "pressure": "Shared Windows host; D package and other desktop work may run concurrently; no production or device claim"
+  },
+  "methodology": {
+    "arrival": "open loop, 20 requests/second unless noted; latency includes scheduler lag separately; no automatic retry",
+    "network": "real HTTP loopback, independent service process, keep-alive; trusted loopback proxy synthesizes 500 client IPs; unchanged rate-limit plugin",
+    "threshold": "Proposed only: successful normal requests p95 <= 500ms, p99 <= 1000ms, unexpected errors < 1%; awaiting user confirmation",
+    "timeoutMs": 15000,
+    "maxInFlight": 200
+  },
+  "scenarios": [
+    {
+      "name": "family",
+      "requests": 120,
+      "successes": 120,
+      "unexpectedErrors": 0,
+      "errorRate": 0,
+      "dispatched": 120,
+      "clientShed": 0,
+      "statuses": {
+        "200": 120
+      },
+      "latencyMs": {
+        "n": 120,
+        "p50": 87.99020000000019,
+        "p95": 101.08090000000084,
+        "p99": 106.87859999999637,
+        "max": 108.41000000000349,
+        "mean": 84.96024499999973
+      },
+      "successLatencyMs": {
+        "n": 120,
+        "p50": 87.99020000000019,
+        "p95": 101.08090000000084,
+        "p99": 106.87859999999637,
+        "max": 108.41000000000349,
+        "mean": 84.96024499999973
+      },
+      "scheduledLatencyMs": {
+        "n": 120,
+        "p50": 94.36549999999988,
+        "p95": 110.15170000000217,
+        "p99": 114.45980000000418,
+        "max": 123.85260000000562,
+        "mean": 92.76848666666956
+      },
+      "schedulerLagMs": {
+        "n": 120,
+        "p50": 7.429700000000594,
+        "p95": 14.205900000000838,
+        "p99": 15.268800000005285,
+        "max": 15.44260000000213,
+        "mean": 7.808241666669831
+      },
+      "jsonParseMs": {
+        "n": 120,
+        "p50": 0.0652000000118278,
+        "p95": 0.12580000000161817,
+        "p99": 0.1802999999927124,
+        "max": 0.41820000000006985,
+        "mean": 0.07715999999988223
+      },
+      "bytes": {
+        "n": 120,
+        "p50": 12171,
+        "p95": 12203,
+        "p99": 12203,
+        "max": 12203,
+        "mean": 12175.7
+      },
+      "offeredRps": 2,
+      "durationSeconds": 60,
+      "elapsedMs": 59594.7274,
+      "completedRps": 2.0136009549059537,
+      "maxInFlight": 1,
+      "server": {
+        "cpuMs": 5797,
+        "elapsedMs": 59596.2289,
+        "oneCorePercent": 9.72712553629379,
+        "rssBytes": 93257728,
+        "eventLoopMs": {
+          "p50": 15.679487,
+          "p95": 21.217279,
+          "p99": 91.357183,
+          "max": 108.396543
+        },
+        "serverResponseMs": {
+          "n": 120,
+          "p50": 86.9976999999999,
+          "p95": 99.6947999999993,
+          "p99": 106.05739999999787,
+          "max": 107.49730000000272,
+          "mean": 84.03294000000018
+        },
+        "responses": 120
+      },
+      "byKind": {
+        "family": {
+          "name": "family",
+          "requests": 120,
+          "successes": 120,
+          "unexpectedErrors": 0,
+          "errorRate": 0,
+          "dispatched": 120,
+          "clientShed": 0,
+          "statuses": {
+            "200": 120
+          },
+          "latencyMs": {
+            "n": 120,
+            "p50": 87.99020000000019,
+            "p95": 101.08090000000084,
+            "p99": 106.87859999999637,
+            "max": 108.41000000000349,
+            "mean": 84.96024499999973
+          },
+          "successLatencyMs": {
+            "n": 120,
+            "p50": 87.99020000000019,
+            "p95": 101.08090000000084,
+            "p99": 106.87859999999637,
+            "max": 108.41000000000349,
+            "mean": 84.96024499999973
+          },
+          "scheduledLatencyMs": {
+            "n": 120,
+            "p50": 94.36549999999988,
+            "p95": 110.15170000000217,
+            "p99": 114.45980000000418,
+            "max": 123.85260000000562,
+            "mean": 92.76848666666956
+          },
+          "schedulerLagMs": {
+            "n": 120,
+            "p50": 7.429700000000594,
+            "p95": 14.205900000000838,
+            "p99": 15.268800000005285,
+            "max": 15.44260000000213,
+            "mean": 7.808241666669831
+          },
+          "jsonParseMs": {
+            "n": 120,
+            "p50": 0.0652000000118278,
+            "p95": 0.12580000000161817,
+            "p99": 0.1802999999927124,
+            "max": 0.41820000000006985,
+            "mean": 0.07715999999988223
+          },
+          "bytes": {
+            "n": 120,
+            "p50": 12171,
+            "p95": 12203,
+            "p99": 12203,
+            "max": 12203,
+            "mean": 12175.7
+          }
+        }
+      }
+    }
+  ],
+  "dataset": {
+    "counts": {
+      "users": 501,
+      "products": 200,
+      "skus": 400,
+      "orders": 20000,
+      "order_items": 40000,
+      "payments": 16000,
+      "evaluations": 12000,
+      "categories": 210,
+      "relations": 500,
+      "inventory_movements": 48400
+    },
+    "states": [
+      {
+        "state": 2,
+        "n": 2000
+      },
+      {
+        "state": 3,
+        "n": 2000
+      },
+      {
+        "state": 5,
+        "n": 12000
+      },
+      {
+        "state": 6,
+        "n": 4000
+      }
+    ],
+    "integrity": {
+      "integrity_check": "ok"
+    },
+    "foreignKeys": [],
+    "createdAt": 1794631711722,
+    "databaseBytes": 28114944
+  },
+  "service": {
+    "type": "ready",
+    "port": 51763,
+    "pid": 22112,
+    "host": "127.0.0.1",
+    "logger": true,
+    "rateLimitUnmodified": true
+  },
+  "finalDatabase": {
+    "integrity": {
+      "integrity_check": "ok"
+    },
+    "foreignKeys": [],
+    "negativeStock": 0,
+    "version": 18,
+    "counts": {
+      "orders": 20000
+    }
+  },
+  "status": "measured",
+  "analysis": {
+    "file": "D:\\hdm-mall\\docs\\step29-runs\\optimize-before-2026-11-14T04-48-27-490Z\\optimization.json",
+    "phase": "before",
+    "categoryGrowth": [
+      200,
+      1000,
+      2000
+    ]
+  },
+  "cleanup": {
+    "temporaryPaths": {
+      "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-42EchY",
+      "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-42EchY\\mall.sqlite",
+      "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-42EchY\\uploads"
+    },
+    "rootRemoved": true,
+    "databaseRemoved": true,
+    "uploadsRemoved": true,
+    "serviceExit": {
+      "code": 0,
+      "signal": null
+    },
+    "port": 51763,
+    "portReleased": true
+  },
+  "integrity": {
+    "headUnchanged": true,
+    "branchUnchanged": true,
+    "trackedFilesCompared": 719,
+    "changedTrackedFiles": [],
+    "status": "## mall...origin/mall\n?? docs/step29-runs/\n?? \"docs/\\346\\200\\247\\350\\203\\275\\344\\270\\216\\350\\247\\204\\346\\250\\241\\350\\257\\204\\344\\274\\260.md\"\n?? scripts/.e-check.mjs\n?? scripts/.e-copy-perf.ps1\n?? scripts/perf/\n?? scripts/tests/reconciliation-order-display.test.mjs\n?? server/test/category-index-migration.test.ts\n?? server/test/reconciliation-display.test.ts"
+  },
+  "finishedAt": "2026-11-14T04:51:06.301Z"
+}

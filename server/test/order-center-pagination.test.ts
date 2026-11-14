@@ -54,6 +54,28 @@ test('亲友分组在分页前筛选且数量覆盖全部可读订单，权限�
   } finally { await f.app.close() }
 })
 
+test('E19 亲友分组分页复用已得计数，每次请求仅计算四个分组且零结果不重计', async () => {
+  const f = await fixture()
+  try {
+    f.add('count-reuse-pay', 1, null, 'friend')
+    const original = f.db.one.bind(f.db)
+    let countQueries = 0
+    f.db.one = (<T>(sql: string, ...params: Parameters<typeof f.db.one>[1][]) => {
+      if (sql.startsWith('SELECT COUNT(*) AS count FROM orders o WHERE')) countQueries++
+      return original<T>(sql, ...params)
+    }) as typeof f.db.one
+    for (const group of ['all', 'pay', 'receipt', 'pending']) {
+      countQueries = 0
+      const response = await f.get(`/member/family-orders/page?group=${group}&pageSize=10`)
+      assert.equal(response.statusCode, 200)
+      const page = response.json().result
+      assert.equal(page.counts, group === 'all' || group === 'pay' ? 1 : 0)
+      assert.deepEqual(page.groupCounts, { pay: 1, receipt: 0, pending: 0, all: 1 })
+      assert.equal(countQueries, 4, '分组统计已给出当前分页总数，不应重复扫描')
+    }
+  } finally { await f.app.close() }
+})
+
 test('亲友分组与确认中、关闭后核对、人工核实和未读通知的展示字段一致', async () => {
   const f = await fixture()
   try {

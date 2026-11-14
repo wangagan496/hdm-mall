@@ -1,0 +1,595 @@
+{
+  "taskId": "finish-e-measure-20261114-01",
+  "status": "completed",
+  "final": true,
+  "sealedAt": "2026-11-13T17:19:20.421Z",
+  "scope": "Measurement and assessment complete; one stress scenario misses provisional SLO; no optimization deployment claimed",
+  "formalRun": "formal-2026-11-13T16-59-24-504Z",
+  "baseCommit": "52b57aa9fde357babf7ebdcc66eb51421bc249ca",
+  "detachedHead": true,
+  "trackedFilesCompared": 703,
+  "changedTrackedFiles": [],
+  "allowedNewFiles": [
+    "docs/step29-runs/callers.json",
+    "docs/step29-runs/checks.initial.json",
+    "docs/step29-runs/checks.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/active-run.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/analysis.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/baseline.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/cleanup.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/create.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/derived-summary.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/family-peak.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/family.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/inventory-race.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/login.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/merchant.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/mixed.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/orders.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/result.json",
+    "docs/step29-runs/formal-2026-11-13T16-59-24-504Z/search.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/active-run.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/analysis.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/baseline.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/cleanup.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/create.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/family.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/inventory-race.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/login.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/merchant.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/mixed.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/orders.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/result.json",
+    "docs/step29-runs/smoke-2026-11-13T16-57-46-654Z/search.json",
+    "docs/性能与规模评估.md",
+    "scripts/perf/README.md",
+    "scripts/perf/analyze.mjs",
+    "scripts/perf/audit-callers.mjs",
+    "scripts/perf/check.mjs",
+    "scripts/perf/common.mjs",
+    "scripts/perf/fixture.mjs",
+    "scripts/perf/report.mjs",
+    "scripts/perf/run.mjs",
+    "scripts/perf/service.mjs",
+    "scripts/perf/verify.mjs"
+  ],
+  "boundary": {
+    "worktree": "D:\\hdm-mall-perf",
+    "originalWorktreeTouched": false,
+    "devicesUsed": false,
+    "newDependenciesDeclared": false,
+    "lockedDependenciesRestoredOffline": true,
+    "businessCodeChanged": false,
+    "migrationsChanged": false,
+    "gitWriteCommandsExecuted": false
+  },
+  "measurements": [
+    {
+      "name": "login",
+      "planned": 1200,
+      "dispatched": 1200,
+      "successes": 1200,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 36.72259999999369,
+      "p99": 54.73040000000037,
+      "provisionalSloPass": true
+    },
+    {
+      "name": "search",
+      "planned": 1200,
+      "dispatched": 1200,
+      "successes": 1200,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 2.8616999999940163,
+      "p99": 3.391699999992852,
+      "provisionalSloPass": true
+    },
+    {
+      "name": "create",
+      "planned": 1200,
+      "dispatched": 1200,
+      "successes": 1200,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 5.916200000006938,
+      "p99": 16.090599999995902,
+      "provisionalSloPass": true
+    },
+    {
+      "name": "orders",
+      "planned": 1200,
+      "dispatched": 1200,
+      "successes": 1200,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 12.699099999997998,
+      "p99": 18.04759999999078,
+      "provisionalSloPass": true
+    },
+    {
+      "name": "merchant",
+      "planned": 120,
+      "dispatched": 120,
+      "successes": 120,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 13.445899999991525,
+      "p99": 16.2166000000434,
+      "provisionalSloPass": true
+    },
+    {
+      "name": "family",
+      "planned": 120,
+      "dispatched": 120,
+      "successes": 120,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 107.5676000000094,
+      "p99": 120.61369999998715,
+      "provisionalSloPass": true
+    },
+    {
+      "name": "family-peak",
+      "planned": 600,
+      "dispatched": 554,
+      "successes": 396,
+      "unexpectedErrors": 204,
+      "clientShed": 46,
+      "transportFailures": 158,
+      "p95": 15012.829900000012,
+      "p99": 15015.463499999954,
+      "provisionalSloPass": false
+    },
+    {
+      "name": "mixed",
+      "planned": 1200,
+      "dispatched": 1200,
+      "successes": 1200,
+      "unexpectedErrors": 0,
+      "clientShed": 0,
+      "transportFailures": 0,
+      "p95": 100.05570000002626,
+      "p99": 112.70809999998892,
+      "provisionalSloPass": true
+    }
+  ],
+  "inventory": {
+    "rounds": 10,
+    "requests": 400,
+    "successes": 100,
+    "expectedStockRejections": 300,
+    "replays": 10,
+    "allInvariantsPass": true
+  },
+  "database": {
+    "integrity": {
+      "integrity_check": "ok"
+    },
+    "foreignKeyViolations": 0,
+    "version": 17,
+    "temporaryIndexesRolledBack": true
+  },
+  "checks": {
+    "passed": true,
+    "syntaxFiles": 9,
+    "typeCheck": true,
+    "tests": [
+      {
+        "name": "server-related",
+        "tests": 36,
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "client-related",
+        "tests": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "cleanup": [
+    {
+      "run": "formal-2026-11-13T16-59-24-504Z",
+      "temporaryPaths": {
+        "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IlbgaX",
+        "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IlbgaX\\mall.sqlite",
+        "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-IlbgaX\\uploads"
+      },
+      "rootRemoved": true,
+      "databaseRemoved": true,
+      "uploadsRemoved": true,
+      "serviceExit": {
+        "code": 0,
+        "signal": null
+      },
+      "port": 56054,
+      "portReleased": true,
+      "recheckedPortFree": true
+    },
+    {
+      "run": "smoke-2026-11-13T16-57-46-654Z",
+      "temporaryPaths": {
+        "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-UefCBx",
+        "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-UefCBx\\mall.sqlite",
+        "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-UefCBx\\uploads"
+      },
+      "rootRemoved": true,
+      "databaseRemoved": true,
+      "uploadsRemoved": true,
+      "serviceExit": {
+        "code": 0,
+        "signal": null
+      },
+      "port": 56915,
+      "portReleased": true,
+      "recheckedPortFree": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\analyze.mjs",
+      "bytes": 9058,
+      "sha256": "d0fcdcb4485169e8196afe4a6c835aadeba9ed6696761ad6330a10090f259ce2"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\audit-callers.mjs",
+      "bytes": 1667,
+      "sha256": "9f934d01223107605c4f3e8c04715c8227221894fd1df2ba6fec1191a0522fd1"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\check.mjs",
+      "bytes": 3337,
+      "sha256": "c5a9a5655cc3b417a1bea097cab0761a235da06e22e57449d01a9a327d38c2a5"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\common.mjs",
+      "bytes": 1693,
+      "sha256": "9a664e909fd5487ff3bd9299fdef31f0aa45db5b5897355fd0bdaf9712130c07"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\fixture.mjs",
+      "bytes": 5165,
+      "sha256": "5c22c0895edc5f6eb249ad5700652024425e8cce1d3ca53b1400360e6256f2e5"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\README.md",
+      "bytes": 4036,
+      "sha256": "e6a62c85ccea5443951c31c70b29f6fc1435eeb7427d717fe61c531f893a181f"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\report.mjs",
+      "bytes": 24122,
+      "sha256": "1b9ef678da331e3972f437f760126dcc8c9ffc060d4897d0948d86f2dba4089c"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\run.mjs",
+      "bytes": 15213,
+      "sha256": "81975fe030f52c216d3d280323e4746e6c5543a663f494c632911474e1be12f4"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\service.mjs",
+      "bytes": 3353,
+      "sha256": "3d98e63619076f621649926e74729a4c271c582ff09be6dfd2186f3d4e74f199"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\scripts\\perf\\verify.mjs",
+      "bytes": 6414,
+      "sha256": "5081d95436dc301fe8a4938d0f1a9fecb86acf54ac18fc9d2fa8a324147ad0a7"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\callers.json",
+      "bytes": 68781,
+      "sha256": "1c0eb94da818818bf9a63056c682685cbebc68db3fc0c34f0cba5d9428fe45f3"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\client-related.initial.log",
+      "bytes": 5337,
+      "sha256": "24c506755c51aaf5ef0fa38dd385bd28ffe8244d631c1e5768133a1ecb2df2d4"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\client-related.log",
+      "bytes": 5236,
+      "sha256": "cb07f36d0b394b2fde15be00254b295bdc17ad4ed781185810b06d04bb9b3e80"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\server-related.initial.log",
+      "bytes": 4245,
+      "sha256": "492b700bde6df1fec1b5ab2485efee39f80da9dcdeb3864840366f0fa8042404"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\server-related.log",
+      "bytes": 9359,
+      "sha256": "e1fa5d35cc0cd2550fe446f08d96062bc9d1717c5cec9abea496ec2e8e2444d8"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\server-types.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\server-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-analyze.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-analyze.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-audit-callers.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-audit-callers.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-check.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-check.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-common.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-common.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-fixture.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-fixture.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-report.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-report.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-run.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-run.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-service.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-service.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-verify.mjs.initial.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks\\syntax-verify.mjs.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks.initial.json",
+      "bytes": 3214,
+      "sha256": "6a8b383eb51c1250e5405a2b5e52068c73056ba68ff32f7cf8df0aa44a4bd502"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\checks.json",
+      "bytes": 3549,
+      "sha256": "8ef6b4f74c01cdbfcc2f019a5690847d7f084bd2a32e7d653894ef5012ce750d"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\active-run.json",
+      "bytes": 342,
+      "sha256": "4d194fe1be8649c7a52fa687928dcc5da5d5bdeae308e179f717fa0aee8245a9"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\analysis.json",
+      "bytes": 315988,
+      "sha256": "24c41bf0ccd60d725f6ec5ac387fd814b220b8cf0dbe70b7210be54b1c5201e3"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\baseline.json",
+      "bytes": 93720,
+      "sha256": "7d3ac6dcb377393fc6b24ea232005b0c006b4d76bb82775294d9360017e4001f"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\cleanup.json",
+      "bytes": 461,
+      "sha256": "ab9317cb11af6b4e840bb28596cc0b15b1a5665ad4eb3cb39c598a7cf656638e"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\create.json",
+      "bytes": 324944,
+      "sha256": "acc8ae09c294514622748846ae8a83d79ae6054f45f67cdfeb8b7eb036893f29"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\derived-summary.json",
+      "bytes": 41038,
+      "sha256": "7bc746ff2ea02fa1541d5b168d78346c1c36480946fb1c1d06c50a276c1e6a73"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\family-peak.json",
+      "bytes": 160264,
+      "sha256": "701992a498f001f9011dc1b8e1ac0038c7e91b3bf0eaade1db936ea61133dacf"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\family.json",
+      "bytes": 35823,
+      "sha256": "6ac723dd9ad6197a5f124c673229c22b803c3bc284bc18d37fc7a751f81ca490"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\inventory-race.json",
+      "bytes": 93942,
+      "sha256": "2f95ef9993a3a3cacec50d7f4d36341ea02df7c0c9daf191e3021257a73ed32a"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\login.json",
+      "bytes": 325174,
+      "sha256": "3e1682b5c163bb0a7d0f4213fe347de24a74a0ed4b93cfac9ca6a9a6a75e7125"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\merchant.json",
+      "bytes": 36067,
+      "sha256": "609d70c3f6aedcaf7aa06f621ff4470620ba7c66ec9651cbf2bb8c31843447fa"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\mixed.json",
+      "bytes": 334144,
+      "sha256": "47ba076e9a5d3d4fb3461ce70e2e04044b7c3a647a07aa527320ba312f5a6782"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\orders.json",
+      "bytes": 327381,
+      "sha256": "654a4a559cfee91b96f3a6c7a29a2b268f37aca8be22c1c0d4b89c0c0170c111"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\result.json",
+      "bytes": 49048,
+      "sha256": "b8b0aa699336d7c41a01af5580bff237260a246095aed8375aa1a9387b045a18"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\search.json",
+      "bytes": 327521,
+      "sha256": "5e3afe0e9dbb92a8691b4c354a20b3737c53bd63e198b6092fbb6ce059f8d332"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\server-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\formal-2026-11-13T16-59-24-504Z\\server.log",
+      "bytes": 1229868,
+      "sha256": "d2ed074c756b74ab5573551e71b2cdf6d3dcf22c34648d97694b95fdeabe8a33"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\active-run.json",
+      "bytes": 341,
+      "sha256": "2fdbf4dbc22eda671f8e51b0eab8ab009a72709540428490889baaaa8bcb1160"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\analysis.json",
+      "bytes": 115093,
+      "sha256": "0aa9ecc459c989693d8c728f95f8511b48083a49df5456b5fbdc1fe4133f4bed"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\baseline.json",
+      "bytes": 93698,
+      "sha256": "ccddd4ae8f1ab722d2150789a0ecad94d2c9d3ebc18eb8ba297ec5ffd5f3295c"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\cleanup.json",
+      "bytes": 461,
+      "sha256": "53542f96490dd98b7a0c76df095a2c0ad57155796a16b6e3807032dba67835be"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\create.json",
+      "bytes": 14072,
+      "sha256": "dd622a51522b7daf76fb5df9fc08e386f05aceac99c2d7934be2e87316187bb9"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\family.json",
+      "bytes": 4399,
+      "sha256": "1d0ddce49470adebd35b07bfb3aad40a6a9036e725e8e31a90813a0de123c51c"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\inventory-race.json",
+      "bytes": 20000,
+      "sha256": "d1acfae3cbc93edb6c3280c415d0f9a11a0b6b30de88ab00cfed8674396820d3"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\login.json",
+      "bytes": 14054,
+      "sha256": "707c4a6df5129aa77167d812820fbe80b432f36bdf78811befc7fa87b3be56e6"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\merchant.json",
+      "bytes": 4415,
+      "sha256": "c192c72ec45c96b8c590f1e8d08c8d2d4c071970052fe25ba90f919c5b5385ce"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\mixed.json",
+      "bytes": 21426,
+      "sha256": "70204c625d993e6fd4475e1ec615320b6249b102aaed5d3787add448f6fa2b5e"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\orders.json",
+      "bytes": 14151,
+      "sha256": "426e3bee898268af859697acf0c79fc1e621a9827a85e9aaf0ce53d3931dae51"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\result.json",
+      "bytes": 41622,
+      "sha256": "7808f1b4a7b8de01aedf07317aaa408071d2ad96d16dc65017c8feb6e6861681"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\search.json",
+      "bytes": 14144,
+      "sha256": "1d9d3afea56b089139f0ad8c13a068110ee5fdba9c83d28bade42d2731f82143"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\server-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\step29-runs\\smoke-2026-11-13T16-57-46-654Z\\server.log",
+      "bytes": 91060,
+      "sha256": "21893700f9dd806dda2e1f989cfdf661f7245dd62baf5cb3ab58b37088a795af"
+    },
+    {
+      "path": "D:\\hdm-mall-perf\\docs\\性能与规模评估.md",
+      "bytes": 21112,
+      "sha256": "e71b40b9829671b8c4a6f77d0110211666ad37a08613c326eee3202c662343a3"
+    }
+  ],
+  "delivery": {
+    "receiptPath": "D:\\hdm-mall-perf\\docs\\step29-runs\\delivery-receipt.json",
+    "note": "Execution proof sealed before the single native bridge send; receipt generated afterward. Submitted transport is not proof of model receipt."
+  }
+}

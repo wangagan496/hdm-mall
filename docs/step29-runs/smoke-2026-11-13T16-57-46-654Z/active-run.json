@@ -1,0 +1,10 @@
+{
+  "pid": 31716,
+  "servicePid": 9720,
+  "port": 56915,
+  "temporaryPaths": {
+    "root": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-UefCBx",
+    "database": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-UefCBx\\mall.sqlite",
+    "uploads": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-e-measure-UefCBx\\uploads"
+  }
+}

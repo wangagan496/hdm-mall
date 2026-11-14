@@ -305,10 +305,10 @@ export class Orders {
       return this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM orders o WHERE ${filter.where}`, ...filter.values)!.count
     }
     const groupCounts = { pay: count('pay'), receipt: count('receipt'), pending: count('pending'), all: count('all') }
-    return { ...this.queryPage(user, combine(group), page, pageSize), groupCounts }
+    return { ...this.queryPage(user, combine(group), page, pageSize, false, groupCounts[group]), groupCounts }
   }
-  private queryPage(user: User, filter: { where: string; values: (string | number)[] }, page: number, pageSize: number, merchantShipment = false) {
-    const counts = this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM orders o WHERE ${filter.where}`, ...filter.values)!.count
+  private queryPage(user: User, filter: { where: string; values: (string | number)[] }, page: number, pageSize: number, merchantShipment = false, knownCount?: number) {
+    const counts = knownCount ?? this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM orders o WHERE ${filter.where}`, ...filter.values)!.count
     const offset = (page - 1) * pageSize
     const direction = merchantShipment ? 'ASC' : 'DESC'
     const rows = offset >= counts ? [] : this.db.all<Order>(`SELECT o.* FROM orders o WHERE ${filter.where} ORDER BY o.created ${direction},o.id LIMIT ? OFFSET ?`,

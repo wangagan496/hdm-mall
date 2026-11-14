@@ -1,0 +1,586 @@
+{
+  "name": "search",
+  "requests": 40,
+  "successes": 40,
+  "unexpectedErrors": 0,
+  "errorRate": 0,
+  "statuses": {
+    "200": 40
+  },
+  "latencyMs": {
+    "n": 40,
+    "p50": 2.0688000000009197,
+    "p95": 3.333599999998114,
+    "p99": 3.7656999999999243,
+    "max": 3.7656999999999243,
+    "mean": 2.247962499999994
+  },
+  "successLatencyMs": {
+    "n": 40,
+    "p50": 2.0688000000009197,
+    "p95": 3.333599999998114,
+    "p99": 3.7656999999999243,
+    "max": 3.7656999999999243,
+    "mean": 2.247962499999994
+  },
+  "scheduledLatencyMs": {
+    "n": 40,
+    "p50": 9.664499999998952,
+    "p95": 16.053400000000693,
+    "p99": 17.4304000000011,
+    "max": 17.4304000000011,
+    "mean": 9.811145000000852
+  },
+  "schedulerLagMs": {
+    "n": 40,
+    "p50": 7.626200000002427,
+    "p95": 14.226600000001781,
+    "p99": 15.36160000000018,
+    "max": 15.36160000000018,
+    "mean": 7.563182500000858
+  },
+  "jsonParseMs": {
+    "n": 40,
+    "p50": 0.021200000002863817,
+    "p95": 0.03350000000136788,
+    "p99": 0.040600000000267755,
+    "max": 0.040600000000267755,
+    "mean": 0.023060000000077706
+  },
+  "bytes": {
+    "n": 40,
+    "p50": 3711,
+    "p95": 3711,
+    "p99": 3711,
+    "max": 3711,
+    "mean": 3710.5
+  },
+  "offeredRps": 20,
+  "durationSeconds": 2,
+  "elapsedMs": 1955.679400000001,
+  "completedRps": 20.453250159509775,
+  "maxInFlight": 1,
+  "server": {
+    "cpuMs": 0,
+    "elapsedMs": 1956.0231000000003,
+    "oneCorePercent": 0,
+    "rssBytes": 118849536,
+    "eventLoopMs": {
+      "p50": 15.564799,
+      "p95": 16.105471,
+      "p99": 16.195583,
+      "max": 16.236543
+    },
+    "serverResponseMs": {
+      "n": 40,
+      "p50": 1.323699999999917,
+      "p95": 2.4373999999997977,
+      "p99": 2.6051000000002205,
+      "max": 2.6051000000002205,
+      "mean": 1.5337325000000306
+    },
+    "responses": 40
+  },
+  "byKind": {
+    "search": {
+      "name": "search",
+      "requests": 40,
+      "successes": 40,
+      "unexpectedErrors": 0,
+      "errorRate": 0,
+      "statuses": {
+        "200": 40
+      },
+      "latencyMs": {
+        "n": 40,
+        "p50": 2.0688000000009197,
+        "p95": 3.333599999998114,
+        "p99": 3.7656999999999243,
+        "max": 3.7656999999999243,
+        "mean": 2.247962499999994
+      },
+      "successLatencyMs": {
+        "n": 40,
+        "p50": 2.0688000000009197,
+        "p95": 3.333599999998114,
+        "p99": 3.7656999999999243,
+        "max": 3.7656999999999243,
+        "mean": 2.247962499999994
+      },
+      "scheduledLatencyMs": {
+        "n": 40,
+        "p50": 9.664499999998952,
+        "p95": 16.053400000000693,
+        "p99": 17.4304000000011,
+        "max": 17.4304000000011,
+        "mean": 9.811145000000852
+      },
+      "schedulerLagMs": {
+        "n": 40,
+        "p50": 7.626200000002427,
+        "p95": 14.226600000001781,
+        "p99": 15.36160000000018,
+        "max": 15.36160000000018,
+        "mean": 7.563182500000858
+      },
+      "jsonParseMs": {
+        "n": 40,
+        "p50": 0.021200000002863817,
+        "p95": 0.03350000000136788,
+        "p99": 0.040600000000267755,
+        "max": 0.040600000000267755,
+        "mean": 0.023060000000077706
+      },
+      "bytes": {
+        "n": 40,
+        "p50": 3711,
+        "p95": 3711,
+        "p99": 3711,
+        "max": 3711,
+        "mean": 3710.5
+      }
+    }
+  },
+  "samples": [
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.446799999997893,
+      "scheduledMs": 14.054299999999785,
+      "lagMs": 11.607500000001892,
+      "parseMs": 0.023499999999330612,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 3.7656999999999243,
+      "scheduledMs": 11.391900000002352,
+      "lagMs": 7.626200000002427,
+      "parseMs": 0.028900000001158332,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 3.333599999998114,
+      "scheduledMs": 7.707399999999325,
+      "lagMs": 4.373800000001211,
+      "parseMs": 0.040600000000267755,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 3.6297000000013213,
+      "scheduledMs": 5.085300000002462,
+      "lagMs": 1.4556000000011409,
+      "parseMs": 0.03980000000228756,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.187400000002526,
+      "scheduledMs": 15.670700000002398,
+      "lagMs": 13.483299999999872,
+      "parseMs": 0.024300000000948785,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.100699999999051,
+      "scheduledMs": 11.82470000000103,
+      "lagMs": 9.724000000001979,
+      "parseMs": 0.022499999999126885,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.5266999999985273,
+      "scheduledMs": 7.53099999999904,
+      "lagMs": 5.004300000000512,
+      "parseMs": 0.029999999998835847,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.6612000000022817,
+      "scheduledMs": 4.324500000002445,
+      "lagMs": 1.663300000000163,
+      "parseMs": 0.02260000000023865,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.7503000000033353,
+      "scheduledMs": 15.742700000002515,
+      "lagMs": 12.99239999999918,
+      "parseMs": 0.021500000002561137,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 3.1730999999999767,
+      "scheduledMs": 13.177100000000792,
+      "lagMs": 10.004000000000815,
+      "parseMs": 0.022499999999126885,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.950700000001234,
+      "scheduledMs": 9.519800000001851,
+      "lagMs": 7.569100000000617,
+      "parseMs": 0.02410000000236323,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.8848000000034517,
+      "scheduledMs": 6.999900000002526,
+      "lagMs": 4.1150999999990745,
+      "parseMs": 0.03350000000136788,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.0688000000009197,
+      "scheduledMs": 17.4304000000011,
+      "lagMs": 15.36160000000018,
+      "parseMs": 0.020300000000133878,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.8757000000005064,
+      "scheduledMs": 14.795600000001286,
+      "lagMs": 11.91990000000078,
+      "parseMs": 0.02080000000205473,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.9248999999981606,
+      "scheduledMs": 11.189399999999296,
+      "lagMs": 9.264500000001135,
+      "parseMs": 0.03049999999711872,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.802800000001298,
+      "scheduledMs": 8.553200000002107,
+      "lagMs": 6.750400000000809,
+      "parseMs": 0.019400000001041917,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.746899999998277,
+      "scheduledMs": 5.3400000000001455,
+      "lagMs": 3.5931000000018685,
+      "parseMs": 0.020099999997910345,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.929599999999482,
+      "scheduledMs": 2.114799999999377,
+      "lagMs": 0.18519999999989523,
+      "parseMs": 0.01999999999679858,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.0460999999995693,
+      "scheduledMs": 13.642700000000332,
+      "lagMs": 11.596600000000763,
+      "parseMs": 0.01900000000023283,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.080500000000029,
+      "scheduledMs": 10.379300000000512,
+      "lagMs": 8.298800000000483,
+      "parseMs": 0.02149999999892316,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.8875999999982014,
+      "scheduledMs": 5.9804000000003725,
+      "lagMs": 4.092800000002171,
+      "parseMs": 0.020099999997910345,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.72269999999844,
+      "scheduledMs": 2.58179999999993,
+      "lagMs": 0.8591000000014901,
+      "parseMs": 0.01809999999750289,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.877199999998993,
+      "scheduledMs": 13.616500000000087,
+      "lagMs": 11.739300000001094,
+      "parseMs": 0.021000000000640284,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.6479999999974098,
+      "scheduledMs": 12.109599999999773,
+      "lagMs": 9.461600000002363,
+      "parseMs": 0.02149999999892316,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.296300000001793,
+      "scheduledMs": 9.614600000000792,
+      "lagMs": 7.318299999998999,
+      "parseMs": 0.02049999999871943,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.809900000000198,
+      "scheduledMs": 5.2387000000017,
+      "lagMs": 3.4288000000015018,
+      "parseMs": 0.021600000000034925,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.0635000000002037,
+      "scheduledMs": 16.848900000000867,
+      "lagMs": 14.785400000000664,
+      "parseMs": 0.01929999999993015,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.2039000000004307,
+      "scheduledMs": 14.440300000002026,
+      "lagMs": 12.236400000001595,
+      "parseMs": 0.01990000000296277,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.7250999999996566,
+      "scheduledMs": 10.55619999999908,
+      "lagMs": 8.831099999999424,
+      "parseMs": 0.02049999999871943,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.8248999999996158,
+      "scheduledMs": 7.0645000000004075,
+      "lagMs": 5.239600000000792,
+      "parseMs": 0.02140000000144937,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.1952999999994063,
+      "scheduledMs": 4.27100000000064,
+      "lagMs": 2.075700000001234,
+      "parseMs": 0.022400000001653098,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.999100000000908,
+      "scheduledMs": 0.8351000000002387,
+      "lagMs": -1.1640000000006694,
+      "parseMs": 0.021099999998114072,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.1995999999999185,
+      "scheduledMs": 14.180899999999383,
+      "lagMs": 11.981299999999464,
+      "parseMs": 0.02289999999993597,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.2950999999993655,
+      "scheduledMs": 11.437600000001112,
+      "lagMs": 9.142500000001746,
+      "parseMs": 0.021199999999225838,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.8234000000011292,
+      "scheduledMs": 7.522400000001653,
+      "lagMs": 5.699000000000524,
+      "parseMs": 0.019200000002456363,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 2.1163000000015018,
+      "scheduledMs": 4.697500000002037,
+      "lagMs": 2.5812000000005355,
+      "parseMs": 0.01959999999962747,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.8267999999989115,
+      "scheduledMs": 16.053400000000693,
+      "lagMs": 14.226600000001781,
+      "parseMs": 0.01810000000114087,
+      "bytes": 3709,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.9398000000001048,
+      "scheduledMs": 13.633700000002136,
+      "lagMs": 11.693900000002031,
+      "parseMs": 0.021200000002863817,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.826099999998405,
+      "scheduledMs": 9.664499999998952,
+      "lagMs": 7.838400000000547,
+      "parseMs": 0.018199999998614658,
+      "bytes": 3711,
+      "reason": null
+    },
+    {
+      "kind": "search",
+      "status": 200,
+      "ok": true,
+      "elapsedMs": 1.7518999999992957,
+      "scheduledMs": 5.623500000001513,
+      "lagMs": 3.8716000000022177,
+      "parseMs": 0.029200000000855653,
+      "bytes": 3711,
+      "reason": null
+    }
+  ]
+}

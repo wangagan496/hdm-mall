@@ -131,9 +131,16 @@ export class Reconciliation {
   }
   private readReport(date:string) {
     const run = this.db.one<{state:string;summary:string}>('SELECT state,summary FROM reconciliation_runs WHERE date=?',date)
-    const differences = this.db.all<{id:string;state:string}>(`SELECT d.id,d.kind,d.business_id businessId,d.category,d.description,d.state,d.reason,
-      d.handled_at handledAt,CASE WHEN u.status='deleted' THEN '已注销用户' ELSE u.account END handlerAccount
-      FROM reconciliation_differences d LEFT JOIN users u ON u.id=d.handled_by WHERE d.date=? AND d.active=1 ORDER BY d.category,d.kind,d.business_id`,date)
+    const rows = this.db.all<{id:string;state:string;orderId:string|null}>(`SELECT d.id,d.kind,d.business_id businessId,d.category,d.description,d.state,d.reason,
+      d.handled_at handledAt,CASE WHEN u.status='deleted' THEN '已注销用户' ELSE u.account END handlerAccount,
+      o.id orderId,o.created orderCreatedAt,CASE WHEN buyer.status='deleted' THEN '已注销用户' ELSE buyer.account END buyerAccount
+      FROM reconciliation_differences d LEFT JOIN users u ON u.id=d.handled_by
+      LEFT JOIN refunds r ON d.kind='refund' AND r.id=d.business_id
+      LEFT JOIN payments p ON p.id=CASE WHEN d.kind='payment' THEN d.business_id ELSE r.payment_id END
+      LEFT JOIN orders o ON o.id=p.order_id LEFT JOIN users buyer ON buyer.id=o.owner_id
+      WHERE d.date=? AND d.active=1 ORDER BY d.category,d.kind,d.business_id`,date)
+    const differences = rows.map(row => ({...row,orderItems:row.orderId ?
+      this.db.all<{name:string;count:number}>('SELECT name,count FROM order_items WHERE order_id=? ORDER BY rowid',row.orderId) : []}))
     return {date,paymentCount:0,paymentAmountCents:0,refundCount:0,refundAmountCents:0,localCount:0,channelCount:0,checkedAt:null,
       ...(run ? JSON.parse(run.summary) : {}),state:run?.state??'not-started',differenceCount:differences.length,
       pendingCount:differences.filter(row=>row.state==='pending').length,differences}
