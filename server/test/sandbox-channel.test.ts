@@ -114,3 +114,12 @@ test('G 配置缺失只报告字段，拒绝正式环境沙箱和未知渠道，
   assert.equal(readConfig({PAYMENT_CHANNEL:'mock'}).appOptions.mockPayments,true)
   assert.equal(readConfig({MOCK_PAYMENTS:'true'}).appOptions.mockPayments,true)
 })
+
+test('G 密钥工具导出的单行密钥（无 PEM 头尾）也能直接使用，签名结果与 PEM 一致', async () => {
+  const rawPrivate = appKeys.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64')
+  const rawPublic = platformKeys.publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+  const withRaw = new AlipayChannel({ ...config, privateKey: rawPrivate + '\r\n', publicKey: ' ' + rawPublic })
+  const withPem = new AlipayChannel(config)
+  assert.ok(withRaw && withPem)
+  assert.throws(() => new AlipayChannel({ ...config, privateKey: 'not-a-key' }), /有效的 RSA2/)
+})

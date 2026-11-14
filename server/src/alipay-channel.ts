@@ -52,12 +52,22 @@ export function parseAlipayResponse(raw: string, method: string, publicKey: stri
   } catch { throw new AppError(502, '支付渠道响应验签失败') }
 }
 
+/** 支付宝密钥工具和开放平台控制台给出的是不带 PEM 头尾的单行 Base64，这里统一转成 PEM。 */
+function asPem(value: string, label: 'PRIVATE KEY' | 'PUBLIC KEY') {
+  const text = value.trim()
+  if (text.includes('-----BEGIN')) return text
+  const body = text.replace(/\s+/g, '')
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) return text
+  return `-----BEGIN ${label}-----\n${body.match(/.{1,64}/g)!.join('\n')}\n-----END ${label}-----\n`
+}
+
 export class AlipayChannel implements PaymentChannel {
   readonly mode = 'alipay-sandbox'
   private readonly options: AlipayOptions
   private readonly transport: ChannelFetch
   private readonly refundReferences = new Map<string, string>()
   constructor(options: AlipayOptions, transport: ChannelFetch = fetch) {
+    options = { ...options, privateKey: asPem(options.privateKey, 'PRIVATE KEY'), publicKey: asPem(options.publicKey, 'PUBLIC KEY') }
     try {
       const key = createPrivateKey(options.privateKey), pub = createPublicKey(options.publicKey)
       if (key.asymmetricKeyType !== 'rsa' || pub.asymmetricKeyType !== 'rsa' ||
