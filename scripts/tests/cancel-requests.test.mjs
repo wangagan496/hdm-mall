@@ -64,7 +64,7 @@ function managerFixture(saved = new Map()) {
   }).CancelActions)()
   return { manager: make(), make, saved, store, api, calls, events, setUser: value => { user = value } }
 }
-const intent = (action = 'request') => ({ orderId: 'order', cancelRequestId: action === 'request' ? '' : 'request-1', action, reason: action === 'reject-and-ship' ? '已打包' : '' })
+const intent = (action = 'request') => ({ orderId: 'order', cancelRequestId: action === 'request' ? '' : 'request-1', action, reason: action === 'reject-and-ship' ? '已打包' : '', ...(action === 'reject-and-ship' ? { carrier: '顺丰', trackingNo: 'SF12345678' } : {}) })
 const failure = status => Object.assign(new Error('服务端原文'), { httpStatus: status })
 test('B-78 四动作持久化先于发送，账号空间独立，写盘失败绝不发送或自动恢复误发', async () => {
   for (const action of ['request', 'withdraw', 'approve', 'reject-and-ship']) {
@@ -222,7 +222,7 @@ test('B-78 旧详情与商家操作离页/换账号返回不清新操作锁，�
   fixture.page.pageActive = true; fixture.page.busy = 'new-action'; gate.resolve(); await task
   assert.equal(fixture.page.busy, 'new-action'); assert.equal(fixture.queries.length, 0); assert.equal(fixture.messages.length, 0)
   const merchant = merchantFixture(), wait = deferred(); merchant.api.mutate = () => wait.promise
-  merchant.page.openCancelResolution(merchant.order); merchant.page.rejectReason = '已打包'
+  merchant.page.openCancelResolution(merchant.order); merchant.page.rejectReason = '已打包'; merchant.page.shippingTrackingNo = 'SF12345678'
   const send = merchant.page.rejectCancellation(); merchant.page.user = { id: 'other', token: 'other', role: 'merchant' }
   merchant.page.synchronizeFamilySession(); merchant.page.isSubmitting = true; wait.reject(Error('old-failure')); await send
   assert.equal(merchant.page.isSubmitting, true); assert.equal(merchant.queries.length, 0); assert.equal(merchant.messages.length, 0)
@@ -334,7 +334,7 @@ test('B-77 五种冲突保留服务端msg并刷新，包括axios错误体', asyn
   for (const reason of ['CANCEL_REQUEST_BLOCKS_SHIPMENT', 'CANCELLED_ORDER_BLOCKS_SHIPMENT', 'CANCEL_REQUEST_EXPIRED', 'CANCEL_REQUEST_WITHDRAWN', 'CANCEL_REQUEST_RESOLVED']) {
     const fixture = merchantFixture(); fixture.page.ordersToShip = [{ ...paid(), canShip: true }]
     fixture.api.ship = async () => { throw Object.assign(new Error('Request failed'), { response: { status: 409, data: { reason, msg: '服务器-' + reason } } }) }
-    fixture.page.shipOrder(fixture.page.ordersToShip[0]); await tick(); await tick()
+    fixture.page.shipOrder(fixture.page.ordersToShip[0]); fixture.page.shippingTrackingNo = 'SF12345678'; await fixture.page.submitShipment(); await tick(); await tick()
     assert.ok(fixture.messages.includes('服务器-' + reason)); assert.equal(fixture.queries.length, 1)
   }
 })
@@ -342,7 +342,7 @@ test('B-78 商家处理失效申请提示原文并刷新，不处理新一轮申
   const fixture = merchantFixture(); fixture.page.openCancelResolution(fixture.order); fixture.page.approveCancellation()
   fixture.page.ordersToShip = [{ ...fixture.order, cancelRequest: { id: 'new', state: 'pending' } }]
   fixture.dialogs[0].secondaryButton.action(); await tick(); assert.equal(fixture.writes.length, 0)
-  fixture.page.openCancelResolution(fixture.page.ordersToShip[0]); fixture.page.rejectReason = '已打包'
+  fixture.page.openCancelResolution(fixture.page.ordersToShip[0]); fixture.page.rejectReason = '已打包'; fixture.page.shippingTrackingNo = 'SF12345678'
   fixture.api.mutate = async () => { throw new Error('取消申请已撤回，请刷新订单') }
   await fixture.page.rejectCancellation(); assert.ok(fixture.messages.includes('取消申请已撤回，请刷新订单')); assert.equal(fixture.queries.length, 1)
 })
@@ -366,7 +366,7 @@ test('B-78 迟到回执不覆盖详情新一轮申请或新页、商家新查询
   fixture.page.order = { ...paid(), cancelRequest: { id: 'new', state: 'pending' } }; gate.resolve({ appliedState: 'withdrawn' }); await task
   assert.equal(fixture.page.order.cancelRequest.id, 'new'); assert.equal(fixture.queries.length, 0); assert.equal(fixture.messages.length, 0)
   const merchant = merchantFixture(), wait = deferred(); merchant.api.mutate = () => wait.promise
-  merchant.page.openCancelResolution(merchant.order); merchant.page.rejectReason = '已打包'
+  merchant.page.openCancelResolution(merchant.order); merchant.page.rejectReason = '已打包'; merchant.page.shippingTrackingNo = 'SF12345678'
   const sending = merchant.page.rejectCancellation(); merchant.page.loadRequestId++
   merchant.page.ordersToShip = [{ id: 'new-page' }]; wait.resolve(); await sending
   assert.equal(merchant.page.ordersToShip[0].id, 'new-page'); assert.equal(merchant.queries.length, 0); assert.equal(merchant.messages.length, 0)
@@ -417,7 +417,7 @@ test('RED6 B-81 旧确认中取消被拒，刷新待发货提示重新申请且�
 test('RED5 B-77 发货冲突显示服务端原文并刷新页数', async () => {
   const fixture = merchantFixture(); fixture.page.ordersToShip = [{ ...paid(), canShip: true }]
   fixture.api.ship = async () => { throw Object.assign(new Error('买家已申请取消，请先处理取消申请'), { httpStatus: 409, reason: 'CANCEL_REQUEST_BLOCKS_SHIPMENT' }) }
-  fixture.page.shipOrder(fixture.page.ordersToShip[0]); await tick(); await tick()
+  fixture.page.shipOrder(fixture.page.ordersToShip[0]); fixture.page.shippingTrackingNo = 'SF12345678'; await fixture.page.submitShipment(); await tick(); await tick()
   assert.ok(fixture.messages.includes('买家已申请取消，请先处理取消申请'))
   assert.equal(fixture.queries.length, 1); assert.equal(fixture.page.ordersToShip[0].canResolveCancel, true)
 })
@@ -430,7 +430,7 @@ test('RED4 B-75 拒绝原因空白超长不提交，三字通过并补读消失�
   assert.equal(fixture.writes.length, 0)
   fixture.page.merchantPage = 2
   fixture.api.merchant = async page => ({ items: page === 2 ? [] : [{ id: 'boundary' }], page, pages: 1 })
-  fixture.page.rejectReason = ' 已打包 '; await fixture.page.rejectCancellation()
+  fixture.page.rejectReason = ' 已打包 '; fixture.page.shippingTrackingNo = 'SF12345678'; await fixture.page.rejectCancellation()
   assert.equal(fixture.writes[0].reason, '已打包'); assert.equal(fixture.writes[0].action, 'reject-and-ship')
   assert.deepEqual(fixture.queries, [2, 1]); assert.equal(fixture.page.merchantPage, 1); assert.equal(fixture.page.ordersToShip[0].id, 'boundary')
 })

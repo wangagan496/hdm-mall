@@ -8,7 +8,7 @@ const options = { databasePath: ':memory:', uploadsPath: './data/test-uploads',
 
 test('夹具默认不存在，生产配置和非测试模式拒绝开启', async () => {
   const ordinary = await buildApp({ ...options, testFixtures: undefined })
-  try { assert.equal((await ordinary.app.inject({ method: 'POST', url: '/__test/fixtures/products', payload: {} })).statusCode, 404) }
+  try { for (const kind of ['products', 'channel-bill', 'logistics']) assert.equal((await ordinary.app.inject({ method: 'POST', url: '/__test/fixtures/' + kind, payload: {} })).statusCode, 404) }
   finally { await ordinary.app.close() }
   await assert.rejects(buildApp({ ...options, production: true, mockPayments: false,
     publicUrl: 'https://mall.example.com', corsOrigins: ['https://mall.example.com'] }), /正式环境禁止启用测试夹具/)
@@ -28,7 +28,7 @@ test('独立夹具凭证创建完整数据，买家令牌不可使用且各实�
     const merchant = (await call('accounts', { account: 'fixture_merchant', password: 'password-123', role: 'merchant' })).json().result
     const friend = (await call('accounts', { account: 'fixture_friend', password: 'password-123' })).json().result
     assert.equal(f.accounts.authenticate('Bearer ' + merchant.token).role, 'merchant')
-    for (const kind of ['accounts', 'addresses', 'products', 'relations', 'payments', 'skus']) {
+    for (const kind of ['accounts', 'addresses', 'products', 'relations', 'payments', 'skus', 'channel-bill', 'logistics']) {
       assert.equal((await call(kind, {}, buyer.token)).statusCode, 403)
       assert.equal((await f.app.inject({ method: 'POST', url: '/__test/fixtures/' + kind,
         headers: { authorization: 'Bearer ' + buyer.token }, payload: {} })).statusCode, 403)

@@ -4,7 +4,7 @@ import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI, consentM
 import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
-import { MineView, AuditLogView, MerchantOrderView, PromotionSettingView, ReviewManageView, MerchantServiceView, CustomerServiceView } from 'mine'
+import { MineView, AuditLogView, ReconciliationView, MerchantOrderView, PromotionSettingView, ReviewManageView, MerchantServiceView, CustomerServiceView } from 'mine'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 // 导入抽离的常量和枚举
@@ -194,6 +194,7 @@ struct Index {
   @Builder
   private auditDestination(name: string) {
     if (name === 'AuditLogView') { AuditLogView() }
+    else if (name === 'ReconciliationView') { ReconciliationView() }
     else if (name === 'PromotionSettingView') { PromotionSettingView() }
     else if (name === 'MerchantOrderView') { MerchantOrderView() }
     else if (name === 'ReviewManageView') { ReviewManageView() }

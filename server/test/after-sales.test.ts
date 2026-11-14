@@ -235,7 +235,7 @@ async function fixture(databasePath = ':memory:', uploadsPath = './unused') {
       assert.equal((await call('PUT',`/member/order/${id}/payer`,{friendId:other.id})).status,200)
     }
     assert.equal((await call('POST', `/member/order/${id}/mock-pay`, { amountCents: 7425 }, family ? other.token : buyer.token)).status, 200)
-    assert.equal((await call('POST', `/merchant/orders/${id}/ship`, {}, merchant.token)).status, 200)
+    assert.equal((await call('POST', `/merchant/orders/${id}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, merchant.token)).status, 200)
     return id
   }
   const apply = (id: string, kind = 'return-no-reason', count = 2, requestKey = randomUUID(), token = buyer.token) => call('POST', `/member/order/${id}/after-sales`, { requestKey, kind, description: kind === 'return-no-reason' ? '' : '商品存在问题需要处理', items: [{ skuId: sku.id, count }], imageIds: [] }, token)
@@ -277,12 +277,12 @@ test('AS-11 v11迁移v12保留退款通知和库存流水、重开不重复', as
   let closed=false
   try {
     const order=await f.create()
-    const payments=f.ctx.db.all('SELECT * FROM payments ORDER BY id'), movements=f.ctx.db.all('SELECT * FROM inventory_movements ORDER BY id')
+    const payments=f.ctx.db.all<Record<string,unknown>>('SELECT * FROM payments ORDER BY id').map(row=>Object.assign(Object.create(null),row,{channel_transaction_id:null})), movements=f.ctx.db.all('SELECT * FROM inventory_movements ORDER BY id')
     await f.ctx.app.close(); closed=true
     const raw=new DatabaseSync(path); removeAfterSaleSchema(raw); raw.close()
     for(let i=0;i<2;i++) {
       const db=new Database(path)
-      try {assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 17); assert.deepEqual(db.all('SELECT * FROM payments ORDER BY id'),payments);assert.deepEqual(db.all('SELECT * FROM inventory_movements ORDER BY id'),movements);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)} finally {db.close()}
+      try {assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 18); assert.deepEqual(db.all('SELECT * FROM payments ORDER BY id'),payments);assert.deepEqual(db.all('SELECT * FROM inventory_movements ORDER BY id'),movements);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);assert.equal(db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)} finally {db.close()}
     }
   } finally {if(!closed)await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
@@ -325,7 +325,7 @@ test('AS-08 售后照片本人上传、限3张、同号同内容、读取隔离�
     assert.equal((await f.call('POST',`/member/order/${order}/after-sales`,{requestKey:applicationKey,kind:'return-quality',description:'质量问题照片说明',items:[{skuId:f.sku.id,count:1}],imageIds:[img.imageId]})).status,200)
     assert.equal((await f.ctx.app.inject({method:'GET',url:img.path,headers:{authorization:'Bearer '+f.merchant.token}})).statusCode,200)
     const backup = await createBackup({databasePath:join(root,'data','mall.sqlite'),uploadsPath:join(root,'uploads'),destination:join(root,'backup')})
-    assert.equal(backup.manifest.schemaVersion, 17)
+    assert.equal(backup.manifest.schemaVersion, 18)
     assert.deepEqual(backup.manifest.issues,[])
     await verifyBackup(join(root,'backup'))
     await writeFile(join(root,'uploads',img.imageId+'.jpg'),Buffer.from([255,216,255,0]))
@@ -360,7 +360,7 @@ test('AS-09 重启启动扫描继续处理超时申请和旧数据备份', async
 test('AS-01 迁移12、申请原子确认收货、下单价和剩余数量、权限与幂等', async () => {
   const f = await fixture()
   try {
-    assert.equal(f.ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+    assert.equal(f.ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
     const id = await f.create(), key = randomUUID()
     assert.equal((await f.apply(id, 'return-no-reason', 2, randomUUID(), f.other.token)).status, 403)
     assert.equal((await f.apply(id, 'return-no-reason', 4)).status, 409)

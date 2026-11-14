@@ -84,7 +84,7 @@ test('同一时钟覆盖付款、发货、收货、评价、关系和商家库�
     assert.equal((await request('POST', '/member/order/' + order.id + '/mock-pay', buyer.token, { amountCents: sku.priceCents })).statusCode, 200)
     assert.equal(f.db.one<{ paid_at: number }>('SELECT paid_at FROM orders WHERE id=?', order.id)!.paid_at, now)
     now = 3000
-    assert.equal((await request('POST', '/merchant/orders/' + order.id + '/ship', merchant.token)).statusCode, 200)
+    assert.equal((await request('POST', '/merchant/orders/' + order.id + '/ship', merchant.token, {carrier:'顺丰',trackingNo:'SF12345678'})).statusCode, 200)
     assert.equal(f.db.one<{ shipped_at: number }>('SELECT shipped_at FROM orders WHERE id=?', order.id)!.shipped_at, now)
     now = 4000
     assert.equal((await request('PUT', '/member/order/' + order.id + '/receipt', buyer.token)).statusCode, 200)

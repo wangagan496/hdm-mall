@@ -83,7 +83,7 @@ test('A2 多次部分退款按购买分摊退款，不追优惠，合计等于�
     assert.equal(created.status, 200)
     const orderId = created.body.result.id
     assert.equal((await f.call('POST', `/member/order/${orderId}/mock-pay`, { amountCents: 8900 })).status, 200)
-    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, {}, f.merchant.token)).status, 200)
+    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, f.merchant.token)).status, 200)
     for (const amount of [2967, 2967, 2966]) {
       const request = await f.call('POST', `/member/order/${orderId}/after-sales`, { requestKey: randomUUID(), kind: 'refund-missing',
         description: '这件商品没有收到', items: [{ skuId: f.sku.id, count: 1 }] })
@@ -132,7 +132,7 @@ test('A2 多件低价商品分批少件退款，最后零元直接完成且不�
     assert.equal(created.status, 200)
     const orderId = created.body.result.id
     assert.equal((await f.call('POST', `/member/order/${orderId}/mock-pay`, { amountCents: 1 })).status, 200)
-    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, {}, f.merchant.token)).status, 200)
+    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, f.merchant.token)).status, 200)
     for (const amount of [1, 0]) {
       const requested = await f.call('POST', `/member/order/${orderId}/after-sales`, { requestKey: randomUUID(), kind: 'refund-missing', description: '少收到一件商品', items: [{ skuId: sku.id, count: 1 }] })
       assert.equal(requested.status, 200)
@@ -173,7 +173,7 @@ test('A2 边界：默认满减保留低价商品1分实付并允许售后', asyn
     assert.equal(created.status, 200)
     const orderId = created.body.result.id
     assert.equal((await f.call('POST', `/member/order/${orderId}/mock-pay`, { amountCents: 8901 })).status, 200)
-    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, {}, f.merchant.token)).status, 200)
+    assert.equal((await f.call('POST', `/merchant/orders/${orderId}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, f.merchant.token)).status, 200)
     const requested = await f.call('POST', `/member/order/${orderId}/after-sales`, { requestKey: randomUUID(), kind: 'return-no-reason',
       items: [{ skuId: product.skus[2]!.id, count: 1 }] })
     assert.equal(requested.status, 200)

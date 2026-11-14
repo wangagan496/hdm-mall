@@ -19,7 +19,7 @@ test('B17 开票、隐藏评价和留言照片随v17备份校验恢复，恢复�
     const image = (await f.upload('/member/service/images', { requestKey: randomUUID() })).body.result.path
     assert.equal((await f.call('POST', '/member/service/messages', { requestKey: randomUUID(), content: '请看照片', orderId, images: [image] })).status, 200)
     const backup = await createBackup({ databasePath: join(f.root, 'data', 'mall.sqlite'), uploadsPath: join(f.root, 'uploads'), destination: join(f.root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 17)
+    assert.equal(backup.manifest.schemaVersion, 18)
     assert.deepEqual(backup.manifest.issues, [])
     assert.equal(backup.counts.invoices, 1)
     assert.equal(backup.counts.review_moderation, 1)
@@ -53,7 +53,7 @@ test('B17 真实v16备份仍能恢复，迁移017保留旧订单且重复打开�
     for (let attempt = 0; attempt < 2; attempt++) {
       const db = new Database(join(restored.root, 'mall.sqlite'))
       try {
-        assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+        assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
         assert.equal(db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', id)!.state, 4)
         assert.equal(db.one<{ n: number }>('SELECT COUNT(*) n FROM invoices')!.n, 0)
         assert.deepEqual(db.all('PRAGMA foreign_key_check'), [])

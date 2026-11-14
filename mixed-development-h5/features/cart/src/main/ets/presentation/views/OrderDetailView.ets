@@ -1,7 +1,7 @@
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, formatBeijingTime } from 'models'
+import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, LogisticsEvent, OrderLogistics, formatBeijingTime } from 'models'
 import { demoOrderStore, cancelActions, RecoveryQuery } from 'storage'
 import {
   remindShipmentAPI,
@@ -133,6 +133,7 @@ export struct OrderDetailView {
     this.busy = ''
     this.loading = false
     this.invoiceSaving = false
+    this.logisticsLoading = false
   }
 
   private showOrderDetail(): void {
@@ -154,6 +155,7 @@ export struct OrderDetailView {
       return
     }
     this.detailToken = token
+    this.logisticsLoading = false
     this.invoiceDraft = { titleType: 'individual', title: '', email: '' }
     this.invoiceEditing = false; this.invoiceSaving = false; this.invoiceMessage = ''
     this.stopPendingChecks()
@@ -186,6 +188,18 @@ export struct OrderDetailView {
   @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM)
   bottomHeight: number = 0
   @State order: OrderItem | null = null
+  @State logisticsLoading: boolean = false
+  private async refreshLogistics(): Promise<void> {
+    if (!this.canOperateOrder() || this.logisticsLoading) return
+    const generation: number = this.pageGeneration, token: string = this.detailToken, orderId: string = this.orderId
+    this.logisticsLoading = true
+    try {
+      await RequestAxios.getForSession<OrderLogistics | null>('/member/order/' + encodeURIComponent(orderId) + '/logistics', token)
+      if (this.isCurrentDetail(generation, token, orderId)) await this.loadOrderDetail()
+    } catch {
+      if (this.isCurrentDetail(generation, token, orderId)) this.safeToast('物流读取失败，请重试')
+    } finally { if (this.isCurrentDetail(generation, token, orderId)) this.logisticsLoading = false }
+  }
   @State displayedOrderState: number = 0 // 页面当前显示的订单状态。
   @State evaluation: LocalEvaluationItem | null = null
   @State loading: boolean = true
@@ -497,12 +511,16 @@ export struct OrderDetailView {
           .width('100%')
         } else if (this.displayedOrderState === OrderState.AWAITING_RECEIPT) { // 待收货：物流提示、确认收货。
           Row({ space: 8 }) {
-            Text('暂未提供物流信息')
+            if (this.order?.logistics) {
+              Text('物流记录见下方').fontSize(13).fontColor($r('[ui_components].color.gray'))
+            } else {
+              Text('暂未提供物流信息')
               .height(36)
               .fontSize(13)
               .fontColor($r('[ui_components].color.gray'))
               .backgroundColor($r('[ui_components].color.white'))
               .border({ width: 0.5, color: $r('[ui_components].color.border') })
+            }
             Button(this.busy === 'receipt' ? '确认中...' : '确认收货')
               .height(36)
               .fontSize(13)
@@ -570,6 +588,22 @@ export struct OrderDetailView {
         } else {
           Scroll() {
             Column({ space: 12 }) {
+              if (this.order.logistics) {
+                Column({ space: 8 }) {
+                  Text('物流轨迹').id('order-logistics-title').fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                  Text(this.order.logistics.carrier + ' · ' + this.order.logistics.trackingNo).id('order-logistics-number').fontSize(14).fontColor($r('[ui_components].color.text'))
+                  if (this.order.logistics.source === 'mock') { Text('模拟物流，仅用于本机验收').fontSize(12).fontColor($r('[ui_components].color.gray')) }
+                  Text('商家发货：' + formatBeijingTime(this.order.shippedAt || 0)).fontSize(13).fontColor($r('[ui_components].color.text'))
+                  Text(this.order.signedAt ? '物流签收：' + formatBeijingTime(this.order.signedAt) : '物流尚未签收').id('order-signed-time').fontSize(13).fontColor($r('[ui_components].color.text'))
+                  Text(this.order.receivedAt ? '确认收货：' + formatBeijingTime(this.order.receivedAt) : '尚未确认收货').id('order-received-time').fontSize(13).fontColor($r('[ui_components].color.text'))
+                  if (this.order.signedAt && !this.order.receivedAt) { Text('快递显示已签收，确认无误后请确认收货').id('order-signed-hint').fontSize(14).fontColor($r('[ui_components].color.red')) }
+                  if (!this.order.logistics.events.length) { Text('等待快递揽收').fontSize(14).fontColor($r('[ui_components].color.gray')) }
+                  ForEach(this.order.logistics.events, (event: LogisticsEvent) => {
+                    Text(formatBeijingTime(event.occurredAt) + ' · ' + event.description).id('logistics-event-' + event.id).fontSize(14).fontColor($r('[ui_components].color.text'))
+                  }, (event: LogisticsEvent) => event.id)
+                  Button(this.logisticsLoading ? '正在刷新' : '刷新物流').id('order-logistics-refresh').enabled(!this.logisticsLoading && this.canOperateOrder()).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.refreshLogistics())
+                }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+              }
               if(this.order.canApplyAfterSale) {
                 Button('申请售后').id('order-apply-after-sale').enabled(this.canOperateOrder()&&!this.busy)
                   .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))

@@ -13,6 +13,7 @@ import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
 import { checkPublicContent } from './content-filter.ts'
+import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -44,6 +45,7 @@ interface Order {
   received_by: string | null
   received_at: number | null
   shipped_at: number | null
+  signed_at: number | null
 }
 interface Item extends PolicyRow {
   order_id: string
@@ -210,7 +212,7 @@ export class Orders {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
       paymentMode: this.paymentMode(order),
-      receivedAt: order.received_at, serverManaged: true,
+      receivedAt: order.received_at, shippedAt: order.shipped_at, signedAt: order.signed_at, logistics:shipmentDetail(this.db,order.id), serverManaged: true,
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
       canEvaluate: isOrderOwner && (order.state === ORDER_STATE.AWAITING_REVIEW || Boolean(hiddenReason)),
@@ -235,6 +237,11 @@ export class Orders {
         canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner }),
       ...cancelFields, ...afterSaleFields
     }
+  }
+  /** 物流等订单附属信息与订单详情使用同一读取权限，商家可读全部订单。 */
+  readable(user: User, id: string) {
+    const order = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id)
+    return Boolean(order) && (user.role === 'merchant' || this.canRead(user, order!))
   }
   detail(user: User, id: string) {
     this.expireIfDue()
@@ -586,7 +593,7 @@ export class Orders {
     refundIds.push(refundId)
     return this.writeCancelAction(this.getCancelRequest(request.order_id, request.id), user, user ? 'approve' : 'auto-approve', requestKey, body, now)
   }
-  resolveCancel(user: User, id: string, requestId: string, data: { requestKey: string; decision: 'approve' | 'reject-and-ship'; reason?: string }) {
+  resolveCancel(user: User, id: string, requestId: string, data: { requestKey: string; decision: 'approve' | 'reject-and-ship'; reason?: string; carrier?:string; trackingNo?:string }) {
     if (user.role !== 'merchant') throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
     const reason = data.reason?.trim()
     if (data.decision === 'reject-and-ship' && !reason) throw new AppError(400, '请填写拒绝原因', 'CANCEL_REASON_REQUIRED')
@@ -594,7 +601,8 @@ export class Orders {
     return this.cancelTransaction((refundIds) => {
       this.get(id, 'ORDER_NOT_FOUND')
       const request = this.getCancelRequest(id, requestId)
-      const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: data.decision, ...(data.decision === 'reject-and-ship' ? { reason } : {}) })
+      const shipment = data.decision === 'reject-and-ship' ? shipmentSchema.parse(data) : undefined
+      const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: data.decision, ...(data.decision === 'reject-and-ship' ? { reason,...shipment } : {}) })
       const existing = this.replayCancelAction(user, data.requestKey, body)
       if (existing) return existing
       const now = this.clock.now()
@@ -604,6 +612,7 @@ export class Orders {
       if (this.payments?.effectivePaymentId(id) !== request.payment_id) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
       const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', now, id)
       ensure(shipped.changes === 1, 409, '订单不在待发货状态')
+      registerShipment(this.db,id,shipment,now,this.mockPayments?'mock':'unavailable')
       const resolved = this.db.run("UPDATE order_cancel_requests SET state='rejected-shipped',resolved_at=?,resolved_by=?,reject_reason=? WHERE id=? AND state='pending'", now, user.id, reason!, requestId)
       ensure(resolved.changes === 1, 409, '取消申请已处理，请刷新订单')
       return this.writeCancelAction(this.getCancelRequest(id, requestId), user, 'reject-and-ship', data.requestKey, body, now)
@@ -663,7 +672,7 @@ export class Orders {
     ensure(user.role === 'merchant', 403, '需要商家权限')
     return this.queryPage(user, { where: 'o.state=?', values: [ORDER_STATE.AWAITING_SHIPMENT] }, page, pageSize, true)
   }
-  ship(user: User, id: string) {
+  ship(user: User, id: string, input:unknown) {
     ensure(user.role === 'merchant', 403, '只有商家可以发货')
     return this.cancelTransaction((refundIds) => {
       const order = this.get(id)
@@ -673,9 +682,12 @@ export class Orders {
       if (pending) throw new AppError(409, '买家已申请取消，请先处理取消申请', 'CANCEL_REQUEST_BLOCKS_SHIPMENT')
       ensure(order.state === ORDER_STATE.AWAITING_SHIPMENT, 409, '订单不在待发货状态')
       if (this.payments) ensure(this.payments.effectivePaymentId(id), 409, '订单没有有效支付，不能发货')
-      const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', this.clock.now(), id)
+      const shipment=shipmentSchema.parse(input)
+      const now=this.clock.now()
+      const shipped = this.db.run('UPDATE orders SET state=3,shipped_at=? WHERE id=? AND state=2', now, id)
       ensure(shipped.changes === 1, 409, '订单不在待发货状态')
-      appendAudit(this.db,{created:this.clock.now(),actor:user,action:'order.ship',targetType:'order',targetId:id,orderId:id})
+      registerShipment(this.db,id,shipment,now,this.mockPayments?'mock':'unavailable')
+      appendAudit(this.db,{created:now,actor:user,action:'order.ship',targetType:'order',targetId:id,orderId:id})
       return { id }
     })
   }

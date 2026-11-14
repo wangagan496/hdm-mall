@@ -65,7 +65,7 @@ export class CancelActions {
     this.assertSession(record.accountId, token)
     if (record.action === 'request') return requestOrderCancelAPI(record.orderId, record.requestKey, token)
     if (record.action === 'withdraw') return withdrawOrderCancelAPI(record.orderId, record.cancelRequestId, record.requestKey, token)
-    return resolveOrderCancelAPI(record.orderId, record.cancelRequestId, record.requestKey, record.action, record.reason, token)
+    return resolveOrderCancelAPI(record.orderId, record.cancelRequestId, record.requestKey, record.action, record.reason, token, record.carrier || '', record.trackingNo || '')
   }
 
   confirm(intent: CancelActionIntent, token: string): Promise<void> {
@@ -81,7 +81,7 @@ export class CancelActions {
   private async start(intent: CancelActionIntent, accountId: string, token: string): Promise<void> {
     if (this.read(accountId).some((item: PendingCancelAction) => item.orderId === intent.orderId)) throw new Error(CANCEL_ACTION_UNKNOWN)
     const record: PendingCancelAction = { accountId, orderId: intent.orderId, cancelRequestId: intent.cancelRequestId,
-      action: intent.action, reason: intent.reason.trim(), requestKey: util.generateRandomUUID(true) }
+      action: intent.action, reason: intent.reason.trim(), requestKey: util.generateRandomUUID(true), carrier: intent.carrier, trackingNo: intent.trackingNo }
     await this.save(record, false)
     await this.perform(record, token, false)
   }

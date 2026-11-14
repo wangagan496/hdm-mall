@@ -109,10 +109,10 @@ test('CD06 已付订单继续发货、注销中账号15天自动收货、普通�
   const normal=await f.create(true)
   f.ctx.db.run('UPDATE orders SET owner_id=?,paid_by=? WHERE id=?',f.friend.id,f.friend.id,normal)
   f.ctx.db.run('UPDATE payments SET payer_id=? WHERE order_id=?',f.friend.id,normal)
-  assert.equal((await f.call('POST',`/merchant/orders/${normal}/ship`,{},f.merchant.token)).status,200)
+  assert.equal((await f.call('POST',`/merchant/orders/${normal}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
   await f.apply();f.advance(15*DAY);await f.ctx.lifecycle.scan()
   assert.equal(f.ctx.db.one<{status:string}>('SELECT status FROM users WHERE id=?',f.buyer.id)!.status,'deleting')
-  assert.equal((await f.call('POST',`/merchant/orders/${order}/ship`,{},f.merchant.token)).status,200)
+  assert.equal((await f.call('POST',`/merchant/orders/${order}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
   f.advance(15*DAY-1);await f.ctx.lifecycle.scan()
   assert.equal(f.ctx.db.one<{state:number}>('SELECT state FROM orders WHERE id=?',order)!.state,3)
   f.advance(1);await f.ctx.lifecycle.scan()
@@ -132,7 +132,7 @@ test('CD13 注销中真实multipart上传及新售后、已付取消可用，其
  const root=await mkdtemp(join(tmpdir(),'hdm-deleting-upload-')),f=await fixture(':memory:',root)
  try{
   const shipped=await f.create(true),paid=await f.create(true)
-  await f.call('POST',`/merchant/orders/${shipped}/ship`,{},f.merchant.token)
+  await f.call('POST',`/merchant/orders/${shipped}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)
   await f.apply();const token=f.login(),applicationKey=randomUUID(),boundary='hdm-'+randomUUID()
   const parts=Object.entries({orderId:shipped,applicationKey,requestKey:randomUUID()}).map(([name,value])=>Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`))
   // A decodable 2x2 JPEG, sent through Fastify's actual multipart parser and file storage.
@@ -161,7 +161,7 @@ test('CD14 代付人不被他人收货阻塞，删除后退款仍回原支付',a
  try{
   const order=await f.create(true)
   f.ctx.db.run('UPDATE orders SET owner_id=? WHERE id=?',f.friend.id,order)
-  await f.call('POST',`/merchant/orders/${order}/ship`,{},f.merchant.token)
+  await f.call('POST',`/merchant/orders/${order}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)
   await f.apply();assert.equal(f.ctx.lifecycle.matters(f.buyer.id).length,0)
   f.advance(15*DAY);await f.ctx.lifecycle.scan()
   assert.equal(f.ctx.db.one<{status:string}>('SELECT status FROM users WHERE id=?',f.buyer.id)!.status,'deleted')
@@ -213,7 +213,7 @@ test('CD07 未结售后阻止删除，寄回可跟进，自动退款后原交易
  const f=await fixture()
  try {
   const order=await f.create(true)
-  await f.call('POST',`/merchant/orders/${order}/ship`,{},f.merchant.token)
+  await f.call('POST',`/merchant/orders/${order}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)
   const apply=await f.call('POST',`/member/order/${order}/after-sales`,{requestKey:randomUUID(),kind:'return-no-reason',items:[{skuId:f.sku.id,count:1}]})
   const id=apply.body.result.afterSaleId
   await f.call('POST',`/merchant/after-sales/${id}/approve`,{requestKey:randomUUID(),returnAddress:{receiver:'Return',contact:'13800000000',address:'Return street'}},f.merchant.token)
@@ -286,7 +286,7 @@ test('CD08 三年到期清除地址和售后照片，头像立即删除，备份
   await writeFile(join(uploads,avatar),Buffer.from([255,216,255]));await writeFile(join(uploads,photo),Buffer.from([255,216,255]))
   f.ctx.db.run('UPDATE users SET profile=? WHERE id=?',JSON.stringify({avatar:'/uploads/'+avatar}),f.buyer.id)
   const order=await f.create(true)
-  await f.call('POST',`/merchant/orders/${order}/ship`,{},f.merchant.token)
+  await f.call('POST',`/merchant/orders/${order}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)
   await f.call('PUT',`/member/order/${order}/receipt`,{})
   f.ctx.db.run('INSERT INTO after_sale_images(image_id,actor_id,order_id,application_key,request_key,sha256,path,created) VALUES(?,?,?,?,?,?,?,?)',randomUUID(),f.buyer.id,order,randomUUID(),randomUUID(),'0'.repeat(64),'/uploads/'+photo,f.now())
   const completed=f.now(),due=new Date(completed);due.setUTCFullYear(due.getUTCFullYear()+3)
@@ -299,7 +299,7 @@ test('CD08 三年到期清除地址和售后照片，头像立即删除，备份
   const address=JSON.parse(f.ctx.db.one<{address:string}>('SELECT address FROM orders WHERE id=?',order)!.address)
   assert.equal(address.receiver,'');assert.equal(address.contact,'');assert.equal(address.address,'')
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion, 17);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 18);assert.deepEqual(backup.manifest.issues,[])
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
 test('CD09 012升级013保留账号订单，重启扫描执行到期注销',async()=>{
@@ -312,7 +312,7 @@ test('CD09 012升级013保留账号订单，重启扫描执行到期注销',asyn
   try{removeLifecycleSchema(old)}finally{old.close()}
   const migrated=new Database(path)
   try{
-   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version, 17)
+   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version, 18)
    assert.equal(migrated.one<{account:string}>('SELECT account FROM users WHERE id=?',f.buyer.id)!.account,f.buyer.account)
    assert.ok(migrated.one('SELECT id FROM orders WHERE id=?',order))
    migrated.run("UPDATE users SET status='deleting',deletion_requested_at=?,deletion_due_at=? WHERE id=?",f.now(),f.now()+15*DAY,f.buyer.id)

@@ -51,7 +51,7 @@ async function fixture() {
     assert.equal(response.status, 200)
     const id = response.body.result.id as string
     if (paid) assert.equal((await call('POST', `/member/order/${id}/mock-pay`, { amountCents: total })).status, 200)
-    if (shipped && paid) assert.equal((await call('POST', `/merchant/orders/${id}/ship`, {}, merchant.token)).status, 200)
+    if (shipped && paid) assert.equal((await call('POST', `/merchant/orders/${id}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, merchant.token)).status, 200)
     return id
   }
   const action = (id: string, action: string, extra: object = {}, requestKey = randomUUID()) => call('POST',
@@ -112,10 +112,10 @@ test('INV-02 取消待处理和同意后均禁止发货，仅同意时释放库�
   try {
     const id = await f.create(true, false)
     const request = (await f.call('POST', `/member/order/${id}/cancel-requests`, { requestKey: randomUUID() })).body.result
-    assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, {}, f.merchant.token)).status, 409)
+    assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, f.merchant.token)).status, 409)
     assert.equal(f.stock(), 97)
     assert.equal((await f.call('POST', `/merchant/orders/${id}/cancel-requests/${request.cancelRequestId}/resolve`, { requestKey: randomUUID(), decision: 'approve' }, f.merchant.token)).status, 200)
-    assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, {}, f.merchant.token)).status, 409)
+    assert.equal((await f.call('POST', `/merchant/orders/${id}/ship`, {carrier:'顺丰',trackingNo:'SF12345678'}, f.merchant.token)).status, 409)
     assert.equal(f.stock(), 100); f.balanced()
   } finally { await f.close() }
 })
@@ -127,7 +127,7 @@ for (const decision of ['ship', 'reject-and-ship']) test(`INV-03 同意取消与
     const request = (await f.call('POST', `/member/order/${id}/cancel-requests`, { requestKey: randomUUID() })).body.result
     const resolveUrl = `/merchant/orders/${id}/cancel-requests/${request.cancelRequestId}/resolve`
     const responses = await f.race([{ url: resolveUrl, body: { requestKey: randomUUID(), decision: 'approve' } },
-      { url: decision === 'ship' ? `/merchant/orders/${id}/ship` : resolveUrl, body: decision === 'ship' ? {} : { requestKey: randomUUID(), decision, reason: '已经备好货立即发货' } }])
+      { url: decision === 'ship' ? `/merchant/orders/${id}/ship` : resolveUrl, body: decision === 'ship' ? {carrier:'顺丰',trackingNo:'SF12345678'} : { requestKey: randomUUID(), decision, reason: '已经备好货立即发货',carrier:'顺丰',trackingNo:'SF12345678' } }])
     assert.deepEqual(responses.map(r => r.status).sort(), [200, 409])
     const state = f.ctx.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', id)!.state
     const releases = f.ctx.db.one<{ n: number }>('SELECT COUNT(*) n FROM inventory_movements WHERE business_key=?', `release:${id}:${f.sku.id}`)!.n
@@ -142,7 +142,7 @@ test('INV-04 自动同意扫描与HTTP发货同时竞争，到点取消仅释放
     const id = await f.create(true, false)
     await f.call('POST', `/member/order/${id}/cancel-requests`, { requestKey: randomUUID() })
     f.advance(3 * DAY)
-    const responses = await f.race([{ url: '/_inventory-test/scan', body: {} }, { url: `/merchant/orders/${id}/ship`, body: {} }])
+    const responses = await f.race([{ url: '/_inventory-test/scan', body: {carrier:'顺丰',trackingNo:'SF12345678'} }, { url: `/merchant/orders/${id}/ship`, body: {carrier:'顺丰',trackingNo:'SF12345678'} }])
     assert.equal(responses[0]!.status, 200); assert.equal(responses[1]!.status, 409)
     await f.ctx.orders.processDueCancelRequests()
     assert.equal(f.ctx.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', id)!.state, 6)
@@ -307,7 +307,7 @@ test('INV-12 备份恢复和schema17重开保留待验收及不合格，补验�
     assert.equal((await f.action(late.id, 'inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
     const expected = f.snapshot(), expectedInventory = await f.inventory()
     const backup = await createBackup({ databasePath: f.databasePath, uploadsPath: f.uploadsPath, destination: join(f.root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 17); assert.deepEqual(backup.manifest.issues, [])
+    assert.equal(backup.manifest.schemaVersion, 18); assert.deepEqual(backup.manifest.issues, [])
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(f.root, 'restored') })
     const legacy = new DatabaseSync(join(restored.root, 'mall.sqlite'))
     removeServiceSchema(legacy); legacy.exec('PRAGMA user_version=16'); legacy.close()
@@ -316,7 +316,7 @@ test('INV-12 备份恢复和schema17重开保留待验收及不合格，补验�
       try {
         assert.deepEqual(next.db.all('SELECT id,stock FROM skus ORDER BY id'), expected.stocks)
         assert.deepEqual(next.db.all('SELECT * FROM inventory_movements ORDER BY id'), expected.movements)
-        assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 17)
+        assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 18)
         const user = next.db.one<User>('SELECT id,account,role FROM users WHERE id=?', f.merchant.id)!
         const row = inventoryPage(next.db, user, { page: 1, pageSize: 20, skuId: f.sku.id }).items[0]
         assert.deepEqual(JSON.parse(JSON.stringify(row)), expectedInventory)

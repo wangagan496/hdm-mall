@@ -4,8 +4,11 @@ import type { FastifyInstance } from 'fastify'
 import { Accounts, type User } from './accounts.ts'
 import { ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
-import type { PaymentPreset } from './payment-channel.ts'
+import { MockPaymentChannel, type PaymentPreset } from './payment-channel.ts'
 import type { Payments } from './payments.ts'
+import type { Logistics } from './logistics.ts'
+import { logisticsEventSchema } from './logistics.ts'
+import { billDateSchema,billRowSchema } from './channel-bill.ts'
 
 const identifier = z.string().min(1).max(100)
 const accountSchema = z.object({
@@ -31,7 +34,8 @@ export class TestFixtures {
   private accounts: Accounts
   private credential: string
   private payments: Payments
-  constructor(accounts: Accounts, credential: string, payments: Payments) { this.accounts = accounts; this.credential = credential; this.payments = payments }
+  private logistics: Logistics
+  constructor(accounts: Accounts, credential: string, payments: Payments, logistics:Logistics) { this.accounts = accounts; this.credential = credential; this.payments = payments;this.logistics=logistics }
   private authorize(credential: unknown) {
     const expected = Buffer.from(this.credential)
     const actual = Buffer.from(typeof credential === 'string' ? credential : '')
@@ -120,17 +124,30 @@ export class TestFixtures {
     channel.setPreset(paymentId, preset)
     return { configured: true }
   }
+  configureBill(credential:unknown,input:unknown) {
+    this.authorize(credential)
+    const data=z.object({date:billDateSchema,rows:z.array(billRowSchema).max(10000)}).strict().parse(input)
+    ensure(this.payments.channel instanceof MockPaymentChannel,403,'当前环境未启用模拟账单')
+    this.payments.channel.setBill(data.date,data.rows)
+    return {configured:true}
+  }
+  configureLogistics(credential:unknown,input:unknown) {
+    this.authorize(credential)
+    const data=z.object({orderId:identifier,events:z.array(logisticsEventSchema).max(200)}).strict().parse(input)
+    return this.logistics.pushMock(data.orderId,data.events)
+  }
 }
 
 export function registerFixtureRoutes(app: FastifyInstance, fixtures: TestFixtures) {
   const routes = {
     accounts: fixtures.createAccount.bind(fixtures), addresses: fixtures.createAddress.bind(fixtures),
     products: fixtures.createProduct.bind(fixtures), relations: fixtures.createRelation.bind(fixtures),
-    payments: fixtures.configurePayments.bind(fixtures), skus: fixtures.updateSku.bind(fixtures)
+    payments: fixtures.configurePayments.bind(fixtures), skus: fixtures.updateSku.bind(fixtures),
+    'channel-bill':fixtures.configureBill.bind(fixtures),logistics:fixtures.configureLogistics.bind(fixtures)
   }
   for (const [kind, create] of Object.entries(routes)) {
     app.post('/__test/fixtures/' + kind, async req => ({
-      code: '1', result: create(req.headers['x-test-fixture-key'], req.body)
+      code: '1', result: await create(req.headers['x-test-fixture-key'], req.body)
     }))
   }
 }

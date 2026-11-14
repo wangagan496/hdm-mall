@@ -32,7 +32,7 @@ async function fixture(databasePath=':memory:',uploadsPath='./unused') {
     const r=await call('POST','/member/order',{addressId:address.id,requestKey:randomUUID(),expectedAmountCents:1900,goods:[{skuId:sku.id,count:1}]},buyer.token)
     assert.equal(r.status,200);const id=r.body.result.id as string
     assert.equal((await call('POST',`/member/order/${id}/mock-pay`,{amountCents:1900},buyer.token)).status,200)
-    if(ship)assert.equal((await call('POST',`/merchant/orders/${id}/ship`,{})).status,200)
+    if(ship)assert.equal((await call('POST',`/merchant/orders/${id}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'})).status,200)
     return id
   }
   const sale=async(kind='return-no-reason')=>{
@@ -71,7 +71,7 @@ test('AL02 只追加及事务整体回滚',async()=>{
   assert.throws(()=>f.ctx.db.run('DELETE FROM audit_log'),/append|追加/i)
   const id=await f.create(),count=f.logs().length
   f.ctx.db.run("CREATE TRIGGER audit_test_fail BEFORE INSERT ON audit_log WHEN NEW.action='order.ship' BEGIN SELECT RAISE(ABORT,'test audit failure'); END")
-  assert.equal((await f.call('POST',`/merchant/orders/${id}/ship`,{})).status,500)
+  assert.equal((await f.call('POST',`/merchant/orders/${id}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'})).status,500)
   assert.equal(f.ctx.db.one<{state:number}>('SELECT state FROM orders WHERE id=?',id)!.state,2)
   assert.equal(f.logs().length,count)
  }finally{await f.ctx.app.close()}
@@ -141,7 +141,7 @@ test('AL06 库存调整与取消三种结论，拒绝发货不重复普通发货
    const order=await f.create()
    const request=await f.call('POST',`/member/order/${order}/cancel-requests`,{requestKey:randomUUID()},f.buyer.token)
    assert.equal(request.status,200)
-   const data={requestKey:randomUUID(),decision,...(decision==='reject-and-ship'?{reason:'已交付物流无法拦截'}:{})}
+   const data={requestKey:randomUUID(),decision,...(decision==='reject-and-ship'?{carrier:'顺丰',trackingNo:'SF12345678',reason:'已交付物流无法拦截'}:{})}
    if(decision==='auto'){f.advance(3*DAY);await f.ctx.orders.processDueCancelRequests()}
    else{
     const url=`/merchant/orders/${order}/cancel-requests/${request.body.result.cancelRequestId}/resolve`
@@ -227,7 +227,7 @@ test('AL09 013迁移补录可确认历史且重开不重复，当前版本备份
   const db=new Database(path)
   let rows:unknown[]=[]
   try{
-   assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 17)
+   assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 18)
    assert.deepEqual(db.all('SELECT * FROM product_changes ORDER BY rowid'),receipts)
    rows=db.all('SELECT * FROM audit_log ORDER BY id')
    const price=db.one<{summary:string}>("SELECT summary FROM audit_log WHERE action='sku.price'")!
@@ -238,7 +238,7 @@ test('AL09 013迁移补录可确认历史且重开不重复，当前版本备份
   }finally{db.close()}
   const next=new Database(path);try{assert.deepEqual(next.all('SELECT * FROM audit_log ORDER BY id'),rows)}finally{next.close()}
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion, 17);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 18);assert.deepEqual(backup.manifest.issues,[])
   const broken=new DatabaseSync(path);try{broken.exec('DROP TRIGGER audit_log_no_delete')}finally{broken.close()}
   await assert.rejects(createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'broken')}),/审计只追加保护无效/)
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}

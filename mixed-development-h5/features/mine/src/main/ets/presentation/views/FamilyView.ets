@@ -1,6 +1,6 @@
 import { cancelActions, cancelActionFailure, RecoveryQuery } from 'storage'
 import { GlobalVariable, PAGE_PATH } from 'constants'
-import { CancelActionIntent, FamilyRelation, FamilyRelationPage, FamilyGroupCounts, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund, formatBeijingTime } from 'models'
+import { CancelActionIntent, FamilyRelation, FamilyRelationPage, FamilyGroupCounts, HDMUser, OrderItem, OrderPage, OrderState, OrderRefund, ShipmentInput, formatBeijingTime } from 'models'
 import { HDMNavBar } from 'ui_components'
 import {
   getFamilyRelationsPageAPI,
@@ -49,6 +49,10 @@ export struct FamilyView {
   @State showCancelResolution: boolean = false
   @State resolvingOrder: OrderItem | null = null
   @State rejectReason: string = ''
+  @State shippingOrderId: string = ''
+  @State shippingCarrier: string = '顺丰'
+  @State shippingOtherCarrier: string = ''
+  @State shippingTrackingNo: string = ''
   private resolutionGeneration: number = 0
   private resolutionQuery: number = 0
   private resolutionToken: string = ''
@@ -183,6 +187,7 @@ export struct FamilyView {
     this.loadFamilyCenter()
   }
   aboutToDisappear(): void {
+    this.shippingOrderId = ''; this.shippingTrackingNo = ''; this.shippingOtherCarrier = ''
     this.stopFamilyChecks()
     this.isPageActive = false
     this.closeCancelResolution()
@@ -210,6 +215,7 @@ export struct FamilyView {
   }
   private reloadForCurrentAccount(): void {
     if (!this.synchronizeFamilySession()) return
+    this.shippingOrderId = ''; this.shippingTrackingNo = ''; this.shippingOtherCarrier = ''
     if (this.isPageActive) this.loadFamilyCenter()
   }
   private synchronizeFamilySession(): boolean {
@@ -406,6 +412,7 @@ export struct FamilyView {
     if (!this.canManageFamily() || !current?.canResolveCancel || !current.cancelRequest || this.pendingCancelActions.includes(order.id)) return
     this.resolvingOrder = current
     this.rejectReason = ''
+    this.shippingCarrier = '顺丰'; this.shippingOtherCarrier = ''; this.shippingTrackingNo = ''; this.shippingOrderId = ''
     this.resolutionGeneration = this.pageGeneration
     this.resolutionQuery = this.loadRequestId
     this.resolutionToken = this.sessionToken
@@ -444,6 +451,7 @@ export struct FamilyView {
     const reason: string = this.rejectReason.trim()
     if (!reason) { this.safeToast('请填写拒绝原因'); return }
     if (reason.length > 200) { this.safeToast('拒绝原因最多填写200字'); return }
+    if (!this.shippingInput()) return
     await this.resolveCancellation(current.id, 'reject-and-ship', false, reason)
   }
 
@@ -459,7 +467,9 @@ export struct FamilyView {
     try {
       if (resume) await cancelActions.recover(orderId, token)
       else {
-        const intent: CancelActionIntent = { orderId, cancelRequestId, action, reason }
+        const intent: CancelActionIntent = { orderId, cancelRequestId, action, reason,
+          carrier: action === 'reject-and-ship' ? (this.shippingCarrier === '其他' ? this.shippingOtherCarrier.trim() : this.shippingCarrier) : undefined,
+          trackingNo: action === 'reject-and-ship' ? this.shippingTrackingNo.trim() : undefined }
         await cancelActions.confirm(intent, token)
       }
       if (this.isCurrentQuery(query, generation, token)) {
@@ -562,9 +572,25 @@ export struct FamilyView {
   private shipOrder(order: OrderItem): void {
     const current: OrderItem | undefined = this.ordersToShip.find((item: OrderItem) => item.id === order.id)
     if (this.user.role !== 'merchant' || !current?.canShip || this.pendingCancelActions.includes(order.id) || current.orderState !== OrderState.AWAITING_SHIPMENT) return
+    this.shippingOrderId = current.id; this.shippingCarrier = '顺丰'; this.shippingOtherCarrier = ''; this.shippingTrackingNo = ''
+  }
+  private shippingInput(): ShipmentInput | null {
+    const carrier: string = this.shippingCarrier === '其他' ? this.shippingOtherCarrier.trim() : this.shippingCarrier
+    const trackingNo: string = this.shippingTrackingNo.trim()
+    if (carrier.length < 2 || carrier.length > 30) { this.safeToast('请填写2到30字的承运商名称'); return null }
+    if (!/^[A-Za-z0-9][A-Za-z0-9-]{5,39}$/.test(trackingNo)) { this.safeToast('运单号需6到40位字母、数字或短横线'); return null }
+    return { carrier, trackingNo }
+  }
+  private async submitShipment(): Promise<void> {
+    if (!this.canManageFamily() || this.user.role !== 'merchant') return
+    const current: OrderItem | undefined = this.ordersToShip.find(item => item.id === this.shippingOrderId)
+    if (!current?.canShip || current.orderState !== OrderState.AWAITING_SHIPMENT || this.pendingCancelActions.includes(current.id)) return
+    const data: ShipmentInput | null = this.shippingInput()
+    if (!data) return
     const orderId: string = current.id
-    this.submitThenRefresh(async (token: string): Promise<void> => {
-      await shipOrderAPI(orderId, token)
+    await this.submitThenRefresh(async (token: string): Promise<void> => {
+      await shipOrderAPI(orderId, token, data)
+      if (token === this.sessionToken) this.shippingOrderId = ''
     }, '已发货')
   }
   private confirmFamilyReceipt(order: OrderItem): void {
@@ -676,6 +702,19 @@ export struct FamilyView {
   }
 
   @Builder
+  private ShipmentFields() {
+    Column({ space: 8 }) {
+      Text('承运商').fontSize(14).fontColor($r('[ui_components].color.text'))
+      Select([{ value: '顺丰' }, { value: '中通' }, { value: '圆通' }, { value: '申通' }, { value: '韵达' }, { value: '京东物流' }, { value: '邮政EMS' }, { value: '其他' }])
+        .value(this.shippingCarrier).id('shipping-carrier').enabled(!this.isSubmitting && !this.loading)
+        .onSelect((_index: number, value: string) => { this.shippingCarrier = value })
+      if (this.shippingCarrier === '其他') {
+        TextInput({ text: $$this.shippingOtherCarrier, placeholder: '承运商名称' }).maxLength(30).id('shipping-other-carrier').enabled(!this.isSubmitting && !this.loading)
+      }
+      TextInput({ text: $$this.shippingTrackingNo, placeholder: '运单号（6到40位）' }).maxLength(40).id('shipping-tracking-number').enabled(!this.isSubmitting && !this.loading)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+  @Builder
   private CancelResolutionSheet() {
     Column({ space: 12 }) {
       Text(this.pendingCancelActions.includes(this.resolvingOrder?.id || '') ? '正在核对取消结果' :
@@ -685,6 +724,7 @@ export struct FamilyView {
       Text('拒绝并发货：提交后订单将进入待收货').fontSize(14)
       TextArea({ placeholder: '请填写拒绝原因（最多200字）', text: $$this.rejectReason })
         .height(100).enabled(!this.isSubmitting && !this.loading)
+      this.ShipmentFields()
       Button('拒绝并发货').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.isSubmitting && !this.loading)
         .onClick(() => this.rejectCancellation())
       Button('关闭').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.isSubmitting).onClick(() => this.closeCancelResolution())
@@ -781,9 +821,14 @@ export struct FamilyView {
           .enabled(this.canManageFamily() && !this.pendingCancelActions.includes(order.id))
           .onClick(() => this.openCancelResolution(order))
       } else if (order.canShip) {
-        Button('确认发货').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
-          .enabled(this.canManageFamily() && !this.pendingCancelActions.includes(order.id))
-          .onClick(() => this.shipOrder(order))
+        if (this.shippingOrderId === order.id) {
+          this.ShipmentFields()
+          Button('提交发货').id('shipping-submit').backgroundColor($r('[ui_components].color.red')).fontColor(Color.White).enabled(this.canManageFamily()).onClick(() => this.submitShipment())
+        } else {
+          Button('确认发货').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') })
+            .enabled(this.canManageFamily() && !this.pendingCancelActions.includes(order.id))
+            .onClick(() => this.shipOrder(order))
+        }
       }
       Button('查看订单详情').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
         .onClick(() => this.stackPath.pushPath({ name: 'MerchantOrderView', param: order.id }))

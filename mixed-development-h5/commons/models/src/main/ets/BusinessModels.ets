@@ -231,6 +231,11 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  shippedAt?: number | null
+  signedAt?: number | null
+  receivedAt?: number | null
+  logistics?: OrderLogistics | null
+  channelTransactionId?: string | null
   invoice?: InvoiceDetail | null
   afterSales?: AfterSale[]
   canApplyAfterSale?: boolean
@@ -314,6 +319,8 @@ export interface CancelActionIntent {
   cancelRequestId: string
   action: 'request' | 'withdraw' | 'approve' | 'reject-and-ship'
   reason: string
+  carrier?: string
+  trackingNo?: string
 }
 
 export interface PendingCancelAction extends CancelActionIntent {
@@ -338,7 +345,12 @@ export interface OrderRefund {
   paidAt: number | null
   state: string
   reason: string
+  channelRefundId?: string | null
 }
+
+export interface ShipmentInput { carrier: string; trackingNo: string }
+export interface LogisticsEvent { id: string; state: string; occurredAt: number; description: string }
+export interface OrderLogistics { orderId: string; carrier: string; trackingNo: string; source: string; state: string; created: number; events: LogisticsEvent[] }
 
 export interface PaymentStartResult {
   id: string

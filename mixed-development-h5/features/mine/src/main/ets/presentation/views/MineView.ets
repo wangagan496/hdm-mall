@@ -216,6 +216,8 @@ export struct MineView {
           })
 
           if (this.user.role === 'merchant') {
+            Button('对账').id('merchant-reconciliation-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+              .onClick(() => this.stackPath.pushPath({ name: 'ReconciliationView' }))
             Button('客服留言').id('merchant-service-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.openService())
             Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
               .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))

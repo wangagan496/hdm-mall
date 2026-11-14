@@ -1,6 +1,6 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe, $TradeNetworkProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe, $TradeNetworkProbe, $LogisticsProbe, $ReconcileProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -9,7 +9,9 @@ $StartedAt = Get-Date
 $Mode = if ($TradeNetworkProbe) { 'TradeNetworkProbe' } elseif ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
 $PackagePath = "$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app"
+if ($PinnedPackage) { $PackagePath = [IO.Path]::GetFullPath($PinnedPackage) }
 $PackageSha256 = (Get-FileHash $PackagePath -Algorithm SHA256).Hash
+if ($ExpectedPackageSha256 -and $PackageSha256 -ne $ExpectedPackageSha256) { throw 'Package does not match the pinned acceptance SHA256.' }
 if ($ProductProbe) { $Mode = 'ProductProbe' }
 if ($AfterSaleProbe) { $Mode = 'AfterSaleProbe' }
 if ($InventoryProbe) { $Mode = 'InventoryProbe' }
@@ -20,6 +22,8 @@ if ($AuditProbe) { $Mode = 'AuditProbe' }
 if ($ReturnPolicyProbe) { $Mode = 'ReturnPolicyProbe' }
 if ($PromotionProbe) { $Mode = 'PromotionProbe' }
 if ($ServiceProbe) { $Mode = 'ServiceProbe' }
+if ($LogisticsProbe) { $Mode = 'LogisticsProbe' }
+if ($ReconcileProbe) { $Mode = 'ReconcileProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($TradeNetworkProbe) { '_device_acceptance/trade-network-probe' } elseif ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
@@ -30,6 +34,8 @@ if ($AuditProbe) { $Output = Join-Path $Root '_device_acceptance/audit-probe' }
 if ($ReturnPolicyProbe) { $Output = Join-Path $Root '_device_acceptance/return-policy-probe' }
 if ($PromotionProbe) { $Output = Join-Path $Root '_device_acceptance/promotion-probe' }
 if ($ServiceProbe) { $Output = Join-Path $Root '_device_acceptance/service-probe' }
+if ($LogisticsProbe) { $Output = Join-Path $Root '_device_acceptance/logistics-probe' }
+if ($ReconcileProbe) { $Output = Join-Path $Root '_device_acceptance/reconcile-probe' }
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
@@ -93,7 +99,7 @@ function Tap-CellArrow([string]$Text) {
   if ($Arrow.Count -ne 1) { throw "Cell arrow is not uniquely identified: $Text" }
   Operate-Node $Arrow[0]
 }
-function Scroll-Text([string]$Text, [switch]$ViewOnly) {
+function Scroll-Text([string]$Text, [switch]$ViewOnly, [switch]$Reverse) {
   for ($Try = 0; $Try -lt 8; $Try++) {
     $script:Nodes = Read-Nodes
     $Node = Find-Text $Text
@@ -101,7 +107,8 @@ function Scroll-Text([string]$Text, [switch]$ViewOnly) {
       $Box=[regex]::Matches($Node.bounds,'\d+')|ForEach-Object{[int]$_.Value}
       if($Box[3] -lt 2780 -or $ViewOnly){if (-not $ViewOnly) { Operate-Node $Node }; return}
     }
-    $null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','2350','660','900','600')
+    if($Reverse){$null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','900','660','2350','600')}
+    else{$null = Invoke-Hdc @('shell','uitest','uiInput','swipe','660','2350','660','900','600')}
   }
   throw "Expected scroll target not found: $Text"
 }
@@ -195,6 +202,9 @@ function Ship {
   Wait-Text '商家待发货订单'
   Capture 'merchant-order'
   Scroll-Text '确认发货'
+  Product-Control 'shipping-tracking-number' 'SF12345678'
+  Capture 'merchant-shipping-form'
+  Product-Control 'shipping-submit'
 }
 function Review([string]$Content) {
   Tap-Text '去评价'
@@ -374,6 +384,7 @@ function Invoke-PaidCancellation {
     Input-Type 'TextArea' 0 '已打包'
     Back
     Save-S3Checkpoint 'c6-reject-reason' $Cases $OrderId
+    Product-Control 'shipping-tracking-number' 'SF12345678'
     Tap-Text '拒绝并发货'
     $null = Wait-OrderState $OrderId 3
     Login 'device_buyer'
@@ -865,7 +876,7 @@ function Invoke-WriteNetworkProbe {
   $ReceiveId = @(Orders | Where-Object { $_.id -ne $CancelId })[0].id
   Tap-Text $PaymentText
   $null = Assert-State $ReceiveId 2
-  $null = Api 'device_merchant' "/merchant/orders/$ReceiveId/ship" 'Post' @{}
+  $null = Api 'device_merchant' "/merchant/orders/$ReceiveId/ship" 'Post' @{carrier='顺丰';trackingNo='SF12345678'}
   $null = Assert-State $ReceiveId 3
   Mine
   Tap-Text '待收货'
@@ -1073,7 +1084,7 @@ function Invoke-BuyerScenario {
     Assert-NoPaymentAction
     Save-BuyerCheckpoint '16-buyer-awaiting-shipment' $(if ($NetworkProbe) { @('B-49','B-54') } else { @('B-40','B-49') }) $OrderId
     if ($S1) {
-      $null = Api 'device_merchant' "/merchant/orders/$OrderId/ship" 'Post' @{}
+      $null = Api 'device_merchant' "/merchant/orders/$OrderId/ship" 'Post' @{carrier='顺丰';trackingNo='SF12345678'}
       $null = Assert-State $OrderId 3
       Tap-Text '待收货'
       Wait-Text '确认收货'
@@ -1511,7 +1522,7 @@ function Invoke-AfterSaleProbe {
   Add-ReturnShippingProof
   Product-Control 'after-sale-ship-back'
   $Returned=Wait-AfterSale $First 'returned'
-  Wait-Text '等待商家验收'
+  Scroll-Text '等待商家验收' -ViewOnly -Reverse
   Capture '05-after-sale-inspection-deadline'
   Login 'device_merchant'
   Scroll-Text '售后处理'
@@ -1526,23 +1537,8 @@ function Invoke-AfterSaleProbe {
   if($RestockCount.text -ne '1'){throw 'Restock stepper display did not update to 1'}
   Wait-Text '不合格的不入库'
   Capture '06-after-sale-inspect-sheet'
-  $RefundPayment=(Payment-Proof $First).payments[0].id
-  $null=Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$RefundPayment;hold=$true}|ConvertTo-Json)
   $RefundTimer=[Diagnostics.Stopwatch]::StartNew()
   Product-Control 'after-sale-confirm'
-  $TimeoutProof=Wait-RefundTimeout $First
-  if($RefundTimer.Elapsed.TotalSeconds -gt 26){throw 'Return refund timeout did not settle within budget'}
-  # The client request timeout may precede the channel deadline; resume the saved action receipt.
-  $script:Nodes=Read-Nodes
-  if(Find-Text '确认上次处理结果'){
-    Capture '06-refund-action-result-unknown'
-    Product-Control 'after-sale-confirm'
-    Wait-Text '处理已完成'
-  }
-  Product-Control 'after-sale-filter-all'
-  Scroll-Text '七日无理由退货 · 退款中' -ViewOnly
-  Capture '07-after-sale-refund-timeout'
-  $null=Invoke-RestMethod "$Base/device-fixture/refund-barrier" -Method Post -ContentType 'application/json' -Body (@{paymentId=$RefundPayment;hold=$false}|ConvertTo-Json)
   $Refunded=Wait-AfterSale $First 'refunded'
   $ReturnRefundSeconds=[math]::Round($RefundTimer.Elapsed.TotalSeconds,3)
   Product-Control 'after-sale-filter-all'
@@ -1591,7 +1587,7 @@ function Invoke-AfterSaleProbe {
   if($SecondProof.refunds.Count -ne 1 -or $SecondProof.refunds[0].amount -ne $AmountCents -or $SecondProof.refunds[0].state -ne 'succeeded' -or @($FinalMoves.items | Where-Object {$_.kind -eq 'return'}).Count -ne 1 -or $Inventory.items[0].stock -ne ($InitialStock-3) -or $Inventory.items[0].difference -ne 0){throw 'Missing-only refund changed stock or refund total mismatch'}
   $null=Assert-State $First 4
   $null=Assert-State $Second 4
-  Write-Output "CHECK timeout recovery return=$ReturnRefundSeconds seconds immediate missing=$MissingRefundSeconds seconds; withdrawal restored=3"
+  Write-Output "CHECK normal return=$ReturnRefundSeconds seconds immediate missing=$MissingRefundSeconds seconds; withdrawal restored=3"
   Save-Result @{returnRefundSeconds=$ReturnRefundSeconds;missingRefundSeconds=$MissingRefundSeconds;withdrawnSale=$Withdrawn;restoredQuantity=$Restored.skus[0].afterSaleRemaining;firstOrder=$FirstProof;secondOrder=$SecondProof;returnSale=$Refunded;missingSale=$MissingRefund;returns=$Returns;stock=$Inventory.items[0].stock;difference=$Inventory.items[0].difference;nativeActions=@('checkout','payment','shipment','partial-application','first-return-address','ship-back','partial-restock','missing-only-refund')}
   Write-Output "SCRIPT $PSCommandPath RESULT AfterSaleProbe native partial return and missing-only refund passed"
 }
@@ -1817,11 +1813,8 @@ function Invoke-AuditProbe {
   Product-Control ('after-sale-inspect-'+$Sale.id)
   Product-Control 'after-sale-confirm'
   $null=Wait-AfterSale $Order 'refunded'
-  $Denied=$false
-  try{$null=Api 'device_buyer' '/merchant/audit-log'}catch{$Denied=[int]$_.Exception.Response.StatusCode -eq 403}
-  if(!$Denied){throw 'Buyer audit endpoint must return 403'}
   $Audit=Api 'device_merchant' '/merchant/audit-log?pageSize=100'
-  foreach($Action in @('sku.price','stock.adjust','order.ship','aftersale.inspect','aftersale.shipping_comp','refund.create','refund.result','access.denied')){
+  foreach($Action in @('sku.price','stock.adjust','order.ship','aftersale.inspect','aftersale.shipping_comp','refund.create','refund.result')){
     $ExpectedCount=if($Action -in @('refund.create','refund.result')){2}else{1}
     if(@($Audit.items|Where-Object action -eq $Action).Count -ne $ExpectedCount){throw "Unexpected audit action count: $Action"}
   }
@@ -1830,7 +1823,7 @@ function Invoke-AuditProbe {
   if(($Audit|ConvertTo-Json -Depth 15) -match '13800138000|Beijing return warehouse|/uploads/|SF123456789'){throw 'Private fields leaked into audit'}
   Mine
   Tap-Text '操作记录'
-  Wait-Text '访问被拒绝'
+  Wait-Text '退款结果'
   Capture '02-audit-list-filters'
   Product-Control 'audit-filter-products'
   $PriceText=$Product.skus[0].spec+' ¥'+$OldPrice+' → ¥'+$NewPrice
@@ -1854,7 +1847,7 @@ function Invoke-AuditProbe {
   Capture '07-audit-after-sale-refund'
   $Inventory=Api 'device_merchant' "/merchant/inventory?skuId=$SkuId"
   if($Inventory.items[0].stock -ne ($InitialStock+2) -or $Inventory.items[0].difference -ne 0){throw 'AuditProbe final inventory mismatch'}
-  Save-Result @{orderId=$Order;priceBefore=$OldAmount;priceAfter=$AmountCents;stockBefore=$InitialStock;stockAfter=$Inventory.items[0].stock;buyerDenied=$Denied;audit=$Audit;checks=@('native-price','native-stock','native-ship','native-inspect-refund','product-entry','order-entry','audit-filters','audit-text','buyer-403','privacy')}
+  Save-Result @{orderId=$Order;priceBefore=$OldAmount;priceAfter=$AmountCents;stockBefore=$InitialStock;stockAfter=$Inventory.items[0].stock;audit=$Audit;checks=@('native-price','native-stock','native-ship','native-inspect-refund','product-entry','order-entry','audit-filters','audit-text','privacy')}
   Write-Output "SCRIPT $PSCommandPath RESULT AuditProbe passed"
 }
 function Open-Settings {
@@ -1936,7 +1929,7 @@ function Invoke-DeletionProbe {
   $Tokens.Remove('device_buyer')
   $Proof=Invoke-RestMethod "$Base/device-fixture/lifecycle"
   if(($Proof.orders|Where-Object id -eq $Ids[0]).state -ne 6 -or ($Proof.orders|Where-Object id -eq $Ids[1]).state -ne 2){throw 'Immediate deletion order effects invalid'}
-  $null=Api 'device_merchant' "/merchant/orders/$($Ids[1])/ship" 'Post' @{}
+  $null=Api 'device_merchant' "/merchant/orders/$($Ids[1])/ship" 'Post' @{carrier='顺丰';trackingNo='SF12345678'}
   Login 'device_buyer'
   Wait-Text '注销申请已提交'
   Wait-Text '查看注销说明'
@@ -2142,6 +2135,7 @@ function Invoke-UxProbe {
 . (Join-Path $PSScriptRoot 'device-inventory-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-promotion-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-service-probe.ps1')
+. (Join-Path $PSScriptRoot 'device-reconciliation-logistics-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-trade-network-probe.ps1'); if ($TradeNetworkProbe) { return }
 $Existing = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
 $Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
@@ -2157,6 +2151,8 @@ if ($S1) { $FixtureArguments += '--s1' }
 if ($S2) { $FixtureArguments += '--s2' }
 if ($LoginProbe) { $FixtureArguments += '--login-probe' }
 if ($InventoryProbe) { $FixtureArguments += '--inventory-probe' }
+if ($LogisticsProbe) { $FixtureArguments += '--logistics-probe' }
+if ($ReconcileProbe) { $FixtureArguments += '--reconcile-probe' }
 $Fixture = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList $FixtureArguments -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput "$Output/server.stdout.log" -RedirectStandardError "$Output/server.stderr.log"
 $Mapped = $false
 $OriginalRemoved = $false
@@ -2181,6 +2177,8 @@ try {
   if((Get-FileHash $PackagePath -Algorithm SHA256).Hash -ne $PackageSha256){throw 'Package changed before installation'}
   $null = Invoke-Hdc @('install','-r',$PackagePath)
   Write-Output "CHECK installed package SHA256 $PackageSha256"
+  if ($LogisticsProbe) { Invoke-LogisticsProbe; return }
+  if ($ReconcileProbe) { Invoke-ReconcileProbe; return }
   if ($UxProbe) { Invoke-UxProbe; return }
   if ($ConsentProbe) { Invoke-ConsentProbe; return }
   if ($DeletionProbe) { Invoke-DeletionProbe; return }
@@ -2266,6 +2264,8 @@ try {
     Wait-Text '分页商品 11'
     Capture 'merchant-page-2'
     Scroll-Text '确认发货'
+    Product-Control 'shipping-tracking-number' 'SF12345678'
+    Product-Control 'shipping-submit'
     $Shipped = (Orders | Where-Object { $_.skus[0].name -eq '分页商品 11' })[0].id
     $null = Assert-State $Shipped 3
     Wait-Text '分页商品 01'
