@@ -1,6 +1,10 @@
 import { isIP } from 'node:net'
 import { z } from 'zod'
 import type { PaymentChannel } from './payment-channel.ts'
+import { readFileSync } from 'node:fs'
+import { AlipayChannel } from './alipay-channel.ts'
+import { KdniaoChannel } from './kdniao-channel.ts'
+import { MockLogisticsChannel, type LogisticsChannel } from './logistics.ts'
 
 export interface RuntimeOptions {
   publicUrl: string
@@ -12,6 +16,7 @@ export interface RuntimeOptions {
   trustedProxies?: string[]
   paymentChannel?: PaymentChannel | null
   paymentCallbackSecret?: string
+  logisticsChannel?: LogisticsChannel
 }
 
 function originUrl(value: string, field: string): URL {
@@ -41,6 +46,7 @@ export function validateRuntimeOptions(options: RuntimeOptions): void {
   }
   const publicUrl = originUrl(options.publicUrl, 'PUBLIC_URL')
   if (options.production && options.mockPayments) throw new Error('正式环境禁止启用模拟支付')
+  if (options.production && options.paymentChannel?.mode === 'alipay-sandbox') throw new Error('正式环境禁止启用支付宝沙箱')
   if (options.production && options.paymentChannel && !options.paymentCallbackSecret) throw new Error('正式环境配置支付渠道时必须设置 PAYMENT_CALLBACK_SECRET')
   if (options.production && (publicUrl.protocol !== 'https:' || localHostname(publicUrl.hostname))) {
     throw new Error('正式环境 PUBLIC_URL 必须使用非本机、非模拟器的 HTTPS 地址')
@@ -66,6 +72,12 @@ export function validateRuntimeOptions(options: RuntimeOptions): void {
 }
 
 export function readConfig(source: Record<string, string | undefined>) {
+  const paymentMode = source.PAYMENT_CHANNEL
+  const logisticsMode = source.LOGISTICS_CHANNEL
+  if (paymentMode && !['mock', 'alipay-sandbox'].includes(paymentMode)) throw new Error('PAYMENT_CHANNEL 只支持 mock 或 alipay-sandbox')
+  if (logisticsMode && !['mock', 'kdniao'].includes(logisticsMode)) throw new Error('LOGISTICS_CHANNEL 只支持 mock 或 kdniao')
+  if (source.NODE_ENV === 'production' && paymentMode === 'alipay-sandbox') throw new Error('正式环境禁止启用支付宝沙箱')
+  if (paymentMode === 'alipay-sandbox' && source.MOCK_PAYMENTS === 'true') throw new Error('支付宝沙箱不能同时开启 MOCK_PAYMENTS')
   const env = z.object({
     HOST: z.string().min(1).default('127.0.0.1'), PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     DATABASE_PATH: z.string().min(1).default('./data/mall.sqlite'), UPLOADS_PATH: z.string().min(1).default('./data/uploads'),
@@ -78,9 +90,12 @@ export function readConfig(source: Record<string, string | undefined>) {
   const split = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
   const appOptions = {
     databasePath: env.DATABASE_PATH, uploadsPath: env.UPLOADS_PATH,
-    publicUrl: env.PUBLIC_URL.replace(/\/$/, ''), mockPayments: env.MOCK_PAYMENTS === 'true', production,
+    publicUrl: env.PUBLIC_URL.replace(/\/$/, ''), mockPayments: paymentMode ? paymentMode === 'mock' : env.MOCK_PAYMENTS === 'true', production,
     corsOrigins: split(env.CORS_ORIGINS ?? (production ? '' : 'http://localhost:5173,http://127.0.0.1:5173')),
-    trustedProxies: split(env.TRUSTED_PROXIES), logger: true, paymentCallbackSecret: source.PAYMENT_CALLBACK_SECRET
+    trustedProxies: split(env.TRUSTED_PROXIES), logger: true, paymentCallbackSecret: source.PAYMENT_CALLBACK_SECRET,
+    ...(paymentMode === 'alipay-sandbox' ? { paymentChannel: sandboxChannel(source, env.PUBLIC_URL) } : {}),
+    ...(logisticsMode === 'kdniao' ? { logisticsChannel: new KdniaoChannel({ businessId: secretValue(source,'KDNIAO_BUSINESS_ID'), appKey: secretValue(source,'KDNIAO_APP_KEY') }) } : {}),
+    ...(logisticsMode === 'mock' ? { logisticsChannel: new MockLogisticsChannel() } : {})
   }
   validateRuntimeOptions(appOptions)
   if (env.MERCHANT_ACCOUNT || env.MERCHANT_PASSWORD) {
@@ -88,4 +103,26 @@ export function readConfig(source: Record<string, string | undefined>) {
     z.string().min(12).max(128).parse(env.MERCHANT_PASSWORD)
   }
   return { host: env.HOST, port: env.PORT, appOptions, merchantAccount: env.MERCHANT_ACCOUNT, merchantPassword: env.MERCHANT_PASSWORD }
+}
+
+function secretValue(source: Record<string,string|undefined>, name: string): string {
+  if (source[name] && source[name+'_FILE']) throw new Error(`${name} 与 ${name}_FILE 只能填写一个`)
+  if (source[name]?.trim()) return source[name]!.replaceAll('\\n','\n').trim()
+  if (source[name+'_FILE']) {
+    try { const value=readFileSync(source[name+'_FILE']!,'utf8').trim(); if(value) return value } catch { /* Report field name only. */ }
+    throw new Error(`${name}_FILE 无法读取有效内容`)
+  }
+  throw new Error(`缺少配置 ${name} 或 ${name}_FILE`)
+}
+function sandboxChannel(source: Record<string,string|undefined>, publicUrl: string): AlipayChannel {
+  const appId=secretValue(source,'ALIPAY_APP_ID'),sellerId=secretValue(source,'ALIPAY_SELLER_ID')
+  if(!/^\d{16}$/.test(appId)||!/^\d{16}$/.test(sellerId))throw new Error('ALIPAY_APP_ID / ALIPAY_SELLER_ID 格式不正确')
+  const returnUrl=publicUrl.replace(/\/$/,'')+'/payments/return'
+  const notifyUrl=source.ALIPAY_NOTIFY_URL?.trim()
+  if(notifyUrl){
+    let url: URL
+    try{url=new URL(notifyUrl)}catch{throw new Error('ALIPAY_NOTIFY_URL 必须是公网 HTTPS 地址')}
+    if(url.protocol!=='https:'||localHostname(url.hostname)||url.username||url.password||url.search||url.hash||url.pathname!=='/payments/alipay/notify')throw new Error('ALIPAY_NOTIFY_URL 必须是公网 HTTPS 的 /payments/alipay/notify 地址')
+  }
+  return new AlipayChannel({appId,sellerId,privateKey:secretValue(source,'ALIPAY_PRIVATE_KEY'),publicKey:secretValue(source,'ALIPAY_PUBLIC_KEY'),returnUrl,...(notifyUrl?{notifyUrl}:{})})
 }

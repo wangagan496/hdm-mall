@@ -207,7 +207,8 @@ export class Orders {
       !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
     const cancelFields = this.cancelFields(order, user, merchantShipment, paymentOnly)
     const afterSaleFields = this.afterSales?.orderFields(order.id, user)
-    if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order), skus: [], ...paymentFields, ...cancelFields }
+    if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order),
+      serverManaged: true, payMoney: order.amount / 100, skus: [], ...paymentFields, ...cancelFields }
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),

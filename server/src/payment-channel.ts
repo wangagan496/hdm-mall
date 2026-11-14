@@ -41,7 +41,10 @@ export interface PaymentPreset {
 }
 
 export interface PaymentChannel {
-  create(payment: ChannelPayment): Promise<{ accepted: boolean; callback?: PaymentCallback }> | { accepted: boolean; callback?: PaymentCallback }
+  readonly mode?: string
+  checkout?(payment: ChannelPayment): string
+  verifyNotification?(body: string): { paymentId: string; amount: number; state: 'success' | 'fail'; paidAt?: number }
+  create(payment: ChannelPayment): Promise<{ accepted: boolean; callback?: PaymentCallback; checkoutUrl?: string }> | { accepted: boolean; callback?: PaymentCallback; checkoutUrl?: string }
   query(paymentId: string): Promise<ChannelResult> | ChannelResult
   close(paymentId: string): Promise<ChannelResult> | ChannelResult
   refund(refundId: string, paymentId: string, amount: number): Promise<RefundResult> | RefundResult

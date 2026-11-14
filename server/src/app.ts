@@ -335,11 +335,13 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/payer', (req, user) => orders.invitePayer(user, key(req), z.object({ friendId: idSchema.nullable() }).parse(req.body).friendId))
   protectedRoute('POST', '/member/order/:id/payments', (req, user) => payments.start(user, key(req), z.object({ amountCents: z.number().int().positive() }).parse(req.body).amountCents))
   protectedRoute('POST', '/member/order/:id/payments/refresh', (req, user) => payments.refresh(user, key(req)))
+  protectedRoute('POST', '/member/order/:id/payments/checkout', (req, user) => payments.checkout(user, key(req)))
   protectedRoute('POST', '/member/order/:id/mock-pay', (req, user) => {
     ensure(options.mockPayments, 403, '此环境未启用模拟支付')
     return payments.mockPay(user, key(req), z.object({ amountCents: z.number().int().positive() }).parse(req.body).amountCents)
   })
   app.post('/payments/callback', async req => {
+    ensure(paymentChannel instanceof MockPaymentChannel, 404, '当前渠道不支持模拟通知')
     try {
       const data = z.object({ paymentId: idSchema, orderId: idSchema, amount: z.number().int().positive(),
         state: z.enum(['success', 'fail']), paidAt: z.number().int().optional(), signature: z.string().min(1).max(256) }).parse(req.body)
@@ -350,6 +352,18 @@ export async function buildApp(options: AppOptions) {
       throw error
     }
   })
+  app.addContentTypeParser('application/x-www-form-urlencoded', {parseAs:'string'}, (_req,body,done)=>done(null,body))
+  app.post('/payments/alipay/notify', async (req,reply) => {
+    try {
+      ensure(typeof req.body==='string',400,'支付通知格式无效')
+      await payments.channelNotification(req.body)
+      return reply.type('text/plain').send('success')
+    } catch {
+      req.log.warn({requestId:req.id},'Alipay notification rejected')
+      return reply.code(400).type('text/plain').send('failure')
+    }
+  })
+  app.get('/payments/return',async (_req,reply)=>reply.type('text/html; charset=utf-8').send('<!doctype html><html lang="zh-CN"><meta name="viewport" content="width=device-width,initial-scale=1"><title>沙箱付款</title><body><h1>沙箱测试，不会真实扣款</h1><p>请返回惠多美，点击“核对付款结果”；付款结果以服务端查询为准。</p></body></html>'))
   protectedRoute('GET', '/order-cancel-actions/by-request/:requestKey', (req, user) => orders.cancelActionReceipt(user,
     z.object({ requestKey: z.string().uuid() }).parse(req.params).requestKey))
   protectedRoute('POST', '/member/order/:id/cancel-requests', (req, user) => orders.requestCancel(user, key(req),

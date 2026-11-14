@@ -122,13 +122,14 @@ export class Payments {
       payment = this.payment(id)!
     })
     if (forceSuccess && channel instanceof MockPaymentChannel) channel.setPreset(payment!.id, { outcome: 'success', paidAt: payment!.created })
-    const result = await channel.create(this.asChannelPayment(payment!))
+    const result: Awaited<ReturnType<PaymentChannel['create']>> = await channel.create(this.asChannelPayment(payment!))
     if (!result.accepted) {
       this.db.transaction(() => this.db.run("UPDATE payments SET state='failed',next_query_at=NULL WHERE id=? AND state='pending'", payment!.id))
       throw new AppError(502, '支付渠道未受理本次支付')
     }
     if (result.callback) await this.processCallback(result.callback)
-    return { id: orderId, orderId, paymentId: payment!.id, state: this.payment(payment!.id)!.state }
+    return { id: orderId, orderId, paymentId: payment!.id, state: this.payment(payment!.id)!.state,
+      ...(result.checkoutUrl ? {checkoutUrl: result.checkoutUrl, sandbox: true} : {}) }
   }
 
   mockPay(user: User, orderId: string, expectedAmount: number) {
@@ -144,6 +145,19 @@ export class Payments {
       }
     }
     return this.start(user, orderId, expectedAmount, true)
+  }
+
+  checkout(user: User, orderId: string) {
+    const channel = this.channelRequired()
+    ensure(channel.mode === 'alipay-sandbox' && channel.checkout, 409, '当前渠道不支持续开收银台')
+    const order = this.order(orderId)
+    this.payerAllowed(user, order)
+    const payment = this.db.one<PaymentRow>("SELECT * FROM payments WHERE order_id=? AND state='pending' ORDER BY created,id LIMIT 1", orderId)
+    ensure(order.state === 1 && !order.paid_by && payment && payment.payer_id === user.id &&
+      payment.review_at === null && payment.closed_at === null && this.clock.now() < payment.grace_deadline,
+    409, '当前支付单不能继续付款，请核对付款结果')
+    return { id: orderId, orderId, paymentId: payment.id, state: payment.state, sandbox: true,
+      checkoutUrl: channel.checkout(this.asChannelPayment(payment)) }
   }
 
   signedCallback(paymentId: string, overrides: Partial<Omit<PaymentCallback, 'paymentId' | 'orderId' | 'amount' | 'signature'>> &
@@ -175,6 +189,16 @@ export class Payments {
 
   private async processCallback(callback: PaymentCallback) {
     return this.reconcile(this.clock.now(), { callback })
+  }
+
+  async channelNotification(body: string) {
+    const channel = this.channelRequired()
+    ensure(channel.verifyNotification, 404, '当前渠道不支持该通知')
+    const payload = channel.verifyNotification(body)
+    const payment = this.payment(payload.paymentId)
+    ensure(payment && payment.amount === payload.amount, 400, '支付通知订单或金额不符')
+    // 通知只是触发主动查单，沿用金额、迟到成功、宽限期和退款规则。
+    return this.processCallback({ ...payload, orderId: payment.order_id, signature: '' })
   }
 
   private async processQuery(paymentId: string, query: ChannelResult, now: number, declaredState?: PaymentCallback['state'], callback?: PaymentCallback) {
@@ -604,7 +628,12 @@ export class Payments {
           pending ? '正在确认付款结果，请勿重复付款' : payments.some(payment => payment.state === 'failed') ?
           (this.clock.now() < order.expires ? '付款未成功，未扣款。可以重新付款。' : '付款未成功，订单已超时取消，未扣款。') : ''
     const needsAttention = !!this.db.one('SELECT id FROM payment_notices WHERE order_id=? AND recipient_id=? AND viewed_at IS NULL LIMIT 1', order.id, user.id)
+    const payerAllowed = order.invited_payer ? order.invited_payer === user.id && this.accounts.bound(order.owner_id, user.id) : order.owner_id === user.id
     return { paymentState, refunds, channelTransactionId: effective?.channel_transaction_id ?? null, paymentNotice: notice, needsAttention,
+      paymentChannel: this.channel?.mode ?? (this.channel instanceof MockPaymentChannel ? 'mock' : 'unavailable'),
+      canResumePayment: this.channel?.mode === 'alipay-sandbox' && !!this.channel.checkout && order.state === 1 && !order.paid_by &&
+        !!pending && pending.state === 'pending' && pending.payer_id === user.id && payerAllowed &&
+        pending.review_at === null && pending.closed_at === null && this.clock.now() < pending.grace_deadline,
       canPay: order.state === 1 && this.clock.now() < order.expires && !pending &&
         (order.invited_payer ? order.invited_payer === user.id && this.accounts.bound(order.owner_id, user.id) : order.owner_id === user.id),
       canCancel: order.state === 1 && order.owner_id === user.id,
