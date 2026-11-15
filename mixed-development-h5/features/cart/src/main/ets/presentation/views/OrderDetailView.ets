@@ -21,6 +21,9 @@ import { RequestAxios } from 'network'
 import { InvoiceForm } from '../components/InvoiceForm'
 
 interface OrderServiceRoute { orderId: string; orderName: string; orderCreatedAt: number }
+interface LogisticsErrorBody { reason?: string }
+interface LogisticsErrorResponse { data?: LogisticsErrorBody }
+interface LogisticsRequestError extends Error { response?: LogisticsErrorResponse }
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -196,8 +199,12 @@ export struct OrderDetailView {
     try {
       await RequestAxios.getForSession<OrderLogistics | null>('/member/order/' + encodeURIComponent(orderId) + '/logistics', token)
       if (this.isCurrentDetail(generation, token, orderId)) await this.loadOrderDetail()
-    } catch {
-      if (this.isCurrentDetail(generation, token, orderId)) this.safeToast('物流读取失败，请重试')
+    } catch (error) {
+      if (this.isCurrentDetail(generation, token, orderId)) {
+        const failure = error as LogisticsRequestError
+        this.safeToast(failure.response?.data?.reason === 'LOGISTICS_PHONE_TAIL_UNAVAILABLE'
+          ? '订单收货电话须为至少4位纯数字，无法核验运单' : '物流读取失败，请重试')
+      }
     } finally { if (this.isCurrentDetail(generation, token, orderId)) this.logisticsLoading = false }
   }
   @State displayedOrderState: number = 0 // 页面当前显示的订单状态。

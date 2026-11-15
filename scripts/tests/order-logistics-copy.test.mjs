@@ -11,3 +11,8 @@ test('待收货详情明确告知暂无物流，列表入口明确为查看订�
   assert.ok(!list.includes("Button('查看物流')"))
   assert.match(list, /onClick\(\(\) => this\.openOrderDetail\(order\.id\)\)/)
 })
+
+test('商家详情用订单展示字段显示实际物流签收时间', () => {
+  const merchant = sourceOf('mixed-development-h5/features/mine/src/main/ets/presentation/views/MerchantOrderView.ets')
+  assert.match(merchant, /物流签收：[^\n]+formatBeijingTime\(this\.order\.signedAt\)/)
+})

@@ -74,6 +74,9 @@ export struct MerchantOrderView {
                 Text(sku.name + ' · ' + sku.attrsText + ' × ' + sku.quantity).fontColor($r('[ui_components].color.text'))
               })
               Text('实付 ¥' + this.order.payMoney.toFixed(2)).fontColor($r('[ui_components].color.text'))
+              if (typeof this.order.signedAt === 'number') {
+                Text('物流签收：' + formatBeijingTime(this.order.signedAt)).id('merchant-order-signed-time').fontColor($r('[ui_components].color.text'))
+              }
               if (this.order.invoice) {
                 Text('开票信息 · ' + (this.order.invoice.status === 'issued' ? '已开票' : '待开票')).id('merchant-invoice-status').fontColor($r('[ui_components].color.red'))
                 Text(this.order.invoice.titleType === 'company' ? '单位抬头：' + this.order.invoice.title : '个人抬头：' + this.order.invoice.title).fontColor($r('[ui_components].color.text'))
