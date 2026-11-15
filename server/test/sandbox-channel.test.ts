@@ -71,39 +71,65 @@ test('G 退款先查询幂等结果，已成功不重复退款，10000不等于�
   })
   assert.equal(await notConfirmed.refund('refund-2',payment.id,1234),'fail')
 })
-test('G 快递鸟签名与真实报文解析，按事件时间签收、去重、复用查询',async()=>{
+test('G 快递鸟 8002 对运单和校验尾号签名，按事件时间签收、去重、复用查询',async()=>{
   let calls=0
-  const channel=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async(_url,init)=>{
+  const channel=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async(url,init)=>{
     calls++
+    assert.equal(url,'https://api.kdniao.com/api/dist')
+    assert.equal(init?.method,'POST')
     const params=new URLSearchParams(String(init?.body)),data=params.get('RequestData')!
+    assert.equal(params.get('RequestType'),'8002')
+    assert.equal(params.get('EBusinessID'),'test-business')
+    assert.equal(params.get('DataType'),'2')
+    assert.ok(data===JSON.stringify({ShipperCode:'YTO',LogisticCode:'YT12345678',CustomerName:'0427'}),'签名前的报文应包含运单和电话尾号')
     const expected=Buffer.from(createHash('md5').update(data+'local-test-value').digest('hex')).toString('base64')
     assert.equal(params.get('DataSign'),expected)
     return new Response(JSON.stringify({EBusinessID:'test-business',ShipperCode:'YTO',LogisticCode:'YT12345678',Success:true,State:'3',Traces:[
       {AcceptTime:'2026/11/14 09:00:00',AcceptStation:'已签收'},
       {AcceptTime:'2026/11/14 08:00:00',AcceptStation:'运输中'},
-      {AcceptTime:'2026/11/14 08:00:00',AcceptStation:'运输中'}]}))
+      {AcceptTime:'Sat Nov 14 08:00:00 CST 2026',AcceptStation:'运输中'}]}))
   })
   const shipment={orderId:'o1',carrier:'圆通',trackingNo:'YT12345678',source:'carrier',state:'waiting',created:now-1000}
-  const events=await channel.query(shipment)
+  const events=await channel.query(shipment,'0427')
   assert.equal(events.length,2)
   assert.equal(events[0]!.state,'transit')
+  assert.equal(events[0]!.occurredAt,now)
   assert.equal(events[1]!.state,'signed')
-  assert.deepEqual(await channel.query(shipment),events)
+  assert.deepEqual(await channel.query(shipment,'0427'),events)
   assert.equal(calls,1)
+})
+test('G 快递鸟缓存不跨订单或核验尾号复用，错误尾号不能命中缓存',async()=>{
+  let calls=0
+  const shipment={orderId:'o1',carrier:'顺丰',trackingNo:'SF12345678',source:'carrier',state:'waiting',created:now}
+  const channel=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async()=>{
+    calls++
+    return new Response(JSON.stringify({EBusinessID:'test-business',ShipperCode:'SF',LogisticCode:shipment.trackingNo,Success:true,State:'0',Traces:[]}))
+  })
+  await channel.query(shipment,'0427')
+  await assert.rejects(()=>channel.query(shipment,''),/需要四位收货电话尾号/)
+  assert.equal(calls,1)
+  await channel.query(shipment,'8976')
+  await channel.query({...shipment,orderId:'o2'},'0427')
+  assert.equal(calls,3)
 })
 test('G 快递查询错单与网络错误不能制造签收',async()=>{
   const shipment={orderId:'o1',carrier:'圆通',trackingNo:'YT12345678',source:'carrier',state:'waiting',created:now}
   const offline=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async()=>{throw new Error('sensitive upstream')})
-  await assert.rejects(()=>offline.query(shipment),/物流查询暂时不可用/)
-  const wrong=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async()=>new Response(JSON.stringify({Success:true,LogisticCode:'other',State:3,Traces:[]})))
-  await assert.rejects(()=>wrong.query(shipment))
+  await assert.rejects(()=>offline.query(shipment,'0427'),/物流查询暂时不可用/)
+  const valid={EBusinessID:'test-business',ShipperCode:'YTO',LogisticCode:shipment.trackingNo,Success:true,State:'3',Traces:[{AcceptTime:'2026-11-14 08:00:00',AcceptStation:'已签收'}]}
+  for (const override of [{EBusinessID:'other'},{ShipperCode:'STO'},{LogisticCode:'YT98765432'},{Success:false},{Traces:[{AcceptTime:'Fri Feb 30 08:00:00 CST 2026',AcceptStation:'已签收'}]}]) {
+    const wrong=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async()=>new Response(JSON.stringify({...valid,...override})))
+    await assert.rejects(()=>wrong.query(shipment,'0427'),/物流查询暂时不可用/)
+  }
+  const forwarded=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async()=>new Response(JSON.stringify({...valid,State:'5'})))
+  assert.equal((await forwarded.query(shipment,'0427'))[0]!.state,'transit')
   for (const [name,code] of [['京东物流','JD'],['邮政EMS','EMS']]) {
     const mapped=new KdniaoChannel({businessId:'test-business',appKey:'local-test-value'},async(_url,init)=>{
       const request=JSON.parse(new URLSearchParams(String(init?.body)).get('RequestData')!)
       assert.equal(request.ShipperCode,code)
       return new Response(JSON.stringify({EBusinessID:'test-business',ShipperCode:code,LogisticCode:shipment.trackingNo,Success:true,State:'0',Traces:[]}))
     })
-    assert.deepEqual(await mapped.query({...shipment,carrier:name!}),[])
+    assert.deepEqual(await mapped.query({...shipment,carrier:name!},'0427'),[])
   }
 })
 test('G 配置缺失只报告字段，拒绝正式环境沙箱和未知渠道，mock保持兼容',()=>{

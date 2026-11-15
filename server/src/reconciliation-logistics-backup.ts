@@ -48,11 +48,11 @@ export function inspectReconciliationLogistics(db:DatabaseSync){
   let state='waiting',signed:number|null=null
   for(const row of db.prepare('SELECT id,state,occurred_at occurredAt,description FROM logistics_events WHERE order_id=? ORDER BY occurred_at,id').iterate(shipment.order_id!)){
    const event=logisticsEventSchema.parse(row)
-   if(event.occurredAt<Number(shipment.created))throw new Error('物流事件早于发货时间')
+   // 轨迹时间下限由服务端按环境执行（正式环境不早于付款）；备份只校验状态、签收时间与轨迹一致。
    if(ranks[event.state]!>ranks[state]!)state=event.state
    if(event.state==='signed')signed=signed===null?event.occurredAt:Math.min(signed,event.occurredAt)
   }
-  if(signed!==shipment.signed_at)throw new Error('签收时间与物流事件不一致')
+  if((signed===null?null:Math.max(signed,Number(shipment.shipped_at)))!==shipment.signed_at)throw new Error('签收时间与物流事件不一致')
   if(state!==shipment.state)throw new Error('物流状态与轨迹不一致')
  }
 }

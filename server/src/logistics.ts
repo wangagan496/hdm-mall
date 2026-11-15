@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { Database } from './database.ts'
 import type { Clock } from './clock.ts'
 import type { User } from './accounts.ts'
-import { ensure } from './errors.ts'
+import { AppError, ensure } from './errors.ts'
 
 export const shipmentSchema = z.object({ carrier:z.string().trim().min(2).max(30).regex(/^[\p{L}\p{N} .-]+$/u),
   trackingNo:z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9-]{5,39}$/) })
@@ -10,8 +10,11 @@ export const logisticsEventSchema = z.object({id:z.string().min(1).max(120),stat
   occurredAt:z.number().int().nonnegative().safe(),description:z.string().trim().min(1).max(200)}).strict()
 export type LogisticsEvent = z.infer<typeof logisticsEventSchema>
 export interface Shipment {orderId:string;carrier:string;trackingNo:string;source:string;state:string;created:number}
-export interface LogisticsChannel { readonly source?: 'carrier'; query(shipment:Shipment):Promise<LogisticsEvent[]>|LogisticsEvent[] }
-export class MockLogisticsChannel implements LogisticsChannel {
+type LogisticsQueryResult = Promise<LogisticsEvent[]>|LogisticsEvent[]
+export interface CarrierLogisticsChannel { readonly source:'carrier'; query(shipment:Shipment,recipientPhoneTail:string):LogisticsQueryResult }
+interface LocalLogisticsChannel { readonly source?:undefined; query(shipment:Shipment):LogisticsQueryResult }
+export type LogisticsChannel = CarrierLogisticsChannel|LocalLogisticsChannel
+export class MockLogisticsChannel implements LocalLogisticsChannel {
   private events = new Map<string,LogisticsEvent[]>()
   push(id:string,events:LogisticsEvent[]) { this.events.set(id,events.map(event=>structuredClone(event))) }
   query(shipment:Shipment) { return this.events.get(shipment.orderId) ?? [] }
@@ -33,7 +36,10 @@ export class Logistics {
   private clock:Clock
   private channel?:LogisticsChannel
   private canRead:(user:User,id:string)=>boolean
-  constructor(db:Database,clock:Clock,channel:LogisticsChannel|undefined,canRead:(user:User,id:string)=>boolean) { this.db=db;this.clock=clock;this.channel=channel;this.canRead=canRead }
+  private requireAfterPayment:boolean
+  constructor(db:Database,clock:Clock,channel:LogisticsChannel|undefined,canRead:(user:User,id:string)=>boolean,options:{requireAfterPayment?:boolean}={}) {
+    this.db=db;this.clock=clock;this.channel=channel;this.canRead=canRead;this.requireAfterPayment=options.requireAfterPayment??false
+  }
   async read(user:User,id:string) {
     ensure(this.db.one('SELECT id FROM orders WHERE id=?',id),404,'订单不存在')
     // 与订单详情同一权限：下单人、付款人、仍绑定的代收亲友、实际收货人和商家。
@@ -43,9 +49,15 @@ export class Logistics {
   }
   private async refresh(id:string) {
     const shipment=shipmentDetail(this.db,id)
-    if (!shipment||!this.channel) return
-    const events=z.array(logisticsEventSchema).max(200).parse(await this.channel.query(shipment))
-    ensure(events.every(event=>event.occurredAt>=shipment.created&&event.occurredAt<=this.clock.now()),400,'物流事件时间不在有效范围内')
+    const channel=this.channel
+    if (!shipment||!channel) return
+    const result=await (channel.source==='carrier' ? channel.query(shipment,this.recipientPhoneTail(id)) : channel.query(shipment))
+    const events=z.array(logisticsEventSchema).max(200).parse(result)
+    // 快递员常在商家录入运单前就已揽收，下限取订单付款时间而不是运单登记时间。
+    // 正式环境拒绝早于付款的轨迹（防止填错单号显示别人的旧包裹）；演示和沙箱环境放行，便于用已有包裹的真实单号演示。
+    const order=this.db.one<{paid_at:number|null;created:number}>('SELECT paid_at,created FROM orders WHERE id=?',id)!
+    const earliest=this.requireAfterPayment?(order.paid_at??order.created):0
+    ensure(events.every(event=>event.occurredAt>=earliest&&event.occurredAt<=this.clock.now()),400,'物流事件时间不在有效范围内')
     this.db.transaction(()=>{
       let state=this.db.one<{state:string}>('SELECT state FROM shipments WHERE order_id=?',id)!.state
       for (const event of events.sort((a,b)=>a.occurredAt-b.occurredAt||a.id.localeCompare(b.id))) {
@@ -55,10 +67,20 @@ export class Logistics {
         if(ranks[event.state]!>ranks[state]!) state=event.state
       }
       this.db.run('UPDATE shipments SET state=? WHERE order_id=?',state,id)
-      if(this.channel?.source === 'carrier') this.db.run("UPDATE shipments SET source='carrier' WHERE order_id=?",id)
+      if(channel.source === 'carrier') this.db.run("UPDATE shipments SET source='carrier' WHERE order_id=?",id)
       const signed=this.db.one<{at:number|null}>("SELECT MIN(occurred_at) at FROM logistics_events WHERE order_id=? AND state='signed'",id)!.at
-      if(signed!==null)this.db.run('UPDATE orders SET signed_at=? WHERE id=?',signed,id)
+      // orders.signed_at 不得早于发货时间（迁移 018 的约束）；签收早于商家录入运单时按发货时间记。
+      if(signed!==null)this.db.run('UPDATE orders SET signed_at=MAX(?,COALESCE(shipped_at,?)) WHERE id=?',signed,signed,id)
     })
+  }
+  private recipientPhoneTail(id:string) {
+    const contact=this.db.one<{contact:string|null}>(`SELECT CASE WHEN json_valid(address) THEN
+      CASE WHEN json_type(address,'$.contact')='text' THEN json_extract(address,'$.contact') END
+      END contact FROM orders WHERE id=?`,id)?.contact
+    if (typeof contact !== 'string' || !/^\d{4,}$/.test(contact)) {
+      throw new AppError(400, '订单收货电话须为至少4位纯数字，无法核验运单', 'LOGISTICS_PHONE_TAIL_UNAVAILABLE')
+    }
+    return contact.slice(-4)
   }
   async pushMock(id:string,input:unknown) {
     ensure(this.channel instanceof MockLogisticsChannel,403,'当前环境未启用模拟物流')

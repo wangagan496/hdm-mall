@@ -209,11 +209,13 @@ export class Orders {
     const afterSaleFields = this.afterSales?.orderFields(order.id, user)
     if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order),
       serverManaged: true, payMoney: order.amount / 100, skus: [], ...paymentFields, ...cancelFields }
+    const logistics = shipmentDetail(this.db, order.id)
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
       paymentMode: this.paymentMode(order),
-      receivedAt: order.received_at, shippedAt: order.shipped_at, signedAt: order.signed_at, logistics:shipmentDetail(this.db,order.id), serverManaged: true,
+      receivedAt: order.received_at, shippedAt: order.shipped_at,
+      signedAt: logistics?.events.find(event => event.state === 'signed')?.occurredAt ?? null, logistics, serverManaged: true,
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
       canEvaluate: isOrderOwner && (order.state === ORDER_STATE.AWAITING_REVIEW || Boolean(hiddenReason)),

@@ -54,7 +54,7 @@ export async function buildApp(options: AppOptions) {
   const payments = new Payments(db, accounts, paymentChannel, paymentCallbackSecret, clock)
   const reconciliation = new Reconciliation(db, clock, paymentChannel)
   const logistics = new Logistics(db,clock,options.logisticsChannel??(options.mockPayments||options.testMode?new MockLogisticsChannel():undefined),
-    (user,id) => orders.readable(user,id))
+    (user,id) => orders.readable(user,id), { requireAfterPayment: Boolean(options.production) })
   const lifecycle = new AccountLifecycle(db, accounts, clock, options.uploadsPath)
   const service = new ServiceMessages(db, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
