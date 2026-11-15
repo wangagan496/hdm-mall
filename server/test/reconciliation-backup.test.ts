@@ -72,3 +72,21 @@ test('D18 真实v17数据库恢复后迁移018保留历史付款和发货，未�
   }
  }finally{await f.close()}
 })
+
+test('D18 揽收与签收早于商家录入运单时，备份校验仍通过且签收按发货时间记',async()=>{
+ const f=await serviceFixture(true)
+ try{
+  const id=(await f.create()).body.result.id
+  await f.call('POST',`/member/order/${id}/payments`,{amountCents:1000})
+  const paidAt=f.ctx.clock.now()
+  f.advance(60_000)
+  await f.call('POST',`/merchant/orders/${id}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)
+  const shippedAt=f.ctx.clock.now()
+  f.advance(1000)
+  await f.ctx.logistics.pushMock(id,[{id:'collect',state:'collected',occurredAt:paidAt+10_000,description:'快递已揽收'},
+   {id:'sign',state:'signed',occurredAt:paidAt+20_000,description:'已签收'}])
+  assert.equal(f.ctx.db.one<{at:number}>('SELECT signed_at at FROM orders WHERE id=?',id)!.at,shippedAt)
+  const backup=await createBackup({databasePath:join(f.root,'data','mall.sqlite'),uploadsPath:join(f.root,'uploads'),destination:join(f.root,'backup')})
+  assert.equal((await verifyBackup(backup.root)).counts.shipments,1)
+ }finally{await f.close()}
+})

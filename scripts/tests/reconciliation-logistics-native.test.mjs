@@ -49,6 +49,22 @@ test('D18 物流刷新离页或换账号释放旧锁，迟到结果不干扰新�
  assert.equal(page.logisticsLoading,true)
 })
 
+test('D18 电话尾号无法核验时明确说明原因，临时错误仍提示重试',async()=>{
+ const toasts=[]
+ let error={response:{data:{reason:'LOGISTICS_PHONE_TAIL_UNAVAILABLE'}}}
+ const Page=pageMethods('mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets','OrderDetailView',{}, {
+  GlobalVariable:{}, RequestAxios:{getForSession:async()=>{throw error}}
+ })
+ const page=new Page();page.user={token:'session'};page.orderId='order';page.detailOrderId='order';page.detailToken='session';page.pageActive=true
+ page.canOperateOrder=()=>true;page.safeToast=message=>toasts.push(message)
+ await page.refreshLogistics()
+ assert.match(toasts[0],/收货电话.*至少4位.*无法核验运单/)
+ assert.doesNotMatch(toasts[0],/重试/)
+ assert.equal(page.logisticsLoading,false)
+ error=new Error('offline');await page.refreshLogistics()
+ assert.equal(toasts[1],'物流读取失败，请重试')
+})
+
 test('D18 对账初次加载期间的日期回调不使查询失效或永久锁住输入',async()=>{
  const pending=deferred()
  const Page=pageMethods(mine+'ReconciliationView.ets','ReconciliationView',{}, {

@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { serviceFixture } from './helpers/service-fixture.ts'
+import { Logistics, MockLogisticsChannel } from '../src/logistics.ts'
 
 test('D18 发货必填承运商和有效运单，发货、签收、确认收货分别记时', async () => {
   const f = await serviceFixture()
@@ -55,7 +56,8 @@ test('D18 物流同号冲突整批回滚，语义重复不重复，非法时间�
   await assert.rejects(f.ctx.logistics.pushMock(id,[{id:'new',state:'transit',occurredAt:at+500,description:'运输中'},{...first,description:'冲突内容'}]),/同一物流事件编号/)
   assert.equal(f.ctx.db.one<{n:number}>('SELECT COUNT(*) n FROM logistics_events WHERE order_id=?',id)!.n,1)
   assert.equal(f.ctx.db.one<{state:string}>('SELECT state FROM shipments WHERE order_id=?',id)!.state,'collected')
-  for(const time of [at-1,at+4000])await assert.rejects(f.ctx.logistics.pushMock(id,[{...first,id:'bad',occurredAt:time}]),/有效范围/)
+  // 未来时间在任何环境都拒绝；早于付款只在正式环境拒绝，见"揽收早于商家登记运单"一例
+  await assert.rejects(f.ctx.logistics.pushMock(id,[{...first,id:'bad',occurredAt:at+4000}]),/有效范围/)
  }finally{await f.close()}
 })
 
@@ -70,4 +72,64 @@ test('D18 发货状态与运单使用同一个时间快照，即使时钟逐次�
   const order=(await f.call('GET',`/member/order/${id}`)).body.result
   assert.equal(order.shippedAt,order.logistics.created)
  }finally{await f.close()}
+})
+
+test('D18 揽收早于商家登记运单时仍显示轨迹，早于付款的轨迹仍拒绝', async () => {
+  const f = await serviceFixture()
+  try {
+    const id = (await f.create()).body.result.id
+    await f.call('POST', `/member/order/${id}/payments`, { amountCents:1000 })
+    const paidAt = f.ctx.clock.now()
+    f.advance(60_000)
+    assert.equal((await f.call('POST',`/merchant/orders/${id}/ship`,{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
+    const shippedAt = f.ctx.clock.now()
+    f.advance(1000)
+    const pushed = await f.ctx.logistics.pushMock(id,[{id:'collected',state:'collected',occurredAt:paidAt+30_000,description:'快递已揽收'}])
+    assert.equal(pushed!.state,'collected')
+    assert.deepEqual(pushed!.events.map((event:{id:string})=>event.id),['collected'])
+    assert.ok(paidAt+30_000 < shippedAt)
+    // 非正式环境（演示、沙箱）放行早于付款的轨迹，便于用已有包裹的真实单号演示
+    const demo = await f.ctx.logistics.pushMock(id,[{id:'before-pay',state:'collected',occurredAt:paidAt-1,description:'付款前的轨迹'}])
+    assert.ok(demo!.events.some((event:{id:string})=>event.id==='before-pay'))
+    // 正式环境仍拒绝早于付款的轨迹
+    const channel = new MockLogisticsChannel()
+    const strict = new Logistics(f.ctx.db, f.ctx.clock, channel, () => true, { requireAfterPayment: true })
+    await assert.rejects(() => strict.pushMock(id,[{id:'too-early',state:'transit',occurredAt:paidAt-1,description:'付款前的轨迹'}]), /物流事件时间不在有效范围内/)
+  } finally { await f.close() }
+})
+
+test('D18 买家和商家详情展示最早真实签收时间，内部入库时间仍不早于发货', async () => {
+  const fixture = await serviceFixture()
+  try {
+    const id = (await fixture.create()).body.result.id
+    const buyerPath = '/member/order/' + id, merchantPath = '/merchant/orders/' + id
+    await fixture.call('POST', buyerPath + '/payments', { amountCents: 1000 })
+    const paymentTime = fixture.ctx.clock.now()
+    fixture.advance(60_000)
+    assert.equal((await fixture.call('POST', merchantPath + '/ship', { carrier: '圆通', trackingNo: 'TEST-SIGNED' }, fixture.merchant.token)).status, 200)
+    const shipmentTime = fixture.ctx.clock.now(), signedTime = paymentTime - 60_000
+    const deadlineBeforeSignature = (await fixture.call('GET', buyerPath)).body.result.noReasonDeadline
+    await fixture.ctx.logistics.pushMock(id, [
+      { id: 'later-signature', state: 'signed', occurredAt: signedTime + 1000, description: '签收补录' },
+      { id: 'signature', state: 'signed', occurredAt: signedTime, description: '快件已签收' }
+    ])
+    assert.equal(fixture.ctx.db.one<{ at: number }>('SELECT signed_at at FROM orders WHERE id=?', id)!.at, shipmentTime)
+    for (const detail of [await fixture.call('GET', buyerPath), await fixture.call('GET', merchantPath, undefined, fixture.merchant.token)]) {
+      assert.equal(detail.status, 200)
+      assert.equal(detail.body.result.signedAt, signedTime)
+      assert.equal(detail.body.result.shippedAt, shipmentTime)
+      assert.equal(detail.body.result.orderState, 3)
+      assert.equal(detail.body.result.receivedAt, null)
+    }
+    const buyer = (await fixture.call('GET', buyerPath)).body.result
+    assert.equal(buyer.receivedAt, null)
+    assert.equal(buyer.noReasonDeadline, deadlineBeforeSignature)
+    fixture.advance(86_400_000)
+    fixture.loginBuyer()
+    assert.equal((await fixture.call('PUT', buyerPath + '/receipt', {})).status, 200)
+    const received = (await fixture.call('GET', buyerPath)).body.result
+    assert.equal(received.receivedAt, fixture.ctx.clock.now())
+    assert.equal(received.signedAt, signedTime)
+    assert.equal(received.noReasonDeadline, Date.UTC(2026, 10, 19, 16))
+  } finally { await fixture.close() }
 })

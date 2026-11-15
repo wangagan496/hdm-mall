@@ -12,7 +12,7 @@ const config = { appId:'2026000000000001', sellerId:'2088000000000001',
   privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'}).toString(),
   publicKey:keys.publicKey.export({type:'spki',format:'pem'}).toString(), returnUrl:'http://127.0.0.1:3000/payments/return' }
 
-async function fixture(logisticsChannel?: LogisticsChannel) {
+async function fixture(logisticsChannel?: LogisticsChannel, contact='13800000000') {
   let now = Date.parse('2026-11-14T08:00:00+08:00'), paidAt = now, state = 'WAIT_BUYER_PAY', offline = false
   const refunds = new Set<string>(), requests: string[] = []
   const channel = new AlipayChannel(config, async (_url, init) => {
@@ -32,7 +32,7 @@ async function fixture(logisticsChannel?: LogisticsChannel) {
   const account = (name:string, role:'buyer'|'merchant'='buyer') => ctx.testData.account({account:name+randomUUID().slice(0,8),password:'sandbox-test-password',role})
   const buyer=account('buyer'),payer=account('payer'),merchant=account('merchant','merchant')
   ctx.testData.relation({ownerId:buyer.id,friendId:payer.id})
-  const address=ctx.testData.address({userId:buyer.id,receiver:'买家',contact:'13800000000',address:'测试地址'})
+  const address=ctx.testData.address({userId:buyer.id,receiver:'买家',contact,address:'测试地址'})
   const product=ctx.testData.product({name:'沙箱测试商品',category:'测试',skus:[{spec:'标准',priceCents:2475,stock:10}]})
   const call=async(method:string,url:string,token=buyer.token,payload?:object) => {
     const response=await ctx.app.inject({method:method as never,url,headers:token?{authorization:`Bearer ${token}`}:{},payload})
@@ -45,7 +45,7 @@ async function fixture(logisticsChannel?: LogisticsChannel) {
     const fields={app_id:config.appId,seller_id:config.sellerId,out_trade_no:paymentId,total_amount:amount,trade_no:'sandbox-transaction',trade_status:'TRADE_SUCCESS',gmt_payment:beijingTime(paidAt)}
     return ctx.app.inject({method:'POST',url:'/payments/alipay/notify',headers:{'content-type':'application/x-www-form-urlencoded'},payload:new URLSearchParams({...fields,sign_type:'RSA2',sign:sign('RSA-SHA256',Buffer.from(canonicalParameters(fields)),keys.privateKey).toString('base64')}).toString()})
   }
-  return {ctx,call,orderId,buyer,payer,merchant,notify,refunds,requests,
+  return {ctx,call,orderId,buyer,payer,merchant,address,notify,refunds,requests,
     advance:(ms:number)=>{now+=ms},paid:()=>{state='TRADE_SUCCESS';paidAt=now},setOffline:(value:boolean)=>{offline=value}}
 }
 
@@ -101,28 +101,65 @@ test('G 迟到成功自动原路退款，退款请求号稳定且重复通知不
   } finally {await f.ctx.app.close()}
 })
 
-test('G 快递渠道经订单权限读取，重复乱序轨迹不倒退，签收不替代买家确认',async()=>{
-  let calls=0
-  const channel=new KdniaoChannel({businessId:'local-business',appKey:'local-key'},async()=>{
-    calls++
+test('G 快递渠道使用订单地址快照中的数字电话尾号核验，去重且签收不替代收货',async()=>{
+  const requests: Record<string,unknown>[]=[]
+  const channel=new KdniaoChannel({businessId:'local-business',appKey:'local-key'},async(_url,init)=>{
+    const fields=new URLSearchParams(String(init?.body))
+    assert.equal(fields.get('RequestType'),'8002')
+    requests.push(JSON.parse(fields.get('RequestData')!))
     return new Response(JSON.stringify({EBusinessID:'local-business',ShipperCode:'YTO',LogisticCode:'YT12345678',Success:true,State:'3',Traces:[
       {AcceptTime:'2026-11-14 08:02:00',AcceptStation:'已签收'},
       {AcceptTime:'2026-11-14 08:01:00',AcceptStation:'运输中'},
       {AcceptTime:'2026-11-14 08:01:00',AcceptStation:'运输中'}]}))
   })
-  const f=await fixture(channel)
-  try {
-    const started=await f.call('POST',`/member/order/${f.orderId}/payments`,f.buyer.token,{amountCents:2475})
-    f.paid();await f.notify(started.body.result.paymentId)
-    assert.equal((await f.call('POST',`/merchant/orders/${f.orderId}/ship`,f.merchant.token,{carrier:'圆通',trackingNo:'YT12345678'})).status,200)
-    f.advance(180000)
-    const path=`/member/order/${f.orderId}/logistics`
-    assert.equal((await f.call('GET',path,f.payer.token)).status,403);assert.equal(calls,0)
-    const first=await f.call('GET',path),second=await f.call('GET',path)
-    assert.equal(first.status,200);assert.deepEqual(first.body.result,second.body.result)
-    assert.equal(first.body.result.source,'carrier');assert.equal(first.body.result.state,'signed');assert.equal(first.body.result.events.length,2)
-    assert.equal(calls,1)
-    const detail=(await f.call('GET',`/member/order/${f.orderId}`)).body.result
-    assert.equal(detail.orderState,3);assert.equal(detail.signedAt,Date.parse('2026-11-14T08:02:00+08:00'));assert.equal(detail.receivedAt,null)
-  } finally {await f.ctx.app.close()}
+  const expectedTail='0427'
+  for (const length of [8,4,11,20]) {
+    requests.length=0
+    const contact='1'.repeat(length-4)+expectedTail
+    const f=await fixture(channel,contact.padStart(6,'1'))
+    try {
+      if (length<6) f.ctx.db.run("UPDATE orders SET address=json_set(address,'$.contact',?) WHERE id=?",contact,f.orderId)
+      assert.equal((await f.call('PUT','/member/address/'+f.address.id,f.buyer.token,
+        {receiver:'买家',contact:'2'.repeat(8),address:'新地址',isDefault:0})).status,200)
+      const path='/member/order/'+f.orderId
+      const started=await f.call('POST',path+'/payments',f.buyer.token,{amountCents:2475})
+      f.paid();await f.notify(started.body.result.paymentId)
+      assert.equal((await f.call('POST','/merchant/orders/'+f.orderId+'/ship',f.merchant.token,{carrier:'圆通',trackingNo:'YT12345678'})).status,200)
+      f.advance(180000)
+      assert.equal((await f.call('GET',path+'/logistics',f.payer.token)).status,403);assert.equal(requests.length,0)
+      const first=await f.call('GET',path+'/logistics'),second=await f.call('GET',path+'/logistics')
+      assert.equal(first.status,200,'纯数字联系电话的物流查询应成功')
+      assert.equal(requests.length,1)
+      assert.ok(requests[0]?.CustomerName===expectedTail,'快递鸟请求未携带订单地址快照的电话后四位')
+      assert.deepEqual(Object.keys(requests[0]!).sort(),['CustomerName','LogisticCode','ShipperCode'])
+      assert.deepEqual(first.body.result,second.body.result)
+      assert.equal(first.body.result.source,'carrier');assert.equal(first.body.result.state,'signed');assert.equal(first.body.result.events.length,2)
+      assert.equal('CustomerName' in first.body.result,false)
+      const detail=(await f.call('GET',path)).body.result
+      assert.equal(detail.orderState,3);assert.equal(detail.signedAt,Date.parse('2026-11-14T08:02:00+08:00'));assert.equal(detail.receivedAt,null)
+    } finally {await f.ctx.app.close()}
+  }
+})
+
+test('G 地址快照电话缺失、非纯数字或不足四位时，明确拒绝且不调用快递鸟',async()=>{
+  let calls=0
+  const channel=new KdniaoChannel({businessId:'local-business',appKey:'local-key'},async()=>{
+    calls++
+    return new Response(null,{status:503})
+  })
+  for (const patch of [{},{contact:'12-34'},{contact:'123'},{contact:123456}]) {
+    const f=await fixture(channel)
+    try {
+      f.ctx.db.run("UPDATE orders SET address=? WHERE id=?",JSON.stringify(patch),f.orderId)
+      const started=await f.call('POST',`/member/order/${f.orderId}/payments`,f.buyer.token,{amountCents:2475})
+      f.paid();await f.notify(started.body.result.paymentId)
+      assert.equal((await f.call('POST',`/merchant/orders/${f.orderId}/ship`,f.merchant.token,{carrier:'顺丰',trackingNo:'SF12345678'})).status,200)
+      const response=await f.call('GET',`/member/order/${f.orderId}/logistics`)
+      assert.equal(calls,0)
+      assert.equal(response.status,400)
+      assert.equal(response.body.reason,'LOGISTICS_PHONE_TAIL_UNAVAILABLE')
+      assert.match(response.body.msg,/收货电话.*至少4位.*无法核验运单/)
+      assert.doesNotMatch(response.body.msg,/重试/)
+    } finally {await f.ctx.app.close()}
+  }
 })

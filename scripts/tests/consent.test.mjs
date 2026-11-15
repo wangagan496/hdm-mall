@@ -72,7 +72,7 @@ test('CD-L03 旧夹具会话上报401后，新登录固定使用新凭证并可�
  assert.equal(calls[1].body.requestKey,calls[2].body.requestKey)
 })
 
-test('CD-L11 首启从phone打开协议时明确读取mine模块全文',async()=>{
+test('CD-L11 首启读取mine模块协议全文并披露快递鸟与共享数据',async()=>{
  const f=fixture(),modules=[],files=[]
  const resourceManager={getRawFileContent:async name=>{files.push(name);return {decodeToString:()=>''}}}
  const ui={getHostContext:()=>({resourceManager:{getRawFileContent:async()=>{throw new Error('phone has no agreement rawfile')}},createModuleContext:name=>{modules.push(name);return {resourceManager}}}),getPromptAction:()=>({showDialog:async()=>({index:0})})}
@@ -84,6 +84,10 @@ test('CD-L11 首启从phone打开协议时明确读取mine模块全文',async()=
  ui.getPromptAction=()=>({showDialog:async opts=>{shown.push(opts);return {index:0}}})
  const manager=new ConsentManager();await manager.openDocument(ui,'privacy');await manager.openDocument(ui,'terms')
  assert.deepEqual(modules,['mine','mine']);assert.deepEqual(files,['privacy-policy.txt','user-agreement.txt'])
+ const disclosure='查询物流时，会向快递查询服务商（快递鸟）提供承运商、运单号和收货电话后四位，用于查询并核验运单。'
+ assert.ok(shown[0].message.includes(disclosure),'隐私全文应写明快递鸟和共享数据项')
+ assert.ok(shown[0].message.includes('除上述已说明的快递查询外'),'隐私全文不得否定已说明的物流共享')
+ assert.ok(sourceOf('docs/协议草案数据依据.md').includes(disclosure),'隐私依据应与 App 全文一致')
  assert.match(shown[0].message,/隐私/);assert.match(shown[1].message,/用户/);assert.equal(manager.accepted(),false)
 })
 
