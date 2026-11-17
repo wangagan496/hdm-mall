@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-11-17T12:52:18.092Z",
+  "passed": true,
+  "branch": "mall-crazy-design-20261116",
+  "head": "6bb5e75e83b77f81b71aa8991408f11600ec3007",
+  "trackedFileCount": 842,
+  "unchangedTrackedFileCount": 840,
+  "changed": [
+    {
+      "path": "shoph5-vue3/package.json",
+      "beforeSha256": "5ec5324db59ec467f2000cf2644bd7eeef502b6492aa1588d7fd46533387be6d",
+      "afterSha256": "ff0482925e7b8b27d22264b8351cd71896e56b0a6a81a827287f2fa0881a8a2b"
+    },
+    {
+      "path": "shoph5-vue3/pnpm-lock.yaml",
+      "beforeSha256": "b65b986686813a0830cfeb925e2063d03748e39b7d6934c09fa3e5f7cf7306db",
+      "afterSha256": "fc6b070938f919229e4bf522809bb442f8f272634dcd9aebfa79a8952ee4d58a"
+    }
+  ],
+  "unexpectedTrackedChanges": [],
+  "trackedPathSetUnchanged": true,
+  "allUntrackedWithinEvidence": true,
+  "dependencyScopePassed": true,
+  "devecoNodeUnchanged": true,
+  "installerDeleted": true,
+  "testDiscoveryMatchesBaseline": true,
+  "sqliteCorePassedBothRuns": 8,
+  "sqliteRelatedPassedBothRuns": 51,
+  "logByteLimit": 200000,
+  "gitStatus": "## mall-crazy-design-20261116\n M shoph5-vue3/package.json\n M shoph5-vue3/pnpm-lock.yaml\n?? docs/refactor-evidence/stage1a-u1/"
+}

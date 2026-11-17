@@ -1,0 +1,150 @@
+{
+  "observedAt": "2026-11-17T12:53:26.6099954Z",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 11055,
+      "sha256": "aef86c30ded4e9c81d812e5233a6fa38ecc313e79b7174c8762c5f1e3641531d"
+    },
+    {
+      "path": "checks.json",
+      "bytes": 4493,
+      "sha256": "61036200c8148b63dc9925c1205a69d8b23fe29d2995b90f6e82b6bc4a1eed23"
+    },
+    {
+      "path": "client-random.json",
+      "bytes": 832,
+      "sha256": "e1209a1a56e1f22c7886460ae484ed89ae17c602688bd3fc62268cb09b2a141d"
+    },
+    {
+      "path": "client-random.txt",
+      "bytes": 61308,
+      "sha256": "9c9fa0b3fb648b7f3f7bed0a5e9d2853d21cef4a2d8c80a7078648d7ba91f0eb"
+    },
+    {
+      "path": "client-test.json",
+      "bytes": 782,
+      "sha256": "e7c2913a1bb79bf00baf5913f2b474ad9af4f438e6f33ac3f26c43b6800c1d5b"
+    },
+    {
+      "path": "client-test.txt",
+      "bytes": 61286,
+      "sha256": "88d819cb6b5dc404dce73abe27e7a4519052232bd1a28e1a9e9d6d7f109d950a"
+    },
+    {
+      "path": "dependencies-before.json",
+      "bytes": 215,
+      "sha256": "6ca4426caa02fc8791c51de76b018986460e41b6619c4711b95dcb329dca39e1"
+    },
+    {
+      "path": "dependency-diff.txt",
+      "bytes": 11149,
+      "sha256": "5594526242274c93ffd276320c5487b401c92c58c2d2444488c8d21654b20ddd"
+    },
+    {
+      "path": "dependency-scope.json",
+      "bytes": 1055,
+      "sha256": "08f0b27d3968f8ffb187988d5cb18aef0eee9ee37dae596704acd2071fb7b5e0"
+    },
+    {
+      "path": "git-status.txt",
+      "bytes": 126,
+      "sha256": "595f07ea8042cbccab28513da458d0bbfcba30cfd8415e1878206c35b2f398d4"
+    },
+    {
+      "path": "h5-type-check.json",
+      "bytes": 606,
+      "sha256": "22de0f254393913493d4f8fc5cd57a9f107cb1db40d13086096efb96b2b0a7f9"
+    },
+    {
+      "path": "h5-type-check.txt",
+      "bytes": 19,
+      "sha256": "3b8c9fb59a90cd3e78ef1d495b2db13a4ba583669a0f31bb3e157cc85281970c"
+    },
+    {
+      "path": "installation.json",
+      "bytes": 667,
+      "sha256": "af6962ff07e35e85c4cd7df104f7508205784def596eaaeac6cc06742a2b308f"
+    },
+    {
+      "path": "installer-verification.json",
+      "bytes": 809,
+      "sha256": "26fe84ea688f397f148163e73b977976e41d6198e8ba392b4405aa9d9b3902ed"
+    },
+    {
+      "path": "msi-install.txt",
+      "bytes": 650,
+      "sha256": "ae3cdb638178034311a39197a598525c3d54d52fadb10417bfa2fc4fa1631bb1"
+    },
+    {
+      "path": "pnpm-update-official.txt",
+      "bytes": 2984,
+      "sha256": "e37f4c42cbeaa49b6ac21ce60ec90641ba78e499e54233d26400d9ca5ec6c2af"
+    },
+    {
+      "path": "pnpm-update.txt",
+      "bytes": 408,
+      "sha256": "28e938d04179373f49f996ac96d7b3cdf1731ee84215aa008d7e148946cc5e27"
+    },
+    {
+      "path": "runtime-after.json",
+      "bytes": 2034,
+      "sha256": "354de3256bdaf561e419bbbea4497b3d78a2d35323fffe3aaf7d599f570f05bf"
+    },
+    {
+      "path": "runtime-before.json",
+      "bytes": 1225,
+      "sha256": "159a40681d0e49603a3a1891e0c71d4cf863a04efa6456ce388604832cc9a92f"
+    },
+    {
+      "path": "server-check.json",
+      "bytes": 592,
+      "sha256": "b6693e2736e268a9d76de0179302e571b073904053c8a954f39440e10724b942"
+    },
+    {
+      "path": "server-check.txt",
+      "bytes": 51,
+      "sha256": "fdf19b7168450a3fd56759b4552e7649c5b3aa5098d783cc15359e5e43f67d63"
+    },
+    {
+      "path": "server-random.json",
+      "bytes": 830,
+      "sha256": "86635f5c67d91e48706c40b65cc8bbe03568d9c6047291b704de6a620450c895"
+    },
+    {
+      "path": "server-random.txt",
+      "bytes": 36431,
+      "sha256": "ca16771c8ea645430f294028d66b7fe59112cd54052895983a169979d864c9af"
+    },
+    {
+      "path": "server-test.json",
+      "bytes": 766,
+      "sha256": "10ad35da561dca6960922726d175dc23b454bb360eb6f7b8e0f094b2fb11da42"
+    },
+    {
+      "path": "server-test.txt",
+      "bytes": 36477,
+      "sha256": "967d3098dba322ca64a6dacd0b200917b7d7c7ed58e662e118f631269ee9b04f"
+    },
+    {
+      "path": "sqlite-tests.json",
+      "bytes": 10932,
+      "sha256": "206f69e5ea9e8b4a90c0d8b89da1ed034513944ed39a099a7d701ebbfcd55f31"
+    },
+    {
+      "path": "sqlite-tests.md",
+      "bytes": 6027,
+      "sha256": "ae2899cfad403544e69d5a2a4a8e7068e3ca12576dd0e77c9f7129d4088ebbec"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 1193,
+      "sha256": "bba03aefb8afa8f5a9f8134c64078af68aaac764b1b2c30a8bc7588315468863"
+    },
+    {
+      "path": "version-query.json",
+      "bytes": 764,
+      "sha256": "0e605724076ce17380402f62f5ad74698d9204d6f731de5c2c57412270862610"
+    }
+  ]
+}

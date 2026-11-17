@@ -1,0 +1,61 @@
+{
+  "observedAt": "2026-11-17T20:41:11.9976925+08:00",
+  "freshShell": true,
+  "node": "v24.22.3",
+  "npm": "11.19.1",
+  "pnpm": "11.9.0",
+  "nodePaths": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\node.exe",
+    "C:\\Users\\23203\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe"
+  ],
+  "npmPaths": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\npm",
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\npm.cmd"
+  ],
+  "pnpmPaths": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\pnpm",
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\pnpm.cmd",
+    "C:\\Users\\23203\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback\\pnpm.cmd"
+  ],
+  "execPath": "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\node.exe",
+  "nodeVersions": {
+    "node": "24.22.3",
+    "acorn": "8.18.0",
+    "ada": "4.0.0",
+    "amaro": "1.1.11",
+    "ares": "1.34.9",
+    "brotli": "1.2.1",
+    "cldr": "48.0",
+    "icu": "78.3",
+    "llhttp": "9.4.4",
+    "merve": "1.2.2",
+    "modules": "137",
+    "napi": "10",
+    "nbytes": "0.1.4",
+    "ncrypto": "0.0.1",
+    "nghttp2": "1.70.0",
+    "nghttp3": "",
+    "ngtcp2": "",
+    "openssl": "3.5.9",
+    "simdjson": "4.6.11",
+    "simdutf": "6.4.0",
+    "sqlite": "3.54.1",
+    "tz": "2026e",
+    "undici": "7.30.2",
+    "unicode": "17.0",
+    "uv": "1.52.1",
+    "uvwasi": "0.0.23",
+    "v8": "13.6.233.17-node.63",
+    "zlib": "1.3.2.1-motley-285e94b",
+    "zstd": "1.5.7"
+  },
+  "machineNodePathEntries": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64",
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\"
+  ],
+  "userNodePathEntries": [],
+  "devecoNode": "C:\\Program Files\\Huawei\\DevEco Studio\\tools\\node\\node.exe",
+  "devecoVersion": "v24.14.1",
+  "devecoSha256": "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f",
+  "devecoUnchanged": true
+}

@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-11-17T20:38:51.6491992+08:00",
+  "finishedAt": "2026-11-17T20:40:00.1252627+08:00",
+  "command": "msiexec /i <verified-official-msi> /passive /norestart INSTALLDIR=<existing-system-node-directory> /L*v <temporary-log>",
+  "processId": 9992,
+  "exitCode": 0,
+  "log": "C:\\Users\\23203\\AppData\\Local\\Temp\\stage1a-u1-msi-full.log",
+  "installDirectory": "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64",
+  "pnpmShimSha256Before": "0c51f0af9d72804ff809c56efb708ee1e6c250b321c1081db510f61440e50320",
+  "pnpmShimSha256After": "0c51f0af9d72804ff809c56efb708ee1e6c250b321c1081db510f61440e50320",
+  "installerDeleted": true
+}

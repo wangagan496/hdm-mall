@@ -1,0 +1,24 @@
+{
+  "queriedAt": "2026-11-17T20:37:18.8490988+08:00",
+  "completedAt": "2026-11-17T20:37:23.1352953+08:00",
+  "node": {
+    "lts": "Krypton",
+    "selection": "highest numeric stable v24.x.y, prerelease excluded",
+    "npm": "11.19.1",
+    "source": "https://nodejs.org/dist/index.json",
+    "msi": "https://nodejs.org/dist/v24.22.3/node-v24.22.3-x64.msi",
+    "version": "v24.22.3",
+    "date": "2026-11-10"
+  },
+  "types": {
+    "version": "24.19.2",
+    "published": "2026-10-09T18:44:25.189Z",
+    "source": "https://registry.npmjs.org/@types%2fnode"
+  },
+  "tsconfig": {
+    "version": "24.0.6",
+    "latestTag": "24.0.6",
+    "source": "https://registry.npmjs.org/@tsconfig%2fnode24",
+    "published": "2026-11-11T22:52:46.19Z"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "h5-type-check",
+  "cwd": "D:\\hdm-mall\\shoph5-vue3",
+  "command": "pnpm.cmd run type-check",
+  "startedAt": "2026-11-17T20:45:34.6697471+08:00",
+  "finishedAt": "2026-11-17T20:46:00.3840632+08:00",
+  "elapsedSeconds": 25.714,
+  "exitCode": 0,
+  "seed": null,
+  "counts": {},
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\stage1a-u1-h5-type-check-full.log",
+  "rawBytes": 19,
+  "rawSha256": "3b8c9fb59a90cd3e78ef1d495b2db13a4ba583669a0f31bb3e157cc85281970c",
+  "evidenceLog": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a-u1\\h5-type-check.txt",
+  "evidenceBytes": 19
+}
