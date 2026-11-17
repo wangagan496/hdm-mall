@@ -1,0 +1,89 @@
+{
+  "directory": "mixed-development-h5/commons/network",
+  "files": [
+    {
+      "path": "mixed-development-h5/commons/network/Index.ets",
+      "exists": true,
+      "bytes": 185,
+      "sha256": "8d4c9007f16d22c63d168cfacc7cd5693ac51be5d68957bb1a5804635c3454a3"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 1215,
+      "sha256": "fff276807a61a86f90f1d4b94fdfc1de9b7ca98d6dca0ae9fe640daea383b0eb"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/oh-package.json5",
+      "exists": true,
+      "bytes": 369,
+      "sha256": "9c4e38a430cf76698a47912ae815ff2a53af2ffb17730213f3e5d8b5005a275b"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/ets/DecisionService.ets",
+      "exists": true,
+      "bytes": 866,
+      "sha256": "4a7d6940fcc9d36c670596496ba87862c036c8ea83b6d9fb2e40f8654636925e"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/ets/Index.ets",
+      "exists": true,
+      "bytes": 123,
+      "sha256": "f6352942e93e225abf7554072a964acd127ab339fb30eb4d5a66b05bc9b5bd43"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/ets/RequestAxios.ets",
+      "exists": true,
+      "bytes": 8840,
+      "sha256": "2bc1f9773842b274a73fed2e97620ec52962924cd7eb7b604550d52f9d350681"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 101,
+      "sha256": "22f27265d3cb7b79969ef9426e7bca76843267551a7b11049c817d89ab68e9cd"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/module.json5",
+      "exists": true,
+      "bytes": 362,
+      "sha256": "3474c8c2f236ebaa7d18ba6c9e5d59b35cc792dc7049c73e2f336a7255a4a235"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "a87ffc0137c8b86a018d11f1b109ef4ba7ee5ffbcbe2eec1ec24153962872e28"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 37,
+      "sha256": "f21984fb1d5096f0db41314da0bb94c573e7ad018e5afae3044f8d5ff71b0bfc"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 115,
+      "sha256": "52fae777ccf6b160f411de2fde0c57c6b6ee055a85a710ccba27db7a941cc8b9"
+    },
+    {
+      "path": "mixed-development-h5/commons/network/src/test/LocalUnit.test.ets",
+      "exists": true,
+      "bytes": 2524,
+      "sha256": "34ecf3c2f9010a584d0d53085f87990aa0737b55c23b218aa5096725d7673809"
+    }
+  ]
+}

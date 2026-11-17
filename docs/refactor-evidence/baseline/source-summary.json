@@ -1,0 +1,103 @@
+{
+  "head": "282b006a03af38b986a6ef86c03bf5e05140eaca",
+  "scope": "git ls-files -z 中 server、shoph5-vue3、mixed-development-h5、scripts、contract-kit 的跟踪文件，按上述命名目录分组；排除 node_modules/oh_modules/build/dist/.test/.hvigor/.idea/.vscode/signing 路径段及 resources/rawfile 子树。包含源代码、测试、资源、清单、锁文件及该目录的跟踪文档；不是仅按代码扩展名筛选。未跟踪本地文件、证据 docs 和历史设备记录不计入。",
+  "algorithm": "各文件 SHA256(磁盘原始字节)，路径用仓库相对路径和 /；按 JS 默认 sort 的 UTF-16 码元升序；每行小写sha256 + 两个ASCII空格 + 路径 + LF，拼接后 UTF-8 无BOM再 SHA256；目录为空时 SHA256(empty)。换行不归一化。",
+  "groups": [
+    {
+      "directory": "mixed-development-h5",
+      "count": 15,
+      "manifest": "source-mixed-development-h5.json",
+      "sha256": "cb88dd3be66672b94d784656667c1bb9aa0b1092bc4eaa9c47e1f559cf9af7ba"
+    },
+    {
+      "directory": "mixed-development-h5/commons/constants",
+      "count": 12,
+      "manifest": "source-mixed-development-h5-commons-constants.json",
+      "sha256": "d0cb4535afe6f5e5160608fc93cb1e30de81b7cda09e2440e3d008ba10bac368"
+    },
+    {
+      "directory": "mixed-development-h5/commons/device",
+      "count": 17,
+      "manifest": "source-mixed-development-h5-commons-device.json",
+      "sha256": "8e13632022558e34e0c6406211d27c4bf7290e9ef43c74b7f575761599ab7407"
+    },
+    {
+      "directory": "mixed-development-h5/commons/models",
+      "count": 21,
+      "manifest": "source-mixed-development-h5-commons-models.json",
+      "sha256": "cfd4e96bd6231ae042896b4451341f5e6d5e04b01647930035f3842ae1735dd0"
+    },
+    {
+      "directory": "mixed-development-h5/commons/network",
+      "count": 14,
+      "manifest": "source-mixed-development-h5-commons-network.json",
+      "sha256": "ab1bd9784f511dfd84b5f8d928e7a48036b6816303595db2bccf3670f12e610b"
+    },
+    {
+      "directory": "mixed-development-h5/commons/storage",
+      "count": 29,
+      "manifest": "source-mixed-development-h5-commons-storage.json",
+      "sha256": "d134cd406e6353875b9a8fccbe0077b29760d1bd5da2dbf5e486704b89176e28"
+    },
+    {
+      "directory": "mixed-development-h5/commons/ui-components",
+      "count": 52,
+      "manifest": "source-mixed-development-h5-commons-ui-components.json",
+      "sha256": "159a113ded9bb0803893445b2f69c9427511970ba9e6e38bc8e8206c424a9278"
+    },
+    {
+      "directory": "mixed-development-h5/commons/utils",
+      "count": 18,
+      "manifest": "source-mixed-development-h5-commons-utils.json",
+      "sha256": "a7cdcd06f147ab457bfe31176997f4b8563dc6224cf07850b28bb5288b8b0fa1"
+    },
+    {
+      "directory": "mixed-development-h5/features/cart",
+      "count": 55,
+      "manifest": "source-mixed-development-h5-features-cart.json",
+      "sha256": "0e22461d2f13bc466d08e282d4f95cedd9184364e22a8c8f56b15e2267a53aa7"
+    },
+    {
+      "directory": "mixed-development-h5/features/category",
+      "count": 25,
+      "manifest": "source-mixed-development-h5-features-category.json",
+      "sha256": "92cc12f5f1046e5e902072253af303c38cbee27b8b654c60ef1ad91d3eaaa745"
+    },
+    {
+      "directory": "mixed-development-h5/features/home",
+      "count": 56,
+      "manifest": "source-mixed-development-h5-features-home.json",
+      "sha256": "49ebe208eaaa991c0ead8e61872a02d055560ce4dfd265cfa84c3457d9ea5d92"
+    },
+    {
+      "directory": "mixed-development-h5/features/mine",
+      "count": 66,
+      "manifest": "source-mixed-development-h5-features-mine.json",
+      "sha256": "726f67946874e58c65772a870adbd4205a1648b5e833abd7f804a0af5e54b7dc"
+    },
+    {
+      "directory": "mixed-development-h5/products/phone",
+      "count": 44,
+      "manifest": "source-mixed-development-h5-products-phone.json",
+      "sha256": "b992933f5a047a0d4c14137fd317bc39fe4bb1b3f4e4d2c37cfd52f282170080"
+    },
+    {
+      "directory": "scripts",
+      "count": 126,
+      "manifest": "source-scripts.json",
+      "sha256": "75a10329d895be2377ac6aa0e5fcefbea5c1673c5f3a8e269e444f1f4ec25b53"
+    },
+    {
+      "directory": "server",
+      "count": 125,
+      "manifest": "source-server.json",
+      "sha256": "54f853b10f640261bf47bfe3b9babdaffe73e7f9d23b622011531f08ba38d546"
+    },
+    {
+      "directory": "shoph5-vue3",
+      "count": 29,
+      "manifest": "source-shoph5-vue3.json",
+      "sha256": "26c47d65df4e8b5689d7970bfdc5e6b2dea7086aca554a4c0e8bb8cd2d13812b"
+    }
+  ]
+}

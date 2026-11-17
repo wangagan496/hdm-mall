@@ -1,0 +1,130 @@
+[
+  {
+    "id": "server-check",
+    "cwd": "D:/hdm-mall/server",
+    "command": "npm run check",
+    "seed": null,
+    "startedAt": "2026-11-17T15:26:05.5411178+08:00",
+    "elapsedSeconds": 37.949,
+    "exitCode": 0,
+    "summary": {},
+    "rawLogBytes": 51,
+    "log": "server-check.txt"
+  },
+  {
+    "id": "server-test",
+    "cwd": "D:/hdm-mall/server",
+    "command": "npm test",
+    "seed": null,
+    "startedAt": "2026-11-17T15:26:43.6822705+08:00",
+    "elapsedSeconds": 55.696,
+    "exitCode": 0,
+    "summary": {
+      "tests": 362,
+      "suites": 0,
+      "pass": 362,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 55210.7487
+    },
+    "rawLogBytes": 36487,
+    "log": "server-test.txt"
+  },
+  {
+    "id": "server-random",
+    "cwd": "D:/hdm-mall/server",
+    "command": "node --test --test-randomize --test-random-seed=271113 test/*.test.ts",
+    "seed": 271113,
+    "startedAt": "2026-11-17T15:27:39.4727184+08:00",
+    "elapsedSeconds": 40.385,
+    "exitCode": 0,
+    "summary": {
+      "tests": 362,
+      "suites": 0,
+      "pass": 362,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 40308.394
+    },
+    "rawLogBytes": 36434,
+    "log": "server-random.txt"
+  },
+  {
+    "id": "client-test",
+    "cwd": "D:/hdm-mall",
+    "command": "node --test scripts/tests/*.test.mjs",
+    "seed": null,
+    "startedAt": "2026-11-17T15:28:19.9782264+08:00",
+    "elapsedSeconds": 15.85,
+    "exitCode": 0,
+    "summary": {
+      "tests": 617,
+      "suites": 0,
+      "pass": 617,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 15785.9624
+    },
+    "rawLogBytes": 61297,
+    "log": "client-test.txt"
+  },
+  {
+    "id": "client-random",
+    "cwd": "D:/hdm-mall",
+    "command": "node --test --test-randomize --test-random-seed=271113 scripts/tests/*.test.mjs",
+    "seed": 271113,
+    "startedAt": "2026-11-17T15:28:35.8931938+08:00",
+    "elapsedSeconds": 16.042,
+    "exitCode": 0,
+    "summary": {
+      "tests": 617,
+      "suites": 0,
+      "pass": 617,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 15968.8964
+    },
+    "rawLogBytes": 61353,
+    "log": "client-random.txt"
+  },
+  {
+    "id": "hvigor-test",
+    "cwd": "D:/hdm-mall/mixed-development-h5",
+    "command": "& \"C:\\Program Files\\Huawei\\DevEco Studio\\tools\\hvigor\\bin\\hvigorw.bat\" test --mode module",
+    "seed": null,
+    "startedAt": "2026-11-17T15:28:51.9873002+08:00",
+    "elapsedSeconds": 230.561,
+    "exitCode": 0,
+    "summary": {
+      "tests": 83,
+      "pass": 83,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "modules": 12
+    },
+    "rawLogBytes": 76033,
+    "log": "hvigor-test.txt",
+    "countsEvidence": "hvigor-results.json"
+  },
+  {
+    "id": "signed-build",
+    "cwd": "D:/hdm-mall",
+    "command": "pwsh -File scripts/verify-optimization-build.ps1 -SkipH5",
+    "seed": null,
+    "startedAt": "2026-11-17T15:32:42.7741267+08:00",
+    "elapsedSeconds": 111.05,
+    "exitCode": 0,
+    "summary": {},
+    "rawLogBytes": 638,
+    "log": "signed-build.txt"
+  }
+]

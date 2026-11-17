@@ -1,0 +1,124 @@
+[
+  {
+    "file": "server-check.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/server-check.txt",
+    "rawBytes": 51,
+    "rawSha256": "fdf19b7168450a3fd56759b4552e7649c5b3aa5098d783cc15359e5e43f67d63",
+    "excerptBytes": 386,
+    "warningLineCount": 0,
+    "warningExamples": []
+  },
+  {
+    "file": "server-test.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/server-test.txt",
+    "rawBytes": 36487,
+    "rawSha256": "edc72e4bb3c1fde20d5c777cd81be3e5c4610183f6ec28dc770cd4fad57f5fdf",
+    "excerptBytes": 2081,
+    "warningLineCount": 0,
+    "warningExamples": []
+  },
+  {
+    "file": "server-random.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/server-random.txt",
+    "rawBytes": 36434,
+    "rawSha256": "799b74c77bfe459b12427fc52ab5dbfda72d06413e6b1b8a505a2f838d6be630",
+    "excerptBytes": 2452,
+    "warningLineCount": 0,
+    "warningExamples": []
+  },
+  {
+    "file": "client-test.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/client-test.txt",
+    "rawBytes": 61297,
+    "rawSha256": "1bcff4859e2914344f17dddb1efe78343c4bf2d0827a50902558115d66da16ce",
+    "excerptBytes": 2490,
+    "warningLineCount": 0,
+    "warningExamples": []
+  },
+  {
+    "file": "client-random.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/client-random.txt",
+    "rawBytes": 61353,
+    "rawSha256": "0a021989c7ce1a9c502a903c0eb9b13b13bf4880afba67d776ed5de6df9002c2",
+    "excerptBytes": 2179,
+    "warningLineCount": 0,
+    "warningExamples": []
+  },
+  {
+    "file": "hvigor-test.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/hvigor-test.txt",
+    "rawBytes": 76033,
+    "rawSha256": "0ea0055ac74e5fe28f2bba084b6555cac369c644f1daee1be9ce388265a662c6",
+    "excerptBytes": 6054,
+    "warningLineCount": 306,
+    "warningExamples": [
+      {
+        "line": 210,
+        "text": "> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 213,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 216,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 219,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 222,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 225,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18\n The system capacity of this api 'audio' is not supported on all devices\n"
+      }
+    ]
+  },
+  {
+    "file": "signed-build.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/stage0-20261117-01-logs/signed-build.txt",
+    "rawBytes": 638,
+    "rawSha256": "35417cf34e629a8ef0b4e64240d7c1f39cb8d506b75967795c100b3038b2d805",
+    "excerptBytes": 1023,
+    "warningLineCount": 0,
+    "warningExamples": []
+  },
+  {
+    "file": "signed-build-details.txt",
+    "rawPath": "C:/Users/23203/AppData/Local/Temp/hdm-optimization-build.log",
+    "rawBytes": 91071,
+    "rawSha256": "02cc298ff72b25f81f7cdb7e2aeb50c4df3d67e4cf813c8414a9d0ad1211dc98",
+    "excerptBytes": 3412,
+    "warningLineCount": 314,
+    "warningExamples": [
+      {
+        "line": 261,
+        "text": "> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 264,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 267,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 270,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 273,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15\n The system capacity of this api 'audio' is not supported on all devices\n"
+      },
+      {
+        "line": 276,
+        "text": "WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18\n The system capacity of this api 'audio' is not supported on all devices\n"
+      }
+    ]
+  }
+]

@@ -1,0 +1,77 @@
+{
+  "directory": "mixed-development-h5/commons/constants",
+  "files": [
+    {
+      "path": "mixed-development-h5/commons/constants/Index.ets",
+      "exists": true,
+      "bytes": 133,
+      "sha256": "0bb0faf97c4a1adea735fa6dce244ee6602dc4a0e691a1dae44b86de3d2a0c4f"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/oh-package.json5",
+      "exists": true,
+      "bytes": 254,
+      "sha256": "54cec5aab64a9b2bcd242c8c5dd0b0482856a3dd78f15ec12177fad437980e57"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/ets/GlobalVariable.ets",
+      "exists": true,
+      "bytes": 1832,
+      "sha256": "6a60f82ff394ce548df0d249b65c841d18f43da7c735a3f88ab85bae8a81e61a"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/ets/Index.ets",
+      "exists": true,
+      "bytes": 107,
+      "sha256": "16e44d15a7ba36f48037006cb939a18094c338217ee3dd9eb4d735f5319fa0b6"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/ets/PagePath.ets",
+      "exists": true,
+      "bytes": 1347,
+      "sha256": "9fdc56449b78c6c2e62cf472ce648b0b7c513c6c5960b8ff6e392e4a2672c571"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 103,
+      "sha256": "2414ea21da622392bfd68c9188e4705d186d225ba1d1f9155700c92c71f329b9"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/module.json5",
+      "exists": true,
+      "bytes": 251,
+      "sha256": "7817ac72c9eb7f65a1616c76efdfaa214bf8d48082fc3e380abcf9e5efb046fd"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 104,
+      "sha256": "45e91dc16363f8bc67c7ca9f031526d0e8c97aff0bd2545ba3eaf15bfee64b1f"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 37,
+      "sha256": "f21984fb1d5096f0db41314da0bb94c573e7ad018e5afae3044f8d5ff71b0bfc"
+    },
+    {
+      "path": "mixed-development-h5/commons/constants/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 48,
+      "sha256": "fde31346ab4b7da1e313e8ff46cd5d4fd6d04dde0031ddaf4f22e8f2e1b128f3"
+    }
+  ]
+}

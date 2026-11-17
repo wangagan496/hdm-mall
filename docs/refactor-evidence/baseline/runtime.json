@@ -1,0 +1,224 @@
+{
+  "capturedAt": "2026-11-17T15:28:48.4702895+08:00",
+  "system": {
+    "node": {
+      "version": "v24.16.0",
+      "path": "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\node.exe"
+    },
+    "npm.cmd": {
+      "version": "11.13.0",
+      "path": "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\npm.cmd"
+    },
+    "pnpm.cmd": {
+      "version": "11.9.0",
+      "path": "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\pnpm.cmd"
+    }
+  },
+  "deveco": {
+    "root": "C:/Program Files/Huawei/DevEco Studio",
+    "environment": "C:\\Program Files\\Huawei\\DevEco Studio\\bin",
+    "sdkRoot": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk",
+    "bundledNode": {
+      "version": "v24.14.1",
+      "path": "C:/Program Files/Huawei/DevEco Studio/tools/node/node.exe"
+    },
+    "hvigorPackages": [
+      {
+        "sha256": "0c88e8f3a0d76bce336e9ecc2ba7d368f19b44597111460f0cf5302895bc7b32",
+        "version": "6.26.4",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\tools\\hvigor\\hvigor\\package.json",
+        "name": "@ohos/hvigor"
+      },
+      {
+        "sha256": "175ad21e3710fc614ff95c7e71c0904c9938da5b41c7f18d18aeba5d4618adad",
+        "version": "6.26.4",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\tools\\hvigor\\hvigor-ohos-plugin\\package.json",
+        "name": "@ohos/hvigor-ohos-plugin"
+      }
+    ],
+    "metadata": [
+      {
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\product-info.json",
+        "name": "DevEco Studio",
+        "version": "26.0.0.821",
+        "versionSuffix": "",
+        "buildNumber": "261.23567.138.36.2600821",
+        "sha256": "e13124fa02666acdf7865123b3c213442280d40bcc4474014fd084176de808e2"
+      },
+      {
+        "content": "DS-261.23567.138.36.2600821",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\build.txt"
+      }
+    ],
+    "sdkMetadata": [
+      {
+        "sha256": "e672ab90ecba995a4f100fd2b9787bfde0d741f047b81de9d43ef45fcfe35690",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\hms\\ets\\uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Ets",
+          "meta": {
+            "metaVersion": "3.1.0"
+          },
+          "path": "ets",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "a3a561b07eb2c30b83a99687e0a00db778be2ccc546ae8d31a2809bb5892b841",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\hms\\js\\uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Js",
+          "meta": {
+            "metaVersion": "3.1.0"
+          },
+          "path": "js",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "911f064951e0495b743b07777241463fc1a8e64ab84017c24e5c9913f18e12e7",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\hms\\native\\uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Native",
+          "meta": {
+            "metaVersion": "3.1.0"
+          },
+          "path": "native",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "6d5f44c777a6feaa8de4f85b40a0067e29d345ca9c9ebbd80bf0cd1a0c5b52bc",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\hms\\previewer\\uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Previewer",
+          "meta": {
+            "metaVersion": "3.1.0"
+          },
+          "path": "previewer",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "8ffee055a6d9ac3cc832c7fa345102a2fe876505aca2bf8c81696dbd19b28763",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\hms\\toolchains\\uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Toolchains",
+          "meta": {
+            "metaVersion": "3.1.0"
+          },
+          "path": "toolchains",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "250b53f383be634ada496cfb4a1cbebd1e7ad6f14f44fd136ca55d2d9a35acab",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\oh-uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Ets",
+          "meta": {
+            "metaVersion": "3.0.2"
+          },
+          "path": "ets",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "f9b7615ba6dfab5130d3d6f66e0765281ac762b50aa05c1aa5ee41c6618bcbdc",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\js\\oh-uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Js",
+          "meta": {
+            "metaVersion": "3.0.2"
+          },
+          "path": "js",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "3dbc4a06ffd3b1be6b45c3c346a7900ca42f8a81a5b0454dc7f5cc1e5a9509a8",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\native\\oh-uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Native",
+          "meta": {
+            "metaVersion": "3.0.2"
+          },
+          "path": "native",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "f114971cd32e35f4ed5a39a9da9e4bc7dd648c0f9ce00b1410441c5d4b524d38",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\previewer\\oh-uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Previewer",
+          "meta": {
+            "metaVersion": "3.0.2"
+          },
+          "path": "previewer",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "62e6845edf9b6436334e64f69f9251a2ee37c9c5217f1c63716298ff6b636fa9",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\toolchains\\oh-uni-package.json",
+        "metadata": {
+          "apiVersion": "26",
+          "displayName": "Toolchains",
+          "meta": {
+            "metaVersion": "3.0.2"
+          },
+          "path": "toolchains",
+          "platformVersion": "26.0.0",
+          "releaseType": "Release",
+          "version": "26.0.0.105"
+        }
+      },
+      {
+        "sha256": "285eded3340dc45d56395792eea52cbc60cfb62cfcb7abed923a0505fac05724",
+        "path": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\sdk-pkg.json",
+        "metadata": {
+          "meta": {
+            "version": "1.0.0"
+          },
+          "data": {
+            "apiVersion": "26",
+            "displayName": "HarmonyOS 26.0.0",
+            "path": "HarmonyOS-26.0.0",
+            "platformVersion": "26.0.0",
+            "releaseType": "Release",
+            "version": "26.0.0.105",
+            "stage": "Release"
+          }
+        }
+      }
+    ]
+  }
+}

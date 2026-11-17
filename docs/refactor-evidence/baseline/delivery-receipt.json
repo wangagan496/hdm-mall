@@ -1,0 +1,38 @@
+{
+  "task_id": "stage0-20261117-01",
+  "message_id": "result-stage0-20261117-01",
+  "target_session_id": "6b17ddcc-71b4-444b-8cbd-5e43bcea3cb5",
+  "send_attempts": 1,
+  "status": "submitted",
+  "final": true,
+  "transport_written": true,
+  "model_receipt_confirmed": false,
+  "execution_evidence_frozen": true,
+  "native_tool_return": {
+    "message": {
+      "id": "result-stage0-20261117-01",
+      "route": {
+        "from": {
+          "kind": "codex",
+          "id": "01a1e863-97a0-73b2-908b-d14a9564782e"
+        },
+        "to": {
+          "kind": "claude",
+          "id": "6b17ddcc-71b4-444b-8cbd-5e43bcea3cb5"
+        }
+      },
+      "direction": "to_claude",
+      "message": "{\"task_id\":\"stage0-20261117-01\",\"status\":\"completed\",\"summary\":\"阶段0基线记录已完成并封版，41份证据已复读；7条请求命令成功，未改业务代码或配置、未安装升级依赖、未操作设备、未执行Git写操作；待原Claude Desktop独立复核。\",\"artifacts\":[\"D:/hdm-mall/docs/refactor-evidence/baseline\",\"D:/hdm-mall/docs/refactor-evidence/baseline/README.md\",\"D:/hdm-mall/docs/refactor-evidence/baseline/verification.json\",\"D:/hdm-mall/docs/refactor-evidence/baseline/file-manifest.json\"],\"file_list\":[{\"file\":\"README.md\",\"bytes\":29816},{\"file\":\"artifacts-after.json\",\"bytes\":4065},{\"file\":\"artifacts-before.json\",\"bytes\":3559},{\"file\":\"checks.json\",\"bytes\":3178},{\"file\":\"client-random.txt\",\"bytes\":2179},{\"file\":\"client-test.txt\",\"bytes\":2490},{\"file\":\"entry-points.json\",\"bytes\":37013},{\"file\":\"file-manifest.json\",\"bytes\":6709},{\"file\":\"git-after-build.txt\",\"bytes\":59},{\"file\":\"git-before-build.txt\",\"bytes\":59},{\"file\":\"hvigor-results.json\",\"bytes\":18645},{\"file\":\"hvigor-test.txt\",\"bytes\":6054},{\"file\":\"log-index.json\",\"bytes\":5563},{\"file\":\"native-configs.json\",\"bytes\":14384},{\"file\":\"navigation-source.json\",\"bytes\":30270},{\"file\":\"preflight.json\",\"bytes\":849},{\"file\":\"runtime.json\",\"bytes\":7639},{\"file\":\"server-check.txt\",\"bytes\":386},{\"file\":\"server-random.txt\",\"bytes\":2452},{\"file\":\"server-test.txt\",\"bytes\":2081},{\"file\":\"signed-build-details.txt\",\"bytes\":3412},{\"file\":\"signed-build.txt\",\"bytes\":1023},{\"file\":\"source-mixed-development-h5-commons-constants.json\",\"bytes\":2712},{\"file\":\"source-mixed-development-h5-commons-device.json\",\"bytes\":3807},{\"file\":\"source-mixed-development-h5-commons-models.json\",\"bytes\":4660},{\"file\":\"source-mixed-development-h5-commons-network.json\",\"bytes\":3127},{\"file\":\"source-mixed-development-h5-commons-storage.json\",\"bytes\":6508},{\"file\":\"source-mixed-development-h5-commons-ui-components.json\",\"bytes\":12542},{\"file\":\"source-mixed-development-h5-commons-utils.json\",\"bytes\":3985},{\"file\":\"source-mixed-development-h5-features-cart.json\",\"bytes\":12779},{\"file\":\"source-mixed-development-h5-features-category.json\",\"bytes\":5762},{\"file\":\"source-mixed-development-h5-features-home.json\",\"bytes\":13055},{\"file\":\"source-mixed-development-h5-features-mine.json\",\"bytes\":15459},{\"file\":\"source-mixed-development-h5-products-phone.json\",\"bytes\":10333},{\"file\":\"source-mixed-development-h5.json\",\"bytes\":3183},{\"file\":\"source-scripts.json\",\"bytes\":24473},{\"file\":\"source-server.json\",\"bytes\":23721},{\"file\":\"source-shoph5-vue3.json\",\"bytes\":5442},{\"file\":\"source-summary.json\",\"bytes\":4519},{\"file\":\"verification.json\",\"bytes\":848},{\"file\":\"versions.json\",\"bytes\":143971}],\"checks\":[{\"id\":\"server-check\",\"cwd\":\"D:/hdm-mall/server\",\"command\":\"npm run check\",\"tests\":null,\"pass\":null,\"fail\":null,\"skipped\":null,\"seed\":null,\"exit_code\":0,\"elapsed_seconds\":37.949},{\"id\":\"server-test\",\"cwd\":\"D:/hdm-mall/server\",\"command\":\"npm test\",\"tests\":362,\"pass\":362,\"fail\":0,\"skipped\":0,\"seed\":null,\"exit_code\":0,\"elapsed_seconds\":55.696},{\"id\":\"server-random\",\"cwd\":\"D:/hdm-mall/server\",\"command\":\"node --test --test-randomize --test-random-seed=271113 test/*.test.ts\",\"tests\":362,\"pass\":362,\"fail\":0,\"skipped\":0,\"seed\":271113,\"exit_code\":0,\"elapsed_seconds\":40.385},{\"id\":\"client-test\",\"cwd\":\"D:/hdm-mall\",\"command\":\"node --test scripts/tests/*.test.mjs\",\"tests\":617,\"pass\":617,\"fail\":0,\"skipped\":0,\"seed\":null,\"exit_code\":0,\"elapsed_seconds\":15.85},{\"id\":\"client-random\",\"cwd\":\"D:/hdm-mall\",\"command\":\"node --test --test-randomize --test-random-seed=271113 scripts/tests/*.test.mjs\",\"tests\":617,\"pass\":617,\"fail\":0,\"skipped\":0,\"seed\":271113,\"exit_code\":0,\"elapsed_seconds\":16.042},{\"id\":\"hvigor-test\",\"cwd\":\"D:/hdm-mall/mixed-development-h5\",\"command\":\"& \\\"C:\\\\Program Files\\\\Huawei\\\\DevEco Studio\\\\tools\\\\hvigor\\\\bin\\\\hvigorw.bat\\\" test --mode module\",\"tests\":83,\"pass\":83,\"fail\":0,\"skipped\":0,\"seed\":null,\"exit_code\":0,\"elapsed_seconds\":230.561},{\"id\":\"signed-build\",\"cwd\":\"D:/hdm-mall\",\"command\":\"pwsh -File scripts/verify-optimization-build.ps1 -SkipH5\",\"tests\":null,\"pass\":null,\"fail\":null,\"skipped\":null,\"seed\":null,\"exit_code\":0,\"elapsed_seconds\":111.05}],\"failures\":[],\"limitations\":[\"Hvigor 83/83来自本轮12份模块test_result.txt，其中7模块0用例；未当作行为覆盖。\",\"Hvigor测试306条WARN行，签名构建314条WARN行，关键原行保留；没有修代码或放宽检查。\",\"未重编H5；现有dist与原生rawfile的原字节SHA256不同，CRLF归一化后全文相同；授权脚本只核验包内index.html与原生rawfile一致（1文件）。\",\"入口为76项静态源码对照、31项注册及81个导航调用点；未作设备逐入口验收。\",\"执行须知未改；历史362/617/83仅在历史参考单列，本轮数字来自实际输出。\"],\"signed_package\":{\"path\":\"mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app\",\"exists\":true,\"bytes\":9656849,\"sha256\":\"885ded83f3ca1a23069a59c84d7e0420ade59982c4d9c31192f4c96da2d4f60d\"},\"rawfile\":{\"path\":\"mixed-development-h5/features/mine/src/main/resources/rawfile/index.html\",\"exists\":true,\"bytes\":584747,\"sha256\":\"a6175e4433b476e466b8309b9f34aeeeaa5ece81b96b7d630a839d25a2dfabdf\"},\"verification\":{\"source_files\":704,\"source_groups\":16,\"hashes_unchanged\":true,\"head\":\"282b006a03af38b986a6ef86c03bf5e05140eaca\",\"git_status\":\"## mall-crazy-design-20261116\\n?? docs/refactor-evidence/\",\"tracked_diff\":\"\",\"json_validated\":true,\"every_file_under_200_KiB\":true,\"execution_proof_final\":true},\"delivery_receipt\":\"证据已封版；正式发送后将另写 D:/hdm-mall/docs/refactor-evidence/baseline/delivery-receipt.json，清单当前不预报该文件大小或投递成功。\"}",
+      "createdAt": 1794902097297,
+      "senderPid": 33508,
+      "status": "submitted",
+      "fingerprint": "25685a77a1bd19f5e1136f9ea7e013d35db3395bddd34956ec02237bd7d901ca",
+      "updatedAt": 1794902097599,
+      "receipt": {
+        "status": "written",
+        "messageId": "7e59fe08-58a4-4c6c-ad98-afae5c58c093",
+        "acknowledged": false
+      }
+    }
+  }
+}

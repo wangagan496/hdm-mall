@@ -1,0 +1,96 @@
+{
+  "capturedAt": "2026-11-17T07:28:21.310Z",
+  "signedPackages": [
+    {
+      "path": "mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app",
+      "exists": true,
+      "bytes": 9656861,
+      "sha256": "3de55f5a31e37af095ed9e3336456ecbedce244461e40b61ad9bd31d76c9097a"
+    },
+    {
+      "path": "mixed-development-h5/build/outputs/default/mixed-development-h5-default-signed.app",
+      "exists": true,
+      "bytes": 9167538,
+      "sha256": "5b45b0e7f6ab6b3622959eebb8490825f38a5ca74a5db1770f8fd57fc346d570"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/build/default/outputs/default/phone-default-signed.hap",
+      "exists": true,
+      "bytes": 743025,
+      "sha256": "647902155a33071f3dbe637c542852cb977227308843fee055284a4fdcb04955"
+    }
+  ],
+  "rawfile": [
+    {
+      "path": "mixed-development-h5/AppScope/resources/rawfile/agconnect-services.json",
+      "exists": true,
+      "bytes": 3151,
+      "sha256": "d746b77772ddae44c04817fc9d37e3b287b0b186b2de3bfec0184c3803397eaf"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/rawfile/favicon.ico",
+      "exists": true,
+      "bytes": 4286,
+      "sha256": "db74ab0b78338c1f778f8398c45f4103c99aea0e845a3118a7750b4eeafd3445"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/rawfile/index.html",
+      "exists": true,
+      "bytes": 584747,
+      "sha256": "a6175e4433b476e466b8309b9f34aeeeaa5ece81b96b7d630a839d25a2dfabdf"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/rawfile/privacy-policy.txt",
+      "exists": true,
+      "bytes": 8590,
+      "sha256": "55b5e44ac19ddd15afe771509f4bc9a464fbdb74ee6a4b9478331934b4cf9429"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/rawfile/user-agreement.txt",
+      "exists": true,
+      "bytes": 4635,
+      "sha256": "b58eafd1efdc42e7654e12a73af8284d99b0b5df38a20da407aeaeb3968aa554"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/rawfile/area.json",
+      "exists": true,
+      "bytes": 436657,
+      "sha256": "a225bddbfd7d63961395c917cdd25a981e11808b91540ab4c3de368a1703d2f5"
+    }
+  ],
+  "h5Dist": [
+    {
+      "path": "shoph5-vue3/dist/favicon.ico",
+      "exists": true,
+      "bytes": 4286,
+      "sha256": "db74ab0b78338c1f778f8398c45f4103c99aea0e845a3118a7750b4eeafd3445"
+    },
+    {
+      "path": "shoph5-vue3/dist/index.html",
+      "exists": true,
+      "bytes": 584714,
+      "sha256": "98e27eb0f209e439c514c5756db53a1a251a079e912b1dab78e404e0331a9868"
+    }
+  ],
+  "unsignedPackages": [
+    {
+      "path": "mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-unsigned.app",
+      "exists": true,
+      "bytes": 9642078,
+      "sha256": "61cc415c1e99f6bad5091da69a57fb293dbc6a68e5eef28cfdf34c2823f1518e"
+    },
+    {
+      "path": "mixed-development-h5/build/outputs/default/mixed-development-h5-default-unsigned.app",
+      "exists": true,
+      "bytes": 9152763,
+      "sha256": "01e30d500d9c935615de26bbca421b0e9e0d7b080b245ba54d1cba93e07918af"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/build/default/outputs/default/phone-default-unsigned.hap",
+      "exists": true,
+      "bytes": 703150,
+      "sha256": "e38bc7bb55fa6160150a8f103c7af4f5de40461208bd10376245149aa5c628dd"
+    }
+  ],
+  "note": "采集于本轮测试期间、签名构建之前；signed/unsigned 分列；rawfile 包含静态配置和文本，仅记录文件哈希，不读取凭证内容。"
+}

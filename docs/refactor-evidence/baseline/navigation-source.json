@@ -1,0 +1,410 @@
+{
+  "note": "全部跟踪 src/main .ets 的 pushPath/replacePath 系列调用点，保留4行源片段；辅助复核，不自动宣称每个分支均可用。",
+  "calls": [
+    {
+      "file": "mixed-development-h5/commons/ui-components/src/main/ets/components/HDMGoods.ets",
+      "line": 74,
+      "source": "      this.stackPath.pushPath({\n        name: PAGE_PATH.GOODS_PAGE,\n        param: this.goods\n      })"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets",
+      "line": 253,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.CHECK_ORDER_PAGE })\n  }\n\n  // 删除成功后移除页面商品并重算合计；单件删除和清空购物袋共用此流程。"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets",
+      "line": 464,
+      "source": "                  this.stackPath.pushPath({\n                    name: PAGE_PATH.LOGIN_PAGE\n                  })\n                }"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 318,
+      "source": "            this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })\n            return\n          }\n          if (failure.status < 400 || failure.status >= 500 || failure.status === 408 || failure.status === 429) {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 511,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.ADDRESS_PAGE, param: 'checkout:' + addressId,\n      onPop: (info: PopInfo) => {\n        if (token !== (this.user.token || '') || typeof info.result !== 'string' || !info.result) return\n        this.addressId = info.result as string"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 556,
+      "source": "    this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: orderId })\n  }\n\n  private orderStatusText(): string {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 653,
+      "source": "      else this.stackPath.replacePath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: order.id })\n    } catch {\n      // 查询失败或暂时查无记录都不能证明创建失败，保留原请求直到查清。\n    } finally {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 771,
+      "source": "            .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }))\n        }\n        if (this.checkoutLoading) {\n          Text('正在加载结算资料…')"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 788,
+      "source": "            .onClick(() => this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true }))\n        }\n        List({ scroller: this.checkoutScroller }) {\n          ListItem() {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/EvaluationView.ets",
+      "line": 308,
+      "source": "        this.stackPath.replacePath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })\n      }\n    }\n    returnEvaluationToOrders(actions)"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 422,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: this.order.id })\n  }\n\n  private openPayment(): void {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 429,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: this.order.id })\n  }\n\n  // 真实订单与演示订单分别读取各自的状态和评价，不互相补充。"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 617,
+      "source": "                  .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:this.orderId}))\n              }\n              if(this.order.afterSaleNotice) {\n                Text(this.order.afterSaleNotice).fontColor($r('[ui_components].color.text'))"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 621,
+      "source": "                Button('帮助与客服').onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.CUSTOMER_SERVICE_PAGE}))\n              }\n              ForEach(this.order.afterSales||[],(sale:AfterSale)=>{\n                AfterSaleCard({sale,owner:this.order?.ownerAccount===this.user.account,ready:this.canOperateOrder(),onComplete:()=>{void this.loadOrderDetail()}})"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 655,
+      "source": "                    if (this.order) this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE, param: { orderId: this.order.id, orderName: this.order.skus[0]?.name || '', orderCreatedAt: new Date(this.order.createTime).getTime() || 0 } as OrderServiceRoute })\n                  })\n                }\n                if (this.order.createTime) {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 664,
+      "source": "                  Button('帮助与客服').onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))\n                }\n              }\n              .width('100%')"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderView.ets",
+      "line": 431,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: orderId })\n  }\n\n  private async runCancelAction(orderId: string, action: 'request' | 'withdraw', resume: boolean = false): Promise<void> {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderView.ets",
+      "line": 521,
+      "source": "    this.stackPath.pushPath({\n      name: PAGE_PATH.ORDER_DETAIL_PAGE, // name 是框架字段：要打开哪个页面。\n      param: selectedOrderId // param 是框架字段：带给详情页的订单号。\n    })"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderView.ets",
+      "line": 537,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.EVALUATION_PAGE, param: orderId })\n  }\n\n  @Builder"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderView.ets",
+      "line": 744,
+      "source": "          .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:order.id}))\n      }\n      if (this.hasOrderActions(order)) {\n        this.OrderActions(order)"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets",
+      "line": 422,
+      "source": "      this.stackPath.replacePath({ name: PAGE_PATH.PAY_PAGE, param: this.orderId })\n    } else {\n      this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: this.orderId })\n    }"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets",
+      "line": 424,
+      "source": "      this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: this.orderId })\n    }\n  }\n"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets",
+      "line": 494,
+      "source": "                    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 })\n                  })\n              }\n              .width('100%')"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets",
+      "line": 501,
+      "source": "                  .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))\n              }\n              if (this.paymentRefreshElapsed >= 30000 && this.canCancelOrder &&\n                (this.paymentState === 'confirming' || this.paymentState === 'review')) {"
+    },
+    {
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayView.ets",
+      "line": 168,
+      "source": "    this.stackPath.replacePath({\n      name: PAGE_PATH.PAY_RESULT_PAGE,\n      param: { payResult: true, orderId } as PayResultParams\n    })"
+    },
+    {
+      "file": "mixed-development-h5/features/category/src/main/ets/presentation/views/CategoryView.ets",
+      "line": 58,
+      "source": "    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, searchCriteria)\n  }\n\n  build() {"
+    },
+    {
+      "file": "mixed-development-h5/features/category/src/main/ets/presentation/views/CategoryView.ets",
+      "line": 69,
+      "source": "        onRightClick: () => this.stackPath.pushPathByName(PAGE_PATH.SEARCH_PAGE, null)\n      })\n\n      if (this.loading) {"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeDiscountSection.ets",
+      "line": 42,
+      "source": "            this.stackPath.pushPath({\n              name: PAGE_PATH.GOODS_PAGE,\n              param: item\n            })"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeNewGoodsSection.ets",
+      "line": 24,
+      "source": "            this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: item })\n          })\n        })\n      }"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeSaleGoodsSection.ets",
+      "line": 26,
+      "source": "              this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: item })\n            })\n          })\n        }"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 393,
+      "source": "      this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })\n    } catch {\n      if (this.isCurrentGoods(generation, '', sequence, goodsId)) this.safeToast('保存购买选择失败，请重试')\n    } finally {"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 472,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.CHECK_ORDER_PAGE, param: selection })\n  }\n\n  // 快速购买"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 656,
+      "source": "              this.stackPath.pushPath({ name: PAGE_PATH.CART_PAGE, param: true })\n            })\n          }.padding(8).width('100%')\n        }"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 727,
+      "source": "              this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE })\n            })\n          Badge({\n            count: this.cartCount,"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 737,
+      "source": "                this.stackPath.pushPath({\n                  name: PAGE_PATH.CART_PAGE,\n                  param: true // 显示返回图标\n                })"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/HomeView.ets",
+      "line": 75,
+      "source": "    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_PAGE, null)\n  }\n\n  private openBannerGoods(banner: Banner): void {"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/HomeView.ets",
+      "line": 83,
+      "source": "    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, routeParam)\n  }\n\n  private recommendColumns(): number {"
+    },
+    {
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/SearchView.ets",
+      "line": 22,
+      "source": "    this.stackPath.pushPathByName(PAGE_PATH.SEARCH_RESULT_PAGE, {\n      keyword: keyword\n    } as SearchRouterParam)\n  }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/components/LocalGoodsRow.ets",
+      "line": 26,
+      "source": "    this.stackPath.pushPath({\n      name: PAGE_PATH.GOODS_PAGE,\n      param: goods\n    })"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets",
+      "line": 134,
+      "source": "                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: matter.id }))\n            }, (matter: DeletionMatter) => matter.id)\n            if (this.user.role === 'merchant') {\n              Text('商家账号请联系管理员处理')"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets",
+      "line": 144,
+      "source": "                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.ORDER_PAGE, param: 0 }))\n            } else {\n              Text('当前密码').width('100%')\n              TextInput({ placeholder: '输入当前密码确认注销', text: $$this.password }).type(InputType.Password).showPasswordIcon(false).id('deletion-password')"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AuditLogView.ets",
+      "line": 49,
+      "source": "    if (item.orderId) this.stackPath.pushPath({ name: 'MerchantOrderView', param: item.orderId })\n    else if (item.productId) this.stackPath.pushPath({ name: 'ProductEditView', param: item.productId })\n  }\n  @Builder"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AuditLogView.ets",
+      "line": 50,
+      "source": "    else if (item.productId) this.stackPath.pushPath({ name: 'ProductEditView', param: item.productId })\n  }\n  @Builder\n  private Card(item: AuditItem) {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/CustomerServiceView.ets",
+      "line": 69,
+      "source": "    this.stackPath.pushPath({ name: this.user.role === 'merchant' ? 'MerchantOrderView' : PAGE_PATH.ORDER_DETAIL_PAGE, param: orderId })\n  }\n  private endpoint(): string { return this.user.role === 'merchant' ? '/merchant/service/' + encodeURIComponent(this.buyerId) + '/messages' : '/member/service/messages' }\n  private async load(older: boolean = false): Promise<void> {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/CustomerServiceView.ets",
+      "line": 147,
+      "source": "            if (!this.user.token) { Button('登录后留言').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })) }\n            Button(this.loading ? '读取中' : '刷新留言').id('service-refresh').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.loading).onClick(() => this.load())\n            if (this.hasMore) { Button('查看更早留言').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.loading).onClick(() => this.load(true)) }\n            ForEach(this.items, (item: ServiceMessage) => {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 624,
+      "source": "      this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: current.id,\n        onPop: () => this.showFamilyCenter() })\n      return\n    }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 707,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: order.id,\n      onPop: () => this.showFamilyCenter() })\n  }\n"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 798,
+      "source": "          Button('帮助与客服').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.CUSTOMER_SERVICE_PAGE }))\n        }\n        // 服务端决定当前亲友能否代付、代收，页面只按权限展示按钮。\n        if (order.paymentChannel === 'alipay-sandbox' && (order.canPay || order.canResumePayment)) {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 845,
+      "source": "        .onClick(() => this.stackPath.pushPath({ name: 'MerchantOrderView', param: order.id }))\n    }\n    .orderCardStyle()\n    .alignItems(HorizontalAlign.Start)"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/LoginView.ets",
+      "line": 113,
+      "source": "    if (user.status === 'deleting') { this.stackPath.pushPath({ name: 'AccountDeletionView' }); return }\n    if (GlobalVariable.DEMO_ORDER_FLOW || this.stackPath.getAllPathName().includes(PAGE_PATH.GOODS_PAGE)) return\n    try {\n      const raw: string = storeManager.getPendingTrade()"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/LoginView.ets",
+      "line": 120,
+      "source": "          this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: trade.entry })\n        }\n      }\n    } catch { }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MerchantOrderView.ets",
+      "line": 91,
+      "source": "              Button('操作记录').id('merchant-order-audit').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.stackPath.pushPath({ name: 'AuditLogView', param: { orderId: this.orderId } as AuditFilter }))\n            }\n          }.padding(20).width('100%').alignItems(HorizontalAlign.Start)\n        }.width('100%').layoutWeight(1).align(Alignment.Top)"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MerchantServiceView.ets",
+      "line": 39,
+      "source": "    this.stackPath.pushPath({ name: 'MerchantServiceThread', param: { buyerId: item.buyerId } as ThreadRoute,\n      onPop: () => { this.active = true; void this.load(this.page) } })\n  }\n  build() {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 99,
+      "source": "    if (!this.user.token) { this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }); return }\n    this.stackPath.pushPath({ name: this.user.role === 'merchant' ? 'MerchantServiceView' : PAGE_PATH.CUSTOMER_SERVICE_PAGE,\n      onPop: () => this.refreshAttentionOnOrdersReturn() })\n  }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 100,
+      "source": "    this.stackPath.pushPath({ name: this.user.role === 'merchant' ? 'MerchantServiceView' : PAGE_PATH.CUSTOMER_SERVICE_PAGE,\n      onPop: () => this.refreshAttentionOnOrdersReturn() })\n  }\n"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 106,
+      "source": "      this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })\n      return\n    }\n    this.refreshOrderAttention()"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 110,
+      "source": "    this.stackPath.pushPath({\n      name: PAGE_PATH.ORDER_PAGE,\n      param: orderState,\n      onPop: () => this.refreshAttentionOnOrdersReturn()"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 133,
+      "source": "                    this.stackPath.pushPath({\n                      name: PAGE_PATH.SETTINGS_PAGE\n                    })\n                  })"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 173,
+      "source": "                this.stackPath.pushPathByName('WebView', null)\n              } else {\n                this.stackPath.pushPath({\n                  name: PAGE_PATH.LOGIN_PAGE"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 175,
+      "source": "                this.stackPath.pushPath({\n                  name: PAGE_PATH.LOGIN_PAGE\n                })\n              }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 183,
+      "source": "                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }))\n            }\n\n            Row({ space: 8 }) {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 220,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: 'ReconciliationView' }))\n            Button('客服留言').id('merchant-service-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.openService())\n            Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})\n              .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 223,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))\n            Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')\n              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))\n              .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 226,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))\n            Button('库存管理').margin({ top: 12 })\n              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))\n              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 229,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))\n            Button('商品管理').margin({ top: 12 })\n              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))\n              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MANAGE_PAGE }))"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 232,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MANAGE_PAGE }))\n            Button($r('app.string.after_sale_manage')).margin({ top: 12 })\n              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))\n              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_MANAGE_PAGE }))"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 235,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_MANAGE_PAGE }))\n          }\n          if (this.user.status === 'deleting') {\n            Button('账号注销处理中 · 查看进度或撤销').fontSize(14)"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 240,
+      "source": "              .onClick(() => this.stackPath.pushPath({ name: 'AccountDeletionView' }))\n          }\n          if (this.accountNotice && this.user.token) { Text(this.accountNotice).fontSize(14).padding(12).width('100%') }\n          Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 247,
+      "source": "              this.stackPath.pushPath({ name: this.user.token ? PAGE_PATH.FAMILY_PAGE : PAGE_PATH.LOGIN_PAGE })\n            })\n          // nav\n          Column({ space: 8 }) {"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 258,
+      "source": "                    this.stackPath.pushPath({ name: PAGE_PATH.FAVORITES_PAGE })\n                  }\n                })\n              }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 269,
+      "source": "                    this.stackPath.pushPath({ name: PAGE_PATH.HISTORY_PAGE })\n                  }\n                })\n              }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductEditView.ets",
+      "line": 435,
+      "source": "                .enabled(!this.saving && !this.pending).onClick(() => this.stackPath.pushPath({ name: 'AuditLogView', param: { productId: this.productId } as AuditFilter }))\n            }\n            Button(this.pending ? (this.exhausted ? '确认保存结果' : '正在确认是否已保存') : this.saving ? '正在保存' : '保存')\n              .id('product-save').width('100%').height(48)"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "line": 62,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_EDIT_PAGE, param: id,\n      onPop: info => { const saved = info.result as ProductNotice | undefined; this.active = true; void this.load(this.page, saved?.text || '', saved?.kind || 'normal') } })\n  }\n  private status(item: ProductData): string { return item.status === 'off' ? '已下架' : item.skus.some(sku => sku.enabled) ? '在售' : '无可售规格' }"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "line": 115,
+      "source": "                  Button('评价').id('product-reviews-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.stackPath.pushPath({ name: 'ReviewManageView', param: item.id }))\n                  Button(this.hasPending(item.id) ? '确认保存结果' : item.status === 'off' ? '上架' : '下架').id('product-toggle-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy.includes(item.id)).onClick(() => this.toggle(item))\n                }\n              }.padding(16).width('100%').backgroundColor($r('[ui_components].color.white')).borderRadius(12)"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReconciliationView.ets",
+      "line": 62,
+      "source": "    this.stackPath.pushPath({ name: 'MerchantOrderView', param: item.orderId })\n  }\n  private choose(item: ReconciliationDifference): void {\n    if (!this.allowed() || this.working || item.state !== 'pending') return"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 79,
+      "source": "    this.stackPath.pushPathByName('WebView', null)\n  }\n\n  @Builder"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 152,
+      "source": "              onRightClick: () => this.stackPath.pushPathByName(PAGE_PATH.ADDRESS_PAGE, null)\n            })\n            HDMCell({ title: '隐私政策', onRightClick: () => this.openDocument('privacy') })\n            HDMCell({ title: '用户协议', onRightClick: () => this.openDocument('terms') })"
+    },
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 158,
+      "source": "              HDMCell({ title: '注销账号', onRightClick: () => this.stackPath.pushPath({ name: 'AccountDeletionView' }) })\n            } else { Text('商家账号请联系管理员处理').fontSize(13).padding(16) }\n          }\n"
+    },
+    {
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 61,
+      "source": "          this.stackPath.pushPath({ name: PAGE_PATH.PAY_PAGE, param: order.id })\n        }\n      } catch (error) {\n        if (!this.isCurrentRecovery(sequence, accountId, token)) return"
+    },
+    {
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 86,
+      "source": "      this.stackPath.pushPath({ name: PAGE_PATH.GOODS_PAGE, param: record.entry })\n      return true\n    } catch { return false }\n  }"
+    },
+    {
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 127,
+      "source": "    this.stackPath.pushPath({ name: PAGE_PATH.SEARCH_PAGE })\n  }\n\n  aboutToAppear(): void {"
+    }
+  ]
+}
