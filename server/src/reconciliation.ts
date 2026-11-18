@@ -15,17 +15,23 @@ const reasonSchema = z.object({ reason: z.string().trim().min(5).max(200) }).str
 const stateName = (row: {kind: string; state: string}) => row.state === 'succeeded' ? row.kind === 'payment' ? '已支付' : '已退款' :
   row.state === 'pending' ? row.kind === 'payment' ? '支付确认中' : '退款中' : row.kind === 'payment' ? '支付未成功' : '退款失败重试中'
 const money = (amount: number) => '¥' + (amount / 100).toFixed(2)
+const allowSystemRun = () => {}
 
 export class Reconciliation {
   private db: Database
   private clock: Clock
   private channel?: PaymentChannel
-  private running = new Map<string,Promise<ReturnType<Reconciliation['readReport']>>>()
+  private running = new Map<string, { guards: Set<() => void>; task: Promise<ReturnType<Reconciliation['readReport']>> }>()
   private scanning?: Promise<{failed:string[]}>
   private stopped = false
   constructor(db: Database, clock: Clock, channel?: PaymentChannel) { this.db = db; this.clock = clock; this.channel = channel }
 
-  async bill(user: User, date: string) { ensure(user.role === 'merchant', 403, '需要商家权限'); return this.readBill(date) }
+  async bill(user: User, date: string, verify = allowSystemRun) {
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
+    const rows = await this.readBill(date)
+    verify()
+    return rows
+  }
   private async readBill(date: string) {
     billDateSchema.parse(date)
     ensure(this.channel?.exportBill, 503, '支付渠道暂不支持对账账单')
@@ -35,25 +41,37 @@ export class Reconciliation {
     ensure(new Set(rows.map(row => row.kind + ':' + row.businessId)).size === rows.length, 502, '渠道账单包含重复业务编号')
     return rows
   }
-  async run(user: User, date: string) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
-    return this.runDate(date)
+  async run(user: User, date: string, verify = allowSystemRun) {
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
+    try { return await this.runDate(date, verify) }
+    finally { verify() }
   }
-  private runDate(date:string) {
+  private runDate(date: string, verify = allowSystemRun) {
     billDateSchema.parse(date)
     ensure(!this.stopped,503,'对账服务正在关闭')
     const existing = this.running.get(date)
-    if (existing) return existing
-    const task = Promise.resolve().then(() => this.perform(date)).catch(error => {
-      this.db.run(`INSERT INTO reconciliation_runs(date,state,checked_at,next_retry_at,summary) VALUES(?,'failed',?,?,'{}')
-        ON CONFLICT(date) DO UPDATE SET state='failed',next_retry_at=excluded.next_retry_at`,date,this.clock.now(),this.clock.now()+30_000)
+    if (existing) {
+      existing.guards.add(verify)
+      return existing.task
+    }
+    const guards = new Set([verify])
+    const mayWrite = () => [...guards].some(guard => {
+      try { guard(); return true } catch { return false }
+    })
+    const task = this.readBill(date).then(rows => {
+      ensure(mayWrite(), 409, '当前身份已变化，请按当前身份重新操作')
+      return this.perform(date, rows)
+    }).catch(error => {
+      if (mayWrite()) {
+        this.db.run(`INSERT INTO reconciliation_runs(date,state,checked_at,next_retry_at,summary) VALUES(?,'failed',?,?,'{}')
+          ON CONFLICT(date) DO UPDATE SET state='failed',next_retry_at=excluded.next_retry_at`, date, this.clock.now(), this.clock.now() + 30_000)
+      }
       throw error
     }).finally(() => this.running.delete(date))
-    this.running.set(date,task)
+    this.running.set(date, { guards, task })
     return task
   }
-  private async perform(date:string) {
-    const rows = await this.readBill(date)
+  private perform(date: string, rows: BillRow[]) {
     const payments = rows.filter(row => row.kind === 'payment' && row.state === 'succeeded')
     const refunds = rows.filter(row => row.kind === 'refund' && row.state === 'succeeded')
     const local = this.localRows(date), differences = this.compare(local, rows)
@@ -93,7 +111,7 @@ export class Reconciliation {
   async stop() {
     this.stopped = true
     await this.scanning
-    await Promise.allSettled([...this.running.values()])
+    await Promise.allSettled([...this.running.values()].map(run => run.task))
   }
 
   private localRows(date: string) {
@@ -126,7 +144,7 @@ export class Reconciliation {
   }
 
   report(user: User, date: string) {
-    ensure(user.role === 'merchant',403,'需要商家权限'); billDateSchema.parse(date)
+    ensure(user.identity === 'merchant',403,'需要商家权限'); billDateSchema.parse(date)
     return this.readReport(date)
   }
   private readReport(date:string) {
@@ -147,7 +165,7 @@ export class Reconciliation {
   }
 
   resolve(user: User, id: string, input: unknown) {
-    ensure(user.role==='merchant',403,'需要商家权限')
+    ensure(user.identity==='merchant',403,'需要商家权限')
     const {reason} = reasonSchema.parse(input)
     return this.db.transaction(() => {
       const row = this.db.one<{state:string;reason:string;date:string}>('SELECT state,reason,date FROM reconciliation_differences WHERE id=? AND active=1',id)

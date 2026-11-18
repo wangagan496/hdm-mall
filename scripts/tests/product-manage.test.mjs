@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { sourceOf, execute, deferred, tick } from './native-harness.mjs'
 
 export function productFixture() {
-  let user = { id: 'merchant', role: 'merchant', token: 'token' }, sequence = 0
+  let user = { id: 'merchant', identity: 'merchant', token: 'token' }, sequence = 0
   const disk = new Map(), writes = [], reads = [], uploads = []
   const store = { getSync: (key, fallback) => disk.get(key) ?? fallback, putSync: (key, value) => disk.set(key, value), flush: async () => {} }
   const api = { getForSession: async (...args) => { reads.push(args); return api.get(...args) },
@@ -76,7 +76,7 @@ test('保存中换账号不清旧账号待确认，恢复不借用新身份', as
   const f = productFixture(), gate = deferred()
   f.api.write = () => gate.promise
   const task = f.flow.start('one', body(), '', 'token'); await tick()
-  f.setUser({ id: 'other', role: 'merchant', token: 'other-token' })
+  f.setUser({ id: 'other', identity: 'merchant', token: 'other-token' })
   gate.resolve({ id: 'one' }); await assert.rejects(task)
   assert.ok(f.flow.pending('merchant', 'one')); assert.equal(f.flow.pending('other', 'one'), null)
   await assert.rejects(f.flow.resume('one', 'token'))

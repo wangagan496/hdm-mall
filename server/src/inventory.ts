@@ -60,7 +60,7 @@ function returnOverview(db: Database, skuId: string) {
 }
 
 export function inventoryPage(db: Database, user: User, query: PageQuery & { skuId?: string }) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const where = query.skuId ? 'WHERE s.id=?' : ''
   const values = query.skuId ? [query.skuId] : []
   const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM skus s ${where}`, ...values)!.count
@@ -76,7 +76,7 @@ export function inventoryPage(db: Database, user: User, query: PageQuery & { sku
 }
 
 export function stockMovements(db: Database, user: User, skuId: string, query: PageQuery) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   ensure(db.one('SELECT id FROM skus WHERE id=?', skuId), 404, '商品规格不存在')
   const counts = db.one<{ count: number }>('SELECT COUNT(*) AS count FROM inventory_movements WHERE sku_id=?', skuId)!.count
   const items = db.all(`SELECT id,sku_id AS skuId,order_id AS orderId,actor_id AS actorId,kind,delta,balance,
@@ -94,14 +94,14 @@ function findAdjustment(db: Database, user: User, requestKey: string) {
 }
 
 export function adjustmentReceipt(db: Database, user: User, requestKey: string) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const receipt = findAdjustment(db, user, requestKey)
   ensure(receipt, 404, '尚未找到本次调整记录')
   return receipt
 }
 
 export function adjustStock(db: Database, user: User, skuId: string, data: StockAdjustment, clock: Clock = systemClock) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   return db.transaction(() => {
     const existing = findAdjustment(db, user, data.requestKey)
     if (existing) {

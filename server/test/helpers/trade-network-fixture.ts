@@ -100,7 +100,7 @@ export async function buildTradeNetworkFixture() {
       cancelRequests: context.db.all('SELECT * FROM order_cancel_requests WHERE order_id=? ORDER BY sequence', orderId),
       cancelActions: context.db.all('SELECT * FROM order_cancel_actions WHERE order_id=? ORDER BY created,id', orderId) }
   })
-  await app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: 'Bearer ' + buyer.token }, payload: { skuId: sku.id, count: 1, requestKey: randomUUID() } })
+  await app.inject({ method: 'POST', url: '/member/cart', headers: identityHeaders(context.accounts, buyer.token), payload: { skuId: sku.id, count: 1, requestKey: randomUUID() } })
   tradeRequests.length = 0
   return { context, password, skuId: sku.id, addressId: address.id, close: async () => {
     release?.()
@@ -108,3 +108,4 @@ export async function buildTradeNetworkFixture() {
     await rm(uploadsPath, { recursive: true, force: true })
   } }
 }
+import { identityHeaders } from './identity-headers.ts'

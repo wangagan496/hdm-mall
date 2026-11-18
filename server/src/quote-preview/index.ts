@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import type { Database } from '../database.ts'
-import type { User } from '../accounts.ts'
+import { confirmationSubject, type User } from '../accounts.ts'
 import { AppError, ensure } from '../errors.ts'
 import { quotePromotion } from '../promotions.ts'
 import { QuoteRequestSchema, QuoteResponseSchema, QuoteLineSchema, QuoteRuleSchema } from '../../../contract-kit/v1/quote-preview/schema.ts'
@@ -59,7 +59,8 @@ export class QuotePreview {
     } catch { return null }
   }
   preview(user: User, input: unknown, observedAt: number): QuoteResponse {
-    ensure(user.role === 'buyer', 403, '需要买家身份')
+    ensure(user.identity === 'buyer', 403, '需要买家身份')
+    const subject = confirmationSubject(user, 'quote-preview')
     const request = QuoteRequestSchema.parse(input)
     const items: QuoteItem[] = request.items ?? this.db.all<QuoteItem>('SELECT sku_id AS skuId,count FROM carts WHERE user_id=? AND selected=1 ORDER BY sku_id', user.id)
     ensure(items.length <= 100, 400, '一次最多报价100种规格')
@@ -74,7 +75,7 @@ export class QuotePreview {
     const first = rows[0]!
     const rule: QuoteRule = { enabled: first.ruleEnabled === 1, revision: first.ruleRevision, thresholdCents: first.threshold, discountCents: first.discount }
     QuoteRuleSchema.parse(rule)
-    const signed = this.previous(request.previousReceipt, user.id)
+    const signed = this.previous(request.previousReceipt, subject)
     const previous = signed && JSON.stringify(signed.lines.map(line => ({ skuId: line.skuId, count: line.count }))) === JSON.stringify(sorted) ? signed : null
     const reasons: QuoteReason[] = []
     const lines: QuoteLine[] = []
@@ -108,7 +109,7 @@ export class QuotePreview {
     const quote = calculateQuote(lines, rule)
     const identityLines = lines.map(({ observedAt: _time, ...line }) => line)
     const quoteId = createHash('sha256').update(JSON.stringify(['quote-v1', identityLines, rule])).digest('hex').slice(0, 12).toUpperCase()
-    const body = Buffer.from(JSON.stringify({ v: 1, subject: user.id, lines: identityLines, rule, amountCents: quote.amountCents, quoteId })).toString('base64url')
+    const body = Buffer.from(JSON.stringify({ v: 1, subject, lines: identityLines, rule, amountCents: quote.amountCents, quoteId })).toString('base64url')
     const comparison: QuoteComparison | null = previous ? { previousQuoteId: previous.quoteId, previousAmountCents: previous.amountCents,
       deltaCents: quote.amountCents - previous.amountCents, beforeRule: previous.rule, afterRule: rule, reasons } : null
     const result: QuoteResponse = {

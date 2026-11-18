@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { execute, sourceOf, deferred } from './native-harness.mjs'
 import { buildApp } from '../../server/src/app.ts'
+import { identityHeaders } from '../../server/test/helpers/identity-headers.ts'
 
 const axios = createRequire(new URL('../../shoph5-vue3/package.json', import.meta.url))('axios')
 
@@ -12,17 +13,22 @@ test('实际加购与角标请求固定原账号，保留正文和读取重试�
   try {
     for (const account of ['goods_buyer', 'goods_other']) f.accounts.register(account, 'goods-password', 'buyer')
     const buyer = f.accounts.login('goods_buyer', 'goods-password'), other = f.accounts.login('goods_other', 'goods-password')
-    let current = buyer, countFailures = 0, badge = -1
-    const requests = [], countUpdated = deferred()
+    let current = buyer, countFailures = 0, badge = -1, switchDuringRetry = false
+    const requests = [], countUpdated = deferred(), firstResponse = deferred(), releaseFirstResponse = deferred()
     const adapter = async config => {
       const headers = config.headers.toJSON(), uri = new URL(axios.getUri(config))
       requests.push({ method: config.method, url: config.url, data: config.data, headers, timeout: config.timeout })
       if (config.url === '/member/cart/count' && countFailures > 0) {
-        countFailures--; current = other
+        countFailures--
+        if (switchDuringRetry) current = other
         throw new axios.AxiosError('lost count response', 'ERR_NETWORK', config)
       }
       const response = await f.app.inject({ method: config.method.toUpperCase(), url: uri.pathname + uri.search,
         headers, payload: config.data })
+      if (requests.length === 1) {
+        firstResponse.resolve()
+        await releaseFirstResponse.promise
+      }
       const result = { status: response.statusCode, statusText: '', data: response.body, headers: response.headers, config }
       if (response.statusCode >= 400) throw new axios.AxiosError('HTTP failure', 'ERR_BAD_RESPONSE', config, null, result)
       return result
@@ -40,12 +46,15 @@ test('实际加购与角标请求固定原账号，保留正文和读取重试�
     const cart = new AuthCart()
     const requestKey = randomUUID()
     const adding = cart.addCart({ skuId: 'hdm-1-a', count: 2, requestKey }, buyer.token)
-    current = other; await adding
+    await firstResponse.promise
+    current = other
+    releaseFirstResponse.resolve()
+    await assert.rejects(adding, /身份已切换/)
     assert.equal(requests.length, 1); assert.equal(badge, -1)
     assert.equal(requests[0].headers.Authorization, `Bearer ${buyer.token}`)
     assert.deepEqual(JSON.parse(requests[0].data), { skuId: 'hdm-1-a', count: 2, requestKey })
     const countOf = async user => (await f.app.inject({ method: 'GET', url: '/member/cart/count',
-      headers: { authorization: `Bearer ${user.token}` } })).json().result.count
+      headers: identityHeaders(f.accounts, user.token) })).json().result.count
     assert.equal(await countOf(buyer), 2); assert.equal(await countOf(other), 0)
     await assert.rejects(cart.addCart({ skuId: 'hdm-1-a', count: 1, requestKey: randomUUID() }, buyer.token), /登录状态/)
     assert.equal(requests.length, 1)
@@ -55,13 +64,20 @@ test('实际加购与角标请求固定原账号，保留正文和读取重试�
     await assert.rejects(cart.addCart({ skuId: 'missing', count: 1, requestKey: randomUUID() }, buyer.token))
     assert.equal(requests.length, count + 1); assert.equal(await countOf(buyer), 3)
     count = requests.length; countFailures = 2; badge = 99; await cart.updateCartCount()
-    assert.equal(requests.length, count + 3); assert.equal(badge, 99)
+    assert.equal(requests.length, count + 3); assert.equal(badge, 3)
     assert.ok(requests.slice(count).every(request => request.headers.Authorization === `Bearer ${buyer.token}`))
+    count = requests.length; countFailures = 2; badge = 99; switchDuringRetry = true; await cart.updateCartCount()
+    assert.equal(requests.length, count + 1); assert.equal(badge, 99)
+    assert.equal(requests.at(-1).headers.Authorization, `Bearer ${buyer.token}`)
     const home = execute(sourceOf('mixed-development-h5/features/home/src/main/ets/data/api/home.ets'), { network })
     const evaluations = await home.getGoodsEvaluationsAPI('hdm-1')
     assert.equal(evaluations.counts, 0); assert.deepEqual(evaluations.items, [])
     for (const request of requests) {
       assert.equal(request.headers.xSilentError, '1'); assert.equal(request.timeout, 10000)
+      if (request.headers.Authorization) {
+        assert.equal(request.headers['X-HDM-Identity'], 'buyer')
+        assert.equal(request.headers['X-HDM-Identity-Revision'], '0')
+      }
       if (request.method === 'post') assert.equal(request.headers['Content-Type'], 'application/json')
     }
   } finally { await f.app.close() }

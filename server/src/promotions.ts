@@ -66,7 +66,7 @@ const editSchema = z.object({ requestKey: z.string().uuid(), expectedRevision: z
 }).strict().refine(value => value.discountCents < value.thresholdCents)
 
 export function editPromotion(db: Database, user: User, input: unknown, now: number): Promotion {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const data = editSchema.parse(input)
   const body = JSON.stringify(data)
   return db.transaction(() => {

@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "packageSha256": "8168A4E03043D719293C68707E4A2B91C875C9EAFC39AC59D6AEA08865AEBCE5",
+  "target": "127.0.0.1:5555",
+  "api": 24,
+  "portsRestored": true,
+  "fixtureStopped": true,
+  "fixturePortReleased": true,
+  "checks": [
+    "isolated-fixture-verified",
+    "signed-app-installed",
+    "light merchant-entry-hidden",
+    "light buyer-checkout-entered-without-payment",
+    "light same-token-identity-layouts-restored",
+    "dark same-token-identity-layouts-restored"
+  ],
+  "screenshots": [
+    "light-01-merchant-layout-saved",
+    "light-02-buyer-layout-saved",
+    "light-01-search-results",
+    "light-02-product-detail",
+    "light-03-selected-spec",
+    "light-03-checkout-before-payment",
+    "light-04-merchant-layout-restored",
+    "light-05-buyer-layout-restored",
+    "dark-06-buyer-layout-restored",
+    "dark-07-merchant-layout-restored"
+  ]
+}

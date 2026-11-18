@@ -40,7 +40,7 @@ async function fixture() {
   // Test-only local route lets the timer scan compete at the same HTTP boundary as shipment.
   ctx.app.post('/_inventory-test/scan', () => ctx.orders.processDueCancelRequests())
   const call = async (method: string, url: string, payload?: object, token = buyer.token) => {
-    const response = await ctx.app.inject({ method: method as never, url, headers: { authorization: 'Bearer ' + token },
+    const response = await ctx.app.inject({ method: method as never, url, headers: identityHeaders(ctx.accounts, token),
       payload: withReturnShipping(ctx, uploadsPath, url, payload, token) })
     return { status: response.statusCode, body: response.json() }
   }
@@ -81,7 +81,7 @@ async function fixture() {
     const deadline = setTimeout(() => { timedOut = true; release() }, 5000)
     try {
       const responses = await Promise.all(requests.map(async r => {
-        const response = await fetch(base + r.url, { method: 'POST', headers: { authorization: 'Bearer ' + merchant.token, 'content-type': 'application/json' }, body: JSON.stringify(r.body) })
+        const response = await fetch(base + r.url, { method: 'POST', headers: { ...identityHeaders(ctx.accounts, merchant.token), 'content-type': 'application/json' }, body: JSON.stringify(r.body) })
         return { status: response.status, body: await response.json() }
       }))
       assert.equal(waiting.entered, 2, 'both HTTP requests must enter the gate before release')
@@ -307,7 +307,7 @@ test('INV-12 备份恢复和schema17重开保留待验收及不合格，补验�
     assert.equal((await f.action(late.id, 'inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
     const expected = f.snapshot(), expectedInventory = await f.inventory()
     const backup = await createBackup({ databasePath: f.databasePath, uploadsPath: f.uploadsPath, destination: join(f.root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 19); assert.deepEqual(backup.manifest.issues, [])
+    assert.equal(backup.manifest.schemaVersion, 20); assert.deepEqual(backup.manifest.issues, [])
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(f.root, 'restored') })
     const legacy = new DatabaseSync(join(restored.root, 'mall.sqlite'))
     removeServiceSchema(legacy); legacy.exec('PRAGMA user_version=16'); legacy.close()
@@ -316,8 +316,8 @@ test('INV-12 备份恢复和schema17重开保留待验收及不合格，补验�
       try {
         assert.deepEqual(next.db.all('SELECT id,stock FROM skus ORDER BY id'), expected.stocks)
         assert.deepEqual(next.db.all('SELECT * FROM inventory_movements ORDER BY id'), expected.movements)
-        assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
-        const user = next.db.one<User>('SELECT id,account,role FROM users WHERE id=?', f.merchant.id)!
+        assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 20)
+        const user = next.accounts.defaultUser(f.merchant.id)!
         const row = inventoryPage(next.db, user, { page: 1, pageSize: 20, skuId: f.sku.id }).items[0]
         assert.deepEqual(JSON.parse(JSON.stringify(row)), expectedInventory)
         assert.equal(row!.returnRecords.some(r => r.afterSaleId === pending.id && r.pendingInspectionCount === 2), true)
@@ -470,3 +470,4 @@ test('INV-R2 无退货隔离数量时汇总和隐藏记录数均为零', async (
     assert.deepEqual(result.returnRecords, [])
   } finally { await f.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

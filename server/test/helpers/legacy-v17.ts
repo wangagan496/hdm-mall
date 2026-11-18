@@ -1,6 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { removeIdentitySchema } from './legacy-v19.ts'
 
 export function removeReconciliationLogisticsSchema(db:DatabaseSync) {
+  removeIdentitySchema(db)
   // Older fixtures also remove the later category indexes before dropping SKU columns.
   db.exec('DROP INDEX IF EXISTS skus_product_availability; DROP INDEX IF EXISTS categories_parent;')
   if (!db.prepare("SELECT name FROM sqlite_master WHERE name='reconciliation_runs'").get()) return

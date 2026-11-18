@@ -1,9 +1,12 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { returnAddressSchema } from './after-sales.ts'
+import { historicalIdentity, historicalOwnerIdentity } from './identity-backup.ts'
 
 // Cross-table checks supplement SQLite CHECK/FK constraints; backups may be externally modified.
 export function inspectAfterSales(db: DatabaseSync): string[] {
   const version = Number(db.prepare('PRAGMA user_version').get()!.user_version)
+  const held = historicalIdentity(db, version)
+  const ownerIdentity = version >= 20 ? historicalOwnerIdentity(db) : undefined
   const invalid = new Set<string>()
   const sales = db.prepare(`SELECT a.*,o.owner_id,o.state AS order_state,o.received_at,o.paid_by,o.paid_at,o.amount AS order_amount,
     p.order_id AS payment_order,p.payer_id,p.amount AS payment_amount,p.state AS payment_state,p.channel_paid_at,
@@ -15,7 +18,7 @@ export function inspectAfterSales(db: DatabaseSync): string[] {
       sale.payment_state === 'succeeded' && sale.channel_paid_at === sale.paid_at
     const items = db.prepare(`SELECT a.*,i.price,i.count AS bought FROM after_sale_items a LEFT JOIN order_items i ON i.order_id=? AND i.sku_id=a.sku_id WHERE a.after_sale_id=?`).all(sale.order_id!,sale.id!)
     valid &&= items.length > 0 && items.every(i => i.price !== null && Number(i.count) <= Number(i.bought)) && items.reduce((sum,i) => sum + Number(i.price) * Number(i.count) - (version >= 16 ? Number(i.discount_share) : 0),0) === sale.amount
-    const actions = db.prepare('SELECT a.*,u.role FROM after_sale_actions a LEFT JOIN users u ON u.id=a.actor_id WHERE after_sale_id=? ORDER BY a.rowid').all(sale.id!)
+    const actions = db.prepare('SELECT * FROM after_sale_actions WHERE after_sale_id=? ORDER BY rowid').all(sale.id!)
     const inspections = actions.filter(a => a.action === 'inspect' || a.action === 'refund-reject')
     valid &&= inspections.length <= 1
     const inspection = inspections.find(a => a.action === 'inspect')
@@ -44,7 +47,10 @@ export function inspectAfterSales(db: DatabaseSync): string[] {
       const appliedStates = lateInspection && current === 'refunding' ? ['refunding','refunded'] : [current]
       if (action.action === 'auto-refund') autoRefunded = true
       const system = ['auto-approve','auto-refund','close'].includes(String(action.action)), owner = ['request','withdraw','ship-back'].includes(String(action.action))
-      valid &&= system ? action.actor_id === null : owner ? action.actor_id === sale.requested_by : action.role === 'merchant'
+      valid &&= system ? action.actor_id === null && (version < 20 || action.acting_identity === null) :
+        (owner ? action.actor_id === sale.requested_by : held(action.actor_id, 'merchant', action.created)) &&
+        (version < 20 || (owner ? ownerIdentity!(action.actor_id, action.acting_identity, action.created) : action.acting_identity === 'merchant') &&
+          held(action.actor_id, action.acting_identity, action.created))
       valid &&= body?.action === action.action && (action.action === 'request' ? body?.orderId === sale.order_id : body?.afterSaleId === sale.id) &&
         result?.id === action.id && result?.afterSaleId === sale.id && result?.orderId === sale.order_id && appliedStates.includes(result?.appliedState) && result?.appliedAt === action.created &&
         result?.refundId === (current === 'refunding' ? sale.refund_id : null)

@@ -22,7 +22,7 @@ export function auditActionLabel(action: string): string {
     'aftersale.approve': '同意售后', 'aftersale.reject': '拒绝售后', 'aftersale.inspect': '售后验收并退款',
     'aftersale.refund_reject': '拒绝退款', 'aftersale.auto_approve': '自动同意售后', 'aftersale.auto_close': '自动关闭售后', 'aftersale.auto_refund': '自动退款',
     'refund.create': '发起退款', 'refund.result': '退款结果', 'refund.retry': '重试退款', 'payment.review': '核实付款',
-    'settings.return_address': '修改退货地址', 'access.denied': '访问被拒绝'
+    'settings.return_address': '修改退货地址', 'access.denied': '访问被拒绝', 'identity.switch': '切换身份'
   }
   return labels[action] || '操作记录'
 }
@@ -38,6 +38,11 @@ function promotionLabel(value: string | number | boolean | undefined): string {
 export function auditChange(item: AuditItem): string {
   const s = item.summary
   const reason = s.reason ? '，原因：' + s.reason : ''
+  if (item.action === 'identity.switch') {
+    const before = s.before === 'merchant' ? '店主身份' : '买家身份'
+    const after = s.after === 'merchant' ? '店主身份' : '买家身份'
+    return before + ' → ' + after
+  }
   if (item.action === 'promotion.edit') return promotionLabel(s.before) + ' → ' + promotionLabel(s.after)
   if (item.action === 'aftersale.shipping_comp') return '实付运费 ' + money(Number(s.before)) + '，补偿 ' + money(Number(s.after)) + reason
   if (item.action === 'product.return_policy') return policyLabel(s.before) + ' → ' + policyLabel(s.after)
@@ -61,7 +66,7 @@ export function auditChange(item: AuditItem): string {
   if (item.action === 'payment.review') return (s.outcome === 'paid' ? '确认已扣款' : '确认未扣款') + reason
   if (item.action === 'aftersale.inspect') return (s.items || []).map((line: AuditLine): string => line.spec + ' 合格入库 ' + line.restockCount + ' 件').join('；')
   if (item.action === 'settings.return_address') return '已修改'
-  if (item.action === 'access.denied') return '非商家账号尝试访问商家功能，已拒绝'
+  if (item.action === 'access.denied') return '当前身份尝试访问店主功能，已拒绝'
   return s.reason || s.note || '已完成'
 }
 export function auditObject(item: AuditItem): string {

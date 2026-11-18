@@ -4,10 +4,13 @@ import multipart from '@fastify/multipart'
 import rateLimit from '@fastify/rate-limit'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Database } from './database.ts'
-import { Accounts, type User } from './accounts.ts'
+import { Accounts, requireBuyer, type User } from './accounts.ts'
+import { IdentityLayouts } from './identity-layouts.ts'
+import { parseIdentitySwitch } from './identity-context/generated.ts'
 import { Catalog } from './catalog.ts'
 import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
@@ -44,9 +47,10 @@ function maskNickname(nickname: string): string { const chars = Array.from(nickn
 
 export async function buildApp(options: AppOptions) {
   validateRuntimeOptions(options)
-  const db = new Database(options.databasePath)
   const clock = options.clock ?? systemClock
+  const db = new Database(options.databasePath, clock)
   const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
+  const layouts = new IdentityLayouts(db, clock)
   const products = new Products(db, options.publicUrl, clock)
   const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
   const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
@@ -75,7 +79,7 @@ export async function buildApp(options: AppOptions) {
     const origin = req.headers.origin
     if (origin && options.corsOrigins?.includes(origin)) {
       reply.header('Access-Control-Allow-Origin', origin).header('Vary', 'Origin')
-      reply.header('Access-Control-Allow-Headers', 'Authorization,Content-Type').header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+      reply.header('Access-Control-Allow-Headers', 'Authorization,Content-Type,X-HDM-Identity,X-HDM-Identity-Revision').header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
     } else if (origin) throw new AppError(403, '页面来源不受信任')
   })
   app.addHook('onResponse', async (req, reply) => {
@@ -84,21 +88,30 @@ export async function buildApp(options: AppOptions) {
   app.setErrorHandler((error, req, reply) => {
     const status = error instanceof z.ZodError ? 400 : error instanceof AppError ? error.statusCode : (error as { statusCode?: number }).statusCode ?? 500
     const msg = error instanceof z.ZodError ? '参数不正确，请检查输入' : error instanceof AppError ? error.message : status === 429 ? '操作太频繁，请稍后重试' : status === 413 ? '文件或请求过大' : '服务暂时不可用'
-    if(status===403&&req.routeOptions.url?.startsWith('/merchant/')){
-      let user:User|undefined
-      try{user=accounts.authenticate(req.headers.authorization)}catch{ /* Anonymous requests have no verified actor. */ }
-      if(user&&user.role!=='merchant')deniedAudit(db,user,req.method+' '+req.routeOptions.url,clock.now())
-    }
     if (status >= 500) app.log.error({ requestId: req.id, error: error instanceof Error ? error.message : 'unknown' }, 'request failed')
     reply.code(status).send({ code: '0', msg, requestId: req.id,
       ...(error instanceof AppError && error.reason ? { reason: error.reason, result: error.data } : {}) })
   })
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ code: '0', msg: '接口不存在' }))
   const ok = (result: unknown) => ({ code: '1', result })
+  const authenticate = (req: FastifyRequest) => accounts.authenticateRequest(req.headers.authorization,
+    req.headers['x-hdm-identity'], req.headers['x-hdm-identity-revision'])
+  app.addHook('onRequest', async req => {
+    if (req.headers.authorization?.startsWith('Bearer ')) authenticate(req)
+  })
+  const sharedMemberRoutes = new Set([
+    '/member/profile', '/member/profile/avatar', '/member/address', '/member/address/:id',
+    '/member/consents', '/member/consents/withdraw', '/member/account-deletion', '/member/account-deletion/cancel',
+    '/member/account-notices', '/member/identity/switch', '/member/identity-layout', '/member/order/:id/logistics'
+  ])
   const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User) => unknown) => {
     app.route({ method, url, handler: async req => {
-      const user=accounts.authenticate(req.headers.authorization)
-      if(url.startsWith('/merchant/')&&user.role!=='merchant')throw new AppError(403,'需要商家权限','MERCHANT_REQUIRED')
+      const user = authenticate(req)
+      if (url.startsWith('/merchant/') && user.identity !== 'merchant') {
+        deniedAudit(db, user, req.method + ' ' + url, clock.now())
+        throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
+      }
+      if (url.startsWith('/member/') && !sharedMemberRoutes.has(url)) requireBuyer(user)
       const followUp = [
         '/logout','/member/consents','/member/consents/withdraw','/member/account-deletion','/member/account-deletion/cancel',
         '/member/order/:id/receipt','/member/order/:id/payments/refresh',
@@ -113,8 +126,8 @@ export async function buildApp(options: AppOptions) {
   }
 
   protectedRoute('GET','/merchant/audit-log',(req,user)=>auditPage(db,user,req.query))
-  protectedRoute('POST', '/merchant/reconciliation/run', (req,user) => reconciliation.run(user,z.object({ date: billDateSchema }).parse(req.body).date))
-  protectedRoute('GET', '/merchant/reconciliation/bill', (req,user) => reconciliation.bill(user,z.object({ date: billDateSchema }).parse(req.query).date))
+  protectedRoute('POST', '/merchant/reconciliation/run', (req,user) => reconciliation.run(user,z.object({ date: billDateSchema }).parse(req.body).date, () => accounts.assertCurrent(user)))
+  protectedRoute('GET', '/merchant/reconciliation/bill', (req,user) => reconciliation.bill(user,z.object({ date: billDateSchema }).parse(req.query).date, () => accounts.assertCurrent(user)))
   protectedRoute('GET', '/merchant/reconciliation', (req,user) => reconciliation.report(user,z.object({ date: billDateSchema }).parse(req.query).date))
   protectedRoute('POST', '/merchant/reconciliation/differences/:id/resolve', (req,user) => reconciliation.resolve(user,key(req),req.body))
   protectedRoute('GET', '/member/service/messages', (req, user) => service.history(user, user.id, req.query))
@@ -138,6 +151,7 @@ export async function buildApp(options: AppOptions) {
       }
     }
     ensure(image && requestKey, 400, '请选择照片')
+    accounts.assertCurrent(user)
     return service.upload(user, user.id, requestKey, image, options.uploadsPath)
   })
   protectedRoute('GET', '/merchant/goods/:id/reviews', (req, user) => merchantReviews(db, user, key(req), req.query))
@@ -159,7 +173,7 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('GET', '/merchant/settings/return-address', (_req,user) => afterSales.getAddress(user))
   protectedRoute('GET', '/merchant/settings/promotion', (_req,user) => {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     return currentPromotion(db)
   })
   protectedRoute('PUT', '/merchant/settings/promotion', (req,user) => editPromotion(db,user,req.body,clock.now()))
@@ -178,6 +192,7 @@ export async function buildApp(options: AppOptions) {
     }
     const data = z.object({orderId:idSchema,applicationKey:z.string().uuid(),requestKey:z.string().uuid()}).parse(fields)
     ensure(image,400,'请选择照片')
+    accounts.assertCurrent(user)
     return afterSales.uploadImage(user,data.orderId,data.applicationKey,data.requestKey,image,options.uploadsPath)
   })
   protectedRoute('GET', '/merchant/products/categories', (_req, user) => products.categories(user))
@@ -189,7 +204,7 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('GET', '/merchant/products/:id', (req, user) => products.detail(user, key(req)))
   protectedRoute('POST', '/merchant/products', (req, user) => products.create(user, productCreateSchema.parse(req.body)))
   protectedRoute('POST', '/merchant/products/images', async (req, user) => {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     let image: Buffer | undefined, requestKey: string | undefined
     for await (const part of req.parts({ limits: { fileSize: 512 * 1024, files: 1, fields: 1, parts: 2, fieldSize: 100 } })) {
       if (part.type === 'file') {
@@ -202,6 +217,7 @@ export async function buildApp(options: AppOptions) {
       }
     }
     ensure(image && requestKey, 400, '请选择图片并提供上传编号')
+    accounts.assertCurrent(user)
     return products.uploadImage(user, requestKey, image, options.uploadsPath)
   })
   protectedRoute('PUT', '/merchant/products/:id', (req, user) => products.edit(user, key(req), productEditSchema.parse(req.body)))
@@ -216,6 +232,13 @@ export async function buildApp(options: AppOptions) {
     const data = credentials.parse(req.body); return ok(accounts.login(data.account, data.password))
   })
   protectedRoute('POST', '/logout', req => { accounts.logout(req.headers.authorization!); return null })
+  protectedRoute('POST', '/member/identity/switch', (req, user) => {
+    const request = parseIdentitySwitch(JSON.stringify(req.body) ?? '')
+    ensure(request, 400, '请选择正确的身份')
+    return accounts.switchIdentity(user, request.identity)
+  })
+  protectedRoute('GET', '/member/identity-layout', (_req, user) => layouts.get(user))
+  protectedRoute('PUT', '/member/identity-layout', (req, user) => layouts.save(user, req.body))
   protectedRoute('GET', '/member/profile', (req, user) => ({ ...accounts.profile(user), token: req.headers.authorization!.slice(7) }))
   protectedRoute('PUT', '/member/profile', (req, user) => {
     const data = z.object({ nickname: z.string().trim().min(1).max(50), gender: z.enum(['男','女','未知']), birthday: z.string().max(20), profession: z.string().max(100), provinceCode: z.string().max(20), cityCode: z.string().max(20), countyCode: z.string().max(20), fullLocation: z.string().max(100).optional() }).parse(req.body)
@@ -227,16 +250,19 @@ export async function buildApp(options: AppOptions) {
     const jpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
     ensure(jpeg && file.mimetype === 'image/jpeg', 400, '仅支持 JPEG 头像')
     const name = `${randomUUID()}.jpg`
-    await mkdir(options.uploadsPath, { recursive: true })
-    await writeFile(join(options.uploadsPath, name), buffer)
+    accounts.assertCurrent(user)
+    mkdirSync(options.uploadsPath, { recursive: true })
+    writeFileSync(join(options.uploadsPath, name), buffer)
     const profile = accounts.updateProfile(user, { avatar: `/uploads/${name}` })
     return { avatar: profile.avatar }
   })
   app.get('/uploads/:name', async (req, reply) => {
     const { name } = z.object({ name: z.string().uuid().transform(v => v) }).parse({ name: (req.params as { name: string }).name.replace(/\.jpg$/, '') })
     ensure(!db.one('SELECT path FROM account_file_deletions WHERE path=?', '/uploads/' + name + '.jpg'), 404, '图片不存在')
-    if (db.one('SELECT image_id FROM after_sale_images WHERE image_id=?', name)) afterSales.canReadImage(accounts.authenticate(req.headers.authorization),name)
-    if (db.one('SELECT image_id FROM service_images WHERE image_id=?', name)) service.canReadImage(accounts.authenticate(req.headers.authorization), name)
+    const saleImage = db.one('SELECT image_id FROM after_sale_images WHERE image_id=?', name)
+    const serviceImage = db.one('SELECT image_id FROM service_images WHERE image_id=?', name)
+    if (saleImage) afterSales.canReadImage(authenticate(req), name)
+    if (serviceImage) service.canReadImage(authenticate(req), name)
     try { return reply.type('image/jpeg').send(await readFile(join(options.uploadsPath, name + '.jpg'))) }
     catch { throw new AppError(404, '图片不存在') }
   })
@@ -377,7 +403,7 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/cancel', (req, user) => orders.cancel(user, key(req)))
   protectedRoute('POST', '/member/order/:id/reminder', (req, user) => orders.remind(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/receipt', (req, user) => orders.receive(user, key(req)))
-  protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req)))
+  protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req), () => accounts.assertCurrent(user)))
   protectedRoute('PUT', '/member/order/:id/evaluation', (req, user) => {
     const data = z.object({ score: z.number().int().min(1).max(5), content: z.string().trim().min(5).max(500) }).parse(req.body)
     return orders.evaluate(user, key(req), data.score, data.content)

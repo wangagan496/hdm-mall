@@ -19,7 +19,7 @@ test('交易状态表：禁止跳步，重复写不倒退，付款后到期不�
     const buyer = accounts.login('rules_buyer', 'test-password-123')
     const merchant = accounts.login('rules_merchant', 'test-password-123')
     const call = (method: HTTPMethods, url: string, token = buyer.token, payload?: object) =>
-      app.inject({ method, url, headers: { authorization: `Bearer ${token}` }, payload })
+      app.inject({ method, url, headers: identityHeaders(accounts, token), payload })
     const address = await call('POST', '/member/address', buyer.token,
       { receiver: '测试', contact: '13800000000', address: '测试地址', isDefault: 1 })
     const created = await call('POST', '/member/order', buyer.token, { requestKey: randomUUID(), expectedAmountCents: priceCents,
@@ -55,3 +55,4 @@ test('交易状态表：禁止跳步，重复写不倒退，付款后到期不�
     assert.equal(db.one<{ count: number }>('SELECT COUNT(*) AS count FROM evaluations WHERE order_id=?', id)!.count, 1)
   } finally { await app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

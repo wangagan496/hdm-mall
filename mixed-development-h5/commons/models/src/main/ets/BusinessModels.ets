@@ -1,6 +1,7 @@
 import { AfterSale } from './AfterSaleModels'
 import { InvoiceInput, InvoiceDetail } from './InvoiceModels'
 import { ReturnPolicyFields } from './ReturnPolicy'
+import { Identity } from './IdentityContext'
 
 export interface HDMGoodsItem extends ReturnPolicyFields {
   id: string
@@ -51,7 +52,9 @@ export interface HDMUser {
   status?: string
   deletionDueAt?: number
   id?: string
-  role?: string
+  identity?: string
+  identities?: Identity[]
+  identityRevision?: number
   birthday?: string
   cityCode?: string
   gender?: string
@@ -64,6 +67,11 @@ export interface HDMUser {
   nickname: string
   avatar: string
   account: string
+}
+
+export function sameIdentitySession(current: HDMUser | null | undefined, expected: HDMUser | null | undefined): boolean {
+  return !!current?.token && !!expected?.token && current.token === expected.token &&
+    current.identity === expected.identity && current.identityRevision === expected.identityRevision
 }
 
 export interface FamilyRelation {

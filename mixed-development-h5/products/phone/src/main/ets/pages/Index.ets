@@ -1,10 +1,10 @@
 import { TabItem, BreakPointType, HDMUser, PendingTradeInfo, CreateOrderParams } from 'models'
 import { GlobalVariable, BusinessVariable, PAGE_PATH } from 'constants'
-import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI, consentManager, userSession } from 'storage'
+import { authCart, storeManager, checkoutFailure, getOrderByRequestAPI, consentManager, userSession, identityLayouts } from 'storage'
 import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
-import { MineView, AuditLogView, ReconciliationView, MerchantOrderView, PromotionSettingView, ReviewManageView, MerchantServiceView, CustomerServiceView } from 'mine'
+import { MineView, AuditLogView, ReconciliationView, MerchantOrderView, PromotionSettingView, ReviewManageView, MerchantServiceView, CustomerServiceView, IdentityLayoutView } from 'mine'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 // 导入抽离的常量和枚举
@@ -30,6 +30,7 @@ struct Index {
   private onRecoveryAccountChange(): void {
     this.recoverySequence++
     this.recoveringToken = ''
+    void identityLayouts.read(this.user).catch(() => {})
     void this.recoverPendingOrder()
   }
 
@@ -129,6 +130,7 @@ struct Index {
 
   aboutToAppear(): void {
     this.recoveryActive = true
+    void identityLayouts.read(this.user).catch(() => {})
     void this.requestStartupConsent()
     void this.recoverPendingOrder()
     LaunchPerf.mark('tabsAboutToAppear')
@@ -200,5 +202,6 @@ struct Index {
     else if (name === 'ReviewManageView') { ReviewManageView() }
     else if (name === 'MerchantServiceView') { MerchantServiceView() }
     else if (name === 'MerchantServiceThread') { CustomerServiceView() }
+    else if (name === 'IdentityLayoutView') { IdentityLayoutView() }
   }
 }

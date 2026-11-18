@@ -12,7 +12,7 @@ function management() {
     GlobalVariable: {}, RequestAxios: api, productSave: flow, $r: value => value,
   })
   const page = new Page(); page.active = true
-  page.user = { id: 'merchant', token: 'token', role: 'merchant' }
+  page.user = { id: 'merchant', token: 'token', identity: 'merchant' }
   return { page, api, flow }
 }
 

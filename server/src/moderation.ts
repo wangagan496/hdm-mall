@@ -8,7 +8,7 @@ import { localAvatarPath } from './avatar.ts'
 
 const reasonSchema = z.object({ reason: z.enum(['广告', '辱骂', '无关内容', '泄露隐私', '其他']) })
 export function hideReview(db: Database, user: User, orderId: string, input: unknown, now: number) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const { reason } = reasonSchema.parse(input)
   return db.transaction(() => {
     ensure(db.one('SELECT order_id FROM evaluations WHERE order_id=?', orderId), 404, '评价不存在')
@@ -22,7 +22,7 @@ export function hideReview(db: Database, user: User, orderId: string, input: unk
 }
 
 export function merchantReviews(db: Database, user: User, productId: string, input: unknown) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const query = z.object({ page: z.coerce.number().int().min(1).max(1_000_000).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(input)
   const from = `FROM evaluations e JOIN orders o ON o.id=e.order_id JOIN users u ON u.id=o.owner_id
     LEFT JOIN review_moderation m ON m.order_id=e.order_id
@@ -36,11 +36,12 @@ export function merchantReviews(db: Database, user: User, productId: string, inp
 }
 
 export function resetAvatar(db: Database, user: User, buyerId: string, input: unknown, now: number) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const { reason } = reasonSchema.parse(input)
   return db.transaction(() => {
-    const buyer = db.one<User>('SELECT * FROM users WHERE id=?', buyerId)
-    ensure(buyer && buyer.status !== 'deleted' && buyer.role === 'buyer', 404, '买家不存在')
+    const buyer = db.one<Pick<User,'profile'|'status'>>(`SELECT u.profile,u.status FROM users u WHERE u.id=?
+      AND EXISTS(SELECT 1 FROM user_identities g WHERE g.user_id=u.id AND g.identity='buyer' AND g.granted_at<=? AND g.revoked_at IS NULL)`, buyerId, now)
+    ensure(buyer && buyer.status !== 'deleted', 404, '买家不存在')
     const profile = JSON.parse(buyer.profile)
     if (!profile.avatar) return { avatar: '' }
     const path = localAvatarPath(profile.avatar)

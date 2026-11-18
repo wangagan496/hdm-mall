@@ -38,11 +38,12 @@ const flushBeforeLeave = async (event: Event) => {
   if (!active || !Number.isInteger(requestId) || flushing) return
   flushing = true
   clearTimeout(saveTimer)
-  const token = profileDraft.value.token
+  const { token, identity, identityRevision } = profileDraft.value
   window.nativeApp?.setProfileDraftRetained?.(token, profileStore.retainDraft())
   try {
     const saved = await profileStore.flushProfile()
-    if (active && profileDraft.value.token === token) {
+    const current = window.nativeApp?.getUser()
+    if (active && current?.token === token && current.identity === identity && current.identityRevision === identityRevision) {
       window.nativeApp?.setProfileDraftRetained?.(token, profileStore.retainDraft())
       window.nativeApp?.completeProfileFlush?.(requestId, token, saved)
     }

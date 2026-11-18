@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { deferred, execute, pageMethods, sourceOf } from './native-harness.mjs'
 import { buildApp } from '../../server/src/app.ts'
+import { identityHeaders } from '../../server/test/helpers/identity-headers.ts'
 
 function pageFixture(overrides = {}) {
   const { CartOperationHelper } = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/CartOperations.ets'))
@@ -115,7 +116,7 @@ async function fixture() {
   const f = await buildApp({ databasePath: ':memory:', uploadsPath: './unused', publicUrl: 'http://fixture', mockPayments: true })
   f.accounts.register('cart_native', 'test-password-123')
   const login = f.accounts.login('cart_native', 'test-password-123')
-  const headers = { authorization: `Bearer ${login.token}` }
+  const headers = identityHeaders(f.accounts, login.token)
   const requests = []
   let badges = 0
   const api = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/data/api/cart.ets'), {

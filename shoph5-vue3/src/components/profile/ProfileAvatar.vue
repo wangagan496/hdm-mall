@@ -25,7 +25,7 @@ const selectAvatar = async (_action: ActionSheetAction, index: number) => {
   }
 
   isPickingAvatar.value = true
-  const token = bridge.getUser()?.token
+  const session = bridge.getUser()
   showLoadingToast({ message: '正在读取头像...', duration: 0, forbidClick: true })
   try {
     // 菜单第一个选项是拍照，第二个是相册。
@@ -34,7 +34,9 @@ const selectAvatar = async (_action: ActionSheetAction, index: number) => {
       ? await bridge.pickerCamera()
       : await bridge.pickerPhoto()
     closeToast()
-    if (base64 && active && token && bridge.getUser()?.token === token) {
+    const current = bridge.getUser()
+    if (base64 && active && session?.token && current?.token === session.token &&
+        current.identity === session.identity && current.identityRevision === session.identityRevision) {
       emit('selected', base64)
     }
   } catch (error) {

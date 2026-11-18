@@ -3,12 +3,14 @@ import { z } from 'zod'
 import { billDateSchema,billRowSchema } from './channel-bill.ts'
 import { shipmentSchema,logisticsEventSchema } from './logistics.ts'
 import { auditText } from './audit.ts'
+import { historicalIdentity } from './identity-backup.ts'
 
 const ranks:Record<string,number>={waiting:0,collected:1,transit:2,delivering:3,signed:4}
 const summarySchema=z.object({date:billDateSchema,paymentCount:z.number().int().nonnegative(),paymentAmountCents:z.number().int().nonnegative().safe(),
  refundCount:z.number().int().nonnegative(),refundAmountCents:z.number().int().nonnegative().safe(),localCount:z.number().int().nonnegative(),
  channelCount:z.number().int().nonnegative(),checkedAt:z.number().int().nonnegative().safe()}).strict()
-export function inspectReconciliationLogistics(db:DatabaseSync){
+export function inspectReconciliationLogistics(db:DatabaseSync,version:number){
+ const held=historicalIdentity(db,version)
  for(const table of ['payments','refunds']){
   const column=table==='payments'?'channel_transaction_id':'channel_refund_id'
   for(const row of db.prepare(`SELECT ${column} id FROM ${table} WHERE ${column} IS NOT NULL`).iterate())z.string().min(1).max(120).parse(row.id)
@@ -21,7 +23,7 @@ export function inspectReconciliationLogistics(db:DatabaseSync){
   if(run.state==='completed'||Object.keys(summary).length){summarySchema.parse(summary);if(summary.date!==run.date)throw new Error('对账日期不一致')}
   if((run.state==='failed')!==(run.next_retry_at!==null))throw new Error('对账重试状态无效')
  }
- for(const diff of db.prepare('SELECT d.*,u.role FROM reconciliation_differences d LEFT JOIN users u ON u.id=d.handled_by').iterate()){
+ for(const diff of db.prepare('SELECT * FROM reconciliation_differences').iterate()){
   const snapshot=JSON.parse(String(diff.snapshot))
   const local=snapshot.local,channel=snapshot.channel
   if(channel)billRowSchema.parse(channel)
@@ -34,8 +36,8 @@ export function inspectReconciliationLogistics(db:DatabaseSync){
   if(!valid)throw new Error('对账差异快照无效')
   if(diff.state==='resolved'){
     z.string().trim().min(5).max(200).parse(diff.reason)
-    if(diff.role!=='merchant')throw new Error('对账处理人无效')
-    const audit=db.prepare("SELECT summary FROM audit_log WHERE action='reconciliation.resolve' AND target_id=? AND actor_id=? AND created=? ORDER BY id DESC LIMIT 1").get(diff.id!,diff.handled_by!,diff.handled_at!)
+    if(!held(diff.handled_by,'merchant',diff.handled_at))throw new Error('对账处理人无效')
+    const audit=db.prepare("SELECT summary FROM audit_log WHERE action='reconciliation.resolve' AND target_id=? AND actor_id=? AND actor_kind='merchant' AND created=? ORDER BY id DESC LIMIT 1").get(diff.id!,diff.handled_by!,diff.handled_at!)
     if(!audit||JSON.parse(String(audit.summary)).reason!==auditText(String(diff.reason)))throw new Error('对账处理审计不一致')
   }
  }

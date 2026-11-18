@@ -5,7 +5,7 @@ import { sourceOf, execute, pageMethods, deferred, tick } from './native-harness
 const path = 'mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets'
 const failure = status => Object.assign(new Error('network failure'), { response: { status, data: { msg: '库存已变化，请刷新后重新确认' } } })
 function fixture() {
-  let user = { id: 'merchant', role: 'merchant', token: 'token' }, storedUser = user, sequence = 0
+  let user = { id: 'merchant', identity: 'merchant', token: 'token' }, storedUser = user, sequence = 0
   const values = new Map(), writes = [], reads = []
   const store = { getSync: (key, fallback) => values.get(key) ?? fallback, putSync: (key, value) => values.set(key, value), flush: async () => {} }
   const api = {
@@ -23,7 +23,7 @@ const start = f => f.flow.start('sku', 2, 20, '盘点后增加库存', 'token')
 
 test('库存调用方凭证失效时不使用新账号启动或恢复调整', async () => {
   const f = fixture()
-  f.setUser({ id: 'other', role: 'merchant', token: 'new-token' })
+  f.setUser({ id: 'other', identity: 'merchant', token: 'new-token' })
   await assert.rejects(f.flow.start('sku', 2, 20, '盘点后增加库存', 'token'), /登录状态已变化/)
   assert.equal(f.writes.length, 0); assert.equal(f.values.size, 0)
   f.values.set('stock-adjustment:other', JSON.stringify({ requestKey: 'existing', skuId: 'sku', delta: 2, expectedStock: 20, reason: '盘点后增加库存' }))
@@ -81,7 +81,7 @@ test('换账号或新登录等待落盘时不复用旧身份，迟到调整回�
   f.api.put = async () => gate.promise
   const request = start(f)
   await tick()
-  f.setUser({ id: 'other', role: 'merchant', token: 'new-token' })
+  f.setUser({ id: 'other', identity: 'merchant', token: 'new-token' })
   gate.resolve({ id: 1, skuId: 'sku', delta: 2, balance: 22, reason: '盘点后增加库存' })
   await assert.rejects(request, /登录状态已变化/)
   assert.ok(f.flow.pending('merchant')); assert.equal(f.flow.pending('other'), null)
@@ -111,7 +111,7 @@ function pageFixture() {
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/InventoryView.ets', 'InventoryView', {},
     { RequestAxios: api, inventoryAdjustment: flow, Scroller: class { scrollEdge() {} }, Edge: { Top: 0 } })
   const page = new View()
-  page.user = { id: 'merchant', role: 'merchant', token: 'token' }; page.active = true
+  page.user = { id: 'merchant', identity: 'merchant', token: 'token' }; page.active = true
   return { page, api, flow, writes }
 }
 
@@ -134,7 +134,7 @@ test('库存提交后切换账号，迟到回应不会清空新账号编辑或�
   flow.start = async () => { started++; return gate.promise }
   const request = page.submit({ skuId: 'sku', stock: 20 }, 3, '盘点后增加库存')
   assert.equal(started, 1)
-  page.user = { id: 'other', role: 'merchant', token: 'new-token' }
+  page.user = { id: 'other', identity: 'merchant', token: 'new-token' }
   page.accountChanged(); await tick()
   page.selected = { skuId: 'other-sku', stock: 10 }
   gate.resolve({ balance: 23 }); await request

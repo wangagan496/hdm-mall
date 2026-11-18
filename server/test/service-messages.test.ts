@@ -66,7 +66,7 @@ test('B3 留言照片仅本人商家可读，0至3张JPEG、上传和发送幂�
     assert.deepEqual((await f.upload('/member/service/images', { requestKey })).body, image.body)
     assert.equal((await f.ctx.app.inject({ method: 'GET', url: uri })).statusCode, 401)
     for (const [token, status] of [[f.buyer.token, 200], [f.merchant.token, 200], [f.other.token, 403]] as const) {
-      assert.equal((await f.ctx.app.inject({ method: 'GET', url: uri, headers: { authorization: 'Bearer ' + token } })).statusCode, status)
+      assert.equal((await f.ctx.app.inject({ method: 'GET', url: uri, headers: identityHeaders(f.ctx.accounts, token) })).statusCode, status)
     }
     assert.equal((await f.upload('/member/service/images', { requestKey: randomUUID() }, f.buyer.token, Buffer.from('not-jpeg'))).status, 400)
     assert.equal((await f.upload('/member/service/images', { requestKey: randomUUID() }, f.buyer.token, Buffer.from([255,216,255]), 'image/png')).status, 400)
@@ -107,11 +107,12 @@ test('B3 注销中可留言传照片和已读，注销后留言与照片保留�
     assert.equal(history.body.result.buyerName, '已注销用户')
     assert.equal(history.body.result.items[0].content, '注销期间请继续处理售后')
     assert.equal(history.body.result.items[0].orderId, orderId)
-    assert.equal((await f.ctx.app.inject({ method: 'GET', url: image.body.result.path, headers: { authorization: 'Bearer ' + f.merchant.token } })).statusCode, 200)
+    assert.equal((await f.ctx.app.inject({ method: 'GET', url: image.body.result.path, headers: identityHeaders(f.ctx.accounts, f.merchant.token) })).statusCode, 200)
     f.advance(3 * 366 * 86400000)
     await f.ctx.lifecycle.scan()
     f.loginMerchant()
     assert.equal((await f.call('GET', `/merchant/service/${f.buyer.id}/messages`, undefined, f.merchant.token)).body.result.items.length, 0)
-    assert.equal((await f.ctx.app.inject({ method: 'GET', url: image.body.result.path, headers: { authorization: 'Bearer ' + f.merchant.token } })).statusCode, 404)
+    assert.equal((await f.ctx.app.inject({ method: 'GET', url: image.body.result.path, headers: identityHeaders(f.ctx.accounts, f.merchant.token) })).statusCode, 404)
   } finally { await f.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

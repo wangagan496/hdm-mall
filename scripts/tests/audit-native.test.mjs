@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { execute, sourceOf, pageMethods, deferred } from './native-harness.mjs'
 const base='mixed-development-h5/features/mine/src/main/ets/'
 const presenter=()=>execute(sourceOf(base+'presentation/utils/AuditPresentation.ets'),{models:{formatBeijingTime:n=>String(n)}})
-const merchant={id:'seller',role:'merchant',token:'session'}
+const merchant={id:'seller',identity:'merchant',token:'session'}
 function page(request){
  const p=presenter()
  const Page=pageMethods(base+'presentation/views/AuditLogView.ets','AuditLogView',{}, {...p,GlobalVariable:{},RequestAxios:{getForSession:request}})
@@ -36,7 +36,7 @@ test('AL客户端03 旧请求晚回不能覆盖新筛选',async()=>{
 })
 test('AL客户端04 切换买家或离开页面清除数据并拒绝迟到结果',async()=>{
  const pending=deferred();let calls=0;const view=page(()=>{calls++;return pending.promise})
- const first=view.load(1);view.user={id:'buyer',role:'buyer',token:'other'};view.accountChanged()
+ const first=view.load(1);view.user={id:'buyer',identity:'buyer',token:'other'};view.accountChanged()
  pending.resolve({items:[{id:1}],page:1,pages:1});await first
  assert.equal(view.items.length,0);assert.equal(calls,1)
  view.open({orderId:'x'});assert.equal(view.navigation,undefined)

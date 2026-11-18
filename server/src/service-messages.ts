@@ -17,7 +17,7 @@ export class ServiceMessages {
   readonly clock: Clock
   constructor(db: Database, clock: Clock) { this.db = db; this.clock = clock }
   private authorize(user: User, buyerId: string) {
-    ensure(user.id === buyerId || user.role === 'merchant', 403, '只能查看自己的留言')
+    ensure(user.id === buyerId || user.identity === 'merchant', 403, '只能查看自己的留言')
   }
   private present(row: MessageRow) {
     const images = this.db.all<{ path: string }>('SELECT path FROM service_images WHERE message_id=? ORDER BY created,image_id', row.id).map(image => image.path)
@@ -29,7 +29,7 @@ export class ServiceMessages {
   }
   send(user: User, buyerId: string, input: unknown) {
     this.authorize(user, buyerId)
-    ensure(user.role === 'buyer' || user.id !== buyerId, 400, '请选择需要回复的买家')
+    ensure(user.identity === 'buyer' || user.id !== buyerId, 400, '请选择需要回复的买家')
     const data = messageSchema.parse(input)
     const hash = createHash('sha256').update(JSON.stringify({ buyerId, content: data.content, orderId: data.orderId ?? null, images: [...data.images].sort() })).digest('hex')
     return this.db.transaction(() => {
@@ -48,10 +48,10 @@ export class ServiceMessages {
         ensure(image.message_id === null, 409, '这张照片已用于其他留言，请重新上传')
       }
       const now = this.clock.now()
-      if (user.role === 'merchant') ensure(this.db.one('SELECT buyer_id FROM service_threads WHERE buyer_id=?', buyerId), 404, '买家还没有留言')
+      if (user.identity === 'merchant') ensure(this.db.one('SELECT buyer_id FROM service_threads WHERE buyer_id=?', buyerId), 404, '买家还没有留言')
       this.db.run('INSERT INTO service_threads(buyer_id,created,updated) VALUES(?,?,?) ON CONFLICT(buyer_id) DO UPDATE SET updated=excluded.updated', buyerId, now, now)
       const saved = this.db.run('INSERT INTO service_messages(buyer_id,sender_id,sender_kind,order_id,content,created,request_key,request_hash) VALUES(?,?,?,?,?,?,?,?)',
-        buyerId, user.id, user.role, data.orderId ?? null, data.content, now, data.requestKey, hash)
+        buyerId, user.id, user.identity, data.orderId ?? null, data.content, now, data.requestKey, hash)
       for (const path of data.images) this.db.run('UPDATE service_images SET message_id=? WHERE path=?', saved.lastInsertRowid, path)
       const retention = new Date(now)
       retention.setUTCFullYear(retention.getUTCFullYear() + 3)
@@ -107,7 +107,7 @@ export class ServiceMessages {
     return this.unread(user.id)
   }
   list(user: User, input: unknown) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     const query = z.object({ state: z.enum(['pending', 'all']).default('pending'), page: z.coerce.number().int().min(1).max(1_000_000).default(1),
       pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(input)
     const pending = `COALESCE((SELECT MAX(id) FROM service_messages WHERE buyer_id=t.buyer_id AND sender_kind='buyer'),0)>

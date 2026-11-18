@@ -61,7 +61,7 @@ export struct ProductEditView {
   }
   private current(generation: number, token: string): boolean {
     return this.active && generation === this.generation && !!token && token === this.token && token === this.user.token &&
-      !!this.accountId && this.accountId === this.user.id && this.user.role === 'merchant'
+      !!this.accountId && this.accountId === this.user.id && this.user.identity === 'merchant'
   }
   private accountChanged(): void { this.synchronizeSession(); if (this.active) void this.load() }
   private foreground(): void { if (this.active && this.pending && !this.saving) void this.save() }

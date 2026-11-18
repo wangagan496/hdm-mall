@@ -41,7 +41,7 @@ async function fixture(paymentChannel?: PaymentChannel) {
   const sku = product.skus[0]!
   const call = async (method: string, url: string, token = '', payload?: object) => {
     const response = await ctx.app.inject({ method: method as never, url,
-      headers: token ? { authorization: `Bearer ${token}` } : {}, payload })
+      headers: token ? identityHeaders(ctx.accounts, token) : {}, payload })
     return { status: response.statusCode, body: response.json() }
   }
   const createOrder = async () => {
@@ -213,7 +213,7 @@ test('迁移 007 将版本 6 历史已付款订单补成有效支付且重复启
   let migrated: Database | undefined
   try {
     migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 20)
     assert.deepEqual(migrated.all<{ order_id: string; payer_id: string; amount: number; state: string; created: number; channel_paid_at: number }>(
       'SELECT order_id,payer_id,amount,state,created,channel_paid_at FROM payments').map(row => ({ ...row })), [
       { order_id: 'paid-order', payer_id: 'buyer', amount: 2475, state: 'succeeded', created: 2000, channel_paid_at: 2000 }
@@ -225,7 +225,7 @@ test('迁移 007 将版本 6 历史已付款订单补成有效支付且重复启
     assert.ok(migrated.one("SELECT name FROM sqlite_master WHERE type='index' AND name='refund_retry_actions_refund'"))
     migrated.close(); migrated = undefined
     migrated = new Database(path)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 20)
     assert.equal(migrated.all('SELECT id FROM payments').length, 1)
     migrated.close(); migrated = undefined
   } finally { migrated?.close(); await rm(root, { recursive: true, force: true }) }
@@ -766,10 +766,10 @@ test('mock-pay 不会把注入的非模拟渠道当作模拟器调用', async ()
     const buyer = f.testData.account({ account: 'mock_channel_buyer', password })
     const address = f.testData.address({ userId: buyer.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
     const product = f.testData.product({ name: '模拟渠道隔离商品', skus: [{ spec: '标准', priceCents: amountCents, stock: 1 }] })
-    const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
+    const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, buyer.token),
       payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
     const response = await f.app.inject({ method: 'POST', url: `/member/order/${order.json().result.id}/mock-pay`,
-      headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
+      headers: identityHeaders(f.accounts, buyer.token), payload: { amountCents } })
     assert.equal(response.statusCode, 403)
     assert.equal(createCalls, 0)
   } finally { await f.app.close() }
@@ -782,10 +782,10 @@ test('付款渠道缺失时返回 503，正式环境配置渠道但缺少回调�
     const buyer = f.testData.account({ account: 'no_channel_buyer', password })
     const address = f.testData.address({ userId: buyer.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
     const product = f.testData.product({ name: '未配置渠道商品', skus: [{ spec: '标准', priceCents: amountCents, stock: 1 }] })
-    const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
+    const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, buyer.token),
       payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
     const started = await f.app.inject({ method: 'POST', url: `/member/order/${order.json().result.id}/payments`,
-      headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
+      headers: identityHeaders(f.accounts, buyer.token), payload: { amountCents } })
     assert.equal(started.statusCode, 503)
   } finally { await f.app.close() }
   await assert.rejects(() => buildApp({ databasePath: ':memory:', uploadsPath: './unused', publicUrl: 'https://example.invalid',
@@ -912,7 +912,7 @@ test('迁移 007 中途外键失败整体回滚，修复历史付款人后可重
     } finally { afterForeignKey.close() }
     const migrated = new Database(path)
     try {
-      assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+      assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 20)
       assert.ok(migrated.one("SELECT name FROM sqlite_master WHERE type='table' AND name='refund_retry_actions'"))
     }
     finally { migrated.close() }
@@ -927,13 +927,13 @@ test('v7 备份统计支付、退款与退款重试审计，并报告缺少有�
     const buyer = f.testData.account({ account: 'backup_buyer', password })
     const address = f.testData.address({ userId: buyer.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
     const product = f.testData.product({ name: '备份支付商品', skus: [{ spec: '标准', priceCents: amountCents, stock: 2 }] })
-    const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
+    const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, buyer.token),
       payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents, goods: [{ skuId: product.skus[0]!.id, count: 1 }] } })
     const orderId = created.json().result.id as string
-    await f.app.inject({ method: 'POST', url: `/member/order/${orderId}/mock-pay`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
+    await f.app.inject({ method: 'POST', url: `/member/order/${orderId}/mock-pay`, headers: identityHeaders(f.accounts, buyer.token), payload: { amountCents } })
     f.db.run('DELETE FROM payments WHERE order_id=?', orderId)
     const backup = await createBackup({ databasePath: path, uploadsPath: join(root, 'live', 'uploads'), destination: join(root, 'snapshot') })
-    assert.equal(backup.manifest.schemaVersion, 19)
+    assert.equal(backup.manifest.schemaVersion, 20)
     assert.equal(backup.counts.payments, 0)
     assert.equal(backup.counts.refunds, 0)
     assert.equal(backup.counts.refund_retry_actions, 0)
@@ -1218,3 +1218,4 @@ test('商家登记已扣款产生的退款经 reconcile 执行', async () => {
     assert.equal(reconcileCalls, 1)
   } finally { await f.ctx.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

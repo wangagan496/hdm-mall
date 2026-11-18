@@ -26,7 +26,7 @@ export function requestInvoice(db: Database, user: User, orderId: string, input:
 }
 
 export function issueInvoice(db: Database, user: User, orderId: string, input: unknown, now: number) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const data = issueInvoiceSchema.parse(input)
   return db.transaction(() => {
     const order = db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', orderId)

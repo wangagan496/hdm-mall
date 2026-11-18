@@ -3,7 +3,7 @@ import { unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import type { Database } from './database.ts'
-import type { Accounts, User } from './accounts.ts'
+import { isStoreOwner, type Accounts, type User } from './accounts.ts'
 import type { Clock } from './clock.ts'
 import { ensure } from './errors.ts'
 import { localAvatarPath } from './avatar.ts'
@@ -83,7 +83,7 @@ export class AccountLifecycle {
  }
  request(user:User,input:unknown){
   const data=deletionSchema.parse(input)
-  ensure(user.role==='buyer',403,'商家账号请联系管理员处理')
+  ensure(user.identity==='buyer'&&!isStoreOwner(this.db,user.id),403,'商家账号请联系管理员处理')
   ensure(this.accounts.verifyPassword(user.id,data.password),400,'当前密码不正确')
   // Passwords are verified but never persisted in idempotency receipts.
   const body=JSON.stringify({action:'request',acknowledged:true})

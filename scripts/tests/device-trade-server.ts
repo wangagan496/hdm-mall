@@ -257,8 +257,10 @@ f.app.addHook('onResponse', async (req, reply) => {
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
 })
 f.app.addHook('onError', async (_req, _reply, error) => { console.log(JSON.stringify({ errorCode: error.code })) })
-if (!s1 && !loginProbe && !process.argv.includes('--quote-preview-probe')) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
-if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
+const buyerHeaders = { authorization: `Bearer ${buyer.token}`,
+  'x-hdm-identity': buyer.identity, 'x-hdm-identity-revision': String(buyer.identityRevision) }
+if (!s1 && !loginProbe && !process.argv.includes('--quote-preview-probe')) await f.app.inject({ method: 'POST', url: '/member/cart', headers: buyerHeaders, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
+if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: buyerHeaders, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {
     const account = `probe_${String(index).padStart(2, '0')}`

@@ -97,7 +97,7 @@ export struct AfterSaleManageView {
     this.receiver='';this.contact='';this.address='';this.reason='';this.message='';this.busy=false;this.pending=false;this.loading=false
   }
   private current(generation:number,token:string):boolean {
-    return this.active && generation===this.generation && !!token && token===this.token && token===this.user.token && this.accountId===this.user.id && this.user.role==='merchant'
+    return this.active && generation===this.generation && !!token && token===this.token && token===this.user.token && this.accountId===this.user.id && this.user.identity==='merchant'
   }
   private accountChanged():void {this.synchronize();if(this.active)void this.load(1)}
   aboutToAppear():void {this.shown()}

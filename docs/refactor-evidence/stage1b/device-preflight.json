@@ -1,0 +1,21 @@
+{
+  "task_id": "stage1b-20261118-01",
+  "observedAt": "2026-11-18T15:40:28+08:00",
+  "instance": "Pura 90 API24",
+  "target": "127.0.0.1:5555",
+  "status": "blocked",
+  "stoppedAt": "read-only-device-preflight",
+  "connectivity": {
+    "initial": "Connected",
+    "final": "Offline",
+    "finalListener5555Count": 0,
+    "previousListenerProcessId": 1540,
+    "previousListenerProcessStillRunning": false
+  },
+  "finalPackageInstalled": false,
+  "emulatorStarted": false,
+  "portMappingChanged": false,
+  "isolatedFixtureStarted": false,
+  "nativeAcceptanceExecuted": false,
+  "screenshots": []
+}

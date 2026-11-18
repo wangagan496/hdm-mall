@@ -59,7 +59,8 @@ export struct AccountDeletionView {
   }
 
   private async submitDeletion(): Promise<void> {
-    if (this.busy || !this.acknowledged || this.password.length < 8 || this.user.role === 'merchant') return
+    if (this.busy || !this.acknowledged || this.password.length < 8 ||
+      this.user.identity !== 'buyer' || this.user.identities?.includes('merchant')) return
     this.busy = true; this.error = ''
     const token = this.user.token
     try {
@@ -133,7 +134,7 @@ export struct AccountDeletionView {
                 .backgroundColor($r('[ui_components].color.white'))
                 .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.ORDER_DETAIL_PAGE, param: matter.id }))
             }, (matter: DeletionMatter) => matter.id)
-            if (this.user.role === 'merchant') {
+            if (this.user.identity === 'merchant' || this.user.identities?.includes('merchant')) {
               Text('商家账号请联系管理员处理')
             } else if (this.info.status === 'deleting') {
               Button('撤销注销').id('cancel-deletion').enabled(this.loaded && this.info.canCancel && !this.busy)

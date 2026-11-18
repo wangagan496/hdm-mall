@@ -18,6 +18,15 @@ interface RetainedProfileDraft {
   avatarBase64: string
   expiresAt: number
 }
+type ProfileSession = Pick<HDMUser, 'id' | 'token' | 'identity' | 'identityRevision'>
+const sameSession = (expected: ProfileSession | undefined, current: ProfileSession | undefined): boolean =>
+  Boolean(expected?.token && current && current.token === expected.token && current.id === expected.id &&
+    current.identity === expected.identity && current.identityRevision === expected.identityRevision)
+const sessionHeaders = (user: ProfileSession) => ({
+  Authorization: 'Bearer ' + user.token,
+  'X-HDM-Identity': user.identity,
+  'X-HDM-Identity-Revision': String(user.identityRevision),
+})
 const buildProfileUpdate = (user: HDMUser): ProfileUpdatePayload => ({
   nickname: user.nickname, gender: user.gender, birthday: user.birthday,
   provinceCode: user.provinceCode, cityCode: user.cityCode, countyCode: user.countyCode,
@@ -44,7 +53,7 @@ export const useProfileStore = defineStore('profile', () => {
   const draftKey = (id: string) => 'hdm-profile-draft:' + id
   const retainDraft = (): boolean => {
     const user = profileDraft.value
-    if (!user.id || !user.token || window.nativeApp?.getUser()?.token !== user.token) return false
+    if (!user.id || !sameSession(user, window.nativeApp?.getUser())) return false
     try {
       if (!hasUnsavedChanges.value) window.localStorage.removeItem(draftKey(user.id))
       else window.localStorage.setItem(draftKey(user.id), JSON.stringify({
@@ -81,9 +90,9 @@ export const useProfileStore = defineStore('profile', () => {
     confirmedProfile = { ...savedProfile }
     savedProfileJson.value = JSON.stringify(buildProfileUpdate(savedProfile))
   }
-  const assertCurrentSession = (token: string, sequence: number) => {
-    if (!token || sequence !== loadSequence || window.nativeApp?.getUser()?.token !== token) {
-      throw new Error('登录状态已变化，请重新打开资料页')
+  const assertCurrentSession = (session: ProfileSession | undefined, sequence: number) => {
+    if (sequence !== loadSequence || !sameSession(session, window.nativeApp?.getUser())) {
+      throw new Error('登录身份已变化，请重新打开资料页')
     }
   }
   const setAvatarPreview = (base64: string) => {
@@ -97,16 +106,17 @@ export const useProfileStore = defineStore('profile', () => {
     pendingAvatarBase64.value = ''
     pendingNativeProfile.value = undefined
     profileDraft.value = {} as HDMUser
-    const token = window.nativeApp?.getUser()?.token || ''
+    const session = window.nativeApp?.getUser()
     try {
-      assertCurrentSession(token, sequence)
+      if (!session) throw new Error('请先登录')
+      assertCurrentSession(session, sequence)
       const response = await request.get<{ result: HDMUser }>('/member/profile', {
-        headers: { Authorization: 'Bearer ' + token },
+        headers: sessionHeaders(session),
       })
-      assertCurrentSession(token, sequence)
+      assertCurrentSession(session, sequence)
       const loaded = response.data.result
-      if (loaded.token !== token || loaded.id !== window.nativeApp?.getUser()?.id) {
-        throw new Error('资料与当前登录账号不一致')
+      if (!sameSession(session, loaded)) {
+        throw new Error('资料与当前登录身份不一致')
       }
       profileDraft.value = { ...loaded }
       recordSavedProfile(loaded)
@@ -117,30 +127,29 @@ export const useProfileStore = defineStore('profile', () => {
       if (sequence === loadSequence) pageState.value = 'error'
     }
   }
-  const syncConfirmedProfile = async (token: string, sequence: number) => {
+  const syncConfirmedProfile = async (session: ProfileSession, sequence: number) => {
     const profile = pendingNativeProfile.value
     if (!profile) return
-    assertCurrentSession(token, sequence)
+    assertCurrentSession(session, sequence)
     if (!window.nativeApp?.updateUser) throw new Error('当前环境不支持同步资料')
     await window.nativeApp.updateUser({ ...profile })
-    assertCurrentSession(token, sequence)
+    assertCurrentSession(session, sequence)
     if (pendingNativeProfile.value === profile) pendingNativeProfile.value = undefined
   }
   const persistProfile = async (): Promise<boolean> => {
     const sequence = loadSequence
     const submitted = { ...profileDraft.value }
-    const token = submitted.token
     const avatarBase64 = pendingAvatarBase64.value
-    const headers = { Authorization: 'Bearer ' + token }
+    const headers = sessionHeaders(submitted)
     isSaving.value = true
     saveError.value = ''
     try {
-      assertCurrentSession(token, sequence)
+      assertCurrentSession(submitted, sequence)
       if (avatarBase64) {
         const form = new FormData()
         form.append('file', base64ToAvatarFile(avatarBase64))
         const response = await request.post<{ result: { avatar: string } }>('/member/profile/avatar', form, { headers })
-        assertCurrentSession(token, sequence)
+        assertCurrentSession(submitted, sequence)
         const avatar = response.data.result.avatar
         if (!avatar) throw new Error('头像上传接口未返回头像地址')
         // 上传接口已经保存头像；后续资料失败也不能假装头像未保存。
@@ -152,13 +161,13 @@ export const useProfileStore = defineStore('profile', () => {
           profileDraft.value.avatar = avatar
           retainDraft()
         }
-        await syncConfirmedProfile(token, sequence)
+        await syncConfirmedProfile(submitted, sequence)
       }
       if (JSON.stringify(buildProfileUpdate(submitted)) !== savedProfileJson.value) {
         const response = await request.put<{ result: HDMUser }>('/member/profile', buildProfileUpdate(submitted), { headers })
-        assertCurrentSession(token, sequence)
+        assertCurrentSession(submitted, sequence)
         const saved = response.data.result
-        if (saved.token !== token || saved.id !== submitted.id) throw new Error('服务器返回的资料不完整，请重新加载')
+        if (!sameSession(submitted, saved)) throw new Error('服务器返回的资料与当前身份不一致，请重新加载')
         recordSavedProfile(saved)
         // 未再修改的字段接受服务端规范化；等待期间的新输入继续保留。
         for (const field of Object.keys(buildProfileUpdate(submitted)) as (keyof ProfileUpdatePayload)[]) {
@@ -168,11 +177,11 @@ export const useProfileStore = defineStore('profile', () => {
         }
         pendingNativeProfile.value = { ...saved }
       }
-      await syncConfirmedProfile(token, sequence)
+      await syncConfirmedProfile(submitted, sequence)
       retainDraft()
       return true
     } catch (error) {
-      if (sequence === loadSequence) {
+      if (sequence === loadSequence && sameSession(submitted, window.nativeApp?.getUser())) {
         saveError.value = pendingNativeProfile.value
           ? (hasProfileChanges.value ? '头像已保存，手机同步失败，其余修改仍未保存，请重试' : '资料已保存，手机同步失败，请重试同步')
           : requestErrorMessage(error)
@@ -194,13 +203,13 @@ export const useProfileStore = defineStore('profile', () => {
     return pendingSave
   }
   const flushProfile = async (): Promise<boolean> => {
-    const token = profileDraft.value.token
+    const session = { ...profileDraft.value }
     const sequence = loadSequence
     retainDraft()
     // Drain the active write and then the latest input, without overlapping uploads.
     for (let attempt = 0; attempt < 4; attempt++) {
       if (!await saveProfile()) { retainDraft(); return false }
-      try { assertCurrentSession(token, sequence) } catch { return false }
+      try { assertCurrentSession(session, sequence) } catch { return false }
       if (!hasUnsavedChanges.value) { retainDraft(); return true }
     }
     retainDraft()

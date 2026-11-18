@@ -2,7 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { Database } from './database.ts'
 import type { Clock } from './clock.ts'
 import { AppError, ensure } from './errors.ts'
-import type { Accounts, User } from './accounts.ts'
+import { requireBuyer, restrictOwnOrder, type Accounts, type User } from './accounts.ts'
 import { recordStockMovement } from './inventory.ts'
 import { appendAudit } from './audit.ts'
 import { MockPaymentChannel, type ChannelPayment, type ChannelResult, type PaymentCallback, type PaymentChannel } from './payment-channel.ts'
@@ -93,6 +93,7 @@ export class Payments {
   }
 
   private payerAllowed(user: User, order: OrderRow) {
+    requireBuyer(user)
     if (order.invited_payer) {
       ensure(order.invited_payer === user.id && this.accounts.bound(order.owner_id, user.id), 403, '仅指定且仍绑定的亲友可代付')
     } else ensure(order.owner_id === user.id, 403, '只有下单人可以操作')
@@ -424,6 +425,7 @@ export class Payments {
     callback?: PaymentCallback
     close?: boolean
     refundIds?: string[]
+    verify?: () => void
   }) {
     if (request?.callback) {
       const query = await this.channelRequired().query(request.callback.paymentId)
@@ -437,6 +439,7 @@ export class Payments {
         await this.reconcileClosed(payment.id, closed, now)
       } else {
         const query = await this.channelRequired().query(payment.id)
+        request.verify?.()
         await this.reconcileQuery(payment, query, now)
       }
       return
@@ -511,12 +514,12 @@ export class Payments {
     if (!payment) return this.orderFields(order, user)
     const now = this.clock.now()
     if (payment.last_query_at !== null && now - payment.last_query_at < 5000) return this.orderFields(order, user)
-    await this.reconcile(now, { paymentId: payment.id })
+    await this.reconcile(now, { paymentId: payment.id, verify: () => this.accounts.assertCurrent(user) })
     return this.orderFields(this.order(orderId), user)
   }
 
   reviewPage(user: User, page: number, pageSize: number) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     const payments = this.db.all<{ kind: 'payment'; id: string; orderId: string; amount: number; payerAccount: string; created: number; queryCount: number; reviewAt: number }>(`SELECT 'payment' AS kind,p.id,p.order_id AS orderId,p.amount,u.account AS payerAccount,
       p.created,p.query_count AS queryCount,p.review_at AS reviewAt FROM payments p JOIN users u ON u.id=p.payer_id
       WHERE p.state='pending' AND p.review_at IS NOT NULL`)
@@ -530,9 +533,11 @@ export class Payments {
   }
 
   async retryRefund(user: User, refundId: string, requestKey: string) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     const refund = this.db.one<RefundRow>('SELECT * FROM refunds WHERE id=?', refundId)
     ensure(refund, 404, '退款单不存在')
+    const order = this.order(this.payment(refund.payment_id)!.order_id)
+    restrictOwnOrder(order.owner_id, user, '店主不能处理自己订单的退款')
     const existing = this.db.one<{ refund_id: string }>('SELECT refund_id FROM refund_retry_actions WHERE request_key=?', requestKey)
     if (existing) {
       ensure(existing.refund_id === refundId, 409, '同一请求号不能用于其他退款单')
@@ -548,20 +553,21 @@ export class Payments {
   }
 
   async requery(user: User, paymentId: string) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     const payment = this.payment(paymentId)
     ensure(payment, 404, '支付单不存在')
     ensure(payment.review_at !== null && payment.state === 'pending', 409, '支付单不在待核实列表')
-    await this.reconcile(this.clock.now(), { paymentId })
+    await this.reconcile(this.clock.now(), { paymentId, verify: () => this.accounts.assertCurrent(user) })
     return { id: paymentId }
   }
 
   async resolve(user: User, paymentId: string, data: { outcome: 'paid' | 'unpaid'; paidAt?: number; reason: string; requestKey: string }) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     const refundIds: string[] = []
     this.db.transaction(() => {
       const payment = this.payment(paymentId)
       ensure(payment, 404, '支付单不存在')
+      restrictOwnOrder(this.order(payment.order_id).owner_id, user, '店主不能审核自己订单的付款')
       const existingKey = this.db.one<{ id: number; payment_id: string; outcome: string; paid_at: number | null; reason: string }>('SELECT id,payment_id,outcome,paid_at,reason FROM payment_review_resolutions WHERE request_key=?', data.requestKey)
       if (existingKey) {
         ensure(existingKey.payment_id === paymentId && existingKey.outcome === data.outcome && existingKey.paid_at === (data.paidAt ?? null) && existingKey.reason === data.reason,

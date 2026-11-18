@@ -23,7 +23,7 @@ async function fixture() {
   const other = f.accounts.login('merchant_two', 'test-password-123')
   const buyer = f.accounts.login('normal_buyer', 'test-password-123')
   const payload = (delta = 3, expectedStock = initialStock) => ({ requestKey: randomUUID(), delta, expectedStock, reason: '仓库盘点补充库存' })
-  const put = (data: object, token = merchant.token, sku = 'adjust-product-a') => f.app.inject({ method: 'PUT', url: `/merchant/inventory/${sku}/adjustments`, headers: { authorization: `Bearer ${token}` }, payload: data })
+  const put = (data: object, token = merchant.token, sku = 'adjust-product-a') => f.app.inject({ method: 'PUT', url: `/merchant/inventory/${sku}/adjustments`, headers: identityHeaders(f.accounts, token), payload: data })
   const stock = () => f.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'adjust-product-a')!.stock
   const rows = () => f.db.all("SELECT * FROM inventory_movements WHERE kind='adjust'")
   return { ...f, merchant, other, buyer, payload, put, stock, rows }
@@ -45,9 +45,9 @@ test('库存调整记录原因及操作者，重复请求返回原凭据且不�
     assert.equal((await f.put(data, f.merchant.token, 'adjust-product-b')).statusCode, 409)
     const row = f.db.one<{ actor_id: string; reason: string }>("SELECT * FROM inventory_movements WHERE kind='adjust' ORDER BY id")!
     assert.equal(row.actor_id, f.merchant.id); assert.equal(row.reason, data.reason)
-    const result = await f.app.inject({ url: `/merchant/inventory/adjustments/${data.requestKey}`, headers: { authorization: `Bearer ${f.merchant.token}` } })
+    const result = await f.app.inject({ url: `/merchant/inventory/adjustments/${data.requestKey}`, headers: identityHeaders(f.accounts, f.merchant.token) })
     assert.deepEqual(result.json(), first.json())
-    assert.equal((await f.app.inject({ url: `/merchant/inventory/adjustments/${data.requestKey}`, headers: { authorization: `Bearer ${f.other.token}` } })).statusCode, 404)
+    assert.equal((await f.app.inject({ url: `/merchant/inventory/adjustments/${data.requestKey}`, headers: identityHeaders(f.accounts, f.other.token) })).statusCode, 404)
   } finally { await f.app.close() }
 })
 
@@ -118,15 +118,15 @@ test('v3 备份恢复后升级当前版本保留原流水，新增调整和备�
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(parent, 'restored') })
     const databasePath = join(restored.root, 'mall.sqlite'), db = new Database(databasePath)
     try {
-      assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+      assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 20)
       assert.equal(db.one<{ delta: number }>('SELECT delta FROM inventory_movements WHERE id=1')!.delta, 20)
-      const user = { id: 'merchant', account: 'merchant', nickname: '商家', role: 'merchant' as const, profile: '{}' }
+      const user = { id: 'merchant', account: 'merchant', nickname: '商家', identity: 'merchant' as const, identities: ['merchant' as const], identityRevision: 0, profile: '{}' }
       const receipt = adjustStock(db, user, 'sku', { requestKey: randomUUID(), delta: 2, expectedStock: 20, reason: '实际盘点增加库存' })
       assert.ok(receipt.id > 1); assert.equal(receipt.balance, 22)
       assert.throws(() => db.run('DELETE FROM inventory_movements WHERE id=1'), /append-only/)
     } finally { db.close() }
     const upgraded = await createBackup({ databasePath, uploadsPath: join(restored.root, 'uploads'), destination: join(parent, 'v4') })
-    assert.equal(upgraded.manifest.schemaVersion, 19)
+    assert.equal(upgraded.manifest.schemaVersion, 20)
     assert.equal(upgraded.counts.inventory_movements, 2)
     const recovered = await restoreBackup({ backupPath: upgraded.root, destination: join(parent, 'restored-v4') })
     const check = new Database(join(recovered.root, 'mall.sqlite'))
@@ -158,3 +158,4 @@ test('v4 迁移遇到不合规旧流水时回滚，原表版本和数据保留',
     } finally { check.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

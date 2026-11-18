@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { Database } from './database.ts'
-import type { User } from './accounts.ts'
+import { requireBuyer, restrictOwnOrder, restrictOwnStore, type User } from './accounts.ts'
 import type { Clock } from './clock.ts'
 import type { Payments } from './payments.ts'
 import { ensure } from './errors.ts'
@@ -42,8 +42,11 @@ export class AfterSales {
   constructor(db: Database, payments: Payments, clock: Clock) { this.db = db; this.payments = payments; this.clock = clock }
   private order(id: string) { const row = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id); ensure(row, 404, '订单不存在'); return row }
   private sale(id: string) { const row = this.db.one<Sale>('SELECT * FROM after_sales WHERE id=?', id); ensure(row, 404, '售后申请不存在'); return row }
-  private merchant(user: User) { ensure(user.role === 'merchant', 403, '需要商家权限') }
-  private owner(user: User, order: Order) { ensure(order.owner_id === user.id, 403, '只有下单人可以操作售后') }
+  private merchant(user: User) { ensure(user.identity === 'merchant', 403, '需要商家权限') }
+  private owner(user: User, order: Order) {
+    requireBuyer(user)
+    ensure(order.owner_id === user.id, 403, '只有下单人可以操作售后')
+  }
   private address() { const row = this.db.one<{ return_address: string }>('SELECT return_address FROM merchant_settings WHERE id=1'); return row ? JSON.parse(row.return_address) as ReturnAddress : null }
   getAddress(user: User) { this.merchant(user); return this.address() }
   private storeAddress(user: User, address: ReturnAddress) {
@@ -64,14 +67,16 @@ export class AfterSales {
       WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?`, orderId)
   }
   private replay(user: User | undefined, key: string, body: string) {
-    const row = this.db.one<{ actor_id: string | null; request_body: string; result: string }>('SELECT * FROM after_sale_actions WHERE request_key=?', key)
+    const row = this.db.one<{ actor_id: string | null; acting_identity: User['identity'] | null; request_body: string; result: string }>('SELECT * FROM after_sale_actions WHERE request_key=?', key)
     if (!row) return undefined
-    ensure(row.actor_id === (user?.id ?? null) && row.request_body === body, 409, '本次操作内容已变化，请先确认原结果')
+    ensure(row.actor_id === (user?.id ?? null) && row.acting_identity === (user?.identity ?? null) && row.request_body === body,
+      409, '本次操作内容已变化，请先确认原结果')
     return JSON.parse(row.result) as Receipt
   }
   private receipt(sale: Sale, user: User | undefined, action: string, key: string, body: string): Receipt {
     const result = { id: randomUUID(), orderId: sale.order_id, afterSaleId: sale.id, action, appliedState: sale.state, appliedAt: this.clock.now(), refundId: sale.refund_id }
-    this.db.run('INSERT INTO after_sale_actions(id,after_sale_id,actor_id,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?)', result.id, sale.id, user?.id ?? null, action, key, body, JSON.stringify(result), result.appliedAt)
+    this.db.run('INSERT INTO after_sale_actions(id,after_sale_id,actor_id,acting_identity,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?,?)',
+      result.id, sale.id, user?.id ?? null, user?.identity ?? null, action, key, body, JSON.stringify(result), result.appliedAt)
     const actions:Record<string,AuditAction>={approve:'aftersale.approve',reject:'aftersale.reject',inspect:'aftersale.inspect','refund-reject':'aftersale.refund_reject','auto-approve':'aftersale.auto_approve',close:'aftersale.auto_close','auto-refund':'aftersale.auto_refund'}
     const auditAction=actions[action]
     if(auditAction)appendAudit(this.db,{created:result.appliedAt,actor:user,action:auditAction,targetType:'after_sale',targetId:sale.id,orderId:sale.order_id,requestKey:key,
@@ -79,9 +84,12 @@ export class AfterSales {
     return result
   }
   async request(user: User, orderId: string, input: unknown) {
+    this.owner(user, this.order(orderId))
+    restrictOwnStore(this.db, user.id)
     const data = afterSaleRequestSchema.parse(input)
     const body = canonical({ orderId, action: 'request', ...data, items: [...data.items].sort((a,b) => a.skuId.localeCompare(b.skuId)), imageIds: [...data.imageIds].sort() })
     await this.processDue()
+    this.payments.accounts.assertCurrent(user)
     return this.db.transaction(() => {
       const order = this.order(orderId); this.owner(user, order)
       const replay = this.replay(user, data.requestKey, body); if (replay) return replay
@@ -155,8 +163,13 @@ export class AfterSales {
     ensure(Object.keys(data).every(k => k === 'requestKey' || allowed[action]!.includes(k)), 400, '操作参数不正确')
     const body = canonical({ afterSaleId: id, action, ...data, ...(data.items ? { items: [...data.items].sort((a,b) => a.skuId.localeCompare(b.skuId)) } : {}) })
     const sale = this.sale(id)
-    if (['withdraw','ship-back'].includes(action)) this.owner(user, this.order(sale.order_id)); else this.merchant(user)
+    if (['withdraw','ship-back'].includes(action)) this.owner(user, this.order(sale.order_id))
+    else {
+      this.merchant(user)
+      restrictOwnOrder(sale.requested_by, user, '店主不能处理自己的售后申请')
+    }
     await this.processDue()
+    this.payments.accounts.assertCurrent(user)
     const refundIds: string[] = []
     const result = this.db.transaction(() => {
       const replay = this.replay(user, data.requestKey, body); if (replay) return replay
@@ -272,6 +285,7 @@ export class AfterSales {
   }
   async list(user: User, state: string, page: number, pageSize: number) {
     this.merchant(user); await this.processDue()
+    this.payments.accounts.assertCurrent(user)
     const where = state === 'all' ? '' : state === 'returned' ? `WHERE ${pendingReturnInspection}` : 'WHERE s.state=?'
     const params = state === 'all' || state === 'returned' ? [] : [state]
     const counts = this.db.one<{ n: number }>(`SELECT COUNT(*) n FROM after_sales s ${where}`, ...params)!.n
@@ -281,6 +295,7 @@ export class AfterSales {
   }
   uploadImage(user: User, orderId: string, applicationKey: string, requestKey: string, bytes: Buffer, uploadsPath: string) {
     const order = this.order(orderId); this.owner(user, order)
+    restrictOwnStore(this.db, user.id)
     ensure(bytes.length <= 512 * 1024, 413, '图片过大，请换一张')
     ensure(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff, 400, '请选择JPEG照片')
     const sha256 = createHash('sha256').update(bytes).digest('hex')
@@ -302,6 +317,6 @@ export class AfterSales {
   }
   canReadImage(user: User, imageId: string) {
     const image = this.db.one<{ actor_id: string; after_sale_id: string | null }>('SELECT actor_id,after_sale_id FROM after_sale_images WHERE image_id=?', imageId)
-    ensure(image && (image.actor_id === user.id || user.role === 'merchant' && image.after_sale_id !== null), 403, '无权查看售后照片')
+    ensure(image && (user.identity === 'buyer' && image.actor_id === user.id || user.identity === 'merchant' && image.after_sale_id !== null), 403, '无权查看售后照片')
   }
 }

@@ -185,9 +185,13 @@ function Wait-FixturePassword {
 function Api([string]$Account, [string]$Path, [string]$Method = 'Get', $Body = $null) {
   if (-not $Tokens.ContainsKey($Account)) {
     $LoginResult = Invoke-RestMethod "$Base/login" -Method Post -ContentType 'application/json' -Body (@{account=$Account; password=$Password} | ConvertTo-Json)
-    $Tokens[$Account] = $LoginResult.result.token
+    $Tokens[$Account] = @{
+      Authorization = 'Bearer ' + $LoginResult.result.token
+      'X-HDM-Identity' = $LoginResult.result.identity
+      'X-HDM-Identity-Revision' = [string]$LoginResult.result.identityRevision
+    }
   }
-  $Args = @{Uri="$Base$Path"; Method=$Method; Headers=@{Authorization='Bearer '+$Tokens[$Account]}}
+  $Args = @{Uri="$Base$Path"; Method=$Method; Headers=$Tokens[$Account]}
   if ($null -ne $Body) { $Args.ContentType='application/json'; $Args.Body=$Body | ConvertTo-Json -Depth 8 }
   return (Invoke-RestMethod @Args).result
 }
@@ -420,7 +424,7 @@ function Invoke-PaidCancellation {
   $MerchantPage = Api 'device_merchant' '/merchant/orders/page?page=1&pageSize=100'
   if (@($MerchantPage.items | Where-Object { $_.id -eq $OrderId }).Count -ne 0) { throw 'Approved cancellation remains in merchant shipment list' }
   $MerchantPage | ConvertTo-Json -Depth 12 | Set-Content "$Output/c-merchant-removed.json" -Encoding utf8
-  $ShipResponse = Invoke-WebRequest "$Base/merchant/orders/$OrderId/ship" -Method Post -Headers @{Authorization='Bearer '+$Tokens['device_merchant']} -ContentType 'application/json' -Body '{}' -SkipHttpErrorCheck
+  $ShipResponse = Invoke-WebRequest "$Base/merchant/orders/$OrderId/ship" -Method Post -Headers $Tokens['device_merchant'] -ContentType 'application/json' -Body '{}' -SkipHttpErrorCheck
   $ShipError = $ShipResponse.Content | ConvertFrom-Json
   if ($ShipResponse.StatusCode -ne 409 -or $ShipError.msg -ne '买家已取消，不能发货') { throw 'Legacy shipment did not reject cancelled order with expected message' }
   @{status=$ShipResponse.StatusCode;body=$ShipError} | ConvertTo-Json -Depth 10 | Set-Content "$Output/c-legacy-ship-rejected.json" -Encoding utf8

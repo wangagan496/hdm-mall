@@ -38,7 +38,7 @@ export struct ProductManageView {
   }
   private current(generation: number, token: string): boolean {
     return this.active && generation === this.generation && !!token && token === this.user.token && token === this.token &&
-      !!this.accountId && this.accountId === this.user.id && this.user.role === 'merchant'
+      !!this.accountId && this.accountId === this.user.id && this.user.identity === 'merchant'
   }
   private accountChanged(): void { this.synchronize(); if (this.active) void this.load(1) }
   aboutToAppear(): void { this.active = true; void this.load(1) }

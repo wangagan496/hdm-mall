@@ -28,7 +28,7 @@ export struct ReviewManageView {
   private generation: number = 0
   private query: number = 0
   private reasons: string[] = ['广告', '辱骂', '无关内容', '泄露隐私', '其他']
-  private current(generation: number, token: string): boolean { return this.active && generation === this.generation && !!token && token === this.user.token && this.user.role === 'merchant' }
+  private current(generation: number, token: string): boolean { return this.active && generation === this.generation && !!token && token === this.user.token && this.user.identity === 'merchant' }
   private messageColor(): ResourceColor { return this.messageOk ? $r('[ui_components].color.text') : $r('[ui_components].color.red') }
   private accountChanged(): void { this.generation++; this.query++; this.items = []; this.selected = null; this.reason = ''; this.message = ''; this.busy = false; this.loading = false; if (this.active) void this.load(1) }
   aboutToDisappear(): void { this.active = false; this.accountChanged() }

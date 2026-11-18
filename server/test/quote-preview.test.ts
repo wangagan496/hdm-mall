@@ -14,7 +14,7 @@ async function fixture() {
   const [sku, other] = product.skus
   const items = [{ skuId: sku!.id, count: 1 }, { skuId: other!.id, count: 1 }]
   const call = async (payload: object, token = buyer.token) => {
-    const res = await ctx.app.inject({ method: 'POST', url: '/member/quote-preview', headers: { authorization: 'Bearer ' + token }, payload })
+    const res = await ctx.app.inject({ method: 'POST', url: '/member/quote-preview', headers: identityHeaders(ctx.accounts, token), payload })
     return { status: res.statusCode, body: res.json() }
   }
   return { ctx, buyer, merchant, product, sku: sku!, other: other!, items, call, advance: () => { now += 3600000 } }
@@ -153,7 +153,7 @@ test('报价前后所有数据库表快照相同，未触发到期订单维护�
   const f = await fixture()
   try {
     const address = f.ctx.testData.address({ userId: f.buyer.id, receiver: 'Buyer', contact: '13800000000', address: '测试' })
-    await f.ctx.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: 'Bearer ' + f.buyer.token },
+    await f.ctx.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.ctx.accounts, f.buyer.token),
       payload: { source: 'buy-now', requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: f.sku.id, count: 1 }], expectedAmountCents: 3300 } })
     f.ctx.db.run('INSERT INTO carts(user_id,sku_id,count,selected) VALUES(?,?,?,1)', f.buyer.id, f.other.id, 1)
     f.advance()
@@ -174,7 +174,7 @@ test('报价和实际下单金额相同，鉴权和买家身份边界保留', as
     assert.equal((await f.ctx.app.inject({ method: 'POST', url: '/member/quote-preview', payload: {} })).statusCode, 401)
     const quote = (await f.call({ items: f.items })).body.result
     const address = f.ctx.testData.address({ userId: f.buyer.id, receiver: 'Buyer', contact: '13800000000', address: '测试' })
-    const created = await f.ctx.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: 'Bearer ' + f.buyer.token }, payload: {
+    const created = await f.ctx.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.ctx.accounts, f.buyer.token), payload: {
       source: 'buy-now', requestKey: randomUUID(), addressId: address.id, goods: f.items, expectedAmountCents: quote.amountCents, expectedPromotionRevision: quote.promotion.rule.revision } })
     assert.equal(created.statusCode, 200)
     assert.equal(f.ctx.db.one<{amount:number}>('SELECT amount FROM orders WHERE id=?', created.json().result.id)!.amount, quote.amountCents)
@@ -191,9 +191,10 @@ test('未配置稳定密钥时重启失效旧凭据，按无上次报价处理',
   const f = await fixture()
   try {
     const firstProcess = new QuotePreview(f.ctx.db)
-    const old = firstProcess.preview(f.buyer, { items: f.items }, 123)
+    const auth = () => f.ctx.accounts.authenticate(`Bearer ${f.buyer.token}`)
+    const old = firstProcess.preview(auth(), { items: f.items }, 123)
     f.ctx.testData.updateSku({ skuId: f.sku.id, priceCents: 3500 })
-    const restarted = new QuotePreview(f.ctx.db).preview(f.buyer, { items: f.items, previousReceipt: old.receipt }, 456)
+    const restarted = new QuotePreview(f.ctx.db).preview(auth(), { items: f.items, previousReceipt: old.receipt }, 456)
     assert.equal(restarted.comparison, null)
     assert.equal(restarted.amountCents, 9100)
   } finally { await f.ctx.app.close() }
@@ -210,3 +211,4 @@ test('满减从关闭重新启用时，买家读到本次实际优惠条件', as
     assert.equal(next.comparison.deltaCents, -1000)
   } finally { await f.ctx.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

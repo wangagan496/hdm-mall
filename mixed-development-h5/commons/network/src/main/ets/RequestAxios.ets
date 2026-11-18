@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig, FormData 
 import { GlobalVariable } from 'constants'
 import { window } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
-import { HDMUser } from 'models'
+import { HDMUser, IdentityContext, parseIdentityContext } from 'models'
 
 function showToast(message: string): void {
   const ctx = AppStorage.get<common.UIAbilityContext>(GlobalVariable.ABILITY_CONTEXT_KEY)
@@ -82,18 +82,55 @@ const instance = axios.create({
 
 const rawInstance = axios.create({ timeout: 10000 })
 let sessionExpiredHandler: ((token: string) => Promise<boolean>) | undefined = undefined
+let identityChangedHandler: ((token: string, context: IdentityContext) => void) | undefined = undefined
+
+interface IdentityErrorResponse {
+  reason?: string
+  result?: Object
+}
+
+export class IdentityChangedError extends BusinessError {
+  constructor() { super('身份已切换，请返回后重试', 409) }
+}
+
+function currentUser(): HDMUser | undefined {
+  return AppStorage.get<HDMUser>(GlobalVariable.USER_INFO_KEY)
+}
+
+function requestHeaders(token?: string, silent: boolean = false, user: HDMUser | undefined = currentUser()): Record<string, string> {
+  const headers: Record<string, string> = {}
+  const requestToken = token ?? user?.token
+  if (silent) headers.xSilentError = '1'
+  if (requestToken) {
+    headers.Authorization = 'Bearer ' + requestToken
+    if (user && user.token === requestToken && user.identity && user.identityRevision !== undefined) {
+      headers['X-HDM-Identity'] = user.identity
+      headers['X-HDM-Identity-Revision'] = String(user.identityRevision)
+    }
+  }
+  return headers
+}
+
+function staleRequest(config?: InternalAxiosRequestConfig): boolean {
+  const headers = config?.headers
+  const revision = headers?.['X-HDM-Identity-Revision'] as string | undefined
+  const authorization: string = String(headers?.Authorization || '')
+  if (!authorization || config?.url === '/logout' || config?.url === '/member/consents') return false
+  const user = currentUser()
+  if (!user?.token || authorization !== 'Bearer ' + user.token) return true
+  if (revision === undefined) return user.identityRevision !== undefined
+  return String(revision) !== String(user.identityRevision) || headers?.['X-HDM-Identity'] !== user.identity
+}
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const user = AppStorage.get<HDMUser>(GlobalVariable.USER_INFO_KEY)
-  if (user?.status === 'deleting' && config.method?.toUpperCase() !== 'GET') {
+  if (staleRequest(config)) throw new IdentityChangedError()
+  const user = currentUser()
+  if (user?.status === 'deleting' && config.headers.Authorization === 'Bearer ' + user.token && config.method?.toUpperCase() !== 'GET') {
     const url: string = config.url || ''
     const followUp: boolean = ['/logout', '/member/consents', '/member/consents/withdraw', '/member/account-deletion', '/member/account-deletion/cancel', '/member/after-sales/images'].includes(url) ||
       /^\/member\/order\/[^/]+\/(receipt|payments\/refresh|after-sales|cancel-requests|cancel-requests\/[^/]+\/withdraw)$/.test(url) ||
       /^\/member\/after-sales\/[^/]+\/(withdraw|ship-back)$/.test(url)
     if (!followUp) throw new BusinessError('账号正在注销中', 403)
-  }
-  if (user && user.token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${user.token}`
   }
   return config
 }, (error: AxiosError) => {
@@ -103,6 +140,7 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 })
 
 instance.interceptors.response.use((response: AxiosResponse) => {
+  if (staleRequest(response.config)) throw new IdentityChangedError()
   if (response.config.url === '/goods' && response.status === 200 && response.data.id) {
     return response.data
   }
@@ -115,6 +153,14 @@ instance.interceptors.response.use((response: AxiosResponse) => {
   // 携带 HTTP 状态码，调用方才能区分"接口不存在"与业务失败（如订单不可取消）。
   throw new BusinessError(response.data.msg, response.status)
 }, async (error: AxiosError) => {
+  if (staleRequest(error.config)) throw new IdentityChangedError()
+  const body = error.response?.data as IdentityErrorResponse | undefined
+  if (error.response?.status === 409 && body?.reason === 'IDENTITY_CHANGED') {
+    const context = parseIdentityContext(JSON.stringify(body.result ?? null))
+    const authorization = String(error.config?.headers?.Authorization || '')
+    if (context && authorization.startsWith('Bearer ')) identityChangedHandler?.(authorization.substring(7), context)
+    throw new IdentityChangedError()
+  }
   if (error.response?.status === 401 && sessionExpiredHandler) {
     const authorization: string = String(error.config?.headers?.Authorization || '')
     const token: string = authorization.startsWith('Bearer ') ? authorization.substring(7) : ''
@@ -143,7 +189,9 @@ instance.interceptors.response.use((response: AxiosResponse) => {
 export class RequestAxios {
   static async getImageForSession(path: string, token: string): Promise<ArrayBuffer> {
     if (!/^\/uploads\/[a-f0-9-]{36}\.jpg$/.test(path)) throw new Error('图片路径无效')
-    const response: AxiosResponse<ArrayBuffer>=await rawInstance.get<ArrayBuffer, AxiosResponse<ArrayBuffer>>(GlobalVariable.BASE_URL+path,{responseType:'array_buffer',headers:{Authorization:`Bearer ${token}`}})
+    const response: AxiosResponse<ArrayBuffer> = await rawInstance.get<ArrayBuffer, AxiosResponse<ArrayBuffer>>(GlobalVariable.BASE_URL + path,
+      { responseType: 'array_buffer', headers: requestHeaders(token) })
+    if (staleRequest(response.config)) throw new IdentityChangedError()
     return response.data
   }
   static postMultipartForSession<T>(url: string, bytes: ArrayBuffer, requestKey: string, token: string, orderId?: string, applicationKey?: string): Promise<T> {
@@ -152,43 +200,52 @@ export class RequestAxios {
     if (orderId) form.append('orderId', orderId)
     if (applicationKey) form.append('applicationKey', applicationKey)
     form.append('file', bytes, { filename: 'product.jpg', type: 'image/jpeg' })
-    return instance.post<null, T>(url, form, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1', 'Content-Type': 'multipart/form-data' } })
+    const headers = requestHeaders(token, true)
+    headers['Content-Type'] = 'multipart/form-data'
+    return instance.post<null, T>(url, form, { headers })
   }
   // 重试期间始终使用发起请求的会话，不借用后来登录的账号。
   static getForSession<T>(url: string, token: string): Promise<T> {
+    const headers = requestHeaders(token, true)
     return executeGetWithRetry<T>(() => instance.get<null, T>(url, {
-      headers: { Authorization: `Bearer ${token}`, xSilentError: '1' }
+      headers
     }))
   }
 
   static putForSession<T>(url: string, data: object, token: string): Promise<T> {
-    return instance.put<null, T>(url, data, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+    return instance.put<null, T>(url, data, { headers: requestHeaders(token, true) })
   }
 
-  static postWithSession<T>(url: string, data: object, token: string): Promise<T> {
-    return instance.post<null, T>(url, data, { headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+  static postWithSession<T>(url: string, data: object, token: string, user?: HDMUser): Promise<T> {
+    return instance.post<null, T>(url, data, { headers: requestHeaders(token, true, user) })
   }
 
   static deleteForSession<T>(url: string, token: string): Promise<T> {
-    return instance.delete<null, T>(url, { data: {}, headers: { Authorization: `Bearer ${token}`, xSilentError: '1' } })
+    return instance.delete<null, T>(url, { data: {}, headers: requestHeaders(token, true) })
   }
 
   static setSessionExpiredHandler(handler: (token: string) => Promise<boolean>): void {
     sessionExpiredHandler = handler
   }
 
-  static postForSession<T>(url: string, token: string): Promise<T> {
+  static setIdentityChangedHandler(handler: (token: string, context: IdentityContext) => void): void {
+    identityChangedHandler = handler
+  }
+
+  static postForSession<T>(url: string, token: string, user?: HDMUser): Promise<T> {
     return instance.post<null, T>(url, {}, {
-      timeout: 3000, headers: { Authorization: `Bearer ${token}`, xSilentError: '1' }
+      timeout: 3000, headers: requestHeaders(token, true, user)
     })
   }
   static get<T>(url: string, params?: object): Promise<T> {
-    return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params }))
+    const headers = requestHeaders()
+    return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params, headers }))
   }
 
   // 请求失败时不自动弹提示；错误仍交给调用方处理。
   static getWithoutToast<T>(url: string, params?: object): Promise<T> {
-    return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params, headers: { xSilentError: '1' } }))
+    const headers = requestHeaders(undefined, true)
+    return executeGetWithRetry<T>(() => instance.get<null, T>(url, { params, headers }))
   }
 
   static getRaw<T>(url: string, params?: object): Promise<T> {
@@ -197,22 +254,23 @@ export class RequestAxios {
 
   static post<T>(url: string, data?: object): Promise<T> {
     // 无业务参数也发送空 JSON，避免 Axios 默认的表单类型被 JSON 接口拒绝。
-    return instance.post<null, T>(url, data ?? {})
+    const anonymous = ['/login', '/login/huawei', '/register'].includes(url)
+    return instance.post<null, T>(url, data ?? {}, { headers: requestHeaders(anonymous ? '' : undefined) })
   }
 
   static postSilent<T>(url: string, data?: object): Promise<T> {
-    return instance.post<null, T>(url, data ?? {}, { headers: { xSilentError: '1' } })
+    return instance.post<null, T>(url, data ?? {}, { headers: requestHeaders(undefined, true) })
   }
 
   static put<T>(url: string, data?: object): Promise<T> {
-    return instance.put<null, T>(url, data ?? {})
+    return instance.put<null, T>(url, data ?? {}, { headers: requestHeaders() })
   }
 
   static putSilent<T>(url: string, data?: object): Promise<T> {
-    return instance.put<null, T>(url, data ?? {}, { headers: { xSilentError: '1' } })
+    return instance.put<null, T>(url, data ?? {}, { headers: requestHeaders(undefined, true) })
   }
 
   static delete<T>(url: string, data?: object): Promise<T> {
-    return instance.delete<null, T>(url, { data })
+    return instance.delete<null, T>(url, { data, headers: requestHeaders() })
   }
 }

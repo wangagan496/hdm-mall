@@ -1,4 +1,7 @@
 export { TabItem } from './src/main/ets/TabItem'
+export { Identity, IdentityContext, IdentityLayout, IdentityLayoutUpdate, IdentitySwitch, parseIdentityContext, parseIdentityLayout } from './src/main/ets/IdentityContext'
+export { IdentityEntry, IDENTITY_ENTRIES } from './src/main/ets/IdentityEntries'
+export { sameIdentitySession } from './src/main/ets/BusinessModels'
 export { QuoteItem, QuoteRequest, QuoteRule, QuoteLine, QuotePromotion, QuoteDetail, QuoteRemoval, QuoteReason, QuoteComparison, QuoteResponse, parseQuoteRequest, parseQuoteResponse } from './src/main/ets/QuotePreview'
 export { InvoiceInput, InvoiceDetail, normalizedInvoice, invoiceInputError } from './src/main/ets/InvoiceModels'
 export { ReturnPolicyFields, ReturnPolicyGoods, ReturnPolicyOption, RETURN_POLICY_OPTIONS, ReturnPolicyConfirmation, returnPolicyError, returnPolicyLabel, returnPolicyAllowsNoReason, returnConditionRequired, returnConditionError, returnPolicyAfterSaleHint, returnConditionLabel } from './src/main/ets/ReturnPolicy'
