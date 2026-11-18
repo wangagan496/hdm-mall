@@ -1,4 +1,5 @@
 export { TabItem } from './src/main/ets/TabItem'
+export { QuoteItem, QuoteRequest, QuoteRule, QuoteLine, QuotePromotion, QuoteDetail, QuoteRemoval, QuoteReason, QuoteComparison, QuoteResponse, parseQuoteRequest, parseQuoteResponse } from './src/main/ets/QuotePreview'
 export { InvoiceInput, InvoiceDetail, normalizedInvoice, invoiceInputError } from './src/main/ets/InvoiceModels'
 export { ReturnPolicyFields, ReturnPolicyGoods, ReturnPolicyOption, RETURN_POLICY_OPTIONS, ReturnPolicyConfirmation, returnPolicyError, returnPolicyLabel, returnPolicyAllowsNoReason, returnConditionRequired, returnConditionError, returnPolicyAfterSaleHint, returnConditionLabel } from './src/main/ets/ReturnPolicy'
 export {

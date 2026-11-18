@@ -1,0 +1,15 @@
+{
+  "name": "client-random",
+  "cwd": "D:\\hdm-mall",
+  "command": "node --test --test-randomize --test-random-seed=271113 scripts/tests/*.test.mjs",
+  "exitCode": 0,
+  "durationSeconds": 21.852,
+  "observedAt": "2026-11-18T09:02:14.9248432+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\client-random.log",
+  "tests": 631,
+  "pass": 631,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

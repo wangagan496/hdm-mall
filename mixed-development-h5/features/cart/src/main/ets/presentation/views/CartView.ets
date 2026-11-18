@@ -1,5 +1,7 @@
 import { HDMConfirm, HDMEmpty, HDMGuess, HDMNavBar } from 'ui_components'
-import { CartGoods, CartGoodsModel, HDMUser, UpdateCartParams } from 'models'
+import { CartGoods, CartGoodsModel, HDMUser, UpdateCartParams, QuoteItem, QuoteResponse } from 'models'
+import { QuotePanel } from '../components/QuotePanel'
+import { QuoteMemory, getQuotePreviewAPI, hasMultipleQuoteItems, quoteFailureText, quoteRemovalText } from '../utils/QuotePreview'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { getCartListAPI, getGuessLikeAPI } from '../../data/api'
 import { CartItem } from '../components'
@@ -57,6 +59,29 @@ export struct CartView {
   private reloadDeferred: boolean = false
   @State checkoutWaiting: boolean = false
   private readonly cartRefreshSource: string = 'cart-' + Date.now() + '-' + Math.random()
+  @State exactQuote: QuoteResponse | null = null
+  @State quoteError: string = ''
+  @State quoteBusy: boolean = false
+  @State quoteExpanded: boolean = false
+  private quoteSequence: number = 0
+  @StorageProp('currentTabIndex') @Watch('refreshQuoteOnTab') currentTab: number = 0
+  private refreshQuoteOnTab(): void { if (this.currentTab === 2 && this.isPageActive) void this.loadCartList() }
+  private async refreshExactQuote(serverSelection: boolean = false): Promise<void> {
+    const sequence = ++this.quoteSequence, token = this.user.token || '', accountId = this.user.id || ''
+    this.exactQuote = null; this.quoteError = ''; this.quoteBusy = false
+    if (!token || !accountId || !this.isPageActive) return
+    this.quoteBusy = true
+    try {
+      const items: QuoteItem[] | undefined = serverSelection ? undefined : this.cartList.filter((item: CartGoodsModel) => item.selected).map((item: CartGoodsModel): QuoteItem => ({ skuId: item.skuId, count: item.count }))
+      const response = await getQuotePreviewAPI(token, items, QuoteMemory.get(accountId, 'cart')?.receipt)
+      if (sequence !== this.quoteSequence || token !== this.user.token || !this.isPageActive) return
+      const quote = QuoteMemory.preserveChange(accountId, 'cart', response)
+      this.exactQuote = quote
+      QuoteMemory.put(accountId, 'cart', quote)
+    } catch (error) {
+      if (sequence === this.quoteSequence && token === this.user.token && this.isPageActive) this.quoteError = quoteFailureText(error as Error)
+    } finally { if (sequence === this.quoteSequence && token === this.user.token) this.quoteBusy = false }
+  }
 
   private reloadCartAfterChange: (source?: string) => void = (source?: string) => {
     if(source === this.cartRefreshSource)return
@@ -71,6 +96,7 @@ export struct CartView {
   }
 
   aboutToDisappear(): void {
+    this.quoteSequence++; this.quoteBusy = false
     this.isPageActive = false
     this.loadRequestId++
     this.pageVersion++
@@ -124,6 +150,7 @@ export struct CartView {
     if(this.rowSaves.size){this.reloadDeferred=true;return}
     this.loading = true
     this.loadFailed = false
+    void this.refreshExactQuote(true)
     try {
       const list = await getCartListAPI(token)
       if (!this.isCurrentQuery(requestId, token)) {
@@ -147,6 +174,7 @@ export struct CartView {
   private recalculateCartSummary(): void {
     this.isCheckAll = CartOperations.checkIsAllSelected(this.cartList)
     this.allPrice = CartOperations.calculateTotalPrice(this.cartList)
+    if (!this.loading) void this.refreshExactQuote()
   }
 
   // 每行合并目标值并串行保存；其他行独立，迟到结果不得覆盖新账号。
@@ -379,6 +407,10 @@ export struct CartView {
         }
 
         List({ space: 8 }) {
+          if (this.user.token && (this.exactQuote || this.quoteBusy || this.quoteError)) {
+            ListItem() { QuotePanel({ quote: this.exactQuote, busy: this.quoteBusy, error: this.quoteError, expanded: $quoteExpanded,
+              onRetry: () => { void this.refreshExactQuote(true) } }) }
+          }
           if (this.invalidCount() > 0) {
             ListItem() {
               Column({ space: 8 }) {
@@ -421,6 +453,7 @@ export struct CartView {
               }
               ForEach(this.cartList, (cart: CartGoodsModel) => {
                 ListItem() {
+                  Column({ space: 4 }) {
                   CartItem({
                     cart: cart,
                     onChangeSelected: async selected => {
@@ -434,6 +467,11 @@ export struct CartView {
                     }
                   })
                   .enabled(!this.updating && !this.deleting && !this.loading && !this.loadFailed)
+                  if (cart.selected && hasMultipleQuoteItems(this.exactQuote)) {
+                    Text(quoteRemovalText(this.exactQuote, cart.skuId)).id('quote-removal-' + cart.skuId)
+                      .fontSize(12).fontColor($r('[ui_components].color.gray')).width('100%').padding({ left: 12, bottom: 8 })
+                  }
+                  }
                 }
                 .backgroundColor($r('[ui_components].color.under'))
                 .padding({ left: 12, right: 12 })
@@ -494,11 +532,12 @@ export struct CartView {
               .fontSize(14)
               .fontColor($r('[ui_components].color.black'))
               .margin({ right: 12 })
-            Text('合计')
+            Text(this.exactQuote ? '实付' : '商品小计')
               .fontSize(14)
               .fontColor($r('[ui_components].color.black'))
               .margin({ right: 4 })
-            Text(`¥${this.allPrice.toFixed(2)}`)
+            Text(`¥${this.exactQuote ? (this.exactQuote.amountCents / 100).toFixed(2) : this.allPrice.toFixed(2)}`)
+              .id('cart-total').onClick(() => { this.quoteExpanded = !this.quoteExpanded })
               .fontSize(16)
               .fontWeight(500)
               .fontColor($r('[ui_components].color.red'))

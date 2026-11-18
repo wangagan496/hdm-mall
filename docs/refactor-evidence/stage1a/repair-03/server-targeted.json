@@ -1,0 +1,15 @@
+{
+  "name": "server-targeted",
+  "cwd": "D:\\hdm-mall\\server",
+  "command": "node --test test/quote-preview.test.ts test/quote-contract.test.ts test/production-config.test.ts test/trade.test.ts",
+  "exitCode": 0,
+  "durationSeconds": 6.734,
+  "observedAt": "2026-11-18T00:26:30.9888930+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\server-targeted.log",
+  "tests": 63,
+  "pass": 63,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

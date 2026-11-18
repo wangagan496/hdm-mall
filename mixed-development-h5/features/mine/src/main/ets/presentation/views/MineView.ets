@@ -246,6 +246,9 @@ export struct MineView {
             .onClick(() => {
               this.stackPath.pushPath({ name: this.user.token ? PAGE_PATH.FAMILY_PAGE : PAGE_PATH.LOGIN_PAGE })
             })
+          Button('拆开看看 · 应用的真实结构').id('module-bay-entry')
+            .fontSize(14).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+            .width('92%').onClick(() => this.stackPath.pushPath({ name: 'ModuleBayView' }))
           // nav
           Column({ space: 8 }) {
             GridRow({ columns: 3 }) {

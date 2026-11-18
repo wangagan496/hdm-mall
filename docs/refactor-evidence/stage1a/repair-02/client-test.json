@@ -1,0 +1,15 @@
+{
+  "name": "client-test",
+  "cwd": "D:\\hdm-mall",
+  "command": "node --test scripts/tests/*.test.mjs",
+  "exitCode": 0,
+  "durationSeconds": 23.435,
+  "observedAt": "2026-11-17T23:50:05.6078261+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-02\\client-test.log",
+  "tests": 629,
+  "pass": 629,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

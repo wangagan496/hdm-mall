@@ -1,0 +1,236 @@
+[
+  {
+    "path": "device\\01-quote-promotion-rule.png",
+    "beforeBytes": 51560,
+    "bytes": 51556,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\02-quote-product-added.png",
+    "beforeBytes": 46652,
+    "bytes": 46651,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\03-buyer-search.png",
+    "beforeBytes": 22830,
+    "bytes": 22831,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\03-cart-quote-expanded.png",
+    "beforeBytes": 48751,
+    "bytes": 48751,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\04-cart-quote-details.png",
+    "beforeBytes": 63388,
+    "bytes": 63383,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\05-checkout-quote.png",
+    "beforeBytes": 73845,
+    "bytes": 73846,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\06-quote-rule-changed.png",
+    "beforeBytes": 51525,
+    "bytes": 51521,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\07-checkout-quote-changed.png",
+    "beforeBytes": 86483,
+    "bytes": 86484,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\08-module-structure.png",
+    "beforeBytes": 88568,
+    "bytes": 88563,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\09-module-structure-bottom.png",
+    "beforeBytes": 88568,
+    "bytes": 88563,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\10-module-commons.png",
+    "beforeBytes": 335578,
+    "bytes": 94352,
+    "originalSize": [
+      1320,
+      2856
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "device\\failure.png",
+    "beforeBytes": 91587,
+    "bytes": 91583,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "repair-03\\interrupted-device\\failure.png",
+    "beforeBytes": 72364,
+    "bytes": 72363,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "repair-03\\keyboard-first-run\\failure.png",
+    "beforeBytes": 68069,
+    "bytes": 68040,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "repair-03\\keyboard-layout-setup\\failure.png",
+    "beforeBytes": 91587,
+    "bytes": 91583,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "repair-03\\light\\04-cart-quote-details.png",
+    "beforeBytes": 55620,
+    "bytes": 55604,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "repair-03\\light\\07-checkout-quote-changed.png",
+    "beforeBytes": 76494,
+    "bytes": 76483,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  },
+  {
+    "path": "repair-03\\light\\08-module-structure.png",
+    "beforeBytes": 77996,
+    "bytes": 77980,
+    "originalSize": [
+      720,
+      1558
+    ],
+    "size": [
+      720,
+      1558
+    ]
+  }
+]

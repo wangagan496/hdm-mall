@@ -1,0 +1,9 @@
+{
+  "name": "h5-types",
+  "cwd": "D:/hdm-mall/shoph5-vue3",
+  "command": "pnpm.cmd run type-check",
+  "exitCode": 0,
+  "durationSeconds": 10.053,
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-stage1a-h5-types-222808.log",
+  "observedAt": "2026-11-17T22:28:18.3483480+08:00"
+}

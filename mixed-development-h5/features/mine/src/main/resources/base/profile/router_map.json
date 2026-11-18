@@ -1,6 +1,11 @@
 {
   "routerMap": [
     {
+      "name": "ModuleBayView",
+      "buildFunction": "ModuleBayViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ModuleBayView.ets"
+    },
+    {
       "name": "AccountDeletionView",
       "buildFunction": "AccountDeletionViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/AccountDeletionView.ets"

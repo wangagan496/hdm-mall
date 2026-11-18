@@ -1,0 +1,9 @@
+{
+  "name": "h5-types",
+  "cwd": "D:\\hdm-mall\\shoph5-vue3",
+  "command": "pnpm.cmd run type-check",
+  "exitCode": 0,
+  "durationSeconds": 9.842,
+  "observedAt": "2026-11-17T23:28:51.9753313+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-02\\h5-types.log"
+}

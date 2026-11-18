@@ -19,6 +19,7 @@ import { AccountLifecycle } from './account-lifecycle.ts'
 import { auditPage, deniedAudit } from './audit.ts'
 import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
 import { currentPromotion, editPromotion } from './promotions.ts'
+import { QuotePreview } from './quote-preview/index.ts'
 import { invoiceSchema, issueInvoice, registerCompletedInvoice } from './invoices.ts'
 import { hideReview, merchantReviews, resetAvatar } from './moderation.ts'
 import { ServiceMessages } from './service-messages.ts'
@@ -58,6 +59,7 @@ export async function buildApp(options: AppOptions) {
   const lifecycle = new AccountLifecycle(db, accounts, clock, options.uploadsPath)
   const service = new ServiceMessages(db, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
+  const quotes = new QuotePreview(db, options.quotePreviewSecret)
   orders.attachPayments(payments)
   const afterSales = new AfterSales(db, payments, clock)
   orders.attachAfterSales(afterSales)
@@ -290,6 +292,7 @@ export async function buildApp(options: AppOptions) {
     return accounts.saveAddress(user, address, key(req), requestKey, revision)
   })
   protectedRoute('DELETE', '/member/address/:id', (req, user) => accounts.deleteAddress(user, key(req)))
+  protectedRoute('POST', '/member/quote-preview', (req, user) => quotes.preview(user, req.body, clock.now()))
   protectedRoute('GET', '/member/cart', (_req, user) => { orders.expireIfDue(); return catalog.cart(user) })
   protectedRoute('GET', '/member/cart/count', (_req, user) => ({ count: catalog.cartCount(user) }))
   protectedRoute('POST', '/member/cart', (req, user) => {

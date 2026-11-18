@@ -26,6 +26,10 @@ pwsh -File scripts/device-trade.ps1 -Action install
 
 `CORS_ORIGINS` 是所有环境（包括 production）的显式来源白名单，使用逗号分隔；打包后的 ArkWeb 从 rawfile 加载 H5 时发送 `Origin: null`，需要支持时必须显式加入 `null`，未加入即返回 403。未设置该变量的内置默认值只包含本地 H5 开发来源，不包含 `null`；`.env.example` 为内嵌 H5 演示显式配置了 `null`。生产环境允许 `null` 时启动日志会警告：该来源也包括其他不透明来源，并不专属于 ArkWeb。接口仍使用 Bearer token 鉴权、不使用 cookie，CORS 放行不代替接口鉴权。
 
+## 报价凭据
+
+报价凭据：正式环境必须设置至少32个字符的 `QUOTE_PREVIEW_SECRET`，或用 `QUOTE_PREVIEW_SECRET_FILE` 指向私有密钥文件，两者只能填写一个；缺失或无效会在创建数据库前拒绝启动。开发和测试环境可以不配置，使用进程随机密钥；重启后旧凭据失效，按无上一次报价处理。凭据只用于只读报价比较，不能代替下单时重新验价或支付凭证，不写入日志或提交到仓库。
+
 ## 亲友规则
 
 现有状态转换、重复请求与权限以 [交易规则与权限矩阵](../docs/交易规则与权限矩阵.md) 为验收基准。

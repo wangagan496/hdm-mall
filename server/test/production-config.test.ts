@@ -1,12 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, access } from 'node:fs/promises'
+import { mkdtemp, rm, access, writeFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readConfig } from '../src/config.ts'
 import { buildApp } from '../src/app.ts'
 
-const production = { NODE_ENV: 'production', PUBLIC_URL: 'https://mall.example.invalid', CORS_ORIGINS: 'https://shop.example.invalid,null' }
+const production = { NODE_ENV: 'production', PUBLIC_URL: 'https://mall.example.invalid', CORS_ORIGINS: 'https://shop.example.invalid,null', QUOTE_PREVIEW_SECRET: randomBytes(32).toString('hex') }
 
 test('开发默认可用，正式配置必须显式 HTTPS 来源并关闭模拟支付', () => {
   assert.equal(readConfig({}).appOptions.publicUrl, 'http://127.0.0.1:3000')
@@ -47,8 +48,33 @@ test('直接构建服务也必须校验，错误配置不会创建数据库', as
 async function proxyFixture(trustedProxies: string[]) {
   return buildApp({ databasePath: ':memory:', uploadsPath: './unused',
     publicUrl: production.PUBLIC_URL, production: true, mockPayments: false,
-    corsOrigins: ['null'], trustedProxies })
+    corsOrigins: ['null'], trustedProxies, quotePreviewSecret: production.QUOTE_PREVIEW_SECRET })
 }
+
+test('正式环境缺少报价密钥、短密钥或空文件时启动失败；环境和文件二选一', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'hdm-quote-secret-'))
+  const secretPath = join(directory, 'quote-secret')
+  try {
+    assert.throws(() => readConfig({ ...production, QUOTE_PREVIEW_SECRET: undefined }), /QUOTE_PREVIEW_SECRET/)
+    assert.throws(() => readConfig({ ...production, QUOTE_PREVIEW_SECRET: 'short' }), /QUOTE_PREVIEW_SECRET/)
+    await writeFile(secretPath, '\n')
+    assert.throws(() => readConfig({ ...production, QUOTE_PREVIEW_SECRET: undefined, QUOTE_PREVIEW_SECRET_FILE: secretPath }), /QUOTE_PREVIEW_SECRET_FILE/)
+    await writeFile(secretPath, production.QUOTE_PREVIEW_SECRET + '\n')
+    assert.equal(readConfig(production).appOptions.quotePreviewSecret, production.QUOTE_PREVIEW_SECRET)
+    assert.equal(readConfig({ ...production, QUOTE_PREVIEW_SECRET: undefined, QUOTE_PREVIEW_SECRET_FILE: secretPath }).appOptions.quotePreviewSecret, production.QUOTE_PREVIEW_SECRET)
+    for (const NODE_ENV of ['development', 'test']) assert.equal(readConfig({ NODE_ENV }).appOptions.quotePreviewSecret, undefined)
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
+test('绕过环境读取直接启动也必须配置报价密钥，失败不创建数据库', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'hdm-quote-production-'))
+  const databasePath = join(directory, 'absent.sqlite')
+  try {
+    await assert.rejects(() => buildApp({ databasePath, uploadsPath: join(directory, 'uploads'), publicUrl: production.PUBLIC_URL,
+      production: true, mockPayments: false, corsOrigins: ['null'] }), /QUOTE_PREVIEW_SECRET/)
+    await assert.rejects(access(databasePath))
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
 
 test('可信代理下不同真实来源独立限流，伪造链左端不能绕过限制', async () => {
   const { app } = await proxyFixture(['127.0.0.1'])

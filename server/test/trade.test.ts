@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import type { HTTPMethods } from 'fastify'
 import { buildApp } from '../src/app.ts'
 import { buildTestApp } from './helpers/fixtures.ts'
@@ -235,8 +235,8 @@ test('正式环境拒绝模拟支付配置', async () => {
 
 test('Origin null 在生产环境也完全按显式白名单配置放行', async () => {
   const development = await buildApp({ databasePath: ':memory:', publicUrl: 'http://127.0.0.1:3000', mockPayments: false, corsOrigins: ['null'], uploadsPath: './unused' })
-  const productionBlocked = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, corsOrigins: ['https://example.invalid'], uploadsPath: './unused' })
-  const production = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, corsOrigins: ['null'], uploadsPath: './unused' })
+  const productionBlocked = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, quotePreviewSecret: randomBytes(32).toString('hex'), corsOrigins: ['https://example.invalid'], uploadsPath: './unused' })
+  const production = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, quotePreviewSecret: randomBytes(32).toString('hex'), corsOrigins: ['null'], uploadsPath: './unused' })
   try {
     assert.equal((await development.app.inject({ method: 'GET', url: '/health', headers: { origin: 'null' } })).statusCode, 200)
     assert.equal((await productionBlocked.app.inject({ method: 'GET', url: '/health', headers: { origin: 'null' } })).statusCode, 403)

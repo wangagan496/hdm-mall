@@ -41,7 +41,7 @@ test('购物袋重新加载相同 SKU 也重绑对象，本地勾选数量修改
   const start = source.indexOf('  private async loadCartList')
   const end = source.indexOf('  // 合计', start)
   const body = source.slice(start, end).replace('private async', 'async')
-  const Page = execute(`export class Page { ${body} }`, {}, {
+  const Page = execute(`export class Page { refreshExactQuote() {} ${body} }`, {}, {
     getCartListAPI: async () => [{ skuId: 'sku-1', selected: false, count: 1 }],
     CartGoodsModel: class { constructor(data) { Object.assign(this, data) } }
   }).Page

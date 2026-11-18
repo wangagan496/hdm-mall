@@ -1,0 +1,78 @@
+{
+  "modules": [
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\constants\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 0,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:42:27.5607232+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\device\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 0,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:42:48.5406507+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\models\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 24,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:42:52.4290496+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\network\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 5,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:43:03.4415335+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\storage\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 0,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:44:43.7061851+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\ui-components\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 0,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:42:58.4526035+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\commons\\utils\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 0,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:42:54.7057119+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\features\\cart\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 42,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:44:49.0952445+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\features\\category\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 6,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:43:12.2085912+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\features\\home\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 26,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:44:45.6454066+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\features\\mine\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 7,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:44:52.0556823+08:00"
+    },
+    {
+      "path": "D:\\hdm-mall\\mixed-development-h5\\products\\phone\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "pass": 0,
+      "fail": 0,
+      "lastWriteTime": "2026-11-18T00:44:39.2238488+08:00"
+    }
+  ],
+  "pass": 110,
+  "fail": 0
+}

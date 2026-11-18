@@ -47,7 +47,7 @@ test('结算缺省报价清除旧规则，未达标提示能回首页', () => {
   const page = new Page()
   page.stackPath = { clear: () => navigation.push('clear') }
   page.promotion = { rule: { thresholdCents: 9900, discountCents: 1000, revision: 1, enabled: true }, remainingCents: 3300, discountCents: 0, amountCents: 6600 }
-  assert.equal(page.promotionText(), '再买 ¥33.00 可减 ¥10.00，回首页继续选购')
+  assert.equal(page.promotionText(), '还差 33.00 元可满减')
   page.continueShopping()
   assert.deepEqual(navigation, [['currentTabIndex', 0], 'clear'])
   page.clearPromotion()
@@ -61,7 +61,7 @@ test('满减页展示达标优惠与未达门槛提示，并带规则版本下�
   assert.match(models, /interface PromotionQuote/)
   assert.match(checkout, /promotion\.remainingCents/)
   assert.match(checkout, /expectedPromotionRevision/)
-  assert.match(checkout, /再买/)
+  assert.match(checkout, /还差 .* 元可满减/)
 })
 
 test('零元售后显示已完成和无需退款说明', () => {

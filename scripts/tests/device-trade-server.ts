@@ -124,6 +124,10 @@ type TradeRequest = { id: string; method: string; route: string; requestKey?: st
   body?: unknown; status?: number; stateBefore?: number; stateAfter?: number }
 const tradeRequests: TradeRequest[] = []
 f.app.get('/device-fixture/trade-requests', async () => tradeRequests)
+type QuoteRequestProof = { id: string; status?: number; quoteId?: string; amountCents?: number;
+  promotionRevision?: number; comparisonReasons?: string[] }
+const quoteRequests: QuoteRequestProof[] = []
+f.app.get('/device-fixture/quote-requests', async () => quoteRequests)
 f.app.post('/device-fixture/expire-buyer-session', async () => {
   const before = f.db.all('SELECT digest FROM sessions WHERE user_id=?', user.id).length
   f.db.run('DELETE FROM sessions WHERE user_id=?', user.id)
@@ -132,6 +136,7 @@ f.app.post('/device-fixture/expire-buyer-session', async () => {
 })
 f.app.addHook('preHandler', async req => {
   const route = req.routeOptions.url ?? ''
+  if (req.method === 'POST' && route === '/member/quote-preview') quoteRequests.push({ id: req.id })
   if ((req.method === 'POST' && ['/member/order', '/member/cart', '/member/order/:id/payments'].includes(route)) ||
     (req.method === 'GET' && route === '/member/order/by-request/:requestKey') ||
     (req.method === 'PUT' && Object.values(responseRoutes).some(value => value.method === 'PUT' && value.route === route))) {
@@ -160,6 +165,23 @@ f.app.post<{ Body: { kind: ResponseKind; hold: boolean } }>('/device-fixture/res
 })
 f.app.get('/device-fixture/response-barrier', async () => responseBarrier ?? { received: false })
 f.app.addHook('onSend', async (req, reply, payload) => {
+  const quote = quoteRequests.find(value => value.id === req.id)
+  if (quote) {
+    quote.status = reply.statusCode
+    if (reply.statusCode === 200) {
+      try {
+        const parsed = JSON.parse(typeof payload === 'string' ? payload : Buffer.from(payload as Buffer).toString('utf8')) as {
+          result?: { quoteId?: string; amountCents?: number; promotion?: { rule?: { revision?: number } }; comparison?: { reasons?: { kind?: string }[] } };
+          quoteId?: string; amountCents?: number; promotion?: { rule?: { revision?: number } }; comparison?: { reasons?: { kind?: string }[] }
+        }
+        const result = parsed.result ?? parsed
+        quote.quoteId = result.quoteId
+        quote.amountCents = result.amountCents
+        quote.promotionRevision = result.promotion?.rule?.revision
+        quote.comparisonReasons = result.comparison?.reasons?.map(reason => reason.kind) ?? []
+      } catch { /* Keep the request status as useful failure evidence without persisting response data. */ }
+    }
+  }
   const recorded = tradeRequests.find(value => value.id === req.id)
   if (recorded) {
     recorded.status = reply.statusCode
@@ -235,7 +257,7 @@ f.app.addHook('onResponse', async (req, reply) => {
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
 })
 f.app.addHook('onError', async (_req, _reply, error) => { console.log(JSON.stringify({ errorCode: error.code })) })
-if (!s1 && !loginProbe) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
+if (!s1 && !loginProbe && !process.argv.includes('--quote-preview-probe')) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
 if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {

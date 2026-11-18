@@ -1,12 +1,12 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $ServiceProbe, $TradeNetworkProbe, $LogisticsProbe, $ReconcileProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $QuotePreviewProbe, $ServiceProbe, $TradeNetworkProbe, $LogisticsProbe, $ReconcileProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
 if ($emulator.Name -ne 'Emulator.exe' -or $emulator.CommandLine -notmatch '"Pura 90 API24"') { throw 'Target 5555 is not the allocated Pura 90 API24 instance.' }
 $StartedAt = Get-Date
-$Mode = if ($TradeNetworkProbe) { 'TradeNetworkProbe' } elseif ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
+$Mode = if ($QuotePreviewProbe) { 'QuotePreviewProbe' } elseif ($TradeNetworkProbe) { 'TradeNetworkProbe' } elseif ($LoginProbe) { 'LoginProbe' } elseif ($WriteNetworkProbe) { 'WriteNetworkProbe' } elseif ($S1) { 'S1' } elseif ($S2) { 'S2' } elseif ($NetworkProbe) { 'NetworkProbe' } elseif ($CancelRejectProbe) { 'CancelRejectProbe' } elseif ($CancelFamilyProbe) { 'CancelFamilyProbe' } elseif ($S3) { 'S3' } elseif ($RelationsProbe) { 'RelationsProbe' } elseif ($PaginationProbe) { 'PaginationProbe' } elseif ($ShipProbe) { 'ShipProbe' } else { 'Full' }
 $Root = Split-Path $PSScriptRoot -Parent
 $PackagePath = "$Root/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app"
 if ($PinnedPackage) { $PackagePath = [IO.Path]::GetFullPath($PinnedPackage) }
@@ -21,6 +21,7 @@ if ($DeletionProbe) { $Mode = 'DeletionProbe' }
 if ($AuditProbe) { $Mode = 'AuditProbe' }
 if ($ReturnPolicyProbe) { $Mode = 'ReturnPolicyProbe' }
 if ($PromotionProbe) { $Mode = 'PromotionProbe' }
+if ($QuotePreviewProbe) { $Mode = 'QuotePreviewProbe' }
 if ($ServiceProbe) { $Mode = 'ServiceProbe' }
 if ($LogisticsProbe) { $Mode = 'LogisticsProbe' }
 if ($ReconcileProbe) { $Mode = 'ReconcileProbe' }
@@ -33,6 +34,7 @@ if ($UxProbe) { $Output = Join-Path $Root '_device_acceptance/ux-probe' }
 if ($AuditProbe) { $Output = Join-Path $Root '_device_acceptance/audit-probe' }
 if ($ReturnPolicyProbe) { $Output = Join-Path $Root '_device_acceptance/return-policy-probe' }
 if ($PromotionProbe) { $Output = Join-Path $Root '_device_acceptance/promotion-probe' }
+if ($QuotePreviewProbe) { $Output = Join-Path $Root 'docs/refactor-evidence/stage1a/device' }
 if ($ServiceProbe) { $Output = Join-Path $Root '_device_acceptance/service-probe' }
 if ($LogisticsProbe) { $Output = Join-Path $Root '_device_acceptance/logistics-probe' }
 if ($ReconcileProbe) { $Output = Join-Path $Root '_device_acceptance/reconcile-probe' }
@@ -125,11 +127,20 @@ function Select-FamilyAll {
   }
   throw 'Family all-orders filter is missing or disabled.'
 }
-function Mine {
+function Mine([switch]$KeepProcess) {
   $null = Invoke-Hdc @('shell','power-shell','wakeup')
-  $null = Invoke-Hdc @('shell','aa','force-stop','com.hdm.mall')
-  $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall','--ps','debugFixtureForm','local-trade')
-  Wait-Text '爆款推荐'
+  $AlreadyOnMine = $false
+  if (-not $KeepProcess) {
+    $null = Invoke-Hdc @('shell','aa','force-stop','com.hdm.mall')
+    $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall','--ps','debugFixtureForm','local-trade')
+  } else {
+    for ($Try = 0; $Try -lt 8; $Try++) {
+      $script:Nodes = Read-Nodes
+      if (Find-Text '我的') { $AlreadyOnMine = $true; break }
+      Back
+    }
+  }
+  if (-not $AlreadyOnMine) { Wait-Text '爆款推荐' }
   for ($Try = 0; $Try -lt 3; $Try++) {
     Tap-Text '我的'
     $script:Nodes = Read-Nodes
@@ -138,8 +149,8 @@ function Mine {
   }
   throw 'Mine navigation did not complete'
 }
-function Login([string]$Account) {
-  Mine
+function Login([string]$Account, [switch]$KeepProcess) {
+  Mine -KeepProcess:$KeepProcess
   if (-not (Find-Text '立即登录')) {
     # 当前 UiTest 布局不输出 Image.accessibilityText；“我的”仅设置图标为可点击图片。
     $Settings = @($script:Nodes | Where-Object { $_.type -eq 'Image' -and $_.clickable -eq 'true' -and $_.visible -ne 'false' })
@@ -1144,8 +1155,8 @@ function Product-Control([string]$Id, [string]$Value = '') {
   }
   throw "Product control not visible: $Id"
 }
-function Product-Search([string]$Name, [switch]$Absent) {
-  Mine
+function Product-Search([string]$Name, [switch]$Absent, [switch]$KeepProcess) {
+  Mine -KeepProcess:$KeepProcess
   Tap-Text '首页'
   Tap-Text '搜索...'
   Wait-Text '搜索'
@@ -2144,6 +2155,7 @@ $HadOriginal = ($Existing -join "`n") -match 'tcp:3000 tcp:3000\s+\[Reverse\]'
 if (($Existing -join "`n") -match 'tcp:3000 tcp:(?!3000\b)') { throw 'Device port 3000 has different forwarding.' }
 $FixturePath = Join-Path $PSScriptRoot 'tests/device-trade-server.ts'
 $FixtureArguments = @($FixturePath)
+if ($QuotePreviewProbe) { $FixtureArguments += '--quote-preview-probe' }
 if ($PaginationProbe) { $FixtureArguments += '--pagination' }
 if ($RelationsProbe) { $FixtureArguments += '--relations' }
 if ($CancelFamilyProbe) { $FixtureArguments += '--cancel-family' }
@@ -2188,6 +2200,7 @@ try {
   if ($InventoryProbe) { Invoke-InventoryProbe; return }
   if ($ReturnPolicyProbe) { Invoke-ReturnPolicyProbe; return }
   if ($PromotionProbe) { Invoke-PromotionProbe; return }
+  if ($QuotePreviewProbe) { Invoke-QuotePreviewProbe; return }
   if ($ServiceProbe) { Invoke-ServiceProbe; return }
   if ($LoginProbe) { Invoke-LoginProbe; return }
   if ($WriteNetworkProbe) { Invoke-WriteNetworkProbe; return }
