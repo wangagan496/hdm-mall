@@ -6,6 +6,7 @@ import type { Database } from '../database.ts'
 import { AppError, ensure } from '../errors.ts'
 import type { PromiseExtractor } from './extract.ts'
 import type { PromiseEntry as Entry } from './generated.ts'
+import { extractionMaterials, requireCurrentMaterials } from '../source-verification/materials.ts'
 
 type Decision = { fieldId: string; decision: 'accept' | 'reject' }
 interface Product { id: string; name: string; description: string; category: string; revision: number }
@@ -95,11 +96,13 @@ export class PromisePublications {
     const product = this.product(productId)
     const specifications = this.db.all<{ spec: string }>('SELECT spec FROM skus WHERE product_id=? AND enabled=1 ORDER BY id', productId)
       .map(sku => sku.spec).join('\n')
+    const materials = extractionMaterials(this.db, productId, this.clock.now())
     const result = await this.extractor.extract({ productId, actorId: user.id, revision: product.revision, category: product.category,
-      name: product.name, description: product.description, specifications })
+      name: product.name, description: product.description, specifications, materials })
     return this.db.transaction(() => {
       this.merchant(user)
       if (this.product(productId).revision !== product.revision) throw new AppError(409, '商品资料已修改，请重新抽取承诺', 'PROMISE_DRAFT_STALE')
+      requireCurrentMaterials(this.db, productId, result.entries, this.clock.now())
       const entries = JSON.stringify(result.entries)
       this.db.run(`INSERT INTO promise_drafts(id,product_id,actor_id,product_revision,template_version,model_call_id,entries,issues,draft_hash,created_at)
         VALUES(?,?,?,?,?,?,?,?,?,?)`, randomUUID(), productId, user.id, product.revision, result.templateVersion, result.callId, entries,
@@ -115,8 +118,10 @@ export class PromisePublications {
       const draft = this.currentDraft(product, user)
       if (!draft || draft.id !== data.draftId) throw new AppError(409, '承诺草稿已更新或发布，请刷新后逐条核对', 'PROMISE_DRAFT_STALE')
       const entries = JSON.parse(draft.entries) as Entry[]
-      ensure(acceptedPromiseEntries(entries, data.decisions), 400, '请逐条选择确认或不采纳，并至少确认一条承诺')
+      const accepted = acceptedPromiseEntries(entries, data.decisions)
+      ensure(accepted, 400, '请逐条选择确认或不采纳，并至少确认一条承诺')
       const now = this.clock.now(), expiresAt = now + confirmationLifetimeMs
+      requireCurrentMaterials(this.db, productId, accepted, now)
       const confirmationToken = randomBytes(32).toString('hex')
       this.db.run(`INSERT INTO promise_confirmations(token_hash,draft_id,actor_id,acting_identity,identity_subject,product_id,
         product_revision,draft_hash,decisions,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, digest(confirmationToken), draft.id,
@@ -147,6 +152,7 @@ export class PromisePublications {
       }
       const entries = acceptedPromiseEntries(JSON.parse(draft.entries) as Entry[], JSON.parse(confirmation.decisions) as Decision[])
       ensure(entries, 409, '请重新逐条确认后发布')
+      requireCurrentMaterials(this.db, productId, entries, now)
       ensure(this.db.run('UPDATE promise_confirmations SET used_at=? WHERE token_hash=? AND used_at IS NULL', now, tokenHash).changes === 1,
         409, '发布确认已使用，请查看发布回执')
       const receipt: PublicationRow = { receipt_id: randomUUID(), template_version: draft.template_version,

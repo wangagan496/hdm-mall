@@ -1,6 +1,8 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [switch]$PromisesProbe, [ValidateSet('light','dark')][string]$PromisesTheme = '', [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [switch]$PromisesProbe, [ValidateSet('light','dark')][string]$PromisesTheme = '', [switch]$Stage2bAcceptance, [string]$Stage2bPhotoUri = '', [string]$Stage2bPhotoSha256 = '', [int]$Stage2bMediaCountBefore = -1, [switch]$Stage2bCleanupPhoto, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
 if ($PromisesTheme -and -not $PromisesProbe) { throw 'PromisesTheme requires PromisesProbe.' }
+if ($Stage2bAcceptance -and -not $PromisesProbe) { throw 'Stage2bAcceptance requires PromisesProbe.' }
+if ($Stage2bCleanupPhoto -and -not $Stage2bAcceptance) { throw 'Stage2bCleanupPhoto requires Stage2bAcceptance.' }
 if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $QuotePreviewProbe, $ServiceProbe, $TradeNetworkProbe, $LogisticsProbe, $ReconcileProbe, $PromisesProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
 if ($PromisesProbe -and -not $PromisesTheme) { $PromisesTheme = 'light' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
@@ -2157,6 +2159,7 @@ function Invoke-UxProbe {
 . (Join-Path $PSScriptRoot 'device-service-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-reconciliation-logistics-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-promises-probe.ps1')
+. (Join-Path $PSScriptRoot 'device-stage2b-media.ps1')
 . (Join-Path $PSScriptRoot 'device-trade-network-probe.ps1'); if ($TradeNetworkProbe) { return }
 $Existing = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
 $Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
@@ -2398,7 +2401,11 @@ try {
   Write-Output "SCRIPT $PSCommandPath RESULT self and family native trade, account switching, two reviewed orders and stock $InitialStock->$($InitialStock - 2) passed"
 } catch {
   $Failure = $_
-  try { Capture 'failure' } catch { Write-Warning 'Failure screenshot or layout could not be captured' }
+  if ($Stage2bAcceptance) {
+    Remove-Item -LiteralPath (Join-Path $Output 'layout.json') -Force -ErrorAction SilentlyContinue
+  } else {
+    try { Capture 'failure' } catch { Write-Warning 'Failure screenshot or layout could not be captured' }
+  }
   $FailureData = @{ error=$Failure.Exception.Message; scriptStackTrace=$Failure.ScriptStackTrace }
   if($AfterSaleProbe -or $InventoryProbe){
     try{$FailureData.orders=@(Orders);$FailureData.ledgers=@($FailureData.orders|ForEach-Object {Payment-Proof $_.id})}catch{Write-Warning 'After-sale failure evidence unavailable'}
@@ -2416,7 +2423,11 @@ try {
 } finally {
   try {
     try {
-      if ($OriginalPromisesTheme) { Restore-PromisesTheme }
+      try {
+        if ($Stage2bAcceptance) { Clear-Stage2bPhoto }
+      } finally {
+        if ($OriginalPromisesTheme) { Restore-PromisesTheme }
+      }
     } finally {
       try {
         if ($Mapped) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3103') }
@@ -2436,9 +2447,15 @@ try {
     }
     $After = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
     $After | Set-Content -LiteralPath "$Output/ports-after.txt"
+    if ($Stage2bAcceptance) { Remove-Item -LiteralPath (Join-Path $Output 'layout.json') -Force -ErrorAction SilentlyContinue }
     $Clean = (($Existing -join "`n") -eq ($After -join "`n")) -and -not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) -and -not (Get-Process -Id $Fixture.Id -ErrorAction SilentlyContinue)
-    @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue));uploadsRemoved=$UploadsRemoved} | ConvertTo-Json | Set-Content "$Output/cleanup.json"
+    $Cleanup = @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue));uploadsRemoved=$UploadsRemoved}
+    if ($PromisesProbe -and $Stage2bAcceptance) {
+      if ($script:Stage2bPhotoCleanup) { $Cleanup.syntheticPhoto=$script:Stage2bPhotoCleanup }
+      elseif ($script:Stage2bPhotoInfo) { $Cleanup.syntheticPhoto=$script:Stage2bPhotoInfo }
+    }
+    $Cleanup | ConvertTo-Json -Depth 8 | Set-Content "$Output/cleanup.json"
     if (-not $Clean) { throw 'Port mapping or fixture cleanup verification failed.' }
-    Remove-ReturnShippingMedia
+    if (!$Stage2bAcceptance) { Remove-ReturnShippingMedia }
   }
 }

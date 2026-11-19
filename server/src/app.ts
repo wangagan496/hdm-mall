@@ -1,5 +1,5 @@
 import Fastify, { LogController } from 'fastify'
-import type { FastifyRequest, HTTPMethods } from 'fastify'
+import type { FastifyReply, FastifyRequest, HTTPMethods } from 'fastify'
 import multipart from '@fastify/multipart'
 import rateLimit from '@fastify/rate-limit'
 import { z } from 'zod'
@@ -36,6 +36,7 @@ import { inventoryPage, stockMovements, adjustStock, adjustmentReceipt } from '.
 import { PromiseExtractor, type PromiseDriver } from './promises/extract.ts'
 import { PromisePublications, confirmPromisesSchema, publishPromisesSchema } from './promises/publication.ts'
 import { checkOrderPromise, promiseCheckSchema } from './promises/order-promises.ts'
+import { materialBatchSchema, materialLimit, materialUploadSchema, SourceMaterials } from './source-verification/materials.ts'
 
 export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
   promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
@@ -49,6 +50,22 @@ const updateAddressFields = addressFields.partial().extend(addressSaveFields)
 const key = (req: FastifyRequest) => z.object({ id: idSchema }).parse(req.params).id
 function maskNickname(nickname: string): string { const chars = Array.from(nickname); return `${chars[0] ?? ''}***${chars.length > 2 ? chars[chars.length - 1] : ''}` }
 
+async function readProductJpeg(req: FastifyRequest, field: string, fieldSize: number) {
+  let bytes: Buffer | undefined, value: string | undefined
+  for await (const part of req.parts({ limits: { fileSize: materialLimit, files: 1, fields: 1, parts: 2, fieldSize } })) {
+    if (part.type === 'file') {
+      ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg', 400, '请选择 JPEG 图片')
+      bytes = await part.toBuffer()
+      ensure(!part.file.truncated, 413, '图片过大，请换一张')
+    } else {
+      ensure(part.fieldname === field && !part.valueTruncated && typeof part.value === 'string', 400, '上传参数不正确')
+      value = part.value
+    }
+  }
+  ensure(bytes && value, 400, '请选择图片并填写上传资料')
+  return { bytes, value }
+}
+
 export async function buildApp(options: AppOptions) {
   validateRuntimeOptions(options)
   const clock = options.clock ?? systemClock
@@ -56,6 +73,7 @@ export async function buildApp(options: AppOptions) {
   const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
   const layouts = new IdentityLayouts(db, clock)
   const products = new Products(db, options.publicUrl, clock)
+  const sourceMaterials = new SourceMaterials(db, accounts, clock)
   const promisePublications = new PromisePublications(db, accounts, clock,
     new PromiseExtractor(db, clock, options.promiseDriver, options.promiseBudgetTokens ?? 50_000, options.promiseTimeoutMs))
   const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
@@ -110,8 +128,8 @@ export async function buildApp(options: AppOptions) {
     '/member/consents', '/member/consents/withdraw', '/member/account-deletion', '/member/account-deletion/cancel',
     '/member/account-notices', '/member/identity/switch', '/member/identity-layout', '/member/order/:id/logistics'
   ])
-  const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User) => unknown) => {
-    app.route({ method, url, handler: async req => {
+  const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User, reply: FastifyReply) => unknown) => {
+    app.route({ method, url, handler: async (req, reply) => {
       const user = authenticate(req)
       if (url.startsWith('/merchant/') && user.identity !== 'merchant') {
         deniedAudit(db, user, req.method + ' ' + url, clock.now())
@@ -127,7 +145,8 @@ export async function buildApp(options: AppOptions) {
         '/member/service/messages','/member/service/images','/member/service/read'
       ]
       ensure(user.status!=='deleting'||method==='GET'||followUp.includes(url),403,'账号正在注销中')
-      return ok(await handler(req,user))
+      const result = await handler(req, user, reply)
+      if (!reply.sent) return ok(result)
     } })
   }
 
@@ -207,6 +226,23 @@ export async function buildApp(options: AppOptions) {
     return products.list(user, query.page, query.pageSize, query.status)
   })
   protectedRoute('GET', '/merchant/products/changes/:id', (req, user) => products.receipt(user, key(req)))
+  protectedRoute('GET', '/merchant/products/:id/source-materials', (req, user) => sourceMaterials.list(user, key(req)))
+  protectedRoute('PUT', '/merchant/products/:id/source-batch', (req, user) =>
+    sourceMaterials.setBatch(user, key(req), materialBatchSchema.parse(req.body).batch))
+  protectedRoute('POST', '/merchant/products/:id/source-materials', async (req, user) => {
+    const productId = key(req)
+    sourceMaterials.requireOwner(user, productId)
+    const { bytes, value } = await readProductJpeg(req, 'metadata', 4096)
+    let data: unknown
+    try { data = JSON.parse(value) } catch { throw new AppError(400, '材料资料格式不正确') }
+    return sourceMaterials.upload(user, productId, materialUploadSchema.parse(data), bytes)
+  })
+  protectedRoute('DELETE', '/merchant/products/:id/source-materials/:materialId', (req, user) =>
+    sourceMaterials.withdraw(user, key(req), z.object({ materialId: z.string().uuid() }).parse(req.params).materialId))
+  protectedRoute('GET', '/merchant/products/:id/source-materials/:materialId/original', (req, user, reply) => {
+    const { materialId } = z.object({ materialId: z.string().uuid() }).parse(req.params)
+    reply.type('image/jpeg').send(sourceMaterials.attachment(user, key(req), materialId))
+  })
   protectedRoute('GET', '/merchant/products/:id/promises', (req, user) => promisePublications.state(user, key(req)))
   protectedRoute('POST', '/merchant/products/:id/promises/extract', (req, user) => {
     z.strictObject({}).parse(req.body ?? {})
@@ -219,21 +255,9 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('GET', '/merchant/products/:id', (req, user) => products.detail(user, key(req)))
   protectedRoute('POST', '/merchant/products', (req, user) => products.create(user, productCreateSchema.parse(req.body)))
   protectedRoute('POST', '/merchant/products/images', async (req, user) => {
-    ensure(user.identity === 'merchant', 403, '需要商家权限')
-    let image: Buffer | undefined, requestKey: string | undefined
-    for await (const part of req.parts({ limits: { fileSize: 512 * 1024, files: 1, fields: 1, parts: 2, fieldSize: 100 } })) {
-      if (part.type === 'file') {
-        ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg', 400, '请选择JPEG商品图片')
-        image = await part.toBuffer()
-        ensure(!part.file.truncated, 413, '图片过大，请换一张')
-      } else {
-        ensure(part.fieldname === 'requestKey', 400, '上传参数不正确')
-        requestKey = z.string().uuid().parse(part.value)
-      }
-    }
-    ensure(image && requestKey, 400, '请选择图片并提供上传编号')
+    const { bytes, value } = await readProductJpeg(req, 'requestKey', 100)
     accounts.assertCurrent(user)
-    return products.uploadImage(user, requestKey, image, options.uploadsPath)
+    return products.uploadImage(user, z.string().uuid().parse(value), bytes, options.uploadsPath)
   })
   protectedRoute('PUT', '/merchant/products/:id', (req, user) => products.edit(user, key(req), productEditSchema.parse(req.body)))
   app.options('/*', async (_req, reply) => reply.code(204).send())

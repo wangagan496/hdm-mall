@@ -66,3 +66,4 @@ export { CheckoutPrice, CheckoutShortage, CheckoutDetail, CheckoutFailure, Order
 export { formatBeijingTime } from './src/main/ets/TimeFormat'
 export { afterSaleDiscount, amountInputCents, returnShippingError, shippingAdjustmentError, shippingCompensationText } from './src/main/ets/AfterSaleModels'
 export { AfterSale, AfterSaleAddress, AfterSaleLine, AfterSaleImage, AfterSaleQuantity, AfterSaleRestock, AfterSaleBody, AfterSalePhoto, AfterSalePending, AfterSaleReceipt, AfterSalePage, AfterSaleCounts, afterSaleAmount, afterSaleInputError, afterSaleStatus, afterSaleKind } from './src/main/ets/AfterSaleModels'
+export { SourceRecord, ProductMaterials, PromiseMaterialSource, parseProductMaterials, parsePromiseMaterialSource, parseSourceRecord } from './src/main/ets/SourceRecords'

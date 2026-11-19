@@ -13,6 +13,7 @@ import { inspectServices } from './service-backup.ts'
 import { inspectReconciliationLogistics } from './reconciliation-logistics-backup.ts'
 import { historicalIdentity, historicalOwnerIdentity, inspectIdentities } from './identity-backup.ts'
 import { inspectPromises, promiseTables } from './promises/backup.ts'
+import { inspectSourceRecords, sourceRecordTables } from './source-verification/backup.ts'
 
 const imageName = avatarFileName
 const tables = ['users', 'sessions', 'relations', 'products', 'skus', 'carts', 'addresses',
@@ -35,7 +36,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(21), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(22), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -128,7 +129,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 21) throw new Error('仅支持数据库版本 2 至 21')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 22) throw new Error('仅支持数据库版本 2 至 22')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -140,12 +141,14 @@ function inspectDatabase(path: string) {
       ...(version >= 14 ? ['audit_log'] : []), ...(version >= 16 ? ['promotions','promotion_changes'] : []),
       ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : []),
       ...(version >= 18 ? ['mock_channel_bill','reconciliation_runs','reconciliation_differences','shipments','logistics_events'] : []),
-      ...(version >= 20 ? ['user_identities','identity_layouts'] : []), ...(version >= 21 ? promiseTables : [])]) {
+      ...(version >= 20 ? ['user_identities','identity_layouts'] : []), ...(version >= 21 ? promiseTables : []),
+      ...(version >= 22 ? sourceRecordTables : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
     if(version>=20)inspectIdentities(db)
     if(version>=21)inspectPromises(db)
+    if(version>=22)inspectSourceRecords(db)
     if(version>=14)inspectAudit(db)
     if(version>=15)inspectReturnPolicy(db)
     if(version>=16)inspectPromotionShipping(db)

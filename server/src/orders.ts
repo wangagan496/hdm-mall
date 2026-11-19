@@ -211,7 +211,7 @@ export class Orders {
     if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order),
       serverManaged: true, payMoney: order.amount / 100, skus: [], ...paymentFields, ...cancelFields }
     const logistics = shipmentDetail(this.db, order.id)
-    const promises = includePromises ? orderPromises(this.db, order.id) : undefined
+    const promises = includePromises ? orderPromises(this.db, order.id, this.clock.now()) : undefined
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
@@ -234,6 +234,7 @@ export class Orders {
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
         discountShareCents: item.discount_share,
         ...(promises ? { promiseSnapshot: promises.snapshots.get(item.sku_id) ?? null,
+          ...(promises.sources.has(item.sku_id) ? { promiseSources: promises.sources.get(item.sku_id) } : {}),
           promiseChecks: isOrderOwner && user.identity === 'buyer' ? promises.checks.filter(check => check.skuId === item.sku_id)
             .map(check => ({ fieldId: check.fieldId, result: check.result })) : [] } : {}),
         ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
@@ -442,7 +443,7 @@ export class Orders {
       id, user.id, ORDER_STATE.AWAITING_PAYMENT, promotion.amountCents, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS, promotion.discountCents, JSON.stringify(promotion.rule))
     for (const [index,item] of items.entries()) {
       this.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count,return_policy,return_policy_reason,return_policy_note,return_policy_confirmed,discount_share) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count,item.return_policy,item.return_policy_reason,item.return_policy_note,Number(item.return_policy==='confirm-required'&&confirmed),shares[index]!)
-      freezeOrderItemPromise(this.db, id, item.id, item.product_id)
+      freezeOrderItemPromise(this.db, id, item.id, item.product_id, now)
     }
     return id
   }

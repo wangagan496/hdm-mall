@@ -31,19 +31,24 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
 const uploadsPath = mkdtempSync(join(tmpdir(), 'hdm-device-trade-uploads-' + process.pid + '-'))
 const defaultPromiseDriver = createPromiseDriver({ mock: true })!
 const promiseDriver = promisesProbe ? { ...defaultPromiseDriver, model: 'device-promise-fixture-v2',
-  extract: async () => ({ status: 'completed' as const, tokens: 120, content: JSON.stringify({ claims: [
-    { fieldId: 'return-window', source: 'description', quote: '未拆封商品可在收货后7天内退换。', value: '7', unit: '天', condition: '收货后' },
-    { fieldId: 'dispatch-window', source: 'description', quote: '付款后48小时内发货。', value: '48', unit: '小时', condition: '付款后' },
-    { fieldId: 'material', source: 'description', quote: '面料成分为95%棉和5%氨纶。', value: '95%棉和5%氨纶', unit: null, condition: null },
-    { fieldId: 'gift', source: 'description', quote: '赠送收纳袋。', value: '赠送收纳袋', unit: null, condition: null },
-  ] }) }) } : defaultPromiseDriver
+    extract: async (messages: ReadonlyArray<{ role: string; content: string }>) => {
+    const input = JSON.parse(messages[1]!.content) as { materials?: { id: string; text: string }[] }
+    const materialClaims = (input.materials ?? []).map(material => ({ fieldId: 'material', source: 'material',
+      materialId: material.id, quote: material.text, value: '100%纯棉', unit: null, condition: null }))
+    return { status: 'completed' as const, tokens: 120, content: JSON.stringify({ claims: [
+      { fieldId: 'return-window', source: 'description', quote: '未拆封商品可在收货后7天内退换。', value: '7', unit: '天', condition: '收货后' },
+      { fieldId: 'dispatch-window', source: 'description', quote: '付款后48小时内发货。', value: '48', unit: '小时', condition: '付款后' },
+      { fieldId: 'gift', source: 'description', quote: '赠送收纳袋。', value: '赠送收纳袋', unit: null, condition: null },
+      ...materialClaims,
+    ] }) }
+  } } : defaultPromiseDriver
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
   paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'], clock: {now:()=>Date.now()+clockOffset},
   promiseDriver,
   publicUrl: 'http://127.0.0.1:3000', uploadsPath })
 const product = f.testData.product({ name: '设备独立测试商品',
   ...(promisesProbe ? {
-    category: '箱包', description: '未拆封商品可在收货后7天内退换。付款后48小时内发货。面料成分为95%棉和5%氨纶。赠送收纳袋。'
+    category: '箱包', description: '未拆封商品可在收货后7天内退换。付款后48小时内发货。赠送收纳袋。'
   } : {}),
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
 const sku = product.skus[0]!
@@ -54,6 +59,8 @@ const extra = s2 || loginProbe ? f.testData.product({ name: '购物车保留商�
 for (const account of ['device_buyer', 'device_friend', 'device_merchant']) {
   f.testData.account({ account, password: fixturePassword, role: account === 'device_merchant' ? 'merchant' : 'buyer' })
 }
+if (promisesProbe) f.db.run(`INSERT INTO product_source_batches(product_id,batch) VALUES(?,?)
+  ON CONFLICT(product_id) DO UPDATE SET batch=excluded.batch`, product.id, 'LOT-2026-A')
 const buyer = f.accounts.login('device_buyer', fixturePassword)
 const user = f.accounts.authenticate(`Bearer ${buyer.token}`)
 const address = s1 ? undefined : f.testData.address({ userId: user.id, receiver: '设备验收', contact: '13800138000', fullLocation: '测试省 测试市 测试区',

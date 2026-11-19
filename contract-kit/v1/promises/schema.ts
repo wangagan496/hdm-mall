@@ -6,7 +6,7 @@ const integer = (min: number, max = Number.MAX_SAFE_INTEGER) => z.number().int()
 
 export const PromiseFieldId = z.enum(promiseCatalog.map(field => field.id))
 export const PromiseStatus = z.enum(['known', 'unknown', 'not-applicable'])
-export const PromiseSourceField = z.enum(['name', 'description', 'imageText', 'specifications'])
+export const PromiseSourceField = z.enum(['name', 'description', 'imageText', 'specifications', 'material'])
 export const PromiseValueType = z.enum(['number', 'text'])
 export const PromiseUnit = z.enum([...new Set(promiseCatalog.flatMap(field => [...field.units]))])
 export const PromiseSuggestedAfterSaleKind = z.enum(['return-quality'])
@@ -18,7 +18,7 @@ const PromiseTemplateField = z.object({
 }).strict()
 
 const PromiseSourceRef = z.object({
-  field: PromiseSourceField, start: integer(0, 4000), end: integer(1, 4000),
+  field: PromiseSourceField, start: integer(0, 4000), end: integer(1, 4000), materialId: text(100).optional(),
 }).strict()
 
 const PromiseEntry = z.object({

@@ -12,6 +12,8 @@ const components = [
   'mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets',
   'mixed-development-h5/features/cart/src/main/ets/presentation/components/OrderPromisesCard.ets',
   'mixed-development-h5/features/cart/src/main/ets/presentation/components/PromiseMismatchNote.ets',
+  'mixed-development-h5/commons/ui-components/src/main/ets/components/PromiseSourcePanel.ets',
+  'mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductMaterialsView.ets',
 ]
 
 test('报价、模块结构、入口整理和商品承诺界面的文字与底色使用可切换的主题资源', () => {

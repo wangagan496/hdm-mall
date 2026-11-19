@@ -4,6 +4,8 @@ import { isStoreOwner, requireBuyer, restrictOwnStore, type User } from '../acco
 import type { Database } from '../database.ts'
 import { ensure } from '../errors.ts'
 import { currentPromisePublication, presentPromisePublication, type PromiseSnapshot } from './publication.ts'
+import { materialById, productMaterialSources, saleBatch, sourceAvailability } from '../source-verification/materials.ts'
+import type { PromiseMaterialSource, SourceRecord } from '../source-verification/generated.ts'
 
 export const promiseItemRefSchema = z.strictObject({ skuId: z.string().min(1).max(100), fieldId: z.string().min(1).max(100) })
 export const promiseCheckSchema = promiseItemRefSchema.extend({ result: z.enum(['matches', 'mismatch']) })
@@ -12,17 +14,35 @@ type PromiseCheck = z.infer<typeof promiseCheckSchema>
 interface PromiseCheckRow extends PromiseCheck { id: string }
 interface OrderForCheck { owner_id: string; state: number; received_at: number | null }
 
-export function freezeOrderItemPromise(db: Database, orderId: string, skuId: string, productId: string) {
+export function freezeOrderItemPromise(db: Database, orderId: string, skuId: string, productId: string, now: number) {
   const current = currentPromisePublication(db, productId)
-  if (current) db.run('INSERT INTO order_item_promise_snapshots(order_id,sku_id,receipt_id,snapshot) VALUES(?,?,?,?)',
-    orderId, skuId, current.receipt_id, JSON.stringify(presentPromisePublication(current)))
+  if (!current) return
+  const snapshot = presentPromisePublication(current)
+  db.run('INSERT INTO order_item_promise_snapshots(order_id,sku_id,receipt_id,snapshot) VALUES(?,?,?,?)',
+    orderId, skuId, current.receipt_id, JSON.stringify(snapshot))
+  const batch = saleBatch(db, productId)
+  for (const { fieldId, record } of productMaterialSources(db, productId, snapshot.entries, now)) {
+    db.run('INSERT INTO order_item_source_records(order_id,sku_id,field_id,material_id,order_batch,snapshot) VALUES(?,?,?,?,?,?)',
+      orderId, skuId, fieldId, record.materialId, batch, JSON.stringify(record))
+  }
 }
 
-export function orderPromises(db: Database, orderId: string) {
+export function orderPromises(db: Database, orderId: string, now: number) {
   const snapshots = db.all<{ skuId: string; snapshot: string }>(`SELECT sku_id skuId,snapshot FROM order_item_promise_snapshots WHERE order_id=?`, orderId)
   const checks = db.all<PromiseCheckRow>(`SELECT id,sku_id skuId,field_id fieldId,result FROM order_promise_checks
     WHERE order_id=? AND rowid IN (SELECT MAX(rowid) FROM order_promise_checks WHERE order_id=? GROUP BY sku_id,field_id)`, orderId, orderId)
-  return { snapshots: new Map(snapshots.map(row => [row.skuId, JSON.parse(row.snapshot) as PromiseSnapshot])), checks }
+  const rows = db.all<{ sku_id: string; field_id: string; material_id: string; order_batch: string | null; snapshot: string }>(
+    'SELECT sku_id,field_id,material_id,order_batch,snapshot FROM order_item_source_records WHERE order_id=? ORDER BY field_id', orderId)
+  const sources = new Map<string, PromiseMaterialSource[]>()
+  for (const row of rows) {
+    const record = JSON.parse(row.snapshot) as SourceRecord
+    const material = materialById(db, row.material_id)
+    const entries = sources.get(row.sku_id) ?? []
+    entries.push({ fieldId: row.field_id, record,
+      currentAvailability: material ? sourceAvailability(material, saleBatch(db, material.product_id), now) : 'withdrawn' })
+    sources.set(row.sku_id, entries)
+  }
+  return { snapshots: new Map(snapshots.map(row => [row.skuId, JSON.parse(row.snapshot) as PromiseSnapshot])), checks, sources }
 }
 
 export function canCheckOrderPromises(db: Database, user: User, order: OrderForCheck) {

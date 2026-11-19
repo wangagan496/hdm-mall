@@ -1,5 +1,5 @@
 import { util } from '@kit.ArkTS'
-import { GlobalVariable } from 'constants'
+import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMUser, PromiseDraft, PromiseEntry, PromiseSnapshot, sameIdentitySession } from 'models'
 import { storeManager } from 'storage'
 import { HDMNavBar } from 'ui_components'
@@ -226,7 +226,8 @@ export struct ProductPromisesView {
         Text('请看原文核对').fontSize(14).fontColor($r('[ui_components].color.text'))
       }
       if (entry.quote) {
-        Text('商品资料原文：' + entry.quote).fontSize(13).fontColor($r('[ui_components].color.gray'))
+        Text((entry.sourceRef?.field === 'material' ? '材料说明原文 · 第 ' + entry.sourceRevision + ' 版：' : '商品资料原文：') + entry.quote)
+          .fontSize(13).fontColor($r('[ui_components].color.gray'))
       }
       if (editable && entry.status === 'known') {
         Row({ space: 8 }) {
@@ -252,6 +253,10 @@ export struct ProductPromisesView {
         }
         Scroll() {
           Column({ space: 12 }) {
+            Button('管理来源材料').id('product-source-materials').width('100%')
+              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+              .enabled(!this.busy && this.current(this.generation, this.session))
+              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MATERIALS_PAGE, param: this.productId }))
             Row({ space: 8 }) {
               Button(this.busy ? '处理中' : '让 AI 抽取承诺').id('product-promises-extract')
                 .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))

@@ -1,0 +1,20 @@
+{
+  "bytes": 10262875,
+  "sha256": "87454B866794BDEC040E92682C740D1D82916F47702C9BA360E020EE30011A9C",
+  "photoMarkerMatches": 0,
+  "phoneEntryIdentified": true,
+  "bytecodeFiles": [
+    "mixed-development-h5-default-all-signed.app/cart-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/category-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/constants-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/device-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/home-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/mine-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/models-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/network-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/phone-default.hap/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/storage-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/ui_components-default.hsp/ets/modules.abc",
+    "mixed-development-h5-default-all-signed.app/utils-default.hsp/ets/modules.abc"
+  ]
+}

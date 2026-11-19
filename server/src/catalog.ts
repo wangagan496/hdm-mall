@@ -97,7 +97,10 @@ export class Catalog {
     const available = skus.filter(s => s.stock > 0)
     const priced = available.length ? available : skus.length ? skus : allSkus
     const price = priced.length ? Math.min(...priced.map(s => s.price)) / 100 : 0
+      const publication = currentPromisePublication(this.db, id)
+      const promiseSnapshot = publication ? presentPromisePublication(publication) : null
     return { id, name: product.name, desc: product.description, picture, price, orderNum: 0, inventory, ...presentPolicy(product),
+        ...(promiseSnapshot ? { promiseSnapshot, promiseSources: productMaterialSources(this.db, id, promiseSnapshot.entries, this.clock.now()) } : {}),
       status: product.status, available: product.status === 'on' && skus.length > 0,
       mainPictures: [picture], details: { pictures: [picture], properties: [{ name: '说明', value: product.description }] },
       specs: [{ name: '规格', values: allSkus.map(s => ({ name: s.spec, picture, selected: false, disabled: !s.enabled || s.stock === 0 || product.status === 'off' })) }],
@@ -198,3 +201,5 @@ export class Catalog {
     return this.cart(user, skuId)[0] ?? null
   }
 }
+import { currentPromisePublication, presentPromisePublication } from './promises/publication.ts'
+import { productMaterialSources } from './source-verification/materials.ts'

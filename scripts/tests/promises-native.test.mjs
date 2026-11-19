@@ -130,7 +130,7 @@ test('商家草稿和订单承诺卡片显示原文核对提醒', () => {
   const merchant = sourceOf(native + 'mine/src/main/ets/presentation/views/ProductPromisesView.ets')
   const order = sourceOf(native + 'cart/src/main/ets/presentation/components/OrderPromisesCard.ets')
   assert.match(merchant, /if \(entry\.conditionNeedsReview\)[\s\S]*Text\('请看原文核对'\)/)
-  assert.match(order, /if \(entry\.conditionNeedsReview\)[\s\S]*Text\('请看原文核对'\)/)
+  assert.match(order, /if \(entry\.conditionNeedsReview\)[\s\S]*Text\('原文另有适用限制，以原文为准'\)/)
 })
 
 test('device promise probe includes unselected dispatch and frozen material suggestion checks', () => {
@@ -138,7 +138,7 @@ test('device promise probe includes unselected dispatch and frozen material sugg
   const probe = sourceOf('scripts/device-promises-probe.ps1')
   assert.ok(fixture.includes("condition: '收货后'"))
   assert.ok(fixture.includes("fieldId: 'material'"))
-  assert.ok(probe.includes('order-promise-condition-review-$SkuId-return-window'))
+  assert.ok(probe.includes("Wait-Text '逐条确认草稿'"))
   assert.ok(probe.includes("Wait-Text '请选择适合你的售后类型'"))
   assert.ok(probe.includes('dispatchMismatchTypeUnselected=$true'))
   assert.ok(probe.includes("Wait-Text '质量问题退货 ✓ 已选'"))

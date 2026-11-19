@@ -1,0 +1,44 @@
+{
+  "startedAt": "2026-11-19T23:55:50.4498589+08:00",
+  "completedAt": "2026-11-20T00:02:29.8281145+08:00",
+  "durationSeconds": 399.38,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "passed",
+  "counts": {
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "packageSha256": "87454B866794BDEC040E92682C740D1D82916F47702C9BA360E020EE30011A9C",
+  "buyerOriginalHidden": true,
+  "materialVersion1": 1,
+  "syntheticPhoto": {
+    "mediaCountAfterWrite": 2,
+    "displayName": "hdm-report-1e9601a6909b48c48db91142145fc1e0.jpg",
+    "mediaCountBeforeWrite": 1,
+    "sha256": "E19DF8F9FD75FD23C2D8CD6AADDCDE1D38ED510054CE169F920ACD2C8AB19BCA",
+    "devicePath": "file://media/Photo/4/IMG_1795103857_003/hdm-report-1e9601a6909b48c48db91142145fc1e0.jpg"
+  },
+  "orderId": "77de4ecf-b902-4fbf-92a6-3dece9036b78",
+  "syntheticPhotoCleanup": {
+    "mediaCountAfterDelete": 1,
+    "mediaCountBeforeDelete": 2,
+    "displayName": "hdm-report-1e9601a6909b48c48db91142145fc1e0.jpg",
+    "deleted": true,
+    "sha256": "E19DF8F9FD75FD23C2D8CD6AADDCDE1D38ED510054CE169F920ACD2C8AB19BCA",
+    "countRestored": true,
+    "devicePath": "file://media/Photo/4/IMG_1795103857_003/hdm-report-1e9601a6909b48c48db91142145fc1e0.jpg"
+  },
+  "receiptId": "f6f76cbe-069c-44d9-a066-e138b76092f9",
+  "theme": "dark",
+  "knownFields": [
+    "return-window",
+    "dispatch-window",
+    "material"
+  ],
+  "orderSnapshotUnchanged": true,
+  "materialVersion2": 2,
+  "orderSourceRemainedVersion1": true,
+  "buyerSourcePanelVisible": true
+}

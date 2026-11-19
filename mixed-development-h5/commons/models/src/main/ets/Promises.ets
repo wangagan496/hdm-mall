@@ -17,6 +17,7 @@ export interface PromiseSourceRef {
   field: PromiseSourceField
   start: number
   end: number
+  materialId?: string
 }
 export interface PromiseEntry {
   fieldId: PromiseFieldId
@@ -62,10 +63,11 @@ export function parsePromiseTemplateField(text: string): PromiseTemplateField | 
 function validPromiseSourceRef(value: Object | null | undefined): boolean {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const row = value as PromiseSourceRef
-  if (Object.keys(row).some((key: string) => ["field","start","end"].indexOf(key) < 0)) return false
-  return (typeof row.field === 'string' && ["name","description","imageText","specifications"].indexOf(row.field) >= 0) &&
+  if (Object.keys(row).some((key: string) => ["field","start","end","materialId"].indexOf(key) < 0)) return false
+  return (typeof row.field === 'string' && ["name","description","imageText","specifications","material"].indexOf(row.field) >= 0) &&
     (typeof row.start === 'number' && Number.isSafeInteger(row.start) && row.start >= 0 && row.start <= 4000) &&
-    (typeof row.end === 'number' && Number.isSafeInteger(row.end) && row.end >= 1 && row.end <= 4000)
+    (typeof row.end === 'number' && Number.isSafeInteger(row.end) && row.end >= 1 && row.end <= 4000) &&
+    (row.materialId === undefined || (typeof row.materialId === 'string' && row.materialId.length >= 1 && row.materialId.length <= 100))
 }
 export function parsePromiseSourceRef(text: string): PromiseSourceRef | null {
   try { const value = JSON.parse(text) as PromiseSourceRef; return validPromiseSourceRef(value) ? value : null } catch { return null }

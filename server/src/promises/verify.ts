@@ -4,11 +4,13 @@ import { promiseCatalog } from './templates/catalog.ts'
 
 export const SOURCE_FIELDS = ['name', 'description', 'imageText', 'specifications'] as const
 export type Template = (typeof promiseCatalog)[number]
-export type Sources = Record<PromiseSourceField, string>
+export interface MaterialText { id: string; version: number; text: string }
+export type Sources = Record<Exclude<PromiseSourceField, 'material'>, string> & { materials?: MaterialText[] }
 
 const candidatesSchema = z.object({ claims: z.array(z.unknown()).max(24) }).strict()
 const candidateSchema = z.object({
-  fieldId: z.string().min(1).max(100), source: z.enum(SOURCE_FIELDS),
+  fieldId: z.string().min(1).max(100), source: z.enum([...SOURCE_FIELDS, 'material']),
+  materialId: z.string().min(1).max(100).optional(),
   quote: z.string().min(1).max(250), value: z.string().min(1).max(250),
   unit: z.string().min(1).max(20).nullable(), condition: z.string().min(1).max(250).nullable(),
 }).strict()
@@ -75,7 +77,8 @@ function verifiedCandidate(candidate: Candidate, template: Template, sourceText:
   return {
     entry: {
       fieldId: template.id, label: template.label, status: 'known', value, unit: unit as PromiseUnit | null,
-      condition: groundedCondition, quote, sourceRef: { field: candidate.source, start, end }, sourceRevision: revision,
+      condition: groundedCondition, quote, sourceRef: { field: candidate.source, start, end,
+        ...(candidate.materialId ? { materialId: candidate.materialId } : {}) }, sourceRevision: revision,
       ...(warning ? { conditionNeedsReview: true } : {}),
       ...(template.suggestedAfterSaleKind ? { suggestedAfterSaleKind: template.suggestedAfterSaleKind } : {}),
     },
@@ -91,7 +94,7 @@ function containsExactAmount(quote: string, value: string, unit: string): boolea
 }
 
 export function verifyPromiseCandidates(content: string, input: {
-  category: string; revision: number; name: string; description: string; specifications?: string; imageText?: string
+  category: string; revision: number; name: string; description: string; specifications?: string; imageText?: string; materials?: MaterialText[]
 }): { entries: PromiseEntry[]; issues: string[] } {
   const draft = candidatesSchema.parse(JSON.parse(content))
   const { category, revision } = input
@@ -110,7 +113,13 @@ export function verifyPromiseCandidates(content: string, input: {
       issues.push('有一条候选不属于当前品类允许的字段')
       continue
     }
-    const result = verifiedCandidate(candidate, template, input[candidate.source] ?? '', revision)
+    const material = candidate.source === 'material' ? input.materials?.find(row => row.id === candidate.materialId) : undefined
+    if (candidate.source === 'material' ? !material : !!candidate.materialId) {
+      issues.push('有一条候选引用了无法核对的来源材料')
+      continue
+    }
+    const sourceText = candidate.source === 'material' ? material!.text : input[candidate.source] ?? ''
+    const result = verifiedCandidate(candidate, template, sourceText, material?.version ?? revision)
     if (typeof result === 'string') {
       issues.push(`${template.label}：${result}`)
       continue

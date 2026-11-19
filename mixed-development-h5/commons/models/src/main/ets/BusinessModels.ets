@@ -4,6 +4,7 @@ import { ReturnPolicyFields } from './ReturnPolicy'
 import { Identity } from './IdentityContext'
 import { PromiseSnapshot } from './Promises'
 import { OrderPromiseCheck } from './OrderPromises'
+import { PromiseMaterialSource } from './SourceRecords'
 
 export interface HDMGoodsItem extends ReturnPolicyFields {
   id: string
@@ -415,6 +416,7 @@ export interface OrderPage {
 export interface OrderSku extends ReturnPolicyFields {
   promiseSnapshot?: PromiseSnapshot | null
   promiseChecks?: OrderPromiseCheck[]
+  promiseSources?: PromiseMaterialSource[]
   afterSaleKinds?: string[]
   afterSaleRemaining?: number
   discountShareCents?: number

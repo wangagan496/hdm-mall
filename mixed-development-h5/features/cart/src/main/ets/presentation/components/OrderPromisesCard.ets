@@ -1,4 +1,5 @@
 import { OrderSku, PromiseEntry, PromiseSnapshot, parsePromiseSnapshot } from 'models'
+import { PromiseSourcePanel } from 'ui_components'
 
 @Component
 export struct OrderPromisesCard {
@@ -37,11 +38,16 @@ export struct OrderPromisesCard {
               Text('适用条件：' + entry.condition).fontSize(13).fontColor($r('[ui_components].color.text')).width('100%')
             }
             if (entry.conditionNeedsReview) {
-              Text('请看原文核对').id('order-promise-condition-review-' + this.sku.id + '-' + entry.fieldId)
+              Text('原文另有适用限制，以原文为准').id('order-promise-condition-review-' + this.sku.id + '-' + entry.fieldId)
                 .fontSize(13).fontColor($r('[ui_components].color.text')).width('100%')
             }
             if (entry.quote) {
-              Text('商品资料原文：' + entry.quote).fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+              if (entry.sourceRef?.field !== 'material') {
+                Text('商品资料原文：' + entry.quote)
+                  .fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+              }
+              PromiseSourcePanel({ entry, sources: this.sku.promiseSources || [], historical: true,
+                controlId: 'order-promise-source-' + this.sku.id + '-' + entry.fieldId })
             }
             if (this.checked(entry.fieldId)) {
               Text(this.checked(entry.fieldId) === 'matches' ? '已核对：符合' : '已核对：不符')

@@ -189,6 +189,13 @@ instance.interceptors.response.use((response: AxiosResponse) => {
 export class RequestAxios {
   static async getImageForSession(path: string, token: string): Promise<ArrayBuffer> {
     if (!/^\/uploads\/[a-f0-9-]{36}\.jpg$/.test(path)) throw new Error('图片路径无效')
+    return RequestAxios.readPrivateJpeg(path, token)
+  }
+  static getSourceMaterialForSession(productId: string, materialId: string, token: string): Promise<ArrayBuffer> {
+    return RequestAxios.readPrivateJpeg('/merchant/products/' + encodeURIComponent(productId) +
+      '/source-materials/' + encodeURIComponent(materialId) + '/original', token)
+  }
+  private static async readPrivateJpeg(path: string, token: string): Promise<ArrayBuffer> {
     const response: AxiosResponse<ArrayBuffer> = await rawInstance.get<ArrayBuffer, AxiosResponse<ArrayBuffer>>(GlobalVariable.BASE_URL + path,
       { responseType: 'array_buffer', headers: requestHeaders(token) })
     if (staleRequest(response.config)) throw new IdentityChangedError()
@@ -199,6 +206,14 @@ export class RequestAxios {
     form.append('requestKey', requestKey)
     if (orderId) form.append('orderId', orderId)
     if (applicationKey) form.append('applicationKey', applicationKey)
+    return RequestAxios.postJpeg<T>(url, bytes, form, token)
+  }
+  static postSourceMaterialForSession<T>(url: string, bytes: ArrayBuffer, metadata: string, token: string): Promise<T> {
+    const form = new FormData()
+    form.append('metadata', metadata)
+    return RequestAxios.postJpeg<T>(url, bytes, form, token)
+  }
+  private static postJpeg<T>(url: string, bytes: ArrayBuffer, form: FormData, token: string): Promise<T> {
     form.append('file', bytes, { filename: 'product.jpg', type: 'image/jpeg' })
     const headers = requestHeaders(token, true)
     headers['Content-Type'] = 'multipart/form-data'

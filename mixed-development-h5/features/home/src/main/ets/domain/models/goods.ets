@@ -1,4 +1,4 @@
-import { HDMGoodsItem } from 'models'
+import { HDMGoodsItem, PromiseMaterialSource, PromiseSnapshot } from 'models'
 import { HDMSkuType, HDMSpec } from 'ui_components'
 
 // 其他略
@@ -36,6 +36,8 @@ export interface GoodsEvaluationPage {
 
 // 7个属性 extend继承这7个属性 再增加5个属性
 export interface Goods extends HDMGoodsItem {
+  promiseSnapshot?: PromiseSnapshot
+  promiseSources?: PromiseMaterialSource[]
   status?: string
   available?: boolean
   inventory: number

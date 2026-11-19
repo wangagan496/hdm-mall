@@ -28,7 +28,9 @@ export function inspectPromises(db: DatabaseSync) {
     }
     if (new Set(draft.entries.map(entry => entry.fieldId)).size !== draft.entries.length || !draft.entries.some(entry => entry.status === 'known') ||
       draft.entries.some(entry => entry.status === 'known' ? !entry.value || !entry.quote || !entry.sourceRef ||
-        entry.sourceRevision !== draft.productRevision || entry.quote.length !== entry.sourceRef.end - entry.sourceRef.start :
+        (entry.sourceRef.field === 'material' ? !entry.sourceRef.materialId || !entry.sourceRevision :
+          !!entry.sourceRef.materialId || entry.sourceRevision !== draft.productRevision) ||
+        entry.quote.length !== entry.sourceRef.end - entry.sourceRef.start :
         entry.value !== null || entry.unit !== null || entry.condition !== null || entry.quote !== null || entry.sourceRef !== null || entry.sourceRevision !== null)) {
       throw new Error('承诺草稿缺少有效的原文引用')
     }

@@ -8,9 +8,11 @@ import { createBackup, restoreBackup } from '../src/backup.ts'
 import { Database } from '../src/database.ts'
 import { createPromiseDriver, type PromiseDriver } from '../src/promises/extract.ts'
 import { promiseTables } from '../src/promises/backup.ts'
+import { sourceRecordTables } from '../src/source-verification/backup.ts'
 import type { PromiseDraft, PromiseSnapshot } from '../src/promises/generated.ts'
 import { buildTestApp } from './helpers/fixtures.ts'
 import { identityHeaders } from './helpers/identity-headers.ts'
+import { materialDigest } from '../src/source-verification/materials.ts'
 
 const description = '支持7天退换。承诺48小时内发货。'
 
@@ -221,7 +223,7 @@ test('仅收货买家可核对，售后保存原文引用并可随备份恢复',
     assert.deepEqual((await sale()).promiseMismatch, stored)
 
     const backup = await createBackup({ databasePath, uploadsPath, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 21)
+    assert.equal(backup.manifest.schemaVersion, 22)
     for (const table of promiseTables) assert.ok(backup.counts[table]! > 0, table)
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const restoredDb = new Database(join(restored.root, 'mall.sqlite'))

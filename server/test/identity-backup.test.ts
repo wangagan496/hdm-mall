@@ -81,7 +81,7 @@ test('阶段1B 旧备份恢复后保留历史操作身份，迁移的新买家�
     } finally { db.close() }
 
     const snapshot = await createBackup({ databasePath: migratedPath, uploadsPath, destination: join(f.root, 'after-020') })
-    assert.equal(snapshot.manifest.schemaVersion, 21)
+    assert.equal(snapshot.manifest.schemaVersion, 22)
     assert.deepEqual(snapshot.manifest.issues, [])
     assert.equal((await verifyBackup(snapshot.root)).counts.identity_layouts, 2)
     const restored = await restoreBackup({ backupPath: snapshot.root, destination: join(f.root, 'new-restored') })

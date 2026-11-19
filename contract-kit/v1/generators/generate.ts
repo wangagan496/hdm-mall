@@ -10,6 +10,8 @@ import { identityVectors } from '../vectors/identity-context.ts'
 import { promiseEnums, promiseSchemas } from '../promises/schema.ts'
 import { LEGACY_PROMISE_TEMPLATE_VERSION, PROMISE_TEMPLATE_VERSION, QUALITY_RETURN_FIELDS, promiseCatalog } from '../promises/catalog.ts'
 import { promiseVectors } from '../vectors/promises.ts'
+import { sourceRecordEnums, sourceRecordSchemas } from '../source-records/schema.ts'
+import { sourceRecordVectors } from '../vectors/source-records.ts'
 
 // 故意只支持本协议用到的类型；不认识的 schema 立即失败，不能静默放宽解析。
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -25,7 +27,8 @@ function writeGenerated(target: string, source: string) {
   }
 }
 
-function renderContract(contract: string, schemas: Record<string, z.ZodObject>, enums: Record<string, z.ZodEnum> = {}, arkts = false) {
+function renderContract(contract: string, schemas: Record<string, z.ZodObject>, enums: Record<string, z.ZodEnum> = {},
+  arkts = false, objectChecks: Record<string, string[]> = {}) {
   const entries = Object.entries(schemas)
   const names = new Map<z.ZodType, string>([...entries, ...Object.entries(enums)].map(([name, schema]) => [schema, name]))
   function type(schema: z.ZodType): string {
@@ -61,7 +64,8 @@ function renderContract(contract: string, schemas: Record<string, z.ZodObject>, 
   }
   for (const [name, schema] of entries) {
     const fields = Object.entries(schema.shape) as [string, z.ZodType][]
-    source += `function valid${name}(value: Object | null | undefined): boolean {\n  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false\n  const row = value as ${name}\n  if (Object.keys(row).some((key: string) => ${JSON.stringify(fields.map(([k]) => k))}.indexOf(key) < 0)) return false\n  return ${fields.map(([k, s]) => check(s, `row.${k}`)).join(' &&\n    ')}\n}\n`
+    const checks = fields.map(([k, s]) => check(s, `row.${k}`)).concat(objectChecks[name] ?? [])
+    source += `function valid${name}(value: Object | null | undefined): boolean {\n  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false\n  const row = value as ${name}\n  if (Object.keys(row).some((key: string) => ${JSON.stringify(fields.map(([k]) => k))}.indexOf(key) < 0)) return false\n  return ${checks.join(' &&\n    ')}\n}\n`
     source += `export function parse${name}(text: string): ${name} | null {\n  try { const value = JSON.parse(text) as ${name}; return valid${name}(value) ? value : null } catch { return null }\n}\n`
   }
   return source
@@ -115,4 +119,11 @@ writeGenerated(models + '/main/ets/Promises.ets', renderContract('promises', pro
   ' && ' + JSON.stringify(QUALITY_RETURN_FIELDS) + '.indexOf(fieldId) >= 0 ? "return-quality" : ""\n}\n')
 writeGenerated(models + '/test/PromiseVectors.test.ets', renderVectors('promises', 'Promises', 'promises',
   promiseVectors.map(vector => ({ ...vector, parser: 'parse' + vector.kind }))))
-console.log('quote, identity and promise contracts: ' + (checking ? 'verified' : 'generated') + ' TS + ArkTS')
+const sourceChecks = { SourceRecord: [
+  '(row.verificationStatus === "verified" ? !!row.verifier && row.verifiedAt !== null && !!row.basis : row.verifier === null && row.verifiedAt === null && row.basis === null)',
+] }
+writeGenerated('server/src/source-verification/generated.ts', renderContract('source-records', sourceRecordSchemas, sourceRecordEnums, false, sourceChecks))
+writeGenerated(models + '/main/ets/SourceRecords.ets', renderContract('source-records', sourceRecordSchemas, sourceRecordEnums, true, sourceChecks))
+writeGenerated(models + '/test/SourceRecordVectors.test.ets', renderVectors('source-records', 'SourceRecords', 'sourceRecord',
+  sourceRecordVectors.map(vector => ({ ...vector, parser: 'parse' + vector.kind }))))
+console.log('quote, identity, promise and source record contracts: ' + (checking ? 'verified' : 'generated') + ' TS + ArkTS')
