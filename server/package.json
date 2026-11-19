@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/main.ts",
     "check": "tsc --noEmit",
+    "check:zhipu": "node --env-file-if-exists=.env src/zhipu-check.ts",
+    "draft:promises": "node --env-file-if-exists=.env src/promises/draft-cli.ts",
     "test": "node --test test/*.test.ts",
     "backup": "node src/backup-cli.ts create",
     "backup:verify": "node src/backup-cli.ts verify",

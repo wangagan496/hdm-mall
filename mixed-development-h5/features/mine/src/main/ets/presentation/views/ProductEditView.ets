@@ -372,7 +372,7 @@ export struct ProductEditView {
       this.FieldError('category')
     }
     this.FieldLabel('商品说明（选填）', 'description')
-    TextArea({ text: this.draft.description, placeholder: '补充商品特点或使用说明' }).maxLength(2000)
+    TextArea({ text: this.draft.description, placeholder: '补充商品特点或使用说明' }).id('product-description').maxLength(2000)
       .onChange(value => { this.draft.description = value; this.touch('description'); this.changed() }).onBlur(() => this.touch('description'))
     this.FieldError('description')
     this.FieldLabel('商品图片', 'image')

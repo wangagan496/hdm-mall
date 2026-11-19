@@ -216,8 +216,8 @@ export class RequestAxios {
     return instance.put<null, T>(url, data, { headers: requestHeaders(token, true) })
   }
 
-  static postWithSession<T>(url: string, data: object, token: string, user?: HDMUser): Promise<T> {
-    return instance.post<null, T>(url, data, { headers: requestHeaders(token, true, user) })
+  static postWithSession<T>(url: string, data: object, token: string, user?: HDMUser, timeout?: number): Promise<T> {
+    return instance.post<null, T>(url, data, { headers: requestHeaders(token, true, user), timeout })
   }
 
   static deleteForSession<T>(url: string, token: string): Promise<T> {

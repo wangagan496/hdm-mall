@@ -15,7 +15,7 @@ export class Database {
       this.connection.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;')
       const version = this.one<{ user_version: number }>('PRAGMA user_version')!.user_version
       if (version === 0) this.connection.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
-      else if (version < 1 || version > 20) throw new Error('Unsupported database version')
+      else if (version < 1 || version > 21) throw new Error('Unsupported database version')
       if (version < 2) {
         this.connection.exec(`BEGIN IMMEDIATE;
         CREATE TABLE categories(id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT REFERENCES categories(id), source_key TEXT UNIQUE NOT NULL);
@@ -89,6 +89,10 @@ export class Database {
             SELECT id,'buyer','migration-extra',? FROM users WHERE role='merchant'`, clock.now())
         }
         this.connection.exec('PRAGMA user_version=20')
+      })
+      if (version < 21) this.transaction(() => {
+        if (this.one<{ user_version: number }>('PRAGMA user_version')!.user_version >= 21) return
+        this.connection.exec(readFileSync(new URL('./migrations/021-promises.sql', import.meta.url), 'utf8'))
       })
     } catch (error) {
       this.connection.close()

@@ -25,6 +25,8 @@ export struct ProductManageView {
   private active: boolean = false
   private token: string = ''
   private accountId: string = ''
+  private identity: string | undefined = undefined
+  private identityRevision: number | undefined = undefined
   private generation: number = 0
   private query: number = 0
 
@@ -32,13 +34,16 @@ export struct ProductManageView {
   private messageColor(): ResourceColor { return this.messageKind === 'warning' ? $r('[ui_components].color.red') : $r('[ui_components].color.text') }
 
   private synchronize(): void {
-    if (this.token === (this.user.token || '') && this.accountId === (this.user.id || '')) return
+    if (this.token === (this.user.token || '') && this.accountId === (this.user.id || '') &&
+      this.identity === this.user.identity && this.identityRevision === this.user.identityRevision) return
     this.token = this.user.token || ''; this.accountId = this.user.id || ''; this.generation++; this.query++
+    this.identity = this.user.identity; this.identityRevision = this.user.identityRevision
     this.items = []; this.page = 1; this.pages = 0; this.busy = []; this.setMessage('', 'normal'); this.loading = false
   }
   private current(generation: number, token: string): boolean {
     return this.active && generation === this.generation && !!token && token === this.user.token && token === this.token &&
-      !!this.accountId && this.accountId === this.user.id && this.user.identity === 'merchant'
+      !!this.accountId && this.accountId === this.user.id && this.user.identity === 'merchant' &&
+      this.identity === this.user.identity && this.identityRevision === this.user.identityRevision
   }
   private accountChanged(): void { this.synchronize(); if (this.active) void this.load(1) }
   aboutToAppear(): void { this.active = true; void this.load(1) }
@@ -115,6 +120,14 @@ export struct ProductManageView {
                   Button('评价').id('product-reviews-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.stackPath.pushPath({ name: 'ReviewManageView', param: item.id }))
                   Button(this.hasPending(item.id) ? '确认保存结果' : item.status === 'off' ? '上架' : '下架').id('product-toggle-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy.includes(item.id)).onClick(() => this.toggle(item))
                 }
+                Button('商品承诺').id('product-promises-' + item.id)
+                  .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                  .border({ width: 1, color: $r('[ui_components].color.border') }).width('100%')
+                  .onClick(() => {
+                    if (this.current(this.generation, this.token)) {
+                      this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_PROMISES_PAGE, param: item.id })
+                    }
+                  })
               }.padding(16).width('100%').backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }, (item: ProductData) => item.id + ':' + item.revision)
             Row({ space: 12 }) {

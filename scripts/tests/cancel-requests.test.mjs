@@ -146,7 +146,11 @@ function detailFixture(demo = false, coordinator) {
     readPhoneClockMillis: () => 1234,
     getOrderDetailAPI: async (...args) => { queries.push(args); return api.read(...args) },
   })
-  const page = new Page(); page.user = { id: 'buyer', token: 'token' }; page.orderId = 'order'; page.detailOrderId = 'order'; page.detailToken = 'token'; page.order = paid(); page.loading = false; page.displayedOrderState = 2
+  const page = new Page()
+  page.user = { id: 'buyer', token: 'token', identity: 'buyer', identityRevision: 0 }
+  page.orderId = 'order'
+  page.synchronizeDetailContext()
+  page.order = paid(); page.loading = false; page.displayedOrderState = 2
   page.safeToast = text => messages.push(text)
   page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog) })
   return { page, dialogs, writes, messages, queries, api, actions, legacy }

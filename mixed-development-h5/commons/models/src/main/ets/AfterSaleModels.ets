@@ -1,4 +1,5 @@
 import { ReturnPolicyFields, returnConditionError } from './ReturnPolicy'
+import { PromiseMismatch } from './OrderPromises'
 export interface AfterSaleAddress { receiver: string; contact: string; address: string; fullLocation?: string }
 export interface AfterSaleLine extends ReturnPolicyFields { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number; pendingInspectionCount?: number; rejectedCount?: number; afterSaleKinds?: string[]; conditionDeclared?: string; discountShareCents?: number; boughtCount?: number }
 export interface AfterSaleImage { imageId: string; path: string }
@@ -15,6 +16,7 @@ export interface AfterSale {
 export interface AfterSaleQuantity { skuId: string; count: number; conditionDeclared?: string }
 export interface AfterSaleRestock { skuId: string; restockCount: number }
 export interface AfterSaleBody {
+  promiseMismatch?: PromiseMismatch
   requestKey?: string; kind?: string; description?: string; items?: AfterSaleQuantity[] | AfterSaleRestock[]; imageIds?: string[]
   returnAddress?: AfterSaleAddress; reason?: string; carrier?: string; trackingNo?: string; shippingAmountCents?: number
   shippingImageId?: string; shippingCompensationCents?: number; shippingAdjustmentReason?: string

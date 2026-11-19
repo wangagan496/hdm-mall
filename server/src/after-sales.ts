@@ -10,13 +10,14 @@ import { ensure } from './errors.ts'
 import { appendAudit, type AuditAction } from './audit.ts'
 import { canReturnNoReason, requiresCondition, type PolicyRow } from './return-policy.ts'
 import { inspectionState, pendingReturnInspection } from './inventory.ts'
+import { afterSalePromiseMismatch, attachPromiseMismatch, promiseItemRefSchema } from './promises/order-promises.ts'
 
 const DAY = 86400000
 const active = ['pending', 'awaiting-return', 'returned', 'refunding']
 export const returnAddressSchema = z.object({ receiver: z.string().trim().min(1).max(50), contact: z.string().regex(/^\d{6,20}$/), address: z.string().trim().min(1).max(300) }).strict()
 export const afterSaleRequestSchema = z.object({ requestKey: z.string().uuid(), kind: z.enum(['return-no-reason', 'return-quality', 'refund-missing']),
   description: z.string().trim().max(200).default(''), items: z.array(z.object({ skuId: z.string().min(1).max(100), count: z.number().int().min(1).max(999),conditionDeclared:z.enum(['sealed','unsealed']).optional() }).strict()).min(1).max(100),
-  imageIds: z.array(z.string().uuid()).max(3).default([]) }).strict()
+  imageIds: z.array(z.string().uuid()).max(3).default([]), promiseMismatch: promiseItemRefSchema.optional() }).strict()
 export const afterSaleActionSchema = z.object({ requestKey: z.string().uuid(), reason: z.string().trim().min(5).max(200).optional(),
   shippingAmountCents: z.number().int().min(1).max(10000).optional(), shippingImageId: z.string().uuid().optional(),
   shippingCompensationCents: z.number().int().min(0).max(10000).optional(), shippingAdjustmentReason: z.string().trim().min(5).max(200).optional(),
@@ -100,6 +101,9 @@ export class AfterSales {
       ensure(data.kind === 'return-no-reason' || data.description.length >= 5, 400, '请填写5到200字的问题说明')
       ensure(data.kind === 'return-quality' || data.imageIds.length === 0, 400, '仅质量问题可以上传照片')
       ensure(new Set(data.items.map(i => i.skuId)).size === data.items.length && new Set(data.imageIds).size === data.imageIds.length, 400, '请勿重复选择商品或照片')
+      if (data.promiseMismatch) {
+        ensure(data.items.some(item => item.skuId === data.promiseMismatch?.skuId), 400, '请保留需要申请售后的承诺商品')
+      }
       const available = this.remaining(orderId)
       const shares = new Map<string, number>()
       let amount = 0
@@ -123,6 +127,7 @@ export class AfterSales {
       ensure(payment, 409, '付款记录异常，请联系客服')
       const id = randomUUID(), sequence = this.db.one<{ n: number }>('SELECT COALESCE(MAX(sequence),0)+1 n FROM after_sales WHERE order_id=?', orderId)!.n
       this.db.run("INSERT INTO after_sales(id,order_id,sequence,requested_by,payment_id,kind,description,state,amount,created,review_deadline) VALUES(?,?,?,?,?,?,?,'pending',?,?,?)", id, orderId, sequence, user.id, payment, data.kind, data.description, amount, now, now + 2 * DAY)
+      if (data.promiseMismatch) attachPromiseMismatch(this.db, id, orderId, data.promiseMismatch)
       for (const item of data.items) this.db.run('INSERT INTO after_sale_items(after_sale_id,sku_id,count,condition_declared,discount_share) VALUES(?,?,?,?,?)', id, item.skuId, item.count,data.kind==='return-no-reason'&&requiresCondition(available.find(i=>i.sku_id===item.skuId)!)?item.conditionDeclared!:null,shares.get(item.skuId)!)
       for (const imageId of data.imageIds) {
         const changed = this.db.run('UPDATE after_sale_images SET after_sale_id=? WHERE image_id=? AND actor_id=? AND order_id=? AND application_key=? AND after_sale_id IS NULL', id, imageId, user.id, orderId, data.requestKey)
@@ -260,7 +265,8 @@ export class AfterSales {
       shippingRefundState: sale.shipping_refund_id ? this.db.one<{state:string}>('SELECT state FROM refunds WHERE id=?',sale.shipping_refund_id)?.state ?? '' : '',
       createdAt: sale.created, reviewDeadline: sale.review_deadline, returnDeadline: sale.return_deadline, inspectDeadline: sale.inspect_deadline,
       refundId: sale.refund_id, refundState: refund?.state ?? '', refundReview: refund?.review_at !== undefined && refund.review_at !== null,
-      ...(details ? { description: sale.description, returnAddress: sale.return_address ? JSON.parse(sale.return_address) as ReturnAddress : null,
+      ...(details ? { description: sale.description, promiseMismatch: afterSalePromiseMismatch(this.db, sale.id),
+        returnAddress: sale.return_address ? JSON.parse(sale.return_address) as ReturnAddress : null,
         shippingImage: sale.shipping_image_id ? this.db.one<{imageId:string;path:string}>('SELECT image_id imageId,path FROM after_sale_images WHERE image_id=?',sale.shipping_image_id) : null,
         carrier: sale.carrier ?? '', trackingNo: sale.tracking_no ?? '', rejectReason: sale.reject_reason ?? '',
         inspectionState: inspection, inspectionPending: inspection === 'pending',

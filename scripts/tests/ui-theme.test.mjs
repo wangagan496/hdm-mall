@@ -9,9 +9,12 @@ const components = [
   'mixed-development-h5/features/cart/src/main/ets/presentation/components/QuotePanel.ets',
   'mixed-development-h5/features/mine/src/main/ets/presentation/views/ModuleBayView.ets',
   'mixed-development-h5/features/mine/src/main/ets/presentation/views/IdentityLayoutView.ets',
+  'mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets',
+  'mixed-development-h5/features/cart/src/main/ets/presentation/components/OrderPromisesCard.ets',
+  'mixed-development-h5/features/cart/src/main/ets/presentation/components/PromiseMismatchNote.ets',
 ]
 
-test('报价、模块结构和入口整理界面的文字与底色使用可切换的主题资源', () => {
+test('报价、模块结构、入口整理和商品承诺界面的文字与底色使用可切换的主题资源', () => {
   for (const relative of components) {
     const source = readFileSync(resolve(root, relative), 'utf8')
     const textStarts = [...source.matchAll(/\bText\s*\(/g)].map(match => match.index)

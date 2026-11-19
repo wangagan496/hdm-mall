@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-11-19T00:29:00.1776314+08:00",
+  "completedAt": "2026-11-19T00:33:45.6578010+08:00",
+  "durationSeconds": 285.48,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "passed",
+  "counts": {
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "packageSha256": "EF0672A76BF64B52BC170737CA836CB1915A839B78251BCA134AD37DE477ACEE",
+  "receiptId": "8d11915e-c6ec-4326-ae1b-7fbbd3dd4ac9",
+  "orderId": "f12e5a25-3102-498a-9d9e-4252d37784cb",
+  "checks": [
+    {
+      "fieldId": "dispatch-window",
+      "result": "mismatch"
+    },
+    {
+      "fieldId": "return-window",
+      "result": "matches"
+    }
+  ],
+  "theme": "dark",
+  "orderSnapshotUnchanged": true,
+  "afterSaleFormContainsFrozenQuote": true,
+  "knownFields": [
+    "return-window",
+    "dispatch-window"
+  ]
+}

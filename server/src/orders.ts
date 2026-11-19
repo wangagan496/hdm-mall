@@ -14,6 +14,7 @@ import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
 import { checkPublicContent } from './content-filter.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
+import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -197,7 +198,7 @@ export class Orders {
       cancelConfirmation: canRequestCancel ? { amountCents: order.amount, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
         message: '取消申请提交后，商家同意即不再发货，¥' + (order.amount / 100).toFixed(2) + '将原路退回' + destination + '。确定申请取消吗？' } : null, serverNow }
   }
-  private present(order: Order, user: User, merchantShipment = false) {
+  private present(order: Order, user: User, merchantShipment = false, includePromises = false) {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
     const evaluation = this.db.one<{ score: number; content: string; created: number }>('SELECT * FROM evaluations WHERE order_id=?', order.id)
@@ -210,6 +211,7 @@ export class Orders {
     if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order),
       serverManaged: true, payMoney: order.amount / 100, skus: [], ...paymentFields, ...cancelFields }
     const logistics = shipmentDetail(this.db, order.id)
+    const promises = includePromises ? orderPromises(this.db, order.id) : undefined
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
@@ -218,6 +220,7 @@ export class Orders {
       signedAt: logistics?.events.find(event => event.state === 'signed')?.occurredAt ?? null, logistics, serverManaged: true,
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
+      ...(promises ? { canCheckPromises: promises.snapshots.size > 0 && canCheckOrderPromises(this.db, user, order) } : {}),
       canEvaluate: isOrderOwner && (order.state === ORDER_STATE.AWAITING_REVIEW || Boolean(hiddenReason)),
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
       countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
@@ -230,6 +233,9 @@ export class Orders {
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
         discountShareCents: item.discount_share,
+        ...(promises ? { promiseSnapshot: promises.snapshots.get(item.sku_id) ?? null,
+          promiseChecks: isOrderOwner && user.identity === 'buyer' ? promises.checks.filter(check => check.skuId === item.sku_id)
+            .map(check => ({ fieldId: check.fieldId, result: check.result })) : [] } : {}),
         ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
@@ -251,7 +257,7 @@ export class Orders {
     const order = this.get(id)
     ensure(this.canRead(user, order), 403, '无权查看此订单')
     this.payments?.markViewed(order.id, user.id)
-    return this.present(order, user)
+    return this.present(order, user, false, true)
   }
   merchantDetail(user:User,id:string){
     ensure(user.identity==='merchant',403,'需要商家权限')
@@ -436,6 +442,7 @@ export class Orders {
       id, user.id, ORDER_STATE.AWAITING_PAYMENT, promotion.amountCents, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS, promotion.discountCents, JSON.stringify(promotion.rule))
     for (const [index,item] of items.entries()) {
       this.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count,return_policy,return_policy_reason,return_policy_note,return_policy_confirmed,discount_share) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count,item.return_policy,item.return_policy_reason,item.return_policy_note,Number(item.return_policy==='confirm-required'&&confirmed),shares[index]!)
+      freezeOrderItemPromise(this.db, id, item.id, item.product_id)
     }
     return id
   }
@@ -713,7 +720,7 @@ export class Orders {
       ensure(user.id === order.owner_id || this.canConfirmFamilyReceipt(user, order), 403, '仅下单人或代付订单中仍绑定的代收人可收货')
       ensure(order.state === ORDER_STATE.AWAITING_RECEIPT, 409, '订单尚未发货或已确认收货')
       this.db.run('UPDATE orders SET state=4,received_by=?,received_at=? WHERE id=? AND state=3', user.id, this.clock.now(), id)
-      return this.present(this.get(id), user)
+      return this.present(this.get(id), user, false, true)
     })
   }
   evaluate(user: User, id: string, score: number, content: string) {

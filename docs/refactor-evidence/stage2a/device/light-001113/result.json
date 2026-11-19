@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-19T00:11:13.4164615+08:00",
+  "completedAt": "2026-11-19T00:15:51.6293071+08:00",
+  "durationSeconds": 278.21,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "failed",
+  "counts": {
+    "skipped": 0,
+    "passed": 0,
+    "failed": 1
+  },
+  "packageSha256": "7432B664A0CADE383A7D69A647609D273364D97B754A912DF0ABD00D390A3862",
+  "scriptStackTrace": "at Wait-Text, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 83\r\nat Invoke-PromisesProbe, D:\\hdm-mall\\scripts\\device-promises-probe.ps1: line 114\r\nat <ScriptBlock>, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 2206",
+  "error": "Expected visible text not found: 已核对：符合"
+}

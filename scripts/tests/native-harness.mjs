@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import * as path from 'node:path'
 import vm from 'node:vm'
-import ts from '../../shoph5-vue3/node_modules/typescript/lib/typescript.js'
+import ts from '../../server/node_modules/typescript/lib/typescript.js'
 
 export const sourceOf = path => readFileSync(new URL('../../' + path, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
 export const deferred = () => {

@@ -21,6 +21,11 @@
       "pageSourceFile": "src/main/ets/presentation/views/ProductManageView.ets"
     },
     {
+      "name": "ProductPromisesView",
+      "buildFunction": "ProductPromisesViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductPromisesView.ets"
+    },
+    {
       "name": "ProductEditView",
       "buildFunction": "ProductEditViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/ProductEditView.ets"

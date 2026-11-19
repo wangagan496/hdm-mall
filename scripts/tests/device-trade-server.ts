@@ -6,6 +6,8 @@ import { mkdtempSync } from 'node:fs'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
 import { beijingDate } from '../../server/src/channel-bill.ts'
+import { createPromiseDriver } from '../../server/src/promises/extract.ts'
+const promisesProbe = process.argv.includes('--promises-probe')
 const paymentCallbackSecret = randomUUID()
 const channel = new MockPaymentChannel(paymentCallbackSecret)
 const refund = channel.refund.bind(channel)
@@ -27,10 +29,22 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
   return completion
 } })
 const uploadsPath = mkdtempSync(join(tmpdir(), 'hdm-device-trade-uploads-' + process.pid + '-'))
+const defaultPromiseDriver = createPromiseDriver({ mock: true })!
+const promiseDriver = promisesProbe ? { ...defaultPromiseDriver, model: 'device-promise-fixture-v2',
+  extract: async () => ({ status: 'completed' as const, tokens: 120, content: JSON.stringify({ claims: [
+    { fieldId: 'return-window', source: 'description', quote: '未拆封商品可在收货后7天内退换。', value: '7', unit: '天', condition: '收货后' },
+    { fieldId: 'dispatch-window', source: 'description', quote: '付款后48小时内发货。', value: '48', unit: '小时', condition: '付款后' },
+    { fieldId: 'material', source: 'description', quote: '面料成分为95%棉和5%氨纶。', value: '95%棉和5%氨纶', unit: null, condition: null },
+    { fieldId: 'gift', source: 'description', quote: '赠送收纳袋。', value: '赠送收纳袋', unit: null, condition: null },
+  ] }) }) } : defaultPromiseDriver
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
   paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'], clock: {now:()=>Date.now()+clockOffset},
+  promiseDriver,
   publicUrl: 'http://127.0.0.1:3000', uploadsPath })
 const product = f.testData.product({ name: '设备独立测试商品',
+  ...(promisesProbe ? {
+    category: '箱包', description: '未拆封商品可在收货后7天内退换。付款后48小时内发货。面料成分为95%棉和5%氨纶。赠送收纳袋。'
+  } : {}),
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
 const sku = product.skus[0]!
 const s1 = process.argv.includes('--s1')

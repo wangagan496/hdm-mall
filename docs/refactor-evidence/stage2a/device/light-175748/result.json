@@ -1,0 +1,42 @@
+{
+  "startedAt": "2026-11-19T17:57:48.3708543+08:00",
+  "completedAt": "2026-11-19T18:03:57.1977061+08:00",
+  "durationSeconds": 368.83,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "passed",
+  "counts": {
+    "failed": 0,
+    "passed": 1,
+    "skipped": 0
+  },
+  "packageSha256": "3416BC40053FAB06F51E6ED4C4F94573C35443556D91B29A079CA774F7B63D1B",
+  "merchantDraftConditionNeedsReview": true,
+  "afterSaleFormContainsFrozenQuote": true,
+  "orderId": "fe39b260-4e2a-4812-8599-7b34187a9175",
+  "theme": "light",
+  "dispatchMismatchTypeUnselected": true,
+  "materialMismatchPreselectedQualityReturn": true,
+  "receiptId": "a268a9f9-cb38-4388-b41f-0b6b1a355f88",
+  "knownFields": [
+    "return-window",
+    "dispatch-window",
+    "material"
+  ],
+  "orderSnapshotUnchanged": true,
+  "checks": [
+    {
+      "fieldId": "dispatch-window",
+      "result": "mismatch"
+    },
+    {
+      "fieldId": "material",
+      "result": "mismatch"
+    },
+    {
+      "fieldId": "return-window",
+      "result": "matches"
+    }
+  ],
+  "orderPromiseReviewReminderVisible": true
+}

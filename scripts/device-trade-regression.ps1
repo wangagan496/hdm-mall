@@ -1,6 +1,8 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [switch]$PromisesProbe, [ValidateSet('light','dark')][string]$PromisesTheme = '', [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
 $ErrorActionPreference = 'Stop'
-if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $QuotePreviewProbe, $ServiceProbe, $TradeNetworkProbe, $LogisticsProbe, $ReconcileProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if ($PromisesTheme -and -not $PromisesProbe) { throw 'PromisesTheme requires PromisesProbe.' }
+if (@($ShipProbe, $PaginationProbe, $RelationsProbe, $S3, $CancelRejectProbe, $CancelFamilyProbe, $S1, $S2, $NetworkProbe, $LoginProbe, $WriteNetworkProbe, $ProductProbe, $AfterSaleProbe, $InventoryProbe, $UxProbe, $ConsentProbe, $DeletionProbe, $AuditProbe, $ReturnPolicyProbe, $PromotionProbe, $QuotePreviewProbe, $ServiceProbe, $TradeNetworkProbe, $LogisticsProbe, $ReconcileProbe, $PromisesProbe | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one regression mode.' }
+if ($PromisesProbe -and -not $PromisesTheme) { $PromisesTheme = 'light' }
 if ($Target -ne '127.0.0.1:5555') { throw 'This project is allocated to Pura 90 API24 at 127.0.0.1:5555.' }
 $listener = Get-NetTCPConnection -LocalPort 5555 -State Listen
 $emulator = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
@@ -25,6 +27,7 @@ if ($QuotePreviewProbe) { $Mode = 'QuotePreviewProbe' }
 if ($ServiceProbe) { $Mode = 'ServiceProbe' }
 if ($LogisticsProbe) { $Mode = 'LogisticsProbe' }
 if ($ReconcileProbe) { $Mode = 'ReconcileProbe' }
+if ($PromisesProbe) { $Mode = 'PromisesProbe' }
 $Hdc = Join-Path $env:DEVECO_SDK_HOME 'default/openharmony/toolchains/hdc.exe'
 $Output = Join-Path $Root $(if ($TradeNetworkProbe) { '_device_acceptance/trade-network-probe' } elseif ($LoginProbe) { '_device_acceptance/login-probe' } elseif ($WriteNetworkProbe) { '_device_acceptance/write-network-probe' } elseif ($S1) { '_device_acceptance/s1' } elseif ($S2) { '_device_acceptance/s2' } elseif ($NetworkProbe) { '_device_acceptance/network-probe' } elseif ($CancelRejectProbe) { '_device_acceptance/cancel-reject' } elseif ($CancelFamilyProbe) { '_device_acceptance/cancel-family' } elseif ($S3) { '_device_acceptance/s3' } elseif ($RelationsProbe) { '_device_acceptance/relation-pagination' } elseif ($PaginationProbe) { '_device_acceptance/order-pagination' } else { '_device_acceptance/trade-regression' })
 if ($ProductProbe) { $Output = Join-Path $Root '_device_acceptance/product-probe' }
@@ -38,11 +41,13 @@ if ($QuotePreviewProbe) { $Output = Join-Path $Root 'docs/refactor-evidence/stag
 if ($ServiceProbe) { $Output = Join-Path $Root '_device_acceptance/service-probe' }
 if ($LogisticsProbe) { $Output = Join-Path $Root '_device_acceptance/logistics-probe' }
 if ($ReconcileProbe) { $Output = Join-Path $Root '_device_acceptance/reconcile-probe' }
+if ($PromisesProbe) { $Output = Join-Path $Root 'docs/refactor-evidence/stage2a/device' }
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
   if (Test-Path -LiteralPath $Output) { throw 'Archive already exists; use a new sequence.' }
 }
+if ($PromisesProbe) { $Output = Join-Path $Output "$PromisesTheme-$(Get-Date -Format 'HHmmss')" }
 New-Item -ItemType Directory -Path $Output -Force | Out-Null
 $Base = 'http://127.0.0.1:3103'
 $Password = ''
@@ -2151,6 +2156,7 @@ function Invoke-UxProbe {
 . (Join-Path $PSScriptRoot 'device-promotion-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-service-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-reconciliation-logistics-probe.ps1')
+. (Join-Path $PSScriptRoot 'device-promises-probe.ps1')
 . (Join-Path $PSScriptRoot 'device-trade-network-probe.ps1'); if ($TradeNetworkProbe) { return }
 $Existing = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
 $Existing | Set-Content -LiteralPath "$Output/ports-before.txt"
@@ -2169,9 +2175,11 @@ if ($LoginProbe) { $FixtureArguments += '--login-probe' }
 if ($InventoryProbe) { $FixtureArguments += '--inventory-probe' }
 if ($LogisticsProbe) { $FixtureArguments += '--logistics-probe' }
 if ($ReconcileProbe) { $FixtureArguments += '--reconcile-probe' }
+if ($PromisesProbe) { $FixtureArguments += '--promises-probe' }
 $Fixture = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList $FixtureArguments -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput "$Output/server.stdout.log" -RedirectStandardError "$Output/server.stderr.log"
 $Mapped = $false
 $OriginalRemoved = $false
+$OriginalPromisesTheme = ''
 try {
   $Ready = $false
   for ($Try = 0; $Try -lt 20; $Try++) {
@@ -2195,6 +2203,7 @@ try {
   Write-Output "CHECK installed package SHA256 $PackageSha256"
   if ($LogisticsProbe) { Invoke-LogisticsProbe; return }
   if ($ReconcileProbe) { Invoke-ReconcileProbe; return }
+  if ($PromisesProbe) { Invoke-PromisesProbe; return }
   if ($UxProbe) { Invoke-UxProbe; return }
   if ($ConsentProbe) { Invoke-ConsentProbe; return }
   if ($DeletionProbe) { Invoke-DeletionProbe; return }
@@ -2407,9 +2416,13 @@ try {
 } finally {
   try {
     try {
-      if ($Mapped) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3103') }
+      if ($OriginalPromisesTheme) { Restore-PromisesTheme }
     } finally {
-      if ($OriginalRemoved) { $null = Invoke-Hdc @('rport','tcp:3000','tcp:3000') }
+      try {
+        if ($Mapped) { $null = Invoke-Hdc @('fport','rm','tcp:3000','tcp:3103') }
+      } finally {
+        if ($OriginalRemoved) { $null = Invoke-Hdc @('rport','tcp:3000','tcp:3000') }
+      }
     }
   } finally {
     if (-not $Fixture.HasExited) { Stop-Process -Id $Fixture.Id; $Fixture.WaitForExit() }

@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
+import { removePromiseSchema } from './legacy-v20.ts'
 
 export function removeIdentitySchema(db: DatabaseSync) {
+  removePromiseSchema(db)
   if (db.prepare('PRAGMA user_version').get()!.user_version !== 20) return
   db.exec(`DROP TABLE identity_layouts; DROP TABLE user_identities; DROP TRIGGER users_role_read_only;
     ALTER TABLE sessions DROP COLUMN identity_revision; ALTER TABLE sessions DROP COLUMN identity;

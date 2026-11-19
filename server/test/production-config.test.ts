@@ -76,6 +76,25 @@ test('绕过环境读取直接启动也必须配置报价密钥，失败不创�
   } finally { await rm(directory, { recursive: true, force: true }) }
 })
 
+test('智谱密钥支持环境或单行文件，替身显式启用且排除密钥和正式环境', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'hdm-zhipu-secret-'))
+  const secretPath = join(directory, 'key.txt')
+  try {
+    assert.equal(readConfig({}).appOptions.promiseDriver, undefined)
+    assert.equal(readConfig({}).appOptions.promiseBudgetTokens, 50_000)
+    assert.equal(readConfig({ ZHIPU_BUDGET_TOKENS: '0' }).appOptions.promiseBudgetTokens, 0)
+    assert.throws(() => readConfig({ ZHIPU_API_KEY_FILE: secretPath }), /ZHIPU_API_KEY_FILE/)
+    const fixtureKey = 'test.key'
+    await writeFile(secretPath, fixtureKey + '\n')
+    assert.equal(readConfig({ ZHIPU_API_KEY: fixtureKey }).appOptions.promiseDriver?.model, 'glm-5.3-flash')
+    assert.equal(readConfig({ ZHIPU_API_KEY_FILE: secretPath }).appOptions.promiseDriver?.model, 'glm-5.3-flash')
+    assert.throws(() => readConfig({ ZHIPU_API_KEY: fixtureKey, ZHIPU_API_KEY_FILE: secretPath }), /只能填写一个/)
+    assert.ok(readConfig({ ZHIPU_MOCK: 'true' }).appOptions.promiseDriver)
+    assert.throws(() => readConfig({ ZHIPU_MOCK: 'true', ZHIPU_API_KEY_FILE: secretPath }), /不能与智谱密钥/)
+    assert.throws(() => readConfig({ ...production, ZHIPU_MOCK: 'true' }), /正式环境禁止/)
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
 test('可信代理下不同真实来源独立限流，伪造链左端不能绕过限制', async () => {
   const { app } = await proxyFixture(['127.0.0.1'])
   const login = (forwarded: string) => app.inject({ method: 'POST', url: '/login', remoteAddress: '127.0.0.1',

@@ -33,8 +33,12 @@ import { TestFixtures, registerFixtureRoutes } from './test-fixtures.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { validateRuntimeOptions, type RuntimeOptions } from './config.ts'
 import { inventoryPage, stockMovements, adjustStock, adjustmentReceipt } from './inventory.ts'
+import { PromiseExtractor, type PromiseDriver } from './promises/extract.ts'
+import { PromisePublications, confirmPromisesSchema, publishPromisesSchema } from './promises/publication.ts'
+import { checkOrderPromise, promiseCheckSchema } from './promises/order-promises.ts'
 
-export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel }
+export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
+  promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
 const idSchema = z.string().min(1).max(100)
 const credentials = z.object({ account: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/), password: z.string().min(8).max(128) })
 const pageSchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(10), orderState: z.coerce.number().int().min(0).max(6).default(0) })
@@ -52,6 +56,8 @@ export async function buildApp(options: AppOptions) {
   const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
   const layouts = new IdentityLayouts(db, clock)
   const products = new Products(db, options.publicUrl, clock)
+  const promisePublications = new PromisePublications(db, accounts, clock,
+    new PromiseExtractor(db, clock, options.promiseDriver, options.promiseBudgetTokens ?? 50_000, options.promiseTimeoutMs))
   const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
   const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
     (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret, db, clock) : undefined)
@@ -201,6 +207,15 @@ export async function buildApp(options: AppOptions) {
     return products.list(user, query.page, query.pageSize, query.status)
   })
   protectedRoute('GET', '/merchant/products/changes/:id', (req, user) => products.receipt(user, key(req)))
+  protectedRoute('GET', '/merchant/products/:id/promises', (req, user) => promisePublications.state(user, key(req)))
+  protectedRoute('POST', '/merchant/products/:id/promises/extract', (req, user) => {
+    z.strictObject({}).parse(req.body ?? {})
+    return promisePublications.extract(user, key(req))
+  })
+  protectedRoute('POST', '/merchant/products/:id/promises/confirmations', (req, user) => promisePublications.confirm(user, key(req), confirmPromisesSchema.parse(req.body)))
+  protectedRoute('POST', '/merchant/products/:id/promises/publish', (req, user) => promisePublications.publish(user, key(req), publishPromisesSchema.parse(req.body)))
+  protectedRoute('GET', '/merchant/products/:id/promises/receipts/:requestKey', (req, user) => promisePublications.receipt(user, key(req),
+    z.object({ requestKey: z.string().uuid() }).parse(req.params).requestKey))
   protectedRoute('GET', '/merchant/products/:id', (req, user) => products.detail(user, key(req)))
   protectedRoute('POST', '/merchant/products', (req, user) => products.create(user, productCreateSchema.parse(req.body)))
   protectedRoute('POST', '/merchant/products/images', async (req, user) => {
@@ -403,6 +418,7 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/cancel', (req, user) => orders.cancel(user, key(req)))
   protectedRoute('POST', '/member/order/:id/reminder', (req, user) => orders.remind(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/receipt', (req, user) => orders.receive(user, key(req)))
+  protectedRoute('PUT', '/member/order/:id/promise-check', (req, user) => checkOrderPromise(db, user, key(req), promiseCheckSchema.parse(req.body), clock.now()))
   protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req), () => accounts.assertCurrent(user)))
   protectedRoute('PUT', '/member/order/:id/evaluation', (req, user) => {
     const data = z.object({ score: z.number().int().min(1).max(5), content: z.string().trim().min(5).max(500) }).parse(req.body)

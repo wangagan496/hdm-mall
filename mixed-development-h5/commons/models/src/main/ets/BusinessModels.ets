@@ -2,6 +2,8 @@ import { AfterSale } from './AfterSaleModels'
 import { InvoiceInput, InvoiceDetail } from './InvoiceModels'
 import { ReturnPolicyFields } from './ReturnPolicy'
 import { Identity } from './IdentityContext'
+import { PromiseSnapshot } from './Promises'
+import { OrderPromiseCheck } from './OrderPromises'
 
 export interface HDMGoodsItem extends ReturnPolicyFields {
   id: string
@@ -239,6 +241,7 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  canCheckPromises?: boolean
   shippedAt?: number | null
   signedAt?: number | null
   receivedAt?: number | null
@@ -410,6 +413,8 @@ export interface OrderPage {
 }
 
 export interface OrderSku extends ReturnPolicyFields {
+  promiseSnapshot?: PromiseSnapshot | null
+  promiseChecks?: OrderPromiseCheck[]
   afterSaleKinds?: string[]
   afterSaleRemaining?: number
   discountShareCents?: number

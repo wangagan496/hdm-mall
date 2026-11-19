@@ -1,4 +1,10 @@
 export { TabItem } from './src/main/ets/TabItem'
+export { PromiseMismatch, OrderPromiseCheck, PromiseAfterSaleRoute, frozenOrderPromise } from './src/main/ets/OrderPromises'
+export {
+  PromiseTemplateField, PromiseSourceRef, PromiseEntry, PromiseDraft, PromiseSnapshot,
+  parsePromiseTemplateField, parsePromiseSourceRef, parsePromiseEntry, parsePromiseDraft, parsePromiseSnapshot,
+  legacyPromiseAfterSaleKind
+} from './src/main/ets/Promises'
 export { Identity, IdentityContext, IdentityLayout, IdentityLayoutUpdate, IdentitySwitch, parseIdentityContext, parseIdentityLayout } from './src/main/ets/IdentityContext'
 export { IdentityEntry, IDENTITY_ENTRIES } from './src/main/ets/IdentityEntries'
 export { sameIdentitySession } from './src/main/ets/BusinessModels'

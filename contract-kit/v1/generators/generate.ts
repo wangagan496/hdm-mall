@@ -7,6 +7,9 @@ import { quoteVectors } from '../vectors/quote-preview.ts'
 import { IdentitySchema, identitySchemas } from '../identity-context/schema.ts'
 import { identityEntries } from '../identity-context/entries.ts'
 import { identityVectors } from '../vectors/identity-context.ts'
+import { promiseEnums, promiseSchemas } from '../promises/schema.ts'
+import { LEGACY_PROMISE_TEMPLATE_VERSION, PROMISE_TEMPLATE_VERSION, QUALITY_RETURN_FIELDS, promiseCatalog } from '../promises/catalog.ts'
+import { promiseVectors } from '../vectors/promises.ts'
 
 // 故意只支持本协议用到的类型；不认识的 schema 立即失败，不能静默放宽解析。
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -100,4 +103,16 @@ const entriesSource = '// 生成文件勿手改；来源 contract-kit/v1/identit
     '\n  ]').join(',\n') + '\n}\n'
 writeGenerated('server/src/identity-context/entries.ts', entriesSource)
 writeGenerated(models + '/main/ets/IdentityEntries.ets', entriesSource)
-console.log('quote and identity contracts: ' + (checking ? 'verified' : 'generated') + ' TS + ArkTS')
+
+for (const { cues: _cues, ...field } of promiseCatalog) promiseSchemas.PromiseTemplateField.parse(field)
+writeGenerated('server/src/promises/templates/catalog.ts', '// 生成文件勿手改；来源 contract-kit/v1/promises/catalog.ts\n' +
+  `export const PROMISE_TEMPLATE_VERSION = ${JSON.stringify(PROMISE_TEMPLATE_VERSION)}\n` +
+  `export const promiseCatalog = ${JSON.stringify(promiseCatalog, null, 2)} as const\n`)
+writeGenerated('server/src/promises/generated.ts', renderContract('promises', promiseSchemas, promiseEnums))
+writeGenerated(models + '/main/ets/Promises.ets', renderContract('promises', promiseSchemas, promiseEnums, true) +
+  'export function legacyPromiseAfterSaleKind(templateVersion: string, fieldId: string): string {\n' +
+  '  return templateVersion === ' + JSON.stringify(LEGACY_PROMISE_TEMPLATE_VERSION) +
+  ' && ' + JSON.stringify(QUALITY_RETURN_FIELDS) + '.indexOf(fieldId) >= 0 ? "return-quality" : ""\n}\n')
+writeGenerated(models + '/test/PromiseVectors.test.ets', renderVectors('promises', 'Promises', 'promises',
+  promiseVectors.map(vector => ({ ...vector, parser: 'parse' + vector.kind }))))
+console.log('quote, identity and promise contracts: ' + (checking ? 'verified' : 'generated') + ' TS + ArkTS')

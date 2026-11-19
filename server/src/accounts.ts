@@ -14,7 +14,7 @@ const activeIdentities = `SELECT json_group_array(identity ORDER BY CASE identit
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')
 const sessionDigests = new WeakMap<User, string>()
 
-export function confirmationSubject(user: User, purpose: 'quote-preview' | 'return-policy'): string {
+export function confirmationSubject(user: User, purpose: 'quote-preview' | 'return-policy' | 'publish-promises'): string {
   const sessionDigest = sessionDigests.get(user)
   ensure(sessionDigest, 401, '请先登录')
   // Controllers may return this marker as part of a signed receipt. It cannot be used to authenticate.
