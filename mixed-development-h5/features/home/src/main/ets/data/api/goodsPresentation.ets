@@ -1,6 +1,10 @@
-import { HDMGoodsItem } from 'models'
+import { HDMGoodsItem, PromiseEntry } from 'models'
 import { Goods } from '../../domain/models'
 import { HDMSkuType, HDMSpec } from 'ui_components'
+
+export function missingSizeChartText(entries: PromiseEntry[]): string {
+  return entries.some(entry => entry.fieldId === 'size-chart' && entry.status === 'known') ? '' : '商家未说明尺码表'
+}
 
 // 未选全规格时，@ohmos/sku 只回传 picture 和 specsText，不保证有 id 或库存。
 export function normalizeSkuSelection(sku?: HDMSkuType): HDMSkuType {
@@ -212,6 +216,9 @@ export function normalizeGoodsPresentation(source: HDMGoodsItem, detail: Goods):
     orderNum: source.orderNum,
     originalPrice: source.originalPrice || detail.originalPrice,
     inventory: detail.inventory,
+    categoryName: detail.categoryName,
+    promiseSnapshot: detail.promiseSnapshot,
+    promiseSources: detail.promiseSources,
     returnPolicy: detail.returnPolicy,
     returnPolicyReason: detail.returnPolicyReason,
     returnPolicyNote: detail.returnPolicyNote,

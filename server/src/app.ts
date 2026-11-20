@@ -193,8 +193,8 @@ export async function buildApp(options: AppOptions) {
   for (const action of ['withdraw','ship-back']) protectedRoute('POST', `/member/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
   for (const action of ['approve','reject','inspect','refund-reject']) protectedRoute('POST', `/merchant/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
   protectedRoute('GET', '/merchant/after-sales', (req,user) => {
-    const query = pageSchema.pick({page:true,pageSize:true}).extend({state:z.enum(['pending','returned','all']).default('all')}).parse(req.query)
-    return afterSales.list(user,query.state,query.page,query.pageSize)
+    const query = pageSchema.pick({page:true,pageSize:true}).extend({state:z.enum(['pending','returned','all']).default('all'), sizeReason:z.enum(['personal-fit','size-promise-mismatch']).optional()}).parse(req.query)
+    return afterSales.list(user,query.state,query.page,query.pageSize,query.sizeReason)
   })
   protectedRoute('GET', '/merchant/settings/return-address', (_req,user) => afterSales.getAddress(user))
   protectedRoute('GET', '/merchant/settings/promotion', (_req,user) => {

@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-11-20T12:20:20.0505898+08:00",
+  "completedAt": "2026-11-20T12:22:20.0483945+08:00",
+  "durationSeconds": 120.0,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "passed",
+  "counts": {
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "packageSha256": "FE654E81AC75F89DB986BBE86D5D594F7105ADE7F304A3D9050836060AD747E8",
+  "afterSaleCount": 0,
+  "theme": "light",
+  "cases": [
+    {
+      "capture": "01-apparel",
+      "amount": 2371,
+      "label": "设备独立测试商品",
+      "orderId": "ac9b15cc-683f-4141-a9e9-ec93ab71d61d",
+      "sku": "80c5d03b-34ee-4251-8c32-913f794da6cf",
+      "applicable": true
+    },
+    {
+      "capture": "02-bag",
+      "amount": 1200,
+      "label": "轻便验收包",
+      "orderId": "9978612b-8b68-4857-8b80-751f09dfdcfc",
+      "sku": "dc71bb61-adda-46cb-8e18-c869493a3083",
+      "applicable": false
+    }
+  ],
+  "refundCount": 0
+}

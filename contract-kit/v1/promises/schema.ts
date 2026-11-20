@@ -10,6 +10,7 @@ export const PromiseSourceField = z.enum(['name', 'description', 'imageText', 's
 export const PromiseValueType = z.enum(['number', 'text'])
 export const PromiseUnit = z.enum([...new Set(promiseCatalog.flatMap(field => [...field.units]))])
 export const PromiseSuggestedAfterSaleKind = z.enum(['return-quality'])
+export const PromiseFitValue = z.enum(['偏大', '偏小', '标准'])
 
 const PromiseTemplateField = z.object({
   id: PromiseFieldId, label: text(100), units: z.array(PromiseUnit).max(12),
@@ -22,12 +23,22 @@ const PromiseSourceRef = z.object({
 }).strict()
 
 const PromiseEntry = z.object({
-  fieldId: PromiseFieldId, label: text(100), status: PromiseStatus, value: text(250).nullable(),
-  unit: PromiseUnit.nullable(), condition: text(250).nullable(), quote: text(250).nullable(),
+  fieldId: PromiseFieldId, label: text(100), status: PromiseStatus, value: text(4000).nullable(),
+  unit: PromiseUnit.nullable(), condition: text(250).nullable(), quote: text(4000).nullable(),
+  fit: PromiseFitValue.optional(),
   sourceRef: PromiseSourceRef.nullable(), sourceRevision: integer(1).nullable(),
   conditionNeedsReview: z.boolean().optional(),
   suggestedAfterSaleKind: PromiseSuggestedAfterSaleKind.optional(),
-}).strict()
+}).strict().refine(row => {
+  if (row.fieldId !== 'size-chart' && row.fieldId !== 'fit') {
+    return !row.fit && (row.quote?.length ?? 0) <= 250 && (row.value?.length ?? 0) <= 250
+  }
+  if (row.unit !== null || row.suggestedAfterSaleKind) return false
+  if (row.status !== 'known') return row.value === null && row.quote === null && !row.fit && !row.sourceRef && row.sourceRevision === null
+  if (!row.value || !row.quote || !row.sourceRef || !row.sourceRevision || !row.quote.includes(row.value)) return false
+  if (row.fieldId === 'size-chart') return !row.fit && row.value === row.quote
+  return !!row.fit && row.fit === (row.value === '正常尺码' ? '标准' : row.value)
+})
 
 const entries = z.array(PromiseEntry).max(30)
 const PromiseDraft = z.object({
@@ -40,4 +51,4 @@ const PromiseSnapshot = z.object({
 }).strict()
 
 export const promiseSchemas = { PromiseTemplateField, PromiseSourceRef, PromiseEntry, PromiseDraft, PromiseSnapshot }
-export const promiseEnums = { PromiseFieldId, PromiseStatus, PromiseSourceField, PromiseValueType, PromiseUnit, PromiseSuggestedAfterSaleKind }
+export const promiseEnums = { PromiseFieldId, PromiseStatus, PromiseSourceField, PromiseValueType, PromiseUnit, PromiseSuggestedAfterSaleKind, PromiseFitValue }

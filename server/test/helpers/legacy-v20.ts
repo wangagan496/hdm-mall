@@ -1,6 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite'
 
 export function removePromiseSchema(db: DatabaseSync) {
+  if (db.prepare('PRAGMA user_version').get()!.user_version === 23) {
+    db.exec('DROP INDEX after_sales_size_reason; ALTER TABLE after_sales DROP COLUMN size_reason; PRAGMA user_version=22;')
+  }
   if (db.prepare('PRAGMA user_version').get()!.user_version !== 22) return
   db.exec('DROP TABLE order_item_source_records; DROP TABLE source_materials; DROP TABLE product_source_batches; PRAGMA user_version=21;')
   if (db.prepare('PRAGMA user_version').get()!.user_version !== 21) return

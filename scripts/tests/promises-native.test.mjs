@@ -204,3 +204,21 @@ test('售后预选读取订单冻结的字段版本规则，类型不可用时�
   assert.equal(page.kind, 'return-quality')
   assert.equal(page.lines[0].count, 1)
 })
+test('尺码核对保留冻结原文，旧版和现版均不预选退货类型', () => {
+  const {legacyPromiseAfterSaleKind} = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/Promises.ets'))
+  const Page = pageMethods(native + 'cart/src/main/ets/presentation/views/AfterSaleApplyView.ets','AfterSaleApplyView',{},{
+    GlobalVariable:{}, legacyPromiseAfterSaleKind,
+    frozenOrderPromise:(snapshot,id)=>snapshot.entries.find(entry=>entry.fieldId===id),
+  })
+  for (const fieldId of ['fit','size-chart']) {
+    const page=new Page()
+    const entry={fieldId,label:'尺码',status:'known',quote:'下单时的原文'}
+    const sku={id:'sku',promiseChecks:[{fieldId,result:'mismatch'}],promiseSnapshot:{templateVersion:'promises-20261120-3',entries:[entry]}}
+    page.user={identity:'buyer'}
+    page.lines=[{skuId:'sku',count:1}]
+    page.applyMismatch({skus:[sku]}, {skuId:'sku',fieldId})
+    assert.equal(page.mismatchPromise.quote,entry.quote)
+    assert.equal(page.kind,'')
+    for (const version of ['promises-20261118-1','promises-20261118-2']) assert.equal(legacyPromiseAfterSaleKind(version,fieldId),'')
+  }
+})

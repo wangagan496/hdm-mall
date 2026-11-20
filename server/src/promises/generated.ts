@@ -1,10 +1,11 @@
 // 生成文件勿手改；来源 contract-kit/v1/promises/schema.ts
-export type PromiseFieldId = "return-window" | "dispatch-window" | "shipping-cost" | "warranty-window" | "gift" | "material" | "origin" | "specification" | "shelf-life" | "garment-care" | "bag-lining" | "shoe-sole"
+export type PromiseFieldId = "return-window" | "dispatch-window" | "shipping-cost" | "warranty-window" | "gift" | "material" | "origin" | "specification" | "shelf-life" | "garment-care" | "size-chart" | "fit" | "bag-lining" | "shoe-sole"
 export type PromiseStatus = "known" | "unknown" | "not-applicable"
 export type PromiseSourceField = "name" | "description" | "imageText" | "specifications" | "material"
 export type PromiseValueType = "number" | "text"
 export type PromiseUnit = "小时" | "天" | "周" | "个月" | "月" | "年" | "工作日"
 export type PromiseSuggestedAfterSaleKind = "return-quality"
+export type PromiseFitValue = "偏大" | "偏小" | "标准"
 export interface PromiseTemplateField {
   id: PromiseFieldId
   label: string
@@ -27,6 +28,7 @@ export interface PromiseEntry {
   unit: PromiseUnit | null
   condition: string | null
   quote: string | null
+  fit?: PromiseFitValue
   sourceRef: PromiseSourceRef | null
   sourceRevision: number | null
   conditionNeedsReview?: boolean
@@ -50,7 +52,7 @@ function validPromiseTemplateField(value: Object | null | undefined): boolean {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const row = value as PromiseTemplateField
   if (Object.keys(row).some((key: string) => ["id","label","units","valueType","categories","suggestedAfterSaleKind"].indexOf(key) < 0)) return false
-  return (typeof row.id === 'string' && ["return-window","dispatch-window","shipping-cost","warranty-window","gift","material","origin","specification","shelf-life","garment-care","bag-lining","shoe-sole"].indexOf(row.id) >= 0) &&
+  return (typeof row.id === 'string' && ["return-window","dispatch-window","shipping-cost","warranty-window","gift","material","origin","specification","shelf-life","garment-care","size-chart","fit","bag-lining","shoe-sole"].indexOf(row.id) >= 0) &&
     (typeof row.label === 'string' && row.label.length >= 1 && row.label.length <= 100) &&
     (Array.isArray(row.units) && row.units.length <= 12 && row.units.every((item: PromiseUnit) => (typeof item === 'string' && ["小时","天","周","个月","月","年","工作日"].indexOf(item) >= 0))) &&
     (typeof row.valueType === 'string' && ["number","text"].indexOf(row.valueType) >= 0) &&
@@ -75,18 +77,20 @@ export function parsePromiseSourceRef(text: string): PromiseSourceRef | null {
 function validPromiseEntry(value: Object | null | undefined): boolean {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const row = value as PromiseEntry
-  if (Object.keys(row).some((key: string) => ["fieldId","label","status","value","unit","condition","quote","sourceRef","sourceRevision","conditionNeedsReview","suggestedAfterSaleKind"].indexOf(key) < 0)) return false
-  return (typeof row.fieldId === 'string' && ["return-window","dispatch-window","shipping-cost","warranty-window","gift","material","origin","specification","shelf-life","garment-care","bag-lining","shoe-sole"].indexOf(row.fieldId) >= 0) &&
+  if (Object.keys(row).some((key: string) => ["fieldId","label","status","value","unit","condition","quote","fit","sourceRef","sourceRevision","conditionNeedsReview","suggestedAfterSaleKind"].indexOf(key) < 0)) return false
+  return (typeof row.fieldId === 'string' && ["return-window","dispatch-window","shipping-cost","warranty-window","gift","material","origin","specification","shelf-life","garment-care","size-chart","fit","bag-lining","shoe-sole"].indexOf(row.fieldId) >= 0) &&
     (typeof row.label === 'string' && row.label.length >= 1 && row.label.length <= 100) &&
     (typeof row.status === 'string' && ["known","unknown","not-applicable"].indexOf(row.status) >= 0) &&
-    (row.value === null || (typeof row.value === 'string' && row.value.length >= 1 && row.value.length <= 250)) &&
+    (row.value === null || (typeof row.value === 'string' && row.value.length >= 1 && row.value.length <= 4000)) &&
     (row.unit === null || (typeof row.unit === 'string' && ["小时","天","周","个月","月","年","工作日"].indexOf(row.unit) >= 0)) &&
     (row.condition === null || (typeof row.condition === 'string' && row.condition.length >= 1 && row.condition.length <= 250)) &&
-    (row.quote === null || (typeof row.quote === 'string' && row.quote.length >= 1 && row.quote.length <= 250)) &&
+    (row.quote === null || (typeof row.quote === 'string' && row.quote.length >= 1 && row.quote.length <= 4000)) &&
+    (row.fit === undefined || (typeof row.fit === 'string' && ["偏大","偏小","标准"].indexOf(row.fit) >= 0)) &&
     (row.sourceRef === null || validPromiseSourceRef(row.sourceRef)) &&
     (row.sourceRevision === null || (typeof row.sourceRevision === 'number' && Number.isSafeInteger(row.sourceRevision) && row.sourceRevision >= 1 && row.sourceRevision <= 9007199254740991)) &&
     (row.conditionNeedsReview === undefined || typeof row.conditionNeedsReview === 'boolean') &&
-    (row.suggestedAfterSaleKind === undefined || (typeof row.suggestedAfterSaleKind === 'string' && ["return-quality"].indexOf(row.suggestedAfterSaleKind) >= 0))
+    (row.suggestedAfterSaleKind === undefined || (typeof row.suggestedAfterSaleKind === 'string' && ["return-quality"].indexOf(row.suggestedAfterSaleKind) >= 0)) &&
+    ((row.fieldId === "size-chart" || row.fieldId === "fit") ? (row.unit === null && !row.suggestedAfterSaleKind && (row.status !== "known" ? row.value === null && row.quote === null && !row.fit && !row.sourceRef && row.sourceRevision === null : !!row.value && !!row.quote && !!row.sourceRef && !!row.sourceRevision && row.quote.includes(row.value) && (row.fieldId === "size-chart" ? !row.fit && row.value === row.quote : !!row.fit && row.fit === (row.value === "正常尺码" ? "标准" : row.value)))) : (!row.fit && (!row.quote || row.quote.length <= 250) && (!row.value || row.value.length <= 250)))
 }
 export function parsePromiseEntry(text: string): PromiseEntry | null {
   try { const value = JSON.parse(text) as PromiseEntry; return validPromiseEntry(value) ? value : null } catch { return null }

@@ -112,8 +112,16 @@ for (const { cues: _cues, ...field } of promiseCatalog) promiseSchemas.PromiseTe
 writeGenerated('server/src/promises/templates/catalog.ts', '// 生成文件勿手改；来源 contract-kit/v1/promises/catalog.ts\n' +
   `export const PROMISE_TEMPLATE_VERSION = ${JSON.stringify(PROMISE_TEMPLATE_VERSION)}\n` +
   `export const promiseCatalog = ${JSON.stringify(promiseCatalog, null, 2)} as const\n`)
-writeGenerated('server/src/promises/generated.ts', renderContract('promises', promiseSchemas, promiseEnums))
-writeGenerated(models + '/main/ets/Promises.ets', renderContract('promises', promiseSchemas, promiseEnums, true) +
+const promiseChecks = { PromiseEntry: [
+  '((row.fieldId === "size-chart" || row.fieldId === "fit") ? ' +
+    '(row.unit === null && !row.suggestedAfterSaleKind && (row.status !== "known" ? ' +
+    'row.value === null && row.quote === null && !row.fit && !row.sourceRef && row.sourceRevision === null : ' +
+    '!!row.value && !!row.quote && !!row.sourceRef && !!row.sourceRevision && row.quote.includes(row.value) && ' +
+    '(row.fieldId === "size-chart" ? !row.fit && row.value === row.quote : !!row.fit && row.fit === (row.value === "正常尺码" ? "标准" : row.value)))) : ' +
+    '(!row.fit && (!row.quote || row.quote.length <= 250) && (!row.value || row.value.length <= 250)))',
+] }
+writeGenerated('server/src/promises/generated.ts', renderContract('promises', promiseSchemas, promiseEnums, false, promiseChecks))
+writeGenerated(models + '/main/ets/Promises.ets', renderContract('promises', promiseSchemas, promiseEnums, true, promiseChecks) +
   'export function legacyPromiseAfterSaleKind(templateVersion: string, fieldId: string): string {\n' +
   '  return templateVersion === ' + JSON.stringify(LEGACY_PROMISE_TEMPLATE_VERSION) +
   ' && ' + JSON.stringify(QUALITY_RETURN_FIELDS) + '.indexOf(fieldId) >= 0 ? "return-quality" : ""\n}\n')

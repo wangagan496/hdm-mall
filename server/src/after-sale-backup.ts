@@ -19,6 +19,13 @@ export function inspectAfterSales(db: DatabaseSync): string[] {
     const items = db.prepare(`SELECT a.*,i.price,i.count AS bought FROM after_sale_items a LEFT JOIN order_items i ON i.order_id=? AND i.sku_id=a.sku_id WHERE a.after_sale_id=?`).all(sale.order_id!,sale.id!)
     valid &&= items.length > 0 && items.every(i => i.price !== null && Number(i.count) <= Number(i.bought)) && items.reduce((sum,i) => sum + Number(i.price) * Number(i.count) - (version >= 16 ? Number(i.discount_share) : 0),0) === sale.amount
     const actions = db.prepare('SELECT * FROM after_sale_actions WHERE after_sale_id=? ORDER BY rowid').all(sale.id!)
+    if (version >= 23) {
+      const request = actions.find(action => action.action === 'request')
+      const selected = request ? JSON.parse(String(request.request_body)).sizeReason : undefined
+      const linked = db.prepare('SELECT c.field_id FROM after_sale_promise_links l JOIN order_promise_checks c ON c.id=l.check_id WHERE l.after_sale_id=?').get(sale.id!)
+      const expected = linked && ['fit','size-chart'].includes(String(linked.field_id)) ? 'size-promise-mismatch' : selected ?? null
+      valid &&= (!selected || selected === 'personal-fit' && !linked) && sale.size_reason === expected
+    }
     const inspections = actions.filter(a => a.action === 'inspect' || a.action === 'refund-reject')
     valid &&= inspections.length <= 1
     const inspection = inspections.find(a => a.action === 'inspect')

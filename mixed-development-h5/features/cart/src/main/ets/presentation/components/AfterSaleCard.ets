@@ -3,7 +3,7 @@ import { util } from '@kit.ArkTS'
 import { RequestAxios } from 'network'
 import { AfterSalePhotos, pickProductImage } from 'ui_components'
 import { GlobalVariable } from 'constants'
-import { HDMUser, AfterSale, AfterSaleBody, AfterSalePhoto, afterSaleStatus, afterSaleKind, formatBeijingTime, amountInputCents, returnShippingError, shippingCompensationText } from 'models'
+import { HDMUser, AfterSale, AfterSaleBody, AfterSalePhoto, afterSaleStatus, afterSaleKind, sizeReasonLabel, formatBeijingTime, amountInputCents, returnShippingError, shippingCompensationText } from 'models'
 import { afterSaleActions } from 'storage'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
 
@@ -98,6 +98,9 @@ export struct AfterSaleCard {
       if(this.sale.state==='returned') {
         if(this.owner){Text((this.sale.carrier||'')+' '+(this.sale.trackingNo||'')).fontColor($r('[ui_components].color.text'))}
         Text(this.deadlineText()).fontColor($r('[ui_components].color.gray')).fontSize(13)
+      }
+      if (sizeReasonLabel(this.sale.sizeReason)) {
+        Text('退货原因：' + sizeReasonLabel(this.sale.sizeReason)).fontColor($r('[ui_components].color.text')).width('100%')
       }
       if(this.sale.rejectReason){Text(this.sale.rejectReason).fontColor($r('[ui_components].color.red')).width('100%')}
       if(this.owner&&this.sale.shippingAmountCents){Text('已填写运费 ¥'+(this.sale.shippingAmountCents/100).toFixed(2)).fontColor($r('[ui_components].color.text'))}

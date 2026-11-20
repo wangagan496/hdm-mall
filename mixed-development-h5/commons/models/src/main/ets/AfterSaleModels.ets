@@ -1,9 +1,10 @@
 import { ReturnPolicyFields, returnConditionError } from './ReturnPolicy'
 import { PromiseMismatch } from './OrderPromises'
 export interface AfterSaleAddress { receiver: string; contact: string; address: string; fullLocation?: string }
-export interface AfterSaleLine extends ReturnPolicyFields { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number; pendingInspectionCount?: number; rejectedCount?: number; afterSaleKinds?: string[]; conditionDeclared?: string; discountShareCents?: number; boughtCount?: number }
+export interface AfterSaleLine extends ReturnPolicyFields { skuId: string; name: string; spec: string; priceCents: number; count: number; remaining?: number; restockCount?: number; pendingInspectionCount?: number; rejectedCount?: number; afterSaleKinds?: string[]; conditionDeclared?: string; discountShareCents?: number; boughtCount?: number; sizeApplicable?: boolean }
 export interface AfterSaleImage { imageId: string; path: string }
 export interface AfterSale {
+  sizeReason?: string | null
   id: string; orderId: string; sequence: number; kind: string; state: string; amountCents: number; payerAccount: string
   amountMessage?: string; shippingAmountCents?: number | null; shippingCompensationCents?: number | null; shippingAdjustmentReason?: string
   shippingRefundId?: string | null; shippingRefundState?: string; shippingImage?: AfterSaleImage | null
@@ -16,6 +17,7 @@ export interface AfterSale {
 export interface AfterSaleQuantity { skuId: string; count: number; conditionDeclared?: string }
 export interface AfterSaleRestock { skuId: string; restockCount: number }
 export interface AfterSaleBody {
+  sizeReason?: string
   promiseMismatch?: PromiseMismatch
   requestKey?: string; kind?: string; description?: string; items?: AfterSaleQuantity[] | AfterSaleRestock[]; imageIds?: string[]
   returnAddress?: AfterSaleAddress; reason?: string; carrier?: string; trackingNo?: string; shippingAmountCents?: number
@@ -79,5 +81,10 @@ export function afterSaleStatus(sale: AfterSale): string {
   if (sale.state === 'closed') return '已关闭'
   if (sale.state === 'refund-rejected') return '商家拒绝退款'
   return '售后处理中'
+}
+export function sizeReasonLabel(reason: string | null | undefined): string {
+  if (reason === 'personal-fit') return '个人穿着不合适'
+  if (reason === 'size-promise-mismatch') return '尺码与承诺不符'
+  return ''
 }
 export function afterSaleKind(kind: string): string { return kind === 'return-no-reason' ? '七日无理由退货' : kind === 'return-quality' ? '质量问题退货' : '少件漏发仅退款' }

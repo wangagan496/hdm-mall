@@ -238,6 +238,7 @@ export class Orders {
           promiseChecks: isOrderOwner && user.identity === 'buyer' ? promises.checks.filter(check => check.skuId === item.sku_id)
             .map(check => ({ fieldId: check.fieldId, result: check.result })) : [] } : {}),
         ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
+        sizeApplicable: afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.sizeApplicable ?? false,
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
       evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created, hiddenReason } : null,

@@ -22,7 +22,7 @@ export struct OrderPromisesCard {
   private value(entry: PromiseEntry): string {
     if (entry.status === 'not-applicable') return '不适用'
     if (entry.status === 'unknown') return '商家未说明'
-    return (entry.value || '') + (entry.unit || '')
+    return (entry.fit || entry.value || '') + (entry.unit || '')
   }
 
   build() {
@@ -30,9 +30,9 @@ export struct OrderPromisesCard {
       Text(this.sku.name + (this.sku.attrsText ? ' · ' + this.sku.attrsText : ''))
         .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text')).width('100%')
       if (this.snapshot) {
-        ForEach(this.snapshot.entries, (entry: PromiseEntry) => {
+        ForEach(this.snapshot.entries.filter(entry => entry.status !== 'not-applicable' || (entry.fieldId !== 'size-chart' && entry.fieldId !== 'fit')), (entry: PromiseEntry) => {
           Column({ space: 6 }) {
-            Text(entry.label + '：' + this.value(entry)).id('order-promise-value-' + this.sku.id + '-' + entry.fieldId)
+            Text(entry.fieldId === 'size-chart' && entry.value?.startsWith('尺码表') ? entry.value : entry.label + '：' + this.value(entry)).id('order-promise-value-' + this.sku.id + '-' + entry.fieldId)
               .fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
             if (entry.condition) {
               Text('适用条件：' + entry.condition).fontSize(13).fontColor($r('[ui_components].color.text')).width('100%')
@@ -42,7 +42,7 @@ export struct OrderPromisesCard {
                 .fontSize(13).fontColor($r('[ui_components].color.text')).width('100%')
             }
             if (entry.quote) {
-              if (entry.sourceRef?.field !== 'material') {
+              if (entry.sourceRef?.field !== 'material' && entry.fieldId !== 'size-chart') {
                 Text('商品资料原文：' + entry.quote)
                   .fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
               }
@@ -50,7 +50,8 @@ export struct OrderPromisesCard {
                 controlId: 'order-promise-source-' + this.sku.id + '-' + entry.fieldId })
             }
             if (this.checked(entry.fieldId)) {
-              Text(this.checked(entry.fieldId) === 'matches' ? '已核对：符合' : '已核对：不符')
+              Text(this.checked(entry.fieldId) === 'matches' ? '已核对：符合' :
+                (entry.fieldId === 'fit' || entry.fieldId === 'size-chart' ? '已核对：尺码与承诺不符' : '已核对：不符'))
                 .id('order-promise-checked-' + this.sku.id + '-' + entry.fieldId)
                 .fontSize(13).fontColor($r('[ui_components].color.text')).width('100%')
             }
@@ -59,7 +60,7 @@ export struct OrderPromisesCard {
                 Button('符合').id('order-promise-matches-' + this.sku.id + '-' + entry.fieldId)
                   .backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text'))
                   .enabled(!this.busy).onClick(() => this.onCheck(this.sku.id, entry.fieldId, 'matches'))
-                Button('不符').id('order-promise-mismatch-' + this.sku.id + '-' + entry.fieldId)
+                Button(entry.fieldId === 'fit' || entry.fieldId === 'size-chart' ? '尺码与承诺不符' : '不符').id('order-promise-mismatch-' + this.sku.id + '-' + entry.fieldId)
                   .backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.red'))
                   .enabled(!this.busy).onClick(() => this.onCheck(this.sku.id, entry.fieldId, 'mismatch'))
               }.width('100%')

@@ -51,8 +51,8 @@ async function fixture(databasePath = ':memory:', uploadsPath = './unused', prom
     const res = await call('PUT', `/merchant/products/${product.id}`, { requestKey: randomUUID(), expectedRevision: revision, description }, merchant.token)
     assert.equal(res.status, 200, JSON.stringify(res))
   }
-  const order = async (both = false) => {
-    const goods = (both ? [sku, second] : [sku]).map(value => ({ skuId: value.id, count: 1 }))
+  const order = async (both = false, selected = both ? [sku, second] : [sku]) => {
+    const goods = selected.map(value => ({ skuId: value.id, count: 1 }))
     const res = await call('POST', '/member/order', { source: 'buy-now', addressId: delivery.id,
       requestKey: randomUUID(), expectedAmountCents: 2300 * goods.length, goods })
     assert.equal(res.status, 200, JSON.stringify(res))
@@ -61,6 +61,40 @@ async function fixture(databasePath = ':memory:', uploadsPath = './unused', prom
   const detail = async (orderId: string) => (await call('GET', `/member/order/${orderId}`)).result
   return { ctx, buyer, merchant, other, product, sku, second, base, call, state, extract, decisions, confirm, publish, edit,
     order, detail, advance: (ms: number) => { now += ms } }
+}
+
+for (const [label, category, kind, mixed, accepted] of [
+  ['少件', '服饰', 'refund-missing', false, false],
+  ['质量', '鞋靴', 'return-quality', false, false],
+  ['单独箱包', '箱包', 'return-no-reason', false, false],
+  ['服饰与箱包', '服饰', 'return-no-reason', true, false],
+  ['服饰', '服饰', 'return-no-reason', false, true],
+  ['鞋靴', '鞋靴', 'return-no-reason', false, true],
+] as const) {
+  test('个人穿着不合适：' + label, async () => {
+    const f = await fixture()
+    try {
+      f.ctx.db.run('UPDATE products SET category=? WHERE id=?', category, f.product.id)
+      const selected = [f.sku]
+      if (mixed) selected.push(f.ctx.testData.product({ name: '混选包', category: '箱包', skus: [{spec:'大号',priceCents:2300,stock:3}] }).skus[0]!)
+      const id = await f.order(false, selected), path = '/member/order/' + id
+      assert.equal((await f.call('POST',path+'/mock-pay',{amountCents:2300*selected.length})).status,200)
+      assert.equal((await f.call('POST','/merchant/orders/'+id+'/ship',{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
+      const detail = await f.detail(id)
+      for (const sku of selected) {
+        assert.equal(detail.skus.find((line:{id:string})=>line.id===sku.id)?.sizeApplicable, sku.id===f.sku.id && category!=='箱包')
+      }
+      const response = await f.call('POST',path+'/after-sales',{requestKey:randomUUID(),kind,description:'个人穿着不合适',sizeReason:'personal-fit',
+        items:selected.map(sku=>({skuId:sku.id,count:1}))})
+      assert.equal(response.status, accepted ? 200 : 400)
+      if (!accepted) assert.match(JSON.stringify(response), /七日无理由|服饰|鞋靴/)
+      assert.deepEqual(f.ctx.db.all<{size_reason:string}>('SELECT size_reason FROM after_sales').map(row=>row.size_reason), accepted ? ['personal-fit'] : [])
+      if (mixed) {
+        const onlyApparel = await f.call('POST',path+'/after-sales',{requestKey:randomUUID(),kind,sizeReason:'personal-fit',items:[{skuId:f.sku.id,count:1}]})
+        assert.equal(onlyApparel.status,200)
+      }
+    } finally { await f.ctx.app.close() }
+  })
 }
 
 test('承诺发布必须逐条选择，凭据绑定当前店主登录，回执可重查且只发布一次', async () => {
@@ -177,7 +211,7 @@ test('售后预选规则随字段目录版本冻结到发布回执和订单', as
     const result = await f.publish(await f.confirm(draft))
     assert.equal(result.status, 200)
     const receipt = result.result as PromiseSnapshot
-    assert.equal(receipt.templateVersion, 'promises-20261118-2')
+    assert.equal(receipt.templateVersion, 'promises-20261120-3')
     const orderId = await f.order()
     const frozen = (await f.detail(orderId)).skus[0]!.promiseSnapshot as PromiseSnapshot
     assert.deepEqual(frozen.entries.find(entry => entry.fieldId === 'bag-lining'),
@@ -223,7 +257,7 @@ test('仅收货买家可核对，售后保存原文引用并可随备份恢复',
     assert.deepEqual((await sale()).promiseMismatch, stored)
 
     const backup = await createBackup({ databasePath, uploadsPath, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 22)
+    assert.equal(backup.manifest.schemaVersion, 23)
     for (const table of promiseTables) assert.ok(backup.counts[table]! > 0, table)
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const restoredDb = new Database(join(restored.root, 'mall.sqlite'))
@@ -234,4 +268,49 @@ test('仅收货买家可核对，售后保存原文引用并可随备份恢复',
     f.ctx.db.run("UPDATE order_item_promise_snapshots SET snapshot=json_set(snapshot,'$.entries[0].value','99') WHERE order_id=?", orderId)
     await assert.rejects(createBackup({ databasePath, uploadsPath, destination: join(root, 'invalid-backup') }), /承诺快照/)
   } finally { await f.ctx.app.close(); await rm(root, { recursive: true, force: true }) }
+})
+test('尺码新版不改旧单、两种售后原因单独查询和恢复', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'size-reason-'))
+  const databasePath = join(root,'data','mall.sqlite'), uploadsPath = join(root,'uploads')
+  const f = await fixture(databasePath,uploadsPath)
+  try {
+    f.ctx.db.run("UPDATE products SET category='服饰',description=? WHERE id=?", '尺码表：M码 胸围96厘米。版型偏大，建议选小一码。', f.product.id)
+    const first = await f.extract()
+    const published = (await f.publish(await f.confirm(first))).result as PromiseSnapshot
+    const orders = [await f.order(),await f.order()]
+    await f.edit(first.productRevision, '版型标准。')
+    assert.equal((await f.call('POST',f.base+'/confirmations',{draftId:first.id,decisions:f.decisions(first)},f.merchant.token)).reason,'PROMISE_DRAFT_STALE')
+    const next = (await f.publish(await f.confirm(await f.extract()))).result as PromiseSnapshot
+    assert.equal(next.entries.find(e=>e.fieldId==='fit')?.fit,'标准')
+    for(const [index,id] of orders.entries()) {
+      const path='/member/order/'+id
+      assert.deepEqual((await f.detail(id)).skus[0].promiseSnapshot,published)
+      assert.equal((await f.call('POST',path+'/mock-pay',{amountCents:2300})).status,200)
+      assert.equal((await f.call('POST','/merchant/orders/'+id+'/ship',{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
+      assert.equal((await f.call('PUT',path+'/receipt')).status,200)
+      const ref={skuId:f.sku.id,fieldId:'fit'}
+      if(index===0) assert.equal((await f.call('PUT',path+'/promise-check',{...ref,result:'mismatch'})).status,200)
+      const application = {requestKey:randomUUID(),kind:'return-no-reason',description:'穿着不合适',items:[{skuId:f.sku.id,count:1}],
+        ...(index===0?{promiseMismatch:ref}:{sizeReason:'personal-fit'})}
+      if (index===0) {
+        const both = await f.call('POST',path+'/after-sales',{...application,sizeReason:'personal-fit'})
+        assert.equal(both.status,400)
+        assert.match(JSON.stringify(both),/请选择一个退货原因/)
+      }
+      const result=await f.call('POST',path+'/after-sales',application)
+      assert.equal(result.status,200,JSON.stringify(result))
+      const reason=index===0?'size-promise-mismatch':'personal-fit'
+      const sale=(await f.detail(id)).afterSales[0]
+      assert.equal(sale.sizeReason,reason)
+      if(index===0) assert.equal(sale.promiseMismatch.quote,'版型偏大，建议选小一码')
+      const list=await f.call('GET','/merchant/after-sales?sizeReason='+reason,undefined,f.merchant.token)
+      assert.deepEqual(list.result.items.map((item:{orderId:string})=>item.orderId),[id])
+    }
+    const backup=await createBackup({databasePath,uploadsPath,destination:join(root,'backup')})
+    const restored=await restoreBackup({backupPath:backup.root,destination:join(root,'restored')})
+    const db=new Database(join(restored.root,'mall.sqlite'))
+    try {
+      assert.deepEqual(db.all<{size_reason:string}>('SELECT size_reason FROM after_sales ORDER BY rowid').map(row=>row.size_reason),['size-promise-mismatch','personal-fit'])
+    } finally { db.close() }
+  } finally {await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })

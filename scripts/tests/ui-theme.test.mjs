@@ -7,6 +7,7 @@ import { resolve } from 'node:path'
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const components = [
   'mixed-development-h5/features/cart/src/main/ets/presentation/components/QuotePanel.ets',
+  'mixed-development-h5/features/home/src/main/ets/presentation/components/GoodsDetail.ets',
   'mixed-development-h5/features/mine/src/main/ets/presentation/views/ModuleBayView.ets',
   'mixed-development-h5/features/mine/src/main/ets/presentation/views/IdentityLayoutView.ets',
   'mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets',

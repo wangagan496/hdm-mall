@@ -209,23 +209,27 @@ export struct ProductPromisesView {
     }
   }
 
+  private visibleEntries(entries: PromiseEntry[]): PromiseEntry[] {
+    return entries.filter(entry => entry.status !== 'not-applicable' || (entry.fieldId !== 'size-chart' && entry.fieldId !== 'fit'))
+  }
+
   private valueText(entry: PromiseEntry): string {
     if (entry.status === 'not-applicable') return '不适用'
     if (entry.status === 'unknown') return '商品资料未说明'
-    return (entry.value || '') + (entry.unit || '')
+    return (entry.fit || entry.value || '') + (entry.unit || '')
   }
 
   @Builder
   private Entry(entry: PromiseEntry, editable: boolean) {
     Column({ space: 6 }) {
-      Text(entry.label + '：' + this.valueText(entry)).fontSize(15).fontColor($r('[ui_components].color.text'))
+      Text(entry.fieldId === 'size-chart' && entry.value?.startsWith('尺码表') ? entry.value : entry.label + '：' + this.valueText(entry)).fontSize(15).fontColor($r('[ui_components].color.text'))
       if (entry.condition) {
         Text('适用条件：' + entry.condition).fontSize(14).fontColor($r('[ui_components].color.text'))
       }
       if (entry.conditionNeedsReview) {
         Text('请看原文核对').fontSize(14).fontColor($r('[ui_components].color.text'))
       }
-      if (entry.quote) {
+      if (entry.quote && (entry.fieldId !== 'size-chart' || entry.sourceRef?.field === 'material')) {
         Text((entry.sourceRef?.field === 'material' ? '材料说明原文 · 第 ' + entry.sourceRevision + ' 版：' : '商品资料原文：') + entry.quote)
           .fontSize(13).fontColor($r('[ui_components].color.gray'))
       }
@@ -271,7 +275,7 @@ export struct ProductPromisesView {
                 ForEach(this.draft.issues, (issue: string) => {
                   Text(issue).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%')
                 })
-                ForEach(this.draft.entries, (entry: PromiseEntry) => {
+                ForEach(this.visibleEntries(this.draft.entries), (entry: PromiseEntry) => {
                   this.Entry(entry, true)
                 }, (entry: PromiseEntry) => entry.fieldId + ':' + this.decision(entry.fieldId) + ':' + (this.draft?.id || ''))
                 Button('发布已确认的承诺').id('product-promises-publish').width('100%')
@@ -283,7 +287,7 @@ export struct ProductPromisesView {
             Column({ space: 8 }) {
               Text('当前已发布的承诺').id('product-promises-published').fontSize(18).fontColor($r('[ui_components].color.text'))
               if (this.published) {
-                ForEach(this.published.entries, (entry: PromiseEntry) => {
+                ForEach(this.visibleEntries(this.published.entries), (entry: PromiseEntry) => {
                   this.Entry(entry, false)
                 }, (entry: PromiseEntry) => entry.fieldId + ':' + (this.published?.receiptId || ''))
               } else if (!this.busy) {

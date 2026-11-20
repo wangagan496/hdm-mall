@@ -1,5 +1,5 @@
 // 生成文件勿手改；来源 contract-kit/v1/promises/catalog.ts
-export const PROMISE_TEMPLATE_VERSION = "promises-20261118-2"
+export const PROMISE_TEMPLATE_VERSION = "promises-20261120-3"
 export const promiseCatalog = [
   {
     "id": "return-window",
@@ -201,6 +201,46 @@ export const promiseCatalog = [
       "水洗",
       "干洗",
       "漂白"
+    ],
+    "suggestedAfterSaleKind": null
+  },
+  {
+    "id": "size-chart",
+    "label": "尺码表",
+    "units": [],
+    "valueType": "text",
+    "categories": [
+      "服饰",
+      "鞋靴"
+    ],
+    "cues": [
+      "尺码",
+      "尺码表",
+      "尺码对照",
+      "脚长",
+      "胸围",
+      "腰围",
+      "臀围",
+      "衣长",
+      "肩宽"
+    ],
+    "suggestedAfterSaleKind": null
+  },
+  {
+    "id": "fit",
+    "label": "版型",
+    "units": [],
+    "valueType": "text",
+    "categories": [
+      "服饰",
+      "鞋靴"
+    ],
+    "cues": [
+      "偏大",
+      "偏小",
+      "标准",
+      "正常尺码",
+      "版型"
     ],
     "suggestedAfterSaleKind": null
   },

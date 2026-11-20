@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-20T11:11:30.3523581+08:00",
+  "completedAt": "2026-11-20T11:13:25.3864013+08:00",
+  "durationSeconds": 115.03,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "failed",
+  "counts": {
+    "skipped": 0,
+    "passed": 0,
+    "failed": 1
+  },
+  "packageSha256": "009FAFC7D97DCC7A042C6B0B121B7715F37F7369CBE7DB4D7F9998B014C23A1B",
+  "error": "Debug-only in-memory fixture form did not become ready.",
+  "scriptStackTrace": "at Wait-FixturePassword, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 200\r\nat Login, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 182\r\nat Invoke-SizingProbe, D:\\hdm-mall\\scripts\\device-promises-probe.ps1: line 309\r\nat <ScriptBlock>, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 2220"
+}

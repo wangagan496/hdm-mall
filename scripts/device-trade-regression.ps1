@@ -1,5 +1,7 @@
-param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [switch]$PromisesProbe, [ValidateSet('light','dark')][string]$PromisesTheme = '', [switch]$Stage2bAcceptance, [string]$Stage2bPhotoUri = '', [string]$Stage2bPhotoSha256 = '', [int]$Stage2bMediaCountBefore = -1, [switch]$Stage2bCleanupPhoto, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+param([string]$Target = '127.0.0.1:5555', [switch]$ShipProbe, [switch]$PaginationProbe, [switch]$RelationsProbe, [switch]$S3, [switch]$CancelRejectProbe, [switch]$CancelFamilyProbe, [switch]$S1, [switch]$S2, [switch]$NetworkProbe, [switch]$LoginProbe, [switch]$WriteNetworkProbe, [switch]$ProductProbe, [switch]$AfterSaleProbe, [switch]$InventoryProbe, [switch]$UxProbe, [switch]$ConsentProbe, [switch]$DeletionProbe, [switch]$AuditProbe, [switch]$ReturnPolicyProbe, [switch]$PromotionProbe, [switch]$QuotePreviewProbe, [switch]$ServiceProbe, [switch]$TradeNetworkProbe, [switch]$LogisticsProbe, [switch]$ReconcileProbe, [switch]$PromisesProbe, [ValidateSet('light','dark')][string]$PromisesTheme = '', [switch]$SizingProbe, [switch]$FitReasonProbe, [switch]$Stage2bAcceptance, [string]$Stage2bPhotoUri = '', [string]$Stage2bPhotoSha256 = '', [int]$Stage2bMediaCountBefore = -1, [switch]$Stage2bCleanupPhoto, [string]$PinnedPackage = '', [string]$ExpectedPackageSha256 = '', [string]$ArchiveSequence = '', [ValidatePattern('^step[0-9]+-runs$')][string]$ArchiveGroup = 'step9-runs')
+if ($FitReasonProbe) { $SizingProbe = $true }
 $ErrorActionPreference = 'Stop'
+if ($SizingProbe) { $PromisesProbe = $true }
 if ($PromisesTheme -and -not $PromisesProbe) { throw 'PromisesTheme requires PromisesProbe.' }
 if ($Stage2bAcceptance -and -not $PromisesProbe) { throw 'Stage2bAcceptance requires PromisesProbe.' }
 if ($Stage2bCleanupPhoto -and -not $Stage2bAcceptance) { throw 'Stage2bCleanupPhoto requires Stage2bAcceptance.' }
@@ -44,6 +46,10 @@ if ($ServiceProbe) { $Output = Join-Path $Root '_device_acceptance/service-probe
 if ($LogisticsProbe) { $Output = Join-Path $Root '_device_acceptance/logistics-probe' }
 if ($ReconcileProbe) { $Output = Join-Path $Root '_device_acceptance/reconcile-probe' }
 if ($PromisesProbe) { $Output = Join-Path $Root 'docs/refactor-evidence/stage2a/device' }
+if ($SizingProbe) {
+  if ((& $Hdc -t $Target shell param get const.ohos.apiversion).Trim() -ne '24') { throw 'Expected API 24' }
+  $Output = Join-Path $Root 'docs/refactor-evidence/stage2c/device'
+}
 if ($ArchiveSequence) {
   if ($ArchiveSequence -notmatch '^[0-9]+$') { throw 'Archive sequence must be numeric.' }
   $Output = Join-Path $Root "_device_acceptance/$ArchiveGroup/$ArchiveSequence-$Mode"
@@ -139,7 +145,9 @@ function Mine([switch]$KeepProcess) {
   $AlreadyOnMine = $false
   if (-not $KeepProcess) {
     $null = Invoke-Hdc @('shell','aa','force-stop','com.hdm.mall')
-    $null = Invoke-Hdc @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall','--ps','debugFixtureForm','local-trade')
+    $launch = @('shell','aa','start','-a','PhoneAbility','-b','com.hdm.mall')
+    if (!$SizingProbe) { $launch += @('--ps','debugFixtureForm','local-trade') }
+    $null = Invoke-Hdc $launch
   } else {
     for ($Try = 0; $Try -lt 8; $Try++) {
       $script:Nodes = Read-Nodes
@@ -169,6 +177,22 @@ function Login([string]$Account, [switch]$KeepProcess) {
   Tap-Text '立即登录'
   Wait-Text '账号密码登录'
   Input-Type 'TextInput' 0 $Account
+  if ($SizingProbe) {
+    if (@(Read-Nodes | Where-Object id -eq 'keyboardLeftButton').Count) { Back }
+    $fields = @(Read-Nodes | Where-Object { $_.type -eq 'TextInput' -and $_.visible -ne 'false' })
+    if ($fields.Count -ne 2 -or $Password -cnotmatch '^[a-f0-9]+$') { throw 'Ordinary login form or fixture input is unavailable.' }
+    Operate-Node $fields[1]
+    # Send individual physical key presses to the visible form. No credential is passed as command text.
+    foreach ($character in $Password.ToCharArray()) {
+      $code = if ([char]::IsDigit($character)) { 2000 + [int]$character - 48 } else { 2017 + [int]$character - 97 }
+      $null = Invoke-Hdc @('shell','uitest','uiInput','keyEvent',"$code")
+    }
+    Start-Sleep -Milliseconds 600
+    $form = @(Read-Nodes)
+    $fields = @($form | Where-Object type -eq 'TextInput')
+    Write-Output ("CHECK ordinary login inputs={0} accountMatch={1} passwordFieldChars={2} keyboards={3}" -f $fields.Count,($fields[0].text -eq $Account),$fields[1].text.Length,(($form | Where-Object { $_.type -match 'Keyboard' -or $_.id -match '(keyboard|ime).*?(left|panel|root)' } | ForEach-Object id | Sort-Object -Unique) -join ','))
+    if (@($form | Where-Object { $_.id -eq 'keyboardLeftButton' -or $_.type -match 'Keyboard' -or $_.bundleName -match 'inputmethod' }).Count -or !($form | Where-Object { $_.type -eq 'Button' -and $_.text -eq '登录' })) { Back }
+  }
   Wait-FixturePassword
   $Inputs = @(Read-Nodes | Where-Object { $_.type -eq 'Checkbox' })
   if ($Inputs.Count -gt 0 -and $Inputs[0].checked -ne 'true') { Operate-Node $Inputs[0] }
@@ -1182,7 +1206,7 @@ function Product-Search([string]$Name, [switch]$Absent, [switch]$KeepProcess) {
     Start-Sleep -Milliseconds 200
   }
   if ($Goods.Count -ne 1) { throw 'Product search result is not unique.' }
-  Capture '03-buyer-search'
+  if (!$SizingProbe) { Capture '03-buyer-search' }
   Operate-Node $Goods[0]
   Wait-Text '加入购物袋'
 }
@@ -2178,6 +2202,7 @@ if ($LoginProbe) { $FixtureArguments += '--login-probe' }
 if ($InventoryProbe) { $FixtureArguments += '--inventory-probe' }
 if ($LogisticsProbe) { $FixtureArguments += '--logistics-probe' }
 if ($ReconcileProbe) { $FixtureArguments += '--reconcile-probe' }
+if ($SizingProbe) { $FixtureArguments += '--sizing-probe' }
 if ($PromisesProbe) { $FixtureArguments += '--promises-probe' }
 $Fixture = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList $FixtureArguments -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput "$Output/server.stdout.log" -RedirectStandardError "$Output/server.stderr.log"
 $Mapped = $false
@@ -2206,6 +2231,8 @@ try {
   Write-Output "CHECK installed package SHA256 $PackageSha256"
   if ($LogisticsProbe) { Invoke-LogisticsProbe; return }
   if ($ReconcileProbe) { Invoke-ReconcileProbe; return }
+  if ($FitReasonProbe) { Invoke-FitReasonProbe; return }
+  if ($SizingProbe) { Invoke-SizingProbe; return }
   if ($PromisesProbe) { Invoke-PromisesProbe; return }
   if ($UxProbe) { Invoke-UxProbe; return }
   if ($ConsentProbe) { Invoke-ConsentProbe; return }
@@ -2401,7 +2428,7 @@ try {
   Write-Output "SCRIPT $PSCommandPath RESULT self and family native trade, account switching, two reviewed orders and stock $InitialStock->$($InitialStock - 2) passed"
 } catch {
   $Failure = $_
-  if ($Stage2bAcceptance) {
+  if ($Stage2bAcceptance -or $SizingProbe) {
     Remove-Item -LiteralPath (Join-Path $Output 'layout.json') -Force -ErrorAction SilentlyContinue
   } else {
     try { Capture 'failure' } catch { Write-Warning 'Failure screenshot or layout could not be captured' }
@@ -2447,15 +2474,20 @@ try {
     }
     $After = @(& $Hdc -t $Target fport ls | Where-Object { $_ -like "$Target *" })
     $After | Set-Content -LiteralPath "$Output/ports-after.txt"
-    if ($Stage2bAcceptance) { Remove-Item -LiteralPath (Join-Path $Output 'layout.json') -Force -ErrorAction SilentlyContinue }
+    if ($SizingProbe -or $Stage2bAcceptance) { Remove-Item -LiteralPath (Join-Path $Output 'layout.json') -Force -ErrorAction SilentlyContinue }
     $Clean = (($Existing -join "`n") -eq ($After -join "`n")) -and -not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue) -and -not (Get-Process -Id $Fixture.Id -ErrorAction SilentlyContinue)
     $Cleanup = @{portsRestored=(($Existing -join "`n") -eq ($After -join "`n"));fixtureExited=$Fixture.HasExited;port3103Free=(-not (Get-NetTCPConnection -LocalPort 3103 -State Listen -ErrorAction SilentlyContinue));uploadsRemoved=$UploadsRemoved}
     if ($PromisesProbe -and $Stage2bAcceptance) {
       if ($script:Stage2bPhotoCleanup) { $Cleanup.syntheticPhoto=$script:Stage2bPhotoCleanup }
       elseif ($script:Stage2bPhotoInfo) { $Cleanup.syntheticPhoto=$script:Stage2bPhotoInfo }
     }
+    if ($SizingProbe -and $null -ne $script:SizingAlbumBefore) {
+      $Cleanup.albumCountBefore = $script:SizingAlbumBefore
+      $Cleanup.albumCountAfter = Get-Stage2bAlbumCount
+      $Clean = $Clean -and $Cleanup.albumCountBefore -eq $Cleanup.albumCountAfter
+    }
     $Cleanup | ConvertTo-Json -Depth 8 | Set-Content "$Output/cleanup.json"
     if (-not $Clean) { throw 'Port mapping or fixture cleanup verification failed.' }
-    if (!$Stage2bAcceptance) { Remove-ReturnShippingMedia }
+    if (!$Stage2bAcceptance -and !$SizingProbe) { Remove-ReturnShippingMedia }
   }
 }

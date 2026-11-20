@@ -88,7 +88,7 @@ export class Catalog {
     return { items: rows.map(p => this.presentProduct(p)), counts, pages: Math.ceil(counts / pageSize), page, pageSize }
   }
   detail(id: string) {
-    const product = this.db.one<PolicyRow & { id: string; name: string; picture: string; description: string; status: 'on' | 'off' }>('SELECT * FROM products WHERE id=?', id)
+    const product = this.db.one<PolicyRow & { id: string; name: string; picture: string; description: string; category: string; status: 'on' | 'off' }>('SELECT * FROM products WHERE id=?', id)
     ensure(product, 404, '商品不存在')
     const allSkus = this.db.all<Sku>('SELECT * FROM skus WHERE product_id=?', id)
     const skus = allSkus.filter(sku => sku.enabled === 1)
@@ -99,7 +99,7 @@ export class Catalog {
     const price = priced.length ? Math.min(...priced.map(s => s.price)) / 100 : 0
       const publication = currentPromisePublication(this.db, id)
       const promiseSnapshot = publication ? presentPromisePublication(publication) : null
-    return { id, name: product.name, desc: product.description, picture, price, orderNum: 0, inventory, ...presentPolicy(product),
+    return { id, categoryName: product.category, name: product.name, desc: product.description, picture, price, orderNum: 0, inventory, ...presentPolicy(product),
         ...(promiseSnapshot ? { promiseSnapshot, promiseSources: productMaterialSources(this.db, id, promiseSnapshot.entries, this.clock.now()) } : {}),
       status: product.status, available: product.status === 'on' && skus.length > 0,
       mainPictures: [picture], details: { pictures: [picture], properties: [{ name: '说明', value: product.description }] },

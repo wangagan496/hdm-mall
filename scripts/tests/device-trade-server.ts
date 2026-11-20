@@ -7,6 +7,7 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
 import { beijingDate } from '../../server/src/channel-bill.ts'
 import { createPromiseDriver } from '../../server/src/promises/extract.ts'
+const sizingProbe = process.argv.includes('--sizing-probe')
 const promisesProbe = process.argv.includes('--promises-probe')
 const paymentCallbackSecret = randomUUID()
 const channel = new MockPaymentChannel(paymentCallbackSecret)
@@ -30,7 +31,7 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
 } })
 const uploadsPath = mkdtempSync(join(tmpdir(), 'hdm-device-trade-uploads-' + process.pid + '-'))
 const defaultPromiseDriver = createPromiseDriver({ mock: true })!
-const promiseDriver = promisesProbe ? { ...defaultPromiseDriver, model: 'device-promise-fixture-v2',
+const promiseDriver = promisesProbe && !sizingProbe ? { ...defaultPromiseDriver, model: 'device-promise-fixture-v2',
     extract: async (messages: ReadonlyArray<{ role: string; content: string }>) => {
     const input = JSON.parse(messages[1]!.content) as { materials?: { id: string; text: string }[] }
     const materialClaims = (input.materials ?? []).map(material => ({ fieldId: 'material', source: 'material',
@@ -47,10 +48,11 @@ const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
   promiseDriver,
   publicUrl: 'http://127.0.0.1:3000', uploadsPath })
 const product = f.testData.product({ name: '设备独立测试商品',
-  ...(promisesProbe ? {
+  ...(sizingProbe ? { category: '服饰', description: '尺码表：M码 胸围96厘米，L码 胸围100厘米。版型偏大，建议选小一码。' } : promisesProbe ? {
     category: '箱包', description: '未拆封商品可在收货后7天内退换。付款后48小时内发货。赠送收纳袋。'
   } : {}),
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
+const sizingBag = sizingProbe ? f.testData.product({name:'轻便验收包', category:'箱包', description:'日常收纳。', skus:[{spec:'标准款',priceCents:1200,stock:4}]}) : undefined
 const sku = product.skus[0]!
 const s1 = process.argv.includes('--s1')
 const s2 = process.argv.includes('--s2')
@@ -128,6 +130,7 @@ f.app.get('/device-fixture/lifecycle',async()=>({
  sessions:f.db.one<{n:number}>('SELECT COUNT(*) n FROM sessions')!.n
 }))
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid, uploadsPath,
+  sizingBagSkuId: sizingBag?.skus[0]?.id,
   skuId: sku.id, productId: product.id, amountCents: sku.priceCents, initialStock: sku.stock,
   extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : loginProbe ? 'LoginProbe' : 'default' }))
 type ResponseKind = 'order' | 'payment' | 'cancel' | 'receipt' | 'evaluation'

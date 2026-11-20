@@ -1,0 +1,60 @@
+## mall-crazy-design-20261116
+ M contract-kit/v1/generators/generate.ts
+ M contract-kit/v1/promises/catalog.ts
+ M contract-kit/v1/promises/schema.ts
+ M contract-kit/v1/vectors/promises.ts
+ M mixed-development-h5/commons/models/Index.ets
+ M mixed-development-h5/commons/models/src/main/ets/AfterSaleModels.ets
+ M mixed-development-h5/commons/models/src/main/ets/Promises.ets
+ M mixed-development-h5/commons/models/src/test/PromiseVectors.test.ets
+ M mixed-development-h5/features/cart/src/main/ets/presentation/components/AfterSaleCard.ets
+ M mixed-development-h5/features/cart/src/main/ets/presentation/components/OrderPromisesCard.ets
+ M mixed-development-h5/features/cart/src/main/ets/presentation/components/PromiseMismatchNote.ets
+ M mixed-development-h5/features/cart/src/main/ets/presentation/views/AfterSaleApplyView.ets
+ M mixed-development-h5/features/home/src/main/ets/data/api/goodsPresentation.ets
+ M mixed-development-h5/features/home/src/main/ets/domain/models/goods.ets
+ M mixed-development-h5/features/home/src/main/ets/presentation/components/GoodsDetail.ets
+ M mixed-development-h5/features/home/src/test/LocalUnit.test.ets
+ M mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets
+ M mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets
+ M scripts/device-promises-probe.ps1
+ M scripts/device-trade-regression.ps1
+ M scripts/tests/device-trade-server.ts
+ M scripts/tests/promises-native.test.mjs
+ M scripts/tests/ui-theme.test.mjs
+ M server/src/after-sale-backup.ts
+ M server/src/after-sales.ts
+ M server/src/app.ts
+ M server/src/backup.ts
+ M server/src/catalog.ts
+ M server/src/database.ts
+ M server/src/promises/extract.ts
+ M server/src/promises/generated.ts
+ M server/src/promises/templates/catalog.ts
+ M server/src/promises/verify.ts
+ M server/test/account-lifecycle.test.ts
+ M server/test/after-sales.test.ts
+ M server/test/audit-log.test.ts
+ M server/test/avatar-portability.test.ts
+ M server/test/cart-migration.test.ts
+ M server/test/category-index-migration.test.ts
+ M server/test/helpers/legacy-v20.ts
+ M server/test/identity-backup.test.ts
+ M server/test/inventory-acceptance.test.ts
+ M server/test/inventory.test.ts
+ M server/test/optimization.test.ts
+ M server/test/order-cancellation.test.ts
+ M server/test/payments.test.ts
+ M server/test/product-backup.test.ts
+ M server/test/product-revision-migration.test.ts
+ M server/test/promises-publication.test.ts
+ M server/test/reconciliation-backup.test.ts
+ M server/test/return-policy.test.ts
+ M server/test/service-backup.test.ts
+ M server/test/shipping-compensation.test.ts
+ M server/test/source-records.test.ts
+ M server/test/stock-adjustment.test.ts
+?? .codex/
+?? docs/refactor-evidence/stage2c/
+?? server/src/migrations/023-size-reasons.sql
+?? server/test/size-promises.test.ts

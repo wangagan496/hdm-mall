@@ -419,6 +419,7 @@ export interface OrderSku extends ReturnPolicyFields {
   promiseSources?: PromiseMaterialSource[]
   afterSaleKinds?: string[]
   afterSaleRemaining?: number
+  sizeApplicable?: boolean
   discountShareCents?: number
   attrsText: string
   curPrice: number

@@ -6,7 +6,7 @@ export struct PromiseMismatchNote {
 
   build() {
     Column({ space: 8 }) {
-      Text('与下单时的承诺不符：' + this.promise.label).fontSize(16).fontColor($r('[ui_components].color.text')).width('100%')
+      Text(this.promise.fieldId === 'fit' || this.promise.fieldId === 'size-chart' ? '尺码与承诺不符' : '与下单时的承诺不符：' + this.promise.label).fontSize(16).fontColor($r('[ui_components].color.text')).width('100%')
       Text('商品资料原文：' + (this.promise.quote || '')).id('after-sale-promise-quote')
         .fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
     }.width('100%').padding(12).alignItems(HorizontalAlign.Start)

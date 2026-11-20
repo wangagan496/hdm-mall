@@ -1,0 +1,24 @@
+{
+  "startedAt": "2026-11-20T11:39:56.6769268+08:00",
+  "completedAt": "2026-11-20T11:47:07.3841984+08:00",
+  "durationSeconds": 430.71,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "passed",
+  "counts": {
+    "skipped": 0,
+    "passed": 1,
+    "failed": 0
+  },
+  "packageSha256": "AA7502223C7A9DD7A5D6E7E3EA0AE963799E23B0EDFF67A86AB0907770066417",
+  "bagPanelAbsent": true,
+  "theme": "light",
+  "fit": "偏大",
+  "orderId": "fccc2130-566d-4cd6-987a-4ff578646167",
+  "afterSaleKindUnselected": true,
+  "knownFields": [
+    "size-chart",
+    "fit"
+  ],
+  "receiptId": "6d6c68c2-c702-43f8-b01e-972a623bf0bf"
+}

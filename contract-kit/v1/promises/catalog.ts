@@ -1,4 +1,4 @@
-export const PROMISE_TEMPLATE_VERSION = 'promises-20261118-2'
+export const PROMISE_TEMPLATE_VERSION = 'promises-20261120-3'
 export const LEGACY_PROMISE_TEMPLATE_VERSION = 'promises-20261118-1'
 export const QUALITY_RETURN_FIELDS = ['material', 'origin', 'specification', 'bag-lining', 'shoe-sole'] as const
 
@@ -14,6 +14,8 @@ const fields = [
   { id: 'specification', label: '规格参数', units: [], valueType: 'text', categories: ['*'], cues: ['规格', '尺寸', '重量', '容量', '长宽高', '净重', '参数'] },
   { id: 'shelf-life', label: '保质期或有效期', units: ['小时', '天', '周', '个月', '月', '年'], valueType: 'number', categories: ['*'], cues: ['保质期', '有效期', '使用期限'] },
   { id: 'garment-care', label: '洗涤护理', units: [], valueType: 'text', categories: ['服饰'], cues: ['洗涤', '护理', '机洗', '手洗', '水洗', '干洗', '漂白'] },
+  { id: 'size-chart', label: '尺码表', units: [], valueType: 'text', categories: ['服饰', '鞋靴'], cues: ['尺码', '尺码表', '尺码对照', '脚长', '胸围', '腰围', '臀围', '衣长', '肩宽'] },
+  { id: 'fit', label: '版型', units: [], valueType: 'text', categories: ['服饰', '鞋靴'], cues: ['偏大', '偏小', '标准', '正常尺码', '版型'] },
   { id: 'bag-lining', label: '箱包里料', units: [], valueType: 'text', categories: ['箱包'], cues: ['里料', '衬里', '内衬', '内里'] },
   { id: 'shoe-sole', label: '鞋底材质', units: [], valueType: 'text', categories: ['鞋靴'], cues: ['鞋底', '大底', '外底', '中底', '底材'] },
 ] as const

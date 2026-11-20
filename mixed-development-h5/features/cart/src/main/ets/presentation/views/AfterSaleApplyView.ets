@@ -23,6 +23,7 @@ export struct AfterSaleApplyView {
   @State order: OrderItem | null = null
   @State lines: AfterSaleLine[] = []
   @State kind: string = 'return-no-reason'
+  @State personalFit: boolean = false
   @State description: string = ''
   @State photos: AfterSalePhoto[] = []
   @State loading: boolean = false
@@ -46,6 +47,7 @@ export struct AfterSaleApplyView {
       this.identity === this.user.identity && this.identityRevision === this.user.identityRevision) return
     this.generation++; this.order = null; this.lines = []; this.photos = []; this.description = ''; this.busy = false
     this.mismatchPromise = undefined
+    this.personalFit = false
     this.pending = false
     if (this.active) void this.load()
   }
@@ -60,7 +62,7 @@ export struct AfterSaleApplyView {
       this.order=order
       this.lines=order.skus.filter((sku: OrderSku): boolean => (sku.afterSaleRemaining||0)>0).map((sku: OrderSku): AfterSaleLine => {
         return {skuId:sku.id,name:sku.name,spec:sku.attrsText,priceCents:Math.round(sku.realPay*100),count:sku.afterSaleRemaining||0,remaining:sku.afterSaleRemaining||0,
-          boughtCount:sku.quantity,discountShareCents:sku.discountShareCents,
+          boughtCount:sku.quantity,discountShareCents:sku.discountShareCents,sizeApplicable:sku.sizeApplicable,
           returnPolicy:sku.returnPolicy,returnPolicyReason:sku.returnPolicyReason,returnPolicyNote:sku.returnPolicyNote,returnPolicyConfirmed:sku.returnPolicyConfirmed,afterSaleKinds:sku.afterSaleKinds}
       })
       this.kind=order.afterSaleKinds?.[0]||'return-no-reason'
@@ -95,6 +97,12 @@ export struct AfterSaleApplyView {
   private stepCount(index: number,delta: number): void {
     if(this.busy||this.pending||!this.lines[index]||!this.lineAllowed(this.lines[index]))return
     this.lines[index].count=Math.max(0,Math.min(this.lines[index].remaining||0,this.lines[index].count+delta));this.lines=this.lines.slice()
+    if (!this.canChoosePersonalFit()) this.personalFit = false
+  }
+  private canChoosePersonalFit(): boolean {
+    if (this.mismatch || this.kind !== 'return-no-reason') return false
+    const selected = this.lines.filter((line: AfterSaleLine): boolean => line.count > 0)
+    return selected.length > 0 && selected.every((line: AfterSaleLine): boolean => line.sizeApplicable === true)
   }
   private quantityHint():string {return this.lines.some((line:AfterSaleLine):boolean=>line.count>0)?'':'请至少选择 1 件'}
   private lineAllowed(line: AfterSaleLine): boolean {
@@ -104,6 +112,7 @@ export struct AfterSaleApplyView {
   private excludeRestrictedLines(): void {
     this.lines.forEach((line: AfterSaleLine) => { if (!this.lineAllowed(line)) line.count = 0 })
     this.lines = this.lines.slice()
+    if (!this.canChoosePersonalFit()) this.personalFit = false
   }
   private kindAvailable(kind: string): boolean {
     if (!this.order?.afterSaleKinds?.includes(kind)) return false
@@ -162,6 +171,7 @@ export struct AfterSaleApplyView {
         const body: AfterSaleBody={kind:this.kind,description:this.description.trim(),imageIds:[],items:this.lines.filter((line: AfterSaleLine): boolean => line.count>0).map((line: AfterSaleLine): AfterSaleQuantity => {return {skuId:line.skuId,count:line.count,
           conditionDeclared:this.kind==='return-no-reason'&&returnConditionRequired(line)?line.conditionDeclared:undefined}})}
         if (this.mismatch) body.promiseMismatch = this.mismatch
+        else if (this.personalFit && this.canChoosePersonalFit()) body.sizeReason = 'personal-fit'
         await afterSaleActions.start(this.orderId,'/member/order/'+encodeURIComponent(this.orderId)+'/after-sales',body,this.kind==='return-quality'?this.photos:[],token)
       }
       if(this.current(generation,token))this.stackPath.pop()
@@ -223,6 +233,13 @@ export struct AfterSaleApplyView {
           .enabled(!this.busy&&!this.pending&&this.kindAvailable(kind))
           .onClick(()=>this.selectKind(kind))
       })
+      if (this.canChoosePersonalFit()) {
+        Text('退货原因（选填）').fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
+        Button('个人穿着不合适' + (this.personalFit ? ' ✓ 已选' : '')).id('after-sale-personal-fit').width('100%')
+          .backgroundColor(this.personalFit ? $r('[ui_components].color.red') : $r('[ui_components].color.white'))
+          .fontColor(this.personalFit ? $r('[ui_components].color.on_primary') : $r('[ui_components].color.text'))
+          .enabled(!this.pending && !this.busy).onClick(() => { this.personalFit = !this.personalFit })
+      }
       // 七日无理由退货 / 质量问题退货 / 少件漏发仅退款
       if (this.kind) {
         Text(this.kind==='refund-missing'?'少件仅退款，无需寄回':'退货运费由商家承担，寄回后填写运费即可随退款退回')

@@ -301,3 +301,101 @@ function Invoke-PromisesProbe {
     merchantDraftConditionNeedsReview=$returnDraft.conditionNeedsReview; syntheticPhoto=$script:Stage2bPhotoInfo; syntheticPhotoCleanup=$script:Stage2bPhotoCleanup }
   Write-Output "SCRIPT $PSCommandPath RESULT $PromisesTheme stage 2B source records and native trade checks passed"
 }
+function Invoke-FitReasonProbe {
+  $script:SizingAlbumBefore = Get-Stage2bAlbumCount
+  Open-PromisesAppearance
+  $script:OriginalPromisesTheme = Get-PromisesTheme
+  Set-PromisesTheme $PromisesTheme
+  $address = @(Api 'device_buyer' '/member/address')[0]
+  $cases = @(
+    @{sku=$SkuId; amount=$AmountCents; label='设备独立测试商品'; applicable=$true; capture='01-apparel'},
+    @{sku=$Identity.sizingBagSkuId; amount=1200; label='轻便验收包'; applicable=$false; capture='02-bag'}
+  )
+  foreach ($case in $cases) {
+    $order = Api 'device_buyer' '/member/order' 'Post' @{source='buy-now'; addressId=$address.id; requestKey=[guid]::NewGuid().ToString();
+      expectedAmountCents=$case.amount; goods=@(@{skuId=$case.sku;count=1})}
+    $case.orderId = $order.id
+    $null = Api 'device_buyer' "/member/order/$($order.id)/mock-pay" 'Post' @{amountCents=$case.amount}
+    $null = Api 'device_merchant' "/merchant/orders/$($order.id)/ship" 'Post' @{carrier='顺丰';trackingNo='SF12345678'}
+  }
+  Login 'device_buyer'
+  Tap-Text '待收货'
+  foreach ($case in $cases) {
+    Product-Control ('order-apply-after-sale-' + $case.orderId)
+    Wait-Text '提交申请'
+    Wait-Text ($case.label + ' · 标准款')
+    $anchor = if ($case.applicable) { '个人穿着不合适' } else { '少件漏发仅退款' }
+    Show-Stage2bText $anchor 2000
+    $nodes = @(Read-Nodes)
+    $personalFit = @($nodes | Where-Object { $_.id -eq 'after-sale-personal-fit' -and $_.visible -ne 'false' })
+    if ($personalFit.Count -ne [int]$case.applicable) { throw 'Unexpected personal fit control for selected goods.' }
+    if (!($nodes | Where-Object { $_.id -eq 'after-sale-kind-return-no-reason' -and $_.text -like '*已选*' })) { throw 'No-reason return is not selected.' }
+    Save-PromisesCapture $case.capture
+    Back
+    $confirmed = Assert-State $case.orderId 3
+    if (@($confirmed.afterSales).Count -ne 0 -or @((Payment-Proof $case.orderId).refunds).Count -ne 0) { throw 'Unexpected after-sale or refund.' }
+  }
+  Save-Result @{theme=$PromisesTheme; cases=$cases; afterSaleCount=0; refundCount=0}
+}
+
+function Invoke-SizingProbe {
+  $script:SizingAlbumBefore = Get-Stage2bAlbumCount
+  Open-PromisesAppearance
+  $script:OriginalPromisesTheme = Get-PromisesTheme
+  Set-PromisesTheme $PromisesTheme
+  Login 'device_merchant'
+  Tap-Text '商品管理'
+  Product-Control "product-promises-$($Identity.productId)"
+  Product-Control 'product-promises-extract'
+  Wait-Text '逐条确认草稿'
+  $draft = (Api 'device_merchant' "/merchant/products/$($Identity.productId)/promises").draft
+  Write-Output ('CHECK sizing draft ' + (($draft.entries | Where-Object { $_.fieldId -in @('size-chart','fit') } | Select-Object fieldId,status,value) | ConvertTo-Json -Compress))
+  Product-Control 'promises-accept-size-chart'
+  Product-Control 'promises-accept-fit'
+  Save-PromisesCapture '01-draft'
+  Product-Control 'product-promises-publish'
+  Tap-Text '确认发布'
+  Wait-Text '承诺已发布'
+  $publication = (Api 'device_merchant' "/merchant/products/$($Identity.productId)/promises").published
+  if (($publication.entries | Where-Object fieldId -eq 'fit').fit -ne '偏大') { throw 'Published fit mismatch' }
+  Login 'device_buyer'
+  Product-Search '设备独立测试商品'
+  Tap-Text '详情'
+  Wait-Text '尺码与版型'
+  Wait-Text '✓ 偏大'
+  Wait-Text '偏小'
+  Wait-Text '标准'
+  Wait-Text '原文：版型偏大，建议选小一码'
+  Save-PromisesCapture '02-goods'
+  Product-Search '轻便验收包'
+  Tap-Text '详情'
+  Wait-Text '商品详情'
+  if (@(Read-Nodes | Where-Object id -eq 'goods-sizing').Count) { throw 'Bag has apparel fit panel' }
+  Save-PromisesCapture '03-bag'
+  Mine
+  Checkout
+  $orderId = (Orders)[0].id
+  Tap-Text $PaymentText
+  $null = Assert-State $orderId 2
+  Login 'device_merchant'
+  Tap-Text '店铺订单'
+  Scroll-Text '确认发货'
+  Product-Control 'shipping-tracking-number' 'SF12345678'
+  Product-Control 'shipping-submit'
+  $null = Assert-State $orderId 3
+  Login 'device_buyer'
+  Tap-Text '待收货'
+  Tap-Text '确认收货'
+  $null = Assert-State $orderId 4
+  $detail = Read-PromisesDetail $orderId
+  if ($detail.skus[0].promiseSnapshot.receiptId -ne $publication.receiptId) { throw 'Frozen receipt mismatch' }
+  Show-Stage2bText '版型：偏大'
+  Save-PromisesCapture '04-order'
+  Product-Control "order-promise-mismatch-$SkuId-fit"
+  Wait-Text '尺码与承诺不符'
+  Wait-Text '请选择适合你的售后类型'
+  Wait-Text '商品资料原文：版型偏大，建议选小一码'
+  if (@(Read-Nodes | Where-Object { $_.id -like 'after-sale-kind-*' -and $_.text -like '*已选*' }).Count) { throw 'After-sale kind preselected' }
+  Save-PromisesCapture '05-after-sale'
+  Save-Result @{ theme=$PromisesTheme; knownFields=@($publication.entries | Where-Object status -eq 'known' | ForEach-Object fieldId); orderId=$orderId; receiptId=$publication.receiptId; fit='偏大'; bagPanelAbsent=$true; afterSaleKindUnselected=$true }
+}
