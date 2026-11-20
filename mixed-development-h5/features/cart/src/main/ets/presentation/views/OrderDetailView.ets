@@ -593,7 +593,7 @@ export struct OrderDetailView {
               .onClick(() => this.run('receipt', (): Promise<void> => this.runReceipt(), '已确认收货'))
           }
           .width('100%')
-        } else if (this.displayedOrderState === OrderState.AWAITING_REVIEW) { // 待评价：去评价。
+        } else if ((this.displayedOrderState === OrderState.AWAITING_REVIEW || this.order?.canEvaluate) && !this.evaluation) { // 待评价：去评价。
           Row() {
             Blank()
             Button('去评价')
@@ -839,6 +839,9 @@ export struct OrderDetailView {
                     .lineHeight(22)
                     .fontColor($r('[ui_components].color.text'))
                     .width('100%')
+                  if(this.order.canEvaluate && !this.evaluation?.hiddenReason){
+                    Button('修改评价').id('review-edit').onClick(()=>this.runComment())
+                  }
                   if (this.evaluation?.hiddenReason) {
                     Text('已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
                     if (this.order.canEvaluate) {

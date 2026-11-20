@@ -24,7 +24,9 @@ import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddres
 import { currentPromotion, editPromotion } from './promotions.ts'
 import { QuotePreview } from './quote-preview/index.ts'
 import { invoiceSchema, issueInvoice, registerCompletedInvoice } from './invoices.ts'
-import { hideReview, merchantReviews, resetAvatar } from './moderation.ts'
+import { replyToReview, merchantReviews, resetAvatar } from './moderation.ts'
+import { evaluationPage } from './evaluation-page.ts'
+import { evaluationSchema } from './evaluations.ts'
 import { ServiceMessages } from './service-messages.ts'
 import { BackupScheduler, type BackupOptions } from './backup-scheduler.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
@@ -48,7 +50,6 @@ const addressSaveFields = { requestKey: z.string().uuid().optional(), revision: 
 const createAddressFields = addressFields.extend({ isDefault: addressFields.shape.isDefault.default(1), ...addressSaveFields })
 const updateAddressFields = addressFields.partial().extend(addressSaveFields)
 const key = (req: FastifyRequest) => z.object({ id: idSchema }).parse(req.params).id
-function maskNickname(nickname: string): string { const chars = Array.from(nickname); return `${chars[0] ?? ''}***${chars.length > 2 ? chars[chars.length - 1] : ''}` }
 
 async function readProductJpeg(req: FastifyRequest, field: string, fieldSize: number) {
   let bytes: Buffer | undefined, value: string | undefined
@@ -180,7 +181,8 @@ export async function buildApp(options: AppOptions) {
     return service.upload(user, user.id, requestKey, image, options.uploadsPath)
   })
   protectedRoute('GET', '/merchant/goods/:id/reviews', (req, user) => merchantReviews(db, user, key(req), req.query))
-  protectedRoute('POST', '/merchant/reviews/:id/hide', (req, user) => hideReview(db, user, key(req), req.body, clock.now()))
+  protectedRoute('POST', '/merchant/reviews/:id/hide', () => { throw new AppError(403,'商家只能公开回复评价') })
+  protectedRoute('POST', '/merchant/reviews/:id/reply', (req,user) => replyToReview(db,user,key(req),req.body,clock.now()))
   protectedRoute('POST', '/merchant/members/:id/avatar/reset', (req, user) => resetAvatar(db, user, key(req), req.body, clock.now()))
   protectedRoute('POST','/member/consents',(req,user)=>lifecycle.consent(user,req.body))
   protectedRoute('POST','/member/consents/withdraw',(req,user)=>lifecycle.withdrawConsent(user,req.body))
@@ -333,18 +335,8 @@ export async function buildApp(options: AppOptions) {
     return ok({ pageData: catalog.listPage(query.page, query.pageSize, data.keyword, data.categoryId, data.sortField, data.sortMethod) })
   })
   app.get('/goods/:id/evaluate/page', async req => {
-    const productId = key(req), query = pageSchema.parse(req.query)
-    // 先校验，再以同一商品条件计数和取页；EXISTS 避免同单多个规格重复展示评价。
-    const from = `FROM evaluations e JOIN orders o ON o.id=e.order_id JOIN users u ON u.id=o.owner_id
-      WHERE NOT EXISTS(SELECT 1 FROM review_moderation m WHERE m.order_id=e.order_id)
-      AND EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=e.order_id AND i.product_id=?)`
-    const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count ${from}`, productId)!.count
-    const offset = (query.page - 1) * query.pageSize
-    // 超出总数时直接返回空页，也避免极大页码的偏移量溢出 SQLite 整数范围。
-    const rows = offset >= counts ? [] : db.all<{ order_id: string; content: string; score: number; created: number; nickname: string; status:string }>(
-      `SELECT e.*,u.nickname,u.status ${from} ORDER BY e.created DESC,e.order_id ASC LIMIT ? OFFSET ?`, productId, query.pageSize, offset)
-    const items = rows.map(r => ({ id: r.order_id, content: r.content, score: r.score, createTime: new Date(r.created).toISOString(), pictures: [], member: { nickname: r.status==='deleted'?'已注销用户':maskNickname(r.nickname) } }))
-    return ok({ items, counts, pages: Math.ceil(counts / query.pageSize), page: query.page, pageSize: query.pageSize })
+    const query = pageSchema.extend({skuId:idSchema.optional(),templateVersion:z.string().max(100).optional()}).parse(req.query)
+    return ok(evaluationPage(db,key(req),query))
   })
   protectedRoute('GET', '/member/address', (_req, user) => accounts.addresses(user))
   protectedRoute('GET', '/member/address/:id', (req, user) => { const address = accounts.addresses(user).find(a => a.id === key(req)); ensure(address, 404, '地址不存在'); return address })
@@ -445,8 +437,7 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/promise-check', (req, user) => checkOrderPromise(db, user, key(req), promiseCheckSchema.parse(req.body), clock.now()))
   protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req), () => accounts.assertCurrent(user)))
   protectedRoute('PUT', '/member/order/:id/evaluation', (req, user) => {
-    const data = z.object({ score: z.number().int().min(1).max(5), content: z.string().trim().min(5).max(500) }).parse(req.body)
-    return orders.evaluate(user, key(req), data.score, data.content)
+    return orders.evaluate(user, key(req), evaluationSchema.parse(req.body))
   })
   protectedRoute('GET', '/merchant/orders', (_req, user) => orders.merchantList(user))
   protectedRoute('GET', '/merchant/orders/:id', (req,user) => orders.merchantDetail(user,key(req)))

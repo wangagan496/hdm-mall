@@ -1,0 +1,22 @@
+[
+  {
+    "file": "light/01-choice.jpg",
+    "bytes": 81079,
+    "sha256": "C949ADD75FD563ACBBF168E2150F013A2D4A414D3B79F7C981871348E4E260D8"
+  },
+  {
+    "file": "light/02-time.jpg",
+    "bytes": 82681,
+    "sha256": "3C503B4994E16A7AFCF4A97DDF93EFF24015452F962CA2A26CEA9440E479C281"
+  },
+  {
+    "file": "dark/01-choice.jpg",
+    "bytes": 82070,
+    "sha256": "90C7517253D05F52D6D12943915A9949135E108869D4660E71FCF4E985F23F98"
+  },
+  {
+    "file": "dark/02-time.jpg",
+    "bytes": 83212,
+    "sha256": "A66BD1B61D17797243E250555BAE5D9B29B2A72E0F7CD455EE071DAE3D70AD9A"
+  }
+]

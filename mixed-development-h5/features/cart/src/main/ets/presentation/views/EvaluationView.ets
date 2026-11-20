@@ -2,8 +2,9 @@ import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { connection } from '@kit.NetworkKit'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, OrderItem, OrderSku } from 'models'
+import { HDMUser, OrderItem, OrderSku, LocalEvaluationItem, ReviewChoice, ReviewHistory, PromiseEntry } from 'models'
 import { validateEvaluation, auth, storeManager } from 'storage'
+import { EvaluationPayload } from '../../data/api/cart'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
 import { EvaluationSubmitActions, submitEvaluationFlow } from '../utils/EvaluationSubmitFlow'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
@@ -21,12 +22,12 @@ function EvaluationViewBuilder() {
   EvaluationView()
 }
 
-interface EvaluationDraft {
+interface EvaluationDraft extends EvaluationSnapshot {
   score: number
   content: string
   pending?: EvaluationSnapshot
 }
-interface EvaluationSnapshot {score:number;content:string}
+interface EvaluationSnapshot extends EvaluationPayload {}
 
 @Component
 export struct EvaluationView {
@@ -40,6 +41,9 @@ export struct EvaluationView {
   @State loadFailed: boolean = false
   @State submitting: boolean = false
   @State score: number = 5
+  @State logisticsScore: number = 0
+  @State serviceScore: number = 0
+  @State choices: ReviewChoice[] = []
   @State content: string = ''
   @State errorText: string = ''
   @State resultUnknown: boolean = false
@@ -105,6 +109,9 @@ export struct EvaluationView {
     this.draftKey = draftKey
     this.order = null
     this.score = 5
+    this.logisticsScore = 0
+    this.serviceScore = 0
+    this.choices = []
     this.content = ''
     this.errorText = ''
     this.submitted = false
@@ -119,6 +126,9 @@ export struct EvaluationView {
         const draft = JSON.parse(raw) as EvaluationDraft
         this.score = draft.score >= 1 && draft.score <= 5 ? draft.score : 5
         this.content = typeof draft.content === 'string' ? draft.content.slice(0, EVALUATION_CONTENT_MAX_LENGTH) : ''
+        this.logisticsScore=draft.logisticsScore || 0
+        this.serviceScore=draft.serviceScore || 0
+        this.choices=draft.items || []
         this.pendingEvaluation=draft.pending;this.resultUnknown=!!draft.pending
       }
     } catch {}
@@ -183,7 +193,7 @@ export struct EvaluationView {
       const store = storeManager.getStore()
       if (this.submitted) store.deleteSync(key)
       else {
-        const draft: EvaluationDraft = { score: this.score, content: this.content, pending:this.pendingEvaluation }
+        const draft: EvaluationDraft = { score: this.score, content: this.content, logisticsScore:this.logisticsScore, serviceScore:this.serviceScore, items:this.choices, pending:this.pendingEvaluation }
         store.putSync(key, JSON.stringify(draft))
       }
       void store.flush().catch(failed)
@@ -242,17 +252,27 @@ export struct EvaluationView {
         const snapshot=this.pendingEvaluation,evaluation=orderToReview.evaluation
         this.resultUnknown=false;this.stopEvaluationMonitor()
         if(evaluation?.hiddenReason){this.errorText='已被商家隐藏：'+evaluation.hiddenReason+'，请修改后重新发布';this.pendingEvaluation=undefined;this.saveDraft()}
-        else if(evaluation&&evaluation.score===snapshot.score&&evaluation.content===snapshot.content.trim()){
+        else if(evaluation && this.sameSubmission(evaluation,snapshot)){
           this.submitted=true;this.pendingEvaluation=undefined;this.errorText='评价已发布';this.saveDraft()
         }else if(evaluation){this.errorText='订单已有不同评价，本次输入已保留';this.pendingEvaluation=undefined;this.saveDraft()}
         else {this.errorText='尚未查到本次评价，可以继续提交';this.pendingEvaluation=undefined;this.saveDraft()}
       } else if (orderToReview.evaluation?.hiddenReason) {
         this.errorText = '已被商家隐藏：' + orderToReview.evaluation.hiddenReason + '，请修改后重新发布'
         if (!this.content) { this.content = orderToReview.evaluation.content; this.score = orderToReview.evaluation.score }
+      } else if (orderToReview.evaluation && orderToReview.canEvaluate) {
+        const previous = orderToReview.evaluation
+        if (!this.content) {
+          this.content=previous.content
+          this.score=previous.score
+          this.logisticsScore=previous.logisticsScore || 0
+          this.serviceScore=previous.serviceScore || 0
+          this.choices=(previous.items || []).map((v:ReviewChoice):ReviewChoice=>({skuId:v.skuId,fieldId:v.fieldId,result:v.result,note:v.note}))
+        }
+        this.errorText=''
       } else if (orderToReview.evaluation) {
         this.errorText = '该订单已评价，当前输入保留为本机草稿'
       } else if (!orderToReview.canEvaluate) {
-        this.errorText = '当前订单暂不能评价，输入已保留，请确认收货后重试'
+        this.errorText = orderToReview.evaluationRule || '当前订单暂不能评价，输入已保留，请确认收货后重试'
       } else {
         this.errorText = ''
       }
@@ -320,13 +340,30 @@ export struct EvaluationView {
     this.queueDraft()
   }
 
+  private choosePromise(skuId:string,fieldId:string,result:string,note:string):void {
+    if(!this.canEditEvaluation()) return
+    this.choices=this.choices.filter(item=>item.skuId!==skuId||item.fieldId!==fieldId)
+      .concat([{skuId,fieldId,result,note} as ReviewChoice])
+    this.queueDraft()
+  }
+  private choice(skuId:string,fieldId:string):ReviewChoice|undefined {
+    return this.choices.find(item=>item.skuId===skuId && item.fieldId===fieldId)
+  }
+  private sameSubmission(actual:LocalEvaluationItem, expected:EvaluationSnapshot):boolean {
+    const items=actual.items || [], choices=expected.items || []
+    return !actual.hiddenReason && actual.score===expected.score && actual.content===expected.content.trim()
+      && (actual.logisticsScore||0)===(expected.logisticsScore||0) && (actual.serviceScore||0)===(expected.serviceScore||0)
+      && (!expected.revision || actual.revision===expected.revision+1) && items.length===choices.length &&
+      choices.every(choice=>items.some(item=>item.skuId===choice.skuId && item.fieldId===choice.fieldId &&
+        item.result===choice.result && item.note===choice.note.trim()))
+  }
   private async submitEvaluation(): Promise<void> {
     if (this.resultUnknown || this.submitting || this.submitted || !this.pageActive || this.leaving || this.loading || this.loadFailed ||
       !this.order || this.order.id !== this.orderId || this.orderId !== this.readEvaluationOrderId()) {
       return
     }
     if (!this.order.canEvaluate) {
-      this.errorText = '当前订单暂不能评价，请确认收货后重试'
+      this.errorText = this.order.evaluationRule || '当前订单暂不能评价，请确认收货后重试'
       return
     }
     if (!this.isCurrentSession()) {
@@ -342,6 +379,10 @@ export struct EvaluationView {
       this.errorText = validationMessage
       return
     }
+    if ((this.order.skus||[]).some(sku=>sku.promiseSnapshot?.entries.some(field=>
+      field.status==='known' && !this.choice(sku.id,field.fieldId)?.result))) {
+      this.errorText='请逐条选择符合、不符或没注意';return
+    }
     this.submitting = true
     const generation: number = this.pageGeneration
     const token: string = this.sessionToken
@@ -349,18 +390,20 @@ export struct EvaluationView {
     try {
       const score: number = this.score
       const content: string = this.content
-      this.pendingEvaluation={score,content};this.saveDraft()
+      const snapshot:EvaluationSnapshot={score,content,logisticsScore:this.logisticsScore || undefined,
+        serviceScore:this.order.afterSales?.length ? this.serviceScore || undefined : undefined,
+        items:this.choices,revision:this.order.evaluation?.revision}
+      this.pendingEvaluation=snapshot;this.saveDraft()
       const actions: EvaluationSubmitActions = {
         submitRemote: async (): Promise<void> => {
           try {
-            await commentOrderAPI(orderId, { score, content }, token)
+            await commentOrderAPI(orderId, snapshot, token)
           } catch (error) {
             if (!this.isCurrentEvaluation(generation, token, orderId)) return
             // 回应丢失时按已保存内容确认；其他评价不冒充本次提交成功。
             const confirmed = await getOrderDetailAPI(orderId, token).catch(() => null)
             if (!this.isCurrentEvaluation(generation, token, orderId)) return
-            if (!confirmed?.evaluation || confirmed.evaluation.hiddenReason || confirmed.evaluation.score !== score ||
-              confirmed.evaluation.content !== content.trim()) throw error as Error
+            if (!confirmed?.evaluation || !this.sameSubmission(confirmed.evaluation,snapshot)) throw error as Error
           }
           if (!this.isCurrentEvaluation(generation, token, orderId)) return
           this.submitted = true
@@ -386,6 +429,36 @@ export struct EvaluationView {
     }
   }
 
+  @Builder
+  private OptionalScore(label:string, logistics:boolean) {
+    Text(label + ((logistics ? this.logisticsScore : this.serviceScore) ? ' · '+(logistics ? this.logisticsScore : this.serviceScore)+'分' : ' · 未评分')).fontColor($r('[ui_components].color.text'))
+    Row({space:8}) {
+      ForEach([1,2,3,4,5], (value:number)=>{
+        Text('★').fontSize(28).fontColor(value<=(logistics ? this.logisticsScore : this.serviceScore) ? '#F5A623' : $r('[ui_components].color.gray'))
+          .accessibilityText(label+value+'分').onClick(()=>{
+            if(logistics) this.logisticsScore=this.logisticsScore===value ? 0 : value
+            else this.serviceScore=this.serviceScore===value ? 0 : value
+            this.queueDraft()
+          })
+      })
+    }
+  }
+  @Builder
+  private PromisePicker(sku:OrderSku, field:PromiseEntry) {
+    Text(sku.attrsText+' · '+field.label).fontColor($r('[ui_components].color.text'))
+    Text(field.quote || field.value || '').fontSize(13).fontColor($r('[ui_components].color.gray'))
+    Row({space:6}) {
+      ForEach(['matches','mismatch','unnoticed'],(result:string)=>{
+        Button((this.choice(sku.id,field.fieldId)?.result===result?'✓ ':'')+
+          (result==='matches'?'符合':result==='mismatch'?'不符':'没注意')).fontSize(13)
+          .backgroundColor(this.choice(sku.id,field.fieldId)?.result===result ? '#D91B2B' : Color.White)
+          .fontColor(this.choice(sku.id,field.fieldId)?.result===result ? Color.White : '#252525')
+          .onClick(()=>this.choosePromise(sku.id,field.fieldId,result,this.choice(sku.id,field.fieldId)?.note || ''))
+      })
+    }
+    TextInput({placeholder:'补充说明（选填）',text:this.choice(sku.id,field.fieldId)?.note || ''}).maxLength(160)
+      .onChange((value:string)=>this.choosePromise(sku.id,field.fieldId,this.choice(sku.id,field.fieldId)?.result || '',value))
+  }
   @Builder
   private ScorePicker() {
     Row({ space: 10 }) {
@@ -538,6 +611,20 @@ export struct EvaluationView {
                 }
                 .width('100%')
                 this.ScorePicker()
+                this.OptionalScore('物流评分',true)
+                if(this.order?.afterSales?.length) { this.OptionalScore('售后评分',false) }
+                else { Text('售后：未发生').fontColor($r('[ui_components].color.gray')) }
+                ForEach(this.order?.skus || [],(sku:OrderSku)=>{
+                  ForEach(sku.promiseSnapshot?.entries || [],(field:PromiseEntry)=>{
+                    if(field.status==='known'){this.PromisePicker(sku,field)}
+                  })
+                })
+                if(this.order?.evaluation){
+                  Text('已发布：'+this.order.evaluation.content).fontColor($r('[ui_components].color.text'))
+                  ForEach(this.order.evaluation.history || [],(entry:ReviewHistory)=>{
+                    Text('第'+entry.revision+'版：'+entry.content).fontColor($r('[ui_components].color.gray'))
+                  })
+                }
 
                 Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
 
@@ -584,7 +671,7 @@ export struct EvaluationView {
                     .fontColor($r('[ui_components].color.red'))
                 }
 
-                Text('评价提交后保存到账号，可在订单详情中查看')
+                Text('本项目默认自收货起15天内可评价和改评，改评保留原文；未收货仅退款不能评价。')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
               }
@@ -602,7 +689,7 @@ export struct EvaluationView {
 
           Column() {
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
-            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':'提交评价').fontColor($r('[ui_components].color.on_primary'))
+            Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':this.order?.evaluation?'提交改评':'提交评价').fontColor($r('[ui_components].color.on_primary'))
               .width('100%')
               .height(44)
               .fontSize(15)

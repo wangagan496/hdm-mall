@@ -1,0 +1,50 @@
+[
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\features\\cart",
+    "count": 42
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\features\\category",
+    "count": 6
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\features\\home",
+    "count": 27
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\features\\mine",
+    "count": 8
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\constants",
+    "count": 0
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\device",
+    "count": 0
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\models",
+    "count": 80
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\network",
+    "count": 5
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\storage",
+    "count": 0
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\ui-components",
+    "count": 0
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\commons\\utils",
+    "count": 0
+  },
+  {
+    "module": "D:\\hdm-mall\\mixed-development-h5\\products\\phone",
+    "count": 0
+  }
+]

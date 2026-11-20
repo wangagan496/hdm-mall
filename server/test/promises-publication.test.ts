@@ -16,6 +16,33 @@ import { materialDigest } from '../src/source-verification/materials.ts'
 
 const description = '支持7天退换。承诺48小时内发货。'
 
+test('评价绑定冻结条目与版本，跨规格和新发布不继承，改评还原原快照', async () => {
+  const f = await fixture()
+  try {
+    const first = (await f.publish(await f.confirm(await f.extract()))).result as PromiseSnapshot
+    const id = await f.order()
+    const order = '/member/order/'+id
+    assert.equal((await f.call('POST',order+'/mock-pay',{amountCents:2300})).status,200)
+    assert.equal((await f.call('POST','/merchant/orders/'+id+'/ship',{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
+    assert.equal((await f.call('PUT',order+'/receipt')).status,200)
+    const items=first.entries.filter(e=>e.status==='known').map(e=>({fieldId:e.fieldId,skuId:f.sku.id,result:'matches',note:'情况符合原文'}))
+    const input={score:3,logisticsScore:4,content:'总体体验中等，描述准确',items}
+    assert.equal((await f.call('PUT',order+'/evaluation',{...input,items:[]})).status,400)
+    assert.equal((await f.call('PUT',order+'/evaluation',{...input,items:items.map(i=>({...i,skuId:f.second.id}))})).status,400)
+    assert.equal((await f.call('PUT',order+'/evaluation',input)).status,200)
+    const page='/goods/'+f.product.id+'/evaluate/page?skuId='
+    const publicReview=(await f.call('GET',page+f.sku.id+'&templateVersion='+encodeURIComponent(first.templateVersion))).result
+    assert.deepEqual(publicReview.items[0].badges,['已真实收货','对照承诺逐条打分'])
+    assert.equal(publicReview.items[0].items[0].quote,first.entries.find(e=>e.status==='known')!.quote)
+    assert.equal((await f.call('GET',page+f.second.id)).result.counts,0)
+    const next=(await f.publish(await f.confirm(await f.extract()))).result as PromiseSnapshot
+    assert.notEqual(next.receiptId,first.receiptId)
+    assert.equal((await f.call('GET',page+f.sku.id)).result.counts,0)
+    assert.equal((await f.call('PUT',order+'/evaluation',{...input,revision:1,content:'补充使用感受后仍然符合'})).status,200)
+    assert.equal((await f.detail(id)).evaluation.history[0].items[0].templateVersion,first.templateVersion)
+  } finally { await f.ctx.app.close() }
+})
+
 async function fixture(databasePath = ':memory:', uploadsPath = './unused', promiseDriver = createPromiseDriver({ mock: true })) {
   let now = Date.UTC(2026, 10, 18, 8)
   const ctx = await buildTestApp({ databasePath, uploadsPath, publicUrl: 'http://localhost', mockPayments: true,
@@ -257,7 +284,7 @@ test('仅收货买家可核对，售后保存原文引用并可随备份恢复',
     assert.deepEqual((await sale()).promiseMismatch, stored)
 
     const backup = await createBackup({ databasePath, uploadsPath, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 23)
+    assert.equal(backup.manifest.schemaVersion, 24)
     for (const table of promiseTables) assert.ok(backup.counts[table]! > 0, table)
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const restoredDb = new Database(join(restored.root, 'mall.sqlite'))

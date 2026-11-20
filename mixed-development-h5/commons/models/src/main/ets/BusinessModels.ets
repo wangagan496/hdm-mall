@@ -281,6 +281,7 @@ export interface OrderItem {
   serverNow?: number
   canReceive?: boolean
   canEvaluate?: boolean
+  evaluationRule?: string
   canInvitePayer?: boolean
   evaluation?: LocalEvaluationItem | null
   countdown: number
@@ -443,7 +444,28 @@ export interface PayResultParams {
 }
 
 /** 本地演示评价：仅用于补齐「待评价」演示闭环，不会提交到后端。 */
+export interface ReviewChoice {
+  skuId: string
+  fieldId: string
+  result: string
+  note: string
+}
+export interface ReviewField extends ReviewChoice {
+  label: string
+  quote: string
+  templateVersion: string
+}
+export interface ReviewHistory {
+  content: string
+  revision: number
+  productScore: number
+}
 export interface LocalEvaluationItem {
+  logisticsScore?: number | null
+  serviceScore?: number | null
+  items?: ReviewField[]
+  revision?: number
+  history?: ReviewHistory[]
   hiddenReason?: string | null
   orderId: string
   score: number

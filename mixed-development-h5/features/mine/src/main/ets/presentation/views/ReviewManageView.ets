@@ -1,11 +1,15 @@
 import { GlobalVariable } from 'constants'
-import { HDMUser, formatBeijingTime } from 'models'
+import { HDMUser, ReviewField } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
 
-interface MerchantReview { id: string; buyerId: string; nickname: string; avatar: string; score: number; content: string; createdAt: number; hiddenReason?: string }
+interface ReviewMember {nickname:string}
+interface MerchantReview {
+  id:string; member:ReviewMember; score:number; logisticsScore?:number; serviceScore?:number; serviceOccurred:boolean
+  content:string; reply?:string; items:ReviewField[]
+}
 interface MerchantReviewPage { items: MerchantReview[]; pages: number }
-interface ModerationBody { reason: string }
+interface ReplyBody { content: string }
 
 @Component
 export struct ReviewManageView {
@@ -15,7 +19,6 @@ export struct ReviewManageView {
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('accountChanged') user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @State items: MerchantReview[] = []
   @State selected: MerchantReview | null = null
-  @State action: string = ''
   @State reason: string = ''
   @State message: string = ''
   @State messageOk: boolean = false
@@ -27,7 +30,6 @@ export struct ReviewManageView {
   private active: boolean = false
   private generation: number = 0
   private query: number = 0
-  private reasons: string[] = ['广告', '辱骂', '无关内容', '泄露隐私', '其他']
   private current(generation: number, token: string): boolean { return this.active && generation === this.generation && !!token && token === this.user.token && this.user.identity === 'merchant' }
   private messageColor(): ResourceColor { return this.messageOk ? $r('[ui_components].color.text') : $r('[ui_components].color.red') }
   private accountChanged(): void { this.generation++; this.query++; this.items = []; this.selected = null; this.reason = ''; this.message = ''; this.busy = false; this.loading = false; if (this.active) void this.load(1) }
@@ -42,53 +44,47 @@ export struct ReviewManageView {
     } catch { if (this.current(generation, token) && query === this.query) this.message = '评价读取失败，请重试' }
     finally { if (this.current(generation, token) && query === this.query) this.loading = false }
   }
-  private open(item: MerchantReview, action: string): void { if (this.busy) return; this.selected = item; this.action = action; this.reason = ''; this.message = '' }
+  private open(item: MerchantReview): void { if (this.busy) return; this.selected = item; this.reason = ''; this.message = '' }
   private async submit(): Promise<void> {
     const token = this.user.token, generation = this.generation, item = this.selected
     if (!item || this.busy || !this.current(generation, token)) return
-    if (!this.reasons.includes(this.reason)) { this.messageOk = false; this.message = '请选择处理原因'; return }
+    if (!this.reason.trim()) { this.messageOk = false; this.message = '请填写公开回复'; return }
     this.busy = true; this.message = ''; this.messageOk = false
     try {
-      const path = this.action === 'avatar' ? '/merchant/members/' + encodeURIComponent(item.buyerId) + '/avatar/reset' : '/merchant/reviews/' + encodeURIComponent(item.id) + '/hide'
-      await RequestAxios.postWithSession<null>(path, { reason: this.reason } as ModerationBody, token)
-      if (this.current(generation, token)) { this.messageOk = true; this.message = this.action === 'avatar' ? '头像已恢复默认，买家可以重新上传' : '评价已隐藏，买家可以查看原因并修改重发'; this.selected = null; await this.load(this.page) }
-    } catch { if (this.current(generation, token)) this.message = '暂未确认处理结果，请刷新查看或重试' }
+      const path='/merchant/reviews/'+encodeURIComponent(item.id)+'/reply'
+      await RequestAxios.postWithSession<ReplyBody>(path,{content:this.reason.trim()} as ReplyBody,token)
+      if (this.current(generation, token)) { this.messageOk=true;this.message='公开回复已发布';this.selected=null;await this.load(this.page) }
+    } catch { if (this.current(generation, token)) this.message = '回复未确认，请刷新查看；回复不得以补偿换删评' }
     finally { if (this.current(generation, token)) this.busy = false }
   }
   build() {
     NavDestination() {
       Column() {
-        HDMNavBar({ title: '商品评价处理' })
+        HDMNavBar({ title: '商品评价' })
         Scroll() {
           Column({ space: 12 }) {
-            Text('评价先发布；只有违规内容才隐藏，不因差评隐藏。').fontColor($r('[ui_components].color.gray'))
             if (this.message) { Text(this.message).fontColor(this.messageColor()) }
             Button(this.loading ? '读取中' : '刷新评价').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.loading && !this.busy).onClick(() => this.load(this.page))
             if (this.selected) {
               Column({ space: 10 }) {
-                Text(this.action === 'avatar' ? '选择重置头像的原因' : '选择隐藏评价的原因').fontColor($r('[ui_components].color.text'))
-                ForEach(this.reasons, (reason: string) => {
-                  Button(reason).id('moderation-reason-' + reason).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({ width: this.reason === reason ? 2 : 0, color: $r('[ui_components].color.red') }).enabled(!this.busy).onClick(() => { this.reason = reason })
-                })
-                Button(this.busy ? '处理中' : '确认处理').id('moderation-submit').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.busy).onClick(() => this.submit())
-                Button('暂不处理').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => { this.selected = null })
+                Text(this.selected.content).fontColor($r('[ui_components].color.text'))
+                TextArea({text:this.reason,placeholder:'公开回复买家评价'}).maxLength(500).onChange((v:string)=>{this.reason=v})
+                Button(this.busy?'发布中':'发布回复').enabled(!this.busy).onClick(()=>this.submit())
+                Button('取消').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => { this.selected = null })
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }
             ForEach(this.items, (item: MerchantReview) => {
               Column({ space: 10 }) {
-                Text(item.nickname + ' · ' + item.score + '星').fontColor($r('[ui_components].color.text'))
-                Text(formatBeijingTime(item.createdAt)).fontColor($r('[ui_components].color.gray'))
+                Text(item.member.nickname+' · 商品 '+item.score+'分'+(item.score===3?'（中评）':'')).fontColor($r('[ui_components].color.text'))
+                Text('物流 '+(item.logisticsScore?item.logisticsScore+'分':'未评分')+' · 售后 '+(item.serviceScore?item.serviceScore+'分':item.serviceOccurred?'未评分':'未发生')).fontColor($r('[ui_components].color.gray'))
                 Text(item.content).fontColor($r('[ui_components].color.text'))
-                if (item.hiddenReason) { Text('已隐藏：' + item.hiddenReason).fontColor($r('[ui_components].color.red')) }
-                if (!item.hiddenReason) {
-                  Button('隐藏评价').id('review-hide-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => this.open(item, 'hide'))
-                }
-                if (item.avatar) {
-                  Image(item.avatar).width(48).height(48).borderRadius(24)
-                  Button('重置违规头像').id('avatar-reset-' + item.id).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => this.open(item, 'avatar'))
-                }
+                ForEach(item.items,(field:ReviewField)=>{
+                  Text(field.label+' · '+(field.result==='matches'?'符合':field.result==='mismatch'?'不符':'没注意')+(field.note?' · '+field.note:'')).fontColor($r('[ui_components].color.text'))
+                })
+                if(item.reply){Text('商家回复：'+item.reply).fontColor($r('[ui_components].color.text'))}
+                else{Button('公开回复').enabled(!this.busy).onClick(()=>this.open(item))}
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12).alignItems(HorizontalAlign.Start)
-            }, (item: MerchantReview) => item.id + ':' + (item.hiddenReason || ''))
+            }, (item: MerchantReview) => item.id + ':' + (item.reply || ''))
             if (!this.loading && this.items.length === 0) { Text('暂无评价').fontColor($r('[ui_components].color.gray')) }
             Row({ space: 12 }) {
               Button('上一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(this.page > 1 && !this.loading && !this.busy).onClick(() => this.load(this.page - 1))

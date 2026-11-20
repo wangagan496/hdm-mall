@@ -12,7 +12,7 @@ import { localAvatarPath } from './avatar.ts'
 import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
-import { checkPublicContent } from './content-filter.ts'
+import { buyerEvaluation, saveEvaluation, type EvaluationInput } from './evaluations.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
 
@@ -25,6 +25,7 @@ const ORDER_STATE = {
   COMPLETED: 5,
   CANCELLED: 6
 } as const
+const REVIEW_WINDOW_MS = 15 * 86_400_000
 const PAYMENT_WINDOW_MS = 15 * 60_000
 const EXPIRATION_READ_INTERVAL_MS = 1_000
 
@@ -198,11 +199,19 @@ export class Orders {
       cancelConfirmation: canRequestCancel ? { amountCents: order.amount, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
         message: '取消申请提交后，商家同意即不再发货，¥' + (order.amount / 100).toFixed(2) + '将原路退回' + destination + '。确定申请取消吗？' } : null, serverNow }
   }
+  private evaluationRule(order: Order): string {
+    if (order.received_at === null || (!order.received_by && !order.signed_at)) {
+      const refund = this.db.one('SELECT 1 FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? LIMIT 1', order.id)
+      return refund ? '未收货仅退款的订单没有实际收货依据，不能评价商品' : '请确认收货后再评价'
+    }
+    if (this.clock.now() >= order.received_at + REVIEW_WINDOW_MS) return '已超过收货后15天的评价和改评时限'
+    return ''
+  }
   private present(order: Order, user: User, merchantShipment = false, includePromises = false) {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
-    const evaluation = this.db.one<{ score: number; content: string; created: number }>('SELECT * FROM evaluations WHERE order_id=?', order.id)
-    const hiddenReason = this.db.one<{ reason: string }>('SELECT reason FROM review_moderation WHERE order_id=?', order.id)?.reason ?? null
+    const evaluation = isOrderOwner && user.identity === 'buyer' ? buyerEvaluation(this.db,order.id) : null
+    const privateReview = user.identity === 'merchant' && !!this.db.one('SELECT 1 FROM evaluations WHERE order_id=?', order.id)
     const paymentFields = this.payments?.orderFields(order, user)
     const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&
       !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
@@ -221,7 +230,8 @@ export class Orders {
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
       ...(promises ? { canCheckPromises: promises.snapshots.size > 0 && canCheckOrderPromises(this.db, user, order) } : {}),
-      canEvaluate: isOrderOwner && (order.state === ORDER_STATE.AWAITING_REVIEW || Boolean(hiddenReason)),
+      canEvaluate: isOrderOwner && user.identity === 'buyer' && !this.evaluationRule(order),
+      evaluationRule: isOrderOwner ? this.evaluationRule(order) : '',
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
       countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
@@ -241,12 +251,13 @@ export class Orders {
         sizeApplicable: afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.sizeApplicable ?? false,
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
-      evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created, hiddenReason } : null,
+      evaluation,
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
         canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner }),
-      ...cancelFields, ...afterSaleFields
+      ...cancelFields, ...afterSaleFields,
+      ...(privateReview ? { address: undefined, invoice: undefined, ownerAccount: '', payerAccount: '', invitedPayerAccount: '', receivedByAccount: '' } : {})
     }
   }
   /** 物流等订单附属信息与订单详情使用同一读取权限，商家可读全部订单。 */
@@ -725,24 +736,15 @@ export class Orders {
       return this.present(this.get(id), user, false, true)
     })
   }
-  evaluate(user: User, id: string, score: number, content: string) {
+  evaluate(user: User, id: string, input: EvaluationInput | number, content = '') {
     requireBuyer(user)
-    checkPublicContent(content)
     return this.db.transaction(() => {
       const order = this.get(id)
       this.owner(user, order)
       restrictOwnStore(this.db, user.id)
-      const hidden = this.db.one('SELECT order_id FROM review_moderation WHERE order_id=?', id)
-      ensure(order.state === ORDER_STATE.AWAITING_REVIEW || order.state === ORDER_STATE.COMPLETED && hidden, 409, '订单未收货或已评价')
-      if (hidden) {
-        const previous = this.db.one<{ content: string }>('SELECT content FROM evaluations WHERE order_id=?', id)!
-        ensure(previous.content !== content, 409, '请修改评价内容后再发布')
-        this.db.run('UPDATE evaluations SET score=?,content=?,created=? WHERE order_id=?', score, content, this.clock.now(), id)
-        this.db.run('DELETE FROM review_moderation WHERE order_id=?', id)
-        appendAudit(this.db, { created: this.clock.now(), actor: user, action: 'review.republish', targetType: 'order', targetId: id, orderId: id })
-      } else this.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, score, content, this.clock.now())
-      this.db.run('UPDATE orders SET state=5 WHERE id=?', id)
-      return { id }
+      const rule = this.evaluationRule(order)
+      ensure(!rule, 409, rule)
+      return saveEvaluation(this.db,id,typeof input === 'number' ? { score: input, content, items: [] } : input,this.clock.now())
     })
   }
 }

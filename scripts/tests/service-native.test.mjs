@@ -115,7 +115,7 @@ test('隐藏的同文评价不能当作未知提交已成功，不覆盖修改�
   assert.match(page.errorText, /隐藏/)
 })
 
-test('商家商品评价入口只带商品编号，隐藏与头像重置必须选择原因', async () => {
+test('商家评价入口只带商品编号，回复非空且使用独立评价编号', async () => {
   assert.match(sourceOf(mineViews + 'ProductManageView.ets'), /ReviewManageView/, '商品管理缺少评价处理入口')
   const calls = []
   const Page = pageMethods(mineViews + 'ReviewManageView.ets', 'ReviewManageView', {}, {
@@ -123,14 +123,13 @@ test('商家商品评价入口只带商品编号，隐藏与头像重置必须�
   })
   const page = new Page()
   page.active = true; page.user = { token: 't', identity: 'merchant' }; page.load = async () => {}
-  page.selected = { id: 'order', buyerId: 'buyer', avatar: '/uploads/avatar' }; page.action = 'hide'
-  await page.submit(); assert.equal(calls.length, 0)
-  page.reason = '广告'; await page.submit()
-  assert.equal(calls[0][0], '/merchant/reviews/order/hide')
-  assert.equal(calls[0][1].reason, '广告')
-  page.selected = { id: 'order', buyerId: 'buyer', avatar: '/uploads/avatar' }; page.action = 'avatar'; page.reason = '泄露隐私'
-  await page.submit()
-  assert.equal(calls[1][0], '/merchant/members/buyer/avatar/reset')
+  page.selected={id:'public-review'}
+  await page.submit(); assert.equal(calls.length,0)
+  page.reason='谢谢您的反馈';await page.submit()
+  assert.equal(calls[0][0],'/merchant/reviews/public-review/reply')
+  assert.deepEqual(Object.keys(calls[0][1]),['content'])
+  assert.equal(calls[0][1].content,'谢谢您的反馈')
+  assert.ok(!sourceOf(mineViews+'ReviewManageView.ets').includes('buyerId'))
   assert.match(sourceOf('mixed-development-h5/products/phone/src/main/ets/pages/Index.ets'), /ReviewManageView\(\)/)
 })
 
@@ -296,8 +295,8 @@ test('复核补改：成功提示不用警示色，关联订单显示商品和�
   assert.equal(routes[0].name, 'MerchantOrderView'); assert.equal(routes[0].param, 'order-1')
 
   const review = sourceOf(mineViews + 'ReviewManageView.ets')
-  assert.ok(review.includes("(item: MerchantReview) => item.id + ':' + (item.hiddenReason || ''))"), '隐藏原因变化后评价卡片要刷新')
-  assert.ok(review.includes('if (!item.hiddenReason) {'), '已隐藏的评价不再显示隐藏按钮')
+  assert.ok(review.includes("(item: MerchantReview) => item.id + ':' + (item.reply || ''))"), '公开回复后评价卡片要刷新')
+  assert.ok(review.includes('if(item.reply)') && !review.includes("Button('隐藏评价')"), '已回复的评价显示回复且无隐藏入口')
   assert.ok(sourceOf(mineViews + 'MerchantServiceView.ets').includes("(item: ServiceThread) => item.buyerId + ':' + item.updatedAt + ':' + item.awaitingReply)"), '回复后留言会话卡片要刷新')
 
   const form = sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/components/InvoiceForm.ets')

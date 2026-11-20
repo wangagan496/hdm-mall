@@ -32,7 +32,7 @@ test('E19 v18备份升级保留历史商品订单与分类摘要，索引随备�
     for (let attempt = 0; attempt < 2; attempt++) {
       const db = new Database(upgradedPath)
       try {
-        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 23)
+        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 24)
         assert.deepEqual(db.all('SELECT * FROM products ORDER BY id'), products)
         assert.deepEqual(db.all('SELECT * FROM skus ORDER BY id'), skus)
         assert.deepEqual(db.all('SELECT * FROM orders ORDER BY id'), orders)
@@ -48,7 +48,7 @@ test('E19 v18备份升级保留历史商品订单与分类摘要，索引随备�
       } finally { db.close() }
     }
     const current = await createBackup({ databasePath: upgradedPath, uploadsPath: join(f.root, 'uploads'), destination: join(f.root, 'v19') })
-    assert.equal(current.manifest.schemaVersion, 23)
+    assert.equal(current.manifest.schemaVersion, 24)
     assert.equal((await verifyBackup(current.root)).counts.orders, 1)
     const next = await restoreBackup({ backupPath: current.root, destination: join(f.root, 'restored-v19') })
     const db = new Database(join(next.root, 'mall.sqlite'))

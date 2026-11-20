@@ -145,7 +145,7 @@ export class AccountLifecycle {
  }
  async scan(){
   const now=this.clock.now()
-  this.db.run(`UPDATE orders SET state=4,received_by=owner_id,received_at=? WHERE state=3 AND shipped_at<=?
+  this.db.run(`UPDATE orders SET state=4,received_by=NULL,received_at=? WHERE state=3 AND shipped_at<=?
    AND owner_id IN (SELECT id FROM users WHERE status='deleting')`,now,now-15*DAY)
   for(const user of this.db.all<LifecycleUser>("SELECT * FROM users WHERE status='deleting' AND deletion_due_at<=?",now))if(!this.matters(user.id).length)this.erase(user)
   for(const order of this.db.all<{id:string;address:string}>('SELECT id,address FROM orders WHERE retain_until<=? AND personal_data_cleared_at IS NULL',now)){

@@ -1,4 +1,4 @@
-import { HDMGoodsItem, PromiseMaterialSource, PromiseSnapshot } from 'models'
+import { HDMGoodsItem, ReviewField, PromiseMaterialSource, PromiseSnapshot } from 'models'
 import { HDMSkuType, HDMSpec } from 'ui_components'
 
 // 其他略
@@ -18,6 +18,13 @@ export interface GoodsEvaluationMember {
 }
 
 export interface GoodsEvaluation {
+  logisticsScore?: number
+  serviceScore?: number
+  serviceOccurred?: boolean
+  items?: ReviewField[]
+  badges?: string[]
+  receiptBasis?: string
+  reply?: string
   content: string
   createTime: string
   id: string
@@ -26,7 +33,9 @@ export interface GoodsEvaluation {
   score: number
 }
 
+export interface GoodsReviewSummary { product:number|null; logistics:number|null; service:number|null; neutral:number; negative:number }
 export interface GoodsEvaluationPage {
+  summary?: GoodsReviewSummary
   counts: number
   items: GoodsEvaluation[]
   page: number

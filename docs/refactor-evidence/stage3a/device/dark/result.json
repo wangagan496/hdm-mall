@@ -1,0 +1,12 @@
+{
+  "theme": "dark",
+  "logistics": 4,
+  "revision": 2,
+  "badges": [
+    "已真实收货",
+    "对照承诺逐条打分"
+  ],
+  "product": 3,
+  "packageSha256": "B3613A7896920639492EA70E259AFC6DD8811222FACF9FDC03CFA11C59AF02BF",
+  "service": 5
+}

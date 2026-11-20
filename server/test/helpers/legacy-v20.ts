@@ -1,6 +1,19 @@
 import type { DatabaseSync } from 'node:sqlite'
 
+export function removeEvaluationSchema(db: DatabaseSync) {
+  if (db.prepare('PRAGMA user_version').get()!.user_version === 24) {
+    db.exec(`DROP TRIGGER freeze_review_edition; DROP TRIGGER review_edition_product; DROP TRIGGER review_edition_sku;
+      ALTER TABLE products DROP COLUMN review_edition; ALTER TABLE order_items DROP COLUMN review_edition;
+      DROP TABLE merchant_evaluation_replies; DROP TABLE evaluation_revisions; DROP TABLE evaluation_items; DROP INDEX evaluation_public_id;
+      ALTER TABLE evaluations DROP COLUMN product_score; ALTER TABLE evaluations DROP COLUMN logistics_score;
+      ALTER TABLE evaluations DROP COLUMN service_score; ALTER TABLE evaluations DROP COLUMN updated;
+      ALTER TABLE evaluations DROP COLUMN revision; ALTER TABLE evaluations DROP COLUMN public_id;
+      ALTER TABLE evaluations DROP COLUMN service_occurred; PRAGMA user_version=23;`)
+  }
+}
+
 export function removePromiseSchema(db: DatabaseSync) {
+  removeEvaluationSchema(db)
   if (db.prepare('PRAGMA user_version').get()!.user_version === 23) {
     db.exec('DROP INDEX after_sales_size_reason; ALTER TABLE after_sales DROP COLUMN size_reason; PRAGMA user_version=22;')
   }

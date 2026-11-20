@@ -26,8 +26,8 @@ async function fixture(count: number) {
         f.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count) VALUES(?,?,?,?,?,?,?,?)', id, 'review-product-b', 'review-product', '测试商品', '/assets/product.svg', '加大款', largerPriceCents, 1)
       }
       if (index === count + 6) continue // 尚未评价的订单不计入总数。
-      f.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, 5, `评价内容 ${index}`, created)
-      if (index < count) expected.push({ id, created })
+      f.db.run('INSERT INTO evaluations(order_id,score,product_score,content,created,updated,public_id) VALUES(?,5,5,?,?,?,?)', id, `评价内容 ${index}`, created,created,'public-'+id)
+      if (index < count) expected.push({ id: 'public-'+id, created })
     }
   })
   expected.sort((a, b) => b.created - a.created || a.id.localeCompare(b.id))
@@ -46,7 +46,8 @@ test('商品评价按商品计数且一单多规格不重复，同毫秒评价�
       assert.equal(result.page, page); assert.equal(result.pageSize, 5)
       assert.equal(result.items.length, page === 5 ? 3 : 5)
       for (const item of result.items) {
-        assert.deepEqual(Object.keys(item).sort(), ['content', 'createTime', 'id', 'member', 'pictures', 'score'])
+        assert.deepEqual(Object.keys(item).sort(), ['content','createTime','id','member','pictures','score','productScore','logisticsScore','serviceScore','serviceOccurred','items','badges','receiptBasis','reply'].sort())
+        assert.deepEqual(item.badges, [])
         assert.deepEqual(item.member, { nickname: '😀***甲' })
         assert.deepEqual(item.pictures, [])
         assert.equal(item.score, 5)
@@ -98,12 +99,12 @@ test('评价页在查询前拒绝非法参数，空结果、越界页和超大�
     for (const page of [3, Number.MAX_SAFE_INTEGER]) {
       const response = await f.app.inject(`/goods/review-product/evaluate/page?page=${page}&pageSize=10`)
       assert.equal(response.statusCode, 200)
-      assert.deepEqual(response.json().result, { items: [], counts: 12, pages: 2, page, pageSize: 10 })
+      assert.deepEqual(response.json().result, { items: [], counts: 12, pages: 2, page, pageSize: 10, summary:{counts:12,neutral:0,negative:0,product:5,logistics:null,service:null} })
     }
     for (const product of ['missing', "x' OR 1=1 --"]) {
       const response = await f.app.inject(`/goods/${encodeURIComponent(product)}/evaluate/page`)
       assert.equal(response.statusCode, 200)
-      assert.deepEqual(response.json().result, { items: [], counts: 0, pages: 0, page: 1, pageSize: 10 })
+      assert.deepEqual(response.json().result, { items: [], counts: 0, pages: 0, page: 1, pageSize: 10, summary:{counts:0,neutral:0,negative:0,product:null,logistics:null,service:null} })
     }
   } finally { await f.app.close() }
 })

@@ -132,9 +132,11 @@ export const searchGoodsAPI = (data: object) => {
 export const getGoodsEvaluationsAPI = (
   goodsId: string,
   page: number = 1,
-  pageSize: number = 2
+  pageSize: number = 2,
+  skuId?:string,
+  templateVersion?:string
 ) => {
-  const params: GoodsEvaluationParams = { page, pageSize }
+  const params: GoodsEvaluationParams = { page, pageSize, skuId, templateVersion }
   return RequestAxios.getWithoutToast<GoodsEvaluationPage>(`/goods/${goodsId}/evaluate/page`, params)
 }
 
@@ -194,6 +196,8 @@ interface GoodsDetailParams {
 }
 
 interface GoodsEvaluationParams {
+  skuId?:string
+  templateVersion?:string
   page: number
   pageSize: number
 }

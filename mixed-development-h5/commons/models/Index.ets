@@ -60,7 +60,7 @@ export {
 } from './src/main/ets/BusinessModels'
 export { ListDataSource } from './src/main/ets/ListDataSource'
 export { BreakPointEnum, BreakPointType } from './src/main/ets/BreakPoint'
-export { LocalEvaluationItem, DemoOrderOverlay } from './src/main/ets/BusinessModels'
+export { LocalEvaluationItem, ReviewChoice, ReviewField, ReviewHistory, DemoOrderOverlay } from './src/main/ets/BusinessModels'
 export { OrderState } from './src/main/ets/OrderState'
 export { CheckoutPrice, CheckoutShortage, CheckoutDetail, CheckoutFailure, OrderRequestResult, PendingOrderRequest } from './src/main/ets/CheckoutModels'
 export { formatBeijingTime } from './src/main/ets/TimeFormat'

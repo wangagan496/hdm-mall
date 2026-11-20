@@ -36,7 +36,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(23), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(24), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -129,7 +129,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 23) throw new Error('仅支持数据库版本 2 至 23')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 24) throw new Error('仅支持数据库版本 2 至 24')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -142,10 +142,26 @@ function inspectDatabase(path: string) {
       ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : []),
       ...(version >= 18 ? ['mock_channel_bill','reconciliation_runs','reconciliation_differences','shipments','logistics_events'] : []),
       ...(version >= 20 ? ['user_identities','identity_layouts'] : []), ...(version >= 21 ? promiseTables : []),
-      ...(version >= 22 ? sourceRecordTables : [])]) {
+      ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
+    if(version>=24) {
+      if(db.prepare(`SELECT 1 FROM evaluations e WHERE public_id IS NULL OR product_score IS NOT score OR updated IS NULL OR updated<created
+        OR service_score IS NOT NULL AND service_occurred=0 OR revision<>(SELECT count(*)+1 FROM evaluation_revisions r WHERE r.order_id=e.order_id)`).get())
+        throw new Error('评价版本或分项评分无效')
+      if(db.prepare(`SELECT 1 FROM evaluation_items i JOIN order_item_promise_snapshots s USING(order_id,sku_id)
+        WHERE i.receipt_id<>s.receipt_id OR i.template_version<>json_extract(s.snapshot,'$.templateVersion')
+        OR NOT EXISTS(SELECT 1 FROM json_each(s.snapshot,'$.entries') f WHERE f.value->>'fieldId'=i.field_id AND f.value->>'status'='known'
+          AND f.value->>'value' IS i.value AND f.value->>'quote' IS i.quote AND f.value->>'label'=i.label)`).get())
+        throw new Error('逐条评价与冻结快照不一致')
+      if(db.prepare(`SELECT 1 FROM evaluation_revisions r JOIN evaluations e USING(order_id) WHERE r.revision>=e.revision
+        OR r.snapshot->>'revision' IS NOT r.revision OR r.snapshot->>'orderId' IS NOT r.order_id OR r.snapshot->>'content' IS NULL`).get())
+        throw new Error('改评历史无效')
+      if(db.prepare(`SELECT 1 FROM merchant_evaluation_replies r JOIN evaluations e USING(order_id) WHERE r.created<e.created
+        OR NOT EXISTS(SELECT 1 FROM user_identities g WHERE g.user_id=r.actor_id AND g.identity='merchant' AND g.granted_at<=r.created
+          AND (g.revoked_at IS NULL OR g.revoked_at>r.created))`).get()) throw new Error('商家公开回复依据无效')
+    }
     if(version>=20)inspectIdentities(db)
     if(version>=21)inspectPromises(db)
     if(version>=22)inspectSourceRecords(db)
