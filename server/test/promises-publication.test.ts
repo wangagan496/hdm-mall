@@ -16,6 +16,88 @@ import { materialDigest } from '../src/source-verification/materials.ts'
 
 const description = '支持7天退换。承诺48小时内发货。'
 
+test('多规格反馈各自恢复，缺一项、重复、混用简写或备份镜像不一致均拒绝',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'size-review-backup-'))
+  const databasePath=join(root,'data','mall.sqlite'), uploadsPath=join(root,'uploads')
+  const f=await fixture(databasePath,uploadsPath)
+  try {
+    f.ctx.db.run("UPDATE products SET category='服饰',description='版型标准。' WHERE id=?",f.product.id)
+    const receipt=(await f.publish(await f.confirm(await f.extract()))).result as PromiseSnapshot
+    const id=await f.order(true)
+    const path='/member/order/'+id
+    assert.equal((await f.call('POST',path+'/mock-pay',{amountCents:4600})).status,200)
+    assert.equal((await f.call('POST','/merchant/orders/'+id+'/ship',{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
+    assert.equal((await f.call('PUT',path+'/receipt')).status,200)
+    const items=[f.sku,f.second].flatMap(sku=>receipt.entries.filter(e=>e.status==='known').map(e=>({skuId:sku.id,fieldId:e.fieldId,result:'matches'})))
+    const sizes=[{skuId:f.sku.id,sizeFit:'smaller',sizeShift:'full'},{skuId:f.second.id,sizeFit:'true'}]
+    const save=(extra:object)=>f.call('PUT',path+'/evaluation',{score:4,content:'两种规格的体验不同',items,...extra})
+    assert.equal((await save({sizes:sizes.slice(0,1)})).status,400)
+    assert.equal((await save({sizes:[sizes[0],sizes[0]]})).status,400)
+    assert.equal((await save({sizes,sizeFit:'true'})).status,400)
+    const prior=await f.detail(id)
+    assert.equal((await save({sizes})).status,200)
+    const detail=await f.detail(id)
+    assert.deepEqual(detail.afterSaleRemaining,prior.afterSaleRemaining)
+    assert.deepEqual(detail.skus.map((s:{promiseChecks:object[]})=>s.promiseChecks),[[],[]])
+    assert.ok(detail.skus.every((s:{sizeReviewRequired:boolean})=>s.sizeReviewRequired))
+    const backup=await createBackup({databasePath,uploadsPath,destination:join(root,'backup')})
+    assert.equal(backup.counts.evaluation_sizes,2)
+    const restored=await restoreBackup({backupPath:backup.root,destination:join(root,'restored')})
+    const db=new Database(join(restored.root,'mall.sqlite'))
+    try {
+      for(const size of sizes){
+        const row=db.one<{size_fit:string;size_shift:string|null}>('SELECT size_fit,size_shift FROM evaluation_sizes WHERE order_id=? AND sku_id=?',id,size.skuId)!
+        assert.equal(row.size_fit,size.sizeFit)
+        assert.equal(row.size_shift,size.sizeShift??null)
+      }
+    } finally {db.close()}
+    f.ctx.db.run("UPDATE evaluations SET size_fit='true' WHERE order_id=?",id)
+    await assert.rejects(createBackup({databasePath,uploadsPath,destination:join(root,'invalid')}),/尺码评价/)
+  } finally {await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
+})
+
+test('尺码选择以收货项为准，三个同规格同发布的样本才显示均分和尺码多数', async () => {
+  const f = await fixture()
+  try {
+    f.ctx.db.run("UPDATE products SET category='鞋靴',description='版型偏大。' WHERE id=?", f.product.id)
+    const snapshot = (await f.publish(await f.confirm(await f.extract()))).result as PromiseSnapshot
+    const page = '/goods/' + f.product.id + '/evaluate/page?threshold=1&skuId=' + f.sku.id
+    for (const [index, sku] of [f.sku, f.second, f.sku, f.sku].entries()) {
+      const id = await f.order(false, [sku])
+      const path = '/member/order/' + id
+      assert.equal((await f.call('POST', path+'/mock-pay', {amountCents:2300})).status,200)
+      assert.equal((await f.call('POST','/merchant/orders/'+id+'/ship',{carrier:'顺丰',trackingNo:'SF12345678'},f.merchant.token)).status,200)
+      assert.equal((await f.call('PUT',path+'/receipt')).status,200)
+      const items = snapshot.entries.filter(e=>e.status==='known').map(e=>({skuId:sku.id,fieldId:e.fieldId,result:'matches'}))
+      const input = {score:4, logisticsScore:2, content:'穿着体验与描述相符',items}
+      const save = (extra:object) => f.call('PUT',path+'/evaluation',{...input,...extra})
+      assert.equal((await save({})).status,400)
+      assert.equal((await save({sizeFit:'true',sizeShift:'half'})).status,400)
+      assert.equal((await save({sizeFit:'larger',sizeShift:'两码'})).status,400)
+      assert.equal((await save(index===3 ? {sizeFit:'smaller'} : {sizeFit:'larger',sizeShift:'half'})).status,200)
+      const result=(await f.call('GET',page)).result
+      assert.equal(result.summary.sampleSufficient,index===3)
+      if (index<3) {
+        assert.equal(result.summary.product,undefined)
+        assert.equal(result.sizeSummary.conclusion,'样本有限，暂不足以判断')
+        assert.equal(result.items[0].spec,'其他规格')
+        for(const list of [result,(await f.call('GET','/merchant/goods/'+f.product.id+'/reviews',undefined,f.merchant.token)).result]){
+          const raw=JSON.stringify(list)
+          for(const secret of [sku.id,'标准款','加厚款',id,f.buyer.account,'13800000000','验收地址一号']) assert.ok(!raw.includes(secret))
+          assert.match(list.items[0].createTime,/^\d{4}-\d{2}-\d{2}$/)
+        }
+      } else {
+        assert.equal(result.summary.product,4)
+        assert.equal(result.summary.logistics,2)
+        assert.equal(result.summary.service,null)
+        assert.equal(result.sizeSummary.conclusion,'多数人说偏大半码')
+      }
+    }
+    await f.publish(await f.confirm(await f.extract()))
+    assert.equal((await f.call('GET',page)).result.summary.sampleSufficient,false)
+  } finally { await f.ctx.app.close() }
+})
+
 test('评价绑定冻结条目与版本，跨规格和新发布不继承，改评还原原快照', async () => {
   const f = await fixture()
   try {
@@ -27,6 +109,7 @@ test('评价绑定冻结条目与版本，跨规格和新发布不继承，改�
     assert.equal((await f.call('PUT',order+'/receipt')).status,200)
     const items=first.entries.filter(e=>e.status==='known').map(e=>({fieldId:e.fieldId,skuId:f.sku.id,result:'matches',note:'情况符合原文'}))
     const input={score:3,logisticsScore:4,content:'总体体验中等，描述准确',items}
+    assert.equal((await f.call('PUT',order+'/evaluation',{...input,sizeFit:'true'})).status,400)
     assert.equal((await f.call('PUT',order+'/evaluation',{...input,items:[]})).status,400)
     assert.equal((await f.call('PUT',order+'/evaluation',{...input,items:items.map(i=>({...i,skuId:f.second.id}))})).status,400)
     assert.equal((await f.call('PUT',order+'/evaluation',input)).status,200)
@@ -284,7 +367,7 @@ test('仅收货买家可核对，售后保存原文引用并可随备份恢复',
     assert.deepEqual((await sale()).promiseMismatch, stored)
 
     const backup = await createBackup({ databasePath, uploadsPath, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 24)
+    assert.equal(backup.manifest.schemaVersion, 25)
     for (const table of promiseTables) assert.ok(backup.counts[table]! > 0, table)
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const restoredDb = new Database(join(restored.root, 'mall.sqlite'))

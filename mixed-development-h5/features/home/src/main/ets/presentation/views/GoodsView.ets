@@ -311,9 +311,13 @@ export struct GoodsView {
       const skuId=this.sku?.id || this.goods?.skus?.[0]?.id
       if(!skuId) return
       const result = await getGoodsEvaluationsAPI(goodsId,1,10,skuId,this.goods.promiseSnapshot?.templateVersion || '')
-      if(requestId===this.evaluationRequestId && result.summary && result.counts>0) {
-        this.reviewSummary='商品 '+(result.summary.product?.toFixed(1) || '未评分')+' · 物流 '+(result.summary.logistics?.toFixed(1) || '未评分')+
-          ' · 售后 '+(result.summary.service?.toFixed(1) || '未评分')+' · 中评 '+result.summary.neutral+'条'
+      if(requestId===this.evaluationRequestId && this.isCurrentGoods(generation,token,sequence,goodsId) && result.counts>0 && result.summary) {
+        this.reviewSummary=result.summary.sampleSufficient ? '商品 '+(result.summary.product?.toFixed(1) || '未评分')+' · 物流 '+(result.summary.logistics?.toFixed(1) || '未评分')+
+          ' · 售后 '+(result.summary.service?.toFixed(1) || '未评分')+' · 中评 '+result.summary.neutral+'条' : '样本有限，暂不足以判断'
+        if(result.summary.sampleSufficient && result.sizeSummary && (result.sizeSummary.counts>0 ||
+          this.goods.promiseSnapshot?.entries.some(field=>field.status==='known' && (field.fieldId==='fit'||field.fieldId==='size-chart')))){
+          this.reviewSummary+='\n尺码：'+result.sizeSummary.conclusion
+        }
       }
       if (requestId !== this.evaluationRequestId || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
         return
@@ -699,7 +703,6 @@ export struct GoodsView {
                 evaluations: this.evaluations,
                 totalCount: this.evaluationCount,
                 summary: this.reviewSummary,
-                spec: this.sku?.specsText || this.goods?.skus?.[0]?.specsText || '',
                 loading: this.evaluationLoading
               })
             }

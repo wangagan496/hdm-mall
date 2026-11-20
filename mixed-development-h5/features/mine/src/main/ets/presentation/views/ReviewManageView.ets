@@ -8,7 +8,9 @@ interface MerchantReview {
   id:string; member:ReviewMember; score:number; logisticsScore?:number; serviceScore?:number; serviceOccurred:boolean
   content:string; reply?:string; items:ReviewField[]
 }
-interface MerchantReviewPage { items: MerchantReview[]; pages: number }
+interface SizeSummary { conclusion:string }
+interface SizeGroup { spec:string; sizeSummary:SizeSummary }
+interface MerchantReviewPage { items: MerchantReview[]; pages: number; sizeGroups?:SizeGroup[] }
 interface ReplyBody { content: string }
 
 @Component
@@ -18,6 +20,7 @@ export struct ReviewManageView {
   @StorageProp(GlobalVariable.SAFE_AREA_BOTTOM) safeBottom: number = 0
   @StorageProp(GlobalVariable.USER_INFO_KEY) @Watch('accountChanged') user: HDMUser = { account: '', nickname: '', token: '', avatar: '' }
   @State items: MerchantReview[] = []
+  @State sizeGroups:SizeGroup[] = []
   @State selected: MerchantReview | null = null
   @State reason: string = ''
   @State message: string = ''
@@ -32,7 +35,7 @@ export struct ReviewManageView {
   private query: number = 0
   private current(generation: number, token: string): boolean { return this.active && generation === this.generation && !!token && token === this.user.token && this.user.identity === 'merchant' }
   private messageColor(): ResourceColor { return this.messageOk ? $r('[ui_components].color.text') : $r('[ui_components].color.red') }
-  private accountChanged(): void { this.generation++; this.query++; this.items = []; this.selected = null; this.reason = ''; this.message = ''; this.busy = false; this.loading = false; if (this.active) void this.load(1) }
+  private accountChanged(): void { this.generation++; this.query++; this.items = []; this.sizeGroups=[]; this.selected = null; this.reason = ''; this.message = ''; this.busy = false; this.loading = false; if (this.active) void this.load(1) }
   aboutToDisappear(): void { this.active = false; this.accountChanged() }
   private async load(page: number = 1): Promise<void> {
     const token = this.user.token, generation = this.generation, query = ++this.query
@@ -40,7 +43,7 @@ export struct ReviewManageView {
     this.loading = true
     try {
       const result = await RequestAxios.getForSession<MerchantReviewPage>('/merchant/goods/' + encodeURIComponent(this.productId) + '/reviews?page=' + page + '&pageSize=10', token)
-      if (this.current(generation, token) && query === this.query) { this.items = result.items; this.pages = result.pages; this.page = page }
+      if (this.current(generation, token) && query === this.query) { this.items = result.items; this.sizeGroups=result.sizeGroups || []; this.pages = result.pages; this.page = page }
     } catch { if (this.current(generation, token) && query === this.query) this.message = '评价读取失败，请重试' }
     finally { if (this.current(generation, token) && query === this.query) this.loading = false }
   }
@@ -73,6 +76,9 @@ export struct ReviewManageView {
                 Button('取消').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => { this.selected = null })
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }
+            ForEach(this.sizeGroups,(group:SizeGroup)=>{
+              Text(group.spec+' · '+group.sizeSummary.conclusion).fontColor($r('[ui_components].color.text'))
+            })
             ForEach(this.items, (item: MerchantReview) => {
               Column({ space: 10 }) {
                 Text(item.member.nickname+' · 商品 '+item.score+'分'+(item.score===3?'（中评）':'')).fontColor($r('[ui_components].color.text'))

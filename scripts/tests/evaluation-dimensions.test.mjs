@@ -3,12 +3,28 @@ import assert from 'node:assert/strict'
 import {execute, sourceOf, tick} from './native-harness.mjs'
 import {evaluationFixture} from './evaluation-harness.mjs'
 
-test('商品详情评价卡以北京时间显示到分钟',()=>{
+test('商品详情评价卡只显示北京日期，跨日 ISO 按东八区换日',()=>{
   const root='mixed-development-h5/'
-  const {formatBeijingTime}=execute(sourceOf(root+'commons/models/src/main/ets/TimeFormat.ets'))
   const card=sourceOf(root+'features/home/src/main/ets/presentation/components/GoodsComment.ets')
-  assert.match(card,/Text\(formatBeijingTime\(evaluation\.createTime\)\)/)
-  assert.equal(formatBeijingTime('2026-11-20T06:26:25.940Z'),'2026-11-20 14:26')
+  assert.match(card,/Text\(.*[dD]ate.*evaluation\.createTime/)
+  const {formatReviewDate}=execute(sourceOf(root+'commons/models/src/main/ets/TimeFormat.ets'))
+  assert.equal(formatReviewDate('2026-11-20T16:26:25.940Z'),'2026-11-21')
+  assert.equal(formatReviewDate('2026-11-20'),'2026-11-20')
+  assert.match(card,/evaluation.spec \|\| '其他规格'/)
+  assert.match(sourceOf(root+'features/home/src/main/ets/presentation/views/GoodsView.ets'),/sampleSufficient[\s\S]+样本有限，暂不足以判断/)
+})
+
+test('每个有尺码承诺的订单项必选，切换合适会清空偏差幅度', async()=>{
+  const f=evaluationFixture()
+  f.setLoad(async()=>({id:'order-a',canEvaluate:true,skus:[{id:'sku',sizeReviewRequired:true,promiseSnapshot:{entries:[{fieldId:'fit',status:'known'}]}}]}))
+  const page=f.newPage();page.aboutToAppear();await tick()
+  page.content='鞋子的日常穿着体验';page.choosePromise('sku','fit','matches','')
+  await page.submitEvaluation()
+  assert.equal(f.submissions.length,0)
+  page.chooseSize('sku','larger','half')
+  page.chooseSize('sku','true')
+  await page.submitEvaluation()
+  assert.deepEqual(JSON.parse(JSON.stringify(f.submissions[0][1].sizes)),[{skuId:'sku',sizeFit:'true'}])
 })
 
 test('买家按冻结条目提交三项评分，提交体不带订单联系人或冻结版本',async()=>{

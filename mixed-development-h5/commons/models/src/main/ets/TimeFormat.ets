@@ -3,6 +3,10 @@
 // 这里用固定 +8 小时换算，不依赖设备时区和 Intl 支持，测试与真机结果一致。
 const BEIJING_OFFSET_MS: number = 8 * 60 * 60 * 1000
 
+export function formatReviewDate(value:string):string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : formatBeijingTime(value).slice(0,10)
+}
+
 function pad2(value: number): string {
   return value < 10 ? '0' + value : String(value)
 }

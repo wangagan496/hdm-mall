@@ -415,6 +415,7 @@ export interface OrderPage {
 }
 
 export interface OrderSku extends ReturnPolicyFields {
+  sizeReviewRequired?:boolean
   promiseSnapshot?: PromiseSnapshot | null
   promiseChecks?: OrderPromiseCheck[]
   promiseSources?: PromiseMaterialSource[]
@@ -460,7 +461,13 @@ export interface ReviewHistory {
   revision: number
   productScore: number
 }
+export interface SizeChoice {
+  skuId:string
+  sizeFit:string
+  sizeShift?:string
+}
 export interface LocalEvaluationItem {
+  sizes?:SizeChoice[]
   logisticsScore?: number | null
   serviceScore?: number | null
   items?: ReviewField[]

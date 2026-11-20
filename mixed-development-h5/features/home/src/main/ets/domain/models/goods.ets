@@ -18,6 +18,7 @@ export interface GoodsEvaluationMember {
 }
 
 export interface GoodsEvaluation {
+  spec?:string
   logisticsScore?: number
   serviceScore?: number
   serviceOccurred?: boolean
@@ -33,8 +34,10 @@ export interface GoodsEvaluation {
   score: number
 }
 
-export interface GoodsReviewSummary { product:number|null; logistics:number|null; service:number|null; neutral:number; negative:number }
+export interface GoodsReviewSummary { sampleSufficient:boolean; product?:number; logistics?:number; service?:number; neutral?:number; negative?:number }
+export interface GoodsSizeSummary { counts:number; conclusion:string; sampleSufficient:boolean }
 export interface GoodsEvaluationPage {
+  sizeSummary?:GoodsSizeSummary
   summary?: GoodsReviewSummary
   counts: number
   items: GoodsEvaluation[]

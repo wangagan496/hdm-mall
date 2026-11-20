@@ -15,7 +15,7 @@ export class Database {
       this.connection.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;')
       const version = this.one<{ user_version: number }>('PRAGMA user_version')!.user_version
       if (version === 0) this.connection.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
-      else if (version < 1 || version > 24) throw new Error('Unsupported database version')
+      else if (version < 1 || version > 25) throw new Error('Unsupported database version')
       if (version < 2) {
         this.connection.exec(`BEGIN IMMEDIATE;
         CREATE TABLE categories(id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT REFERENCES categories(id), source_key TEXT UNIQUE NOT NULL);
@@ -105,6 +105,10 @@ export class Database {
       if (version < 24) this.transaction(() => {
         if (this.one<{ user_version: number }>('PRAGMA user_version')!.user_version >= 24) return
         this.connection.exec(readFileSync(new URL('./migrations/024-evaluations.sql', import.meta.url), 'utf8'))
+      })
+      if (version < 25) this.transaction(() => {
+        if (this.one<{user_version:number}>('PRAGMA user_version')!.user_version >= 25) return
+        this.connection.exec(readFileSync(new URL('./migrations/025-size-feedback.sql', import.meta.url), 'utf8'))
       })
     } catch (error) {
       this.connection.close()

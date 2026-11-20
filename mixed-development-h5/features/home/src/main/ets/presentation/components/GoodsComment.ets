@@ -1,11 +1,10 @@
-import { formatBeijingTime, ReviewField } from 'models'
+import { formatReviewDate, ReviewField } from 'models'
 import { GoodsEvaluation } from '../../domain/models'
 
 @Component
 export struct GoodsComment {
   @Prop evaluations: GoodsEvaluation[] = []
   @Prop summary:string=''
-  @Prop spec:string=''
   @Prop totalCount: number = 0
   @Prop loading: boolean = false
 
@@ -38,7 +37,6 @@ export struct GoodsComment {
       .width('100%')
       .height(40)
 
-      if(this.spec) {Text('规格：'+this.spec).fontSize(13).fontColor($r('[ui_components].color.text'))}
       if(this.summary){Text(this.summary).fontSize(13).fontColor($r('[ui_components].color.text'))}
       if (this.loading) {
         Text('正在加载评价...')
@@ -77,7 +75,8 @@ export struct GoodsComment {
               Text(field.label+' · '+(field.result==='matches'?'符合':field.result==='mismatch'?'不符':'没注意')+'：'+field.quote+(field.note?'（'+field.note+'）':'')).fontColor($r('[ui_components].color.text')).fontSize(13)
             })
             if(evaluation.reply){Text('商家回复：'+evaluation.reply).fontColor($r('[ui_components].color.text')).fontSize(13)}
-            Text(formatBeijingTime(evaluation.createTime))
+            Text('规格：'+(evaluation.spec || '其他规格')).fontSize(13).fontColor($r('[ui_components].color.text'))
+            Text(formatReviewDate(evaluation.createTime))
               .fontColor($r('[ui_components].color.gray'))
               .fontSize(12)
 

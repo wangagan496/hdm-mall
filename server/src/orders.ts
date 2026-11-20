@@ -12,7 +12,7 @@ import { localAvatarPath } from './avatar.ts'
 import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
-import { buyerEvaluation, saveEvaluation, type EvaluationInput } from './evaluations.ts'
+import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, type EvaluationInput } from './evaluations.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
 
@@ -221,6 +221,7 @@ export class Orders {
       serverManaged: true, payMoney: order.amount / 100, skus: [], ...paymentFields, ...cancelFields }
     const logistics = shipmentDetail(this.db, order.id)
     const promises = includePromises ? orderPromises(this.db, order.id, this.clock.now()) : undefined
+    const sizeReviewSkus=promises && isOrderOwner ? requiredEvaluationSizes(this.db,order.id) : []
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
@@ -243,7 +244,7 @@ export class Orders {
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
         discountShareCents: item.discount_share,
-        ...(promises ? { promiseSnapshot: promises.snapshots.get(item.sku_id) ?? null,
+        ...(promises ? { sizeReviewRequired:sizeReviewSkus.includes(item.sku_id),promiseSnapshot: promises.snapshots.get(item.sku_id) ?? null,
           ...(promises.sources.has(item.sku_id) ? { promiseSources: promises.sources.get(item.sku_id) } : {}),
           promiseChecks: isOrderOwner && user.identity === 'buyer' ? promises.checks.filter(check => check.skuId === item.sku_id)
             .map(check => ({ fieldId: check.fieldId, result: check.result })) : [] } : {}),

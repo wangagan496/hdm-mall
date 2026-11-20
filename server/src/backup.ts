@@ -36,7 +36,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(24), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(25), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -129,7 +129,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 24) throw new Error('仅支持数据库版本 2 至 24')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 25) throw new Error('仅支持数据库版本 2 至 25')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -142,10 +142,20 @@ function inspectDatabase(path: string) {
       ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : []),
       ...(version >= 18 ? ['mock_channel_bill','reconciliation_runs','reconciliation_differences','shipments','logistics_events'] : []),
       ...(version >= 20 ? ['user_identities','identity_layouts'] : []), ...(version >= 21 ? promiseTables : []),
-      ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : [])]) {
+      ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : []),
+      ...(version >= 25 ? ['evaluation_sizes'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
+    if(version>=25){
+      if(db.prepare(`SELECT 1 FROM evaluation_sizes z LEFT JOIN required_evaluation_sizes a USING(order_id,sku_id)
+        WHERE a.sku_id IS NULL OR z.size_fit NOT IN ('larger','true','smaller') OR
+        (z.size_shift IS NOT NULL AND (z.size_shift NOT IN ('half','full') OR z.size_fit='true'))`).get() ||
+        db.prepare(`SELECT 1 FROM evaluations e LEFT JOIN (SELECT order_id, count(*) n, size_fit,size_shift FROM evaluation_sizes GROUP BY order_id) z USING(order_id)
+          WHERE e.size_fit IS NOT (CASE WHEN z.n=1 THEN z.size_fit END) OR e.size_shift IS NOT (CASE WHEN z.n=1 THEN z.size_shift END)
+          OR (z.n>0 AND z.n<>(SELECT count(*) FROM required_evaluation_sizes a WHERE a.order_id=e.order_id))`).get())
+        throw new Error('尺码评价与冻结规格不一致')
+    }
     if(version>=24) {
       if(db.prepare(`SELECT 1 FROM evaluations e WHERE public_id IS NULL OR product_score IS NOT score OR updated IS NULL OR updated<created
         OR service_score IS NOT NULL AND service_occurred=0 OR revision<>(SELECT count(*)+1 FROM evaluation_revisions r WHERE r.order_id=e.order_id)`).get())

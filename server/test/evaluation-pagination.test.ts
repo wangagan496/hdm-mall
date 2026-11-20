@@ -46,12 +46,12 @@ test('商品评价按商品计数且一单多规格不重复，同毫秒评价�
       assert.equal(result.page, page); assert.equal(result.pageSize, 5)
       assert.equal(result.items.length, page === 5 ? 3 : 5)
       for (const item of result.items) {
-        assert.deepEqual(Object.keys(item).sort(), ['content','createTime','id','member','pictures','score','productScore','logisticsScore','serviceScore','serviceOccurred','items','badges','receiptBasis','reply'].sort())
+        assert.deepEqual(Object.keys(item).sort(), ['spec','content','createTime','id','member','pictures','score','productScore','logisticsScore','serviceScore','serviceOccurred','items','badges','receiptBasis','reply'].sort())
         assert.deepEqual(item.badges, [])
         assert.deepEqual(item.member, { nickname: '😀***甲' })
         assert.deepEqual(item.pictures, [])
         assert.equal(item.score, 5)
-        assert.equal(item.createTime, new Date(f.expected.find(row => row.id === item.id)!.created).toISOString())
+        assert.equal(item.createTime, new Date(f.expected.find(row => row.id === item.id)!.created+8*3600000).toISOString().slice(0,10))
         actual.push(item.id)
       }
     }
@@ -70,7 +70,7 @@ test('两千条商品评价请求二十条时仅取当前页，不把所有正�
     const all = f.db.all.bind(f.db)
     f.db.all = (<T>(sql: string, ...params: Parameters<typeof f.db.all>[1][]) => {
       const rows = all<T>(sql, ...params)
-      if (sql.includes('evaluations')) reads.push(rows.length)
+      if (sql.includes('SELECT e.*')) reads.push(rows.length)
       return rows
     }) as typeof f.db.all
     const response = await f.app.inject('/goods/review-product/evaluate/page?page=7&pageSize=20')
@@ -99,12 +99,14 @@ test('评价页在查询前拒绝非法参数，空结果、越界页和超大�
     for (const page of [3, Number.MAX_SAFE_INTEGER]) {
       const response = await f.app.inject(`/goods/review-product/evaluate/page?page=${page}&pageSize=10`)
       assert.equal(response.statusCode, 200)
-      assert.deepEqual(response.json().result, { items: [], counts: 12, pages: 2, page, pageSize: 10, summary:{counts:12,neutral:0,negative:0,product:5,logistics:null,service:null} })
+      assert.deepEqual(response.json().result, { items: [], counts: 12, pages: 2, page, pageSize: 10, summary:{counts:12,sampleSufficient:true,neutral:0,negative:0,product:5,logistics:null,service:null},
+        sizeSummary:{counts:0,sampleSufficient:false,conclusion:'样本有限，暂不足以判断'} })
     }
     for (const product of ['missing', "x' OR 1=1 --"]) {
       const response = await f.app.inject(`/goods/${encodeURIComponent(product)}/evaluate/page`)
       assert.equal(response.statusCode, 200)
-      assert.deepEqual(response.json().result, { items: [], counts: 0, pages: 0, page: 1, pageSize: 10, summary:{counts:0,neutral:0,negative:0,product:null,logistics:null,service:null} })
+      const insufficient={counts:0,sampleSufficient:false,conclusion:'样本有限，暂不足以判断'}
+      assert.deepEqual(response.json().result, { items: [], counts: 0, pages: 0, page: 1, pageSize: 10, summary:insufficient,sizeSummary:insufficient })
     }
   } finally { await f.app.close() }
 })

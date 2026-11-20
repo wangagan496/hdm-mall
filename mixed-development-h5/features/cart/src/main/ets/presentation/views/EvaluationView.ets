@@ -2,7 +2,7 @@ import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { connection } from '@kit.NetworkKit'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, OrderItem, OrderSku, LocalEvaluationItem, ReviewChoice, ReviewHistory, PromiseEntry } from 'models'
+import { HDMUser, OrderItem, OrderSku, LocalEvaluationItem, ReviewChoice, ReviewHistory, SizeChoice, PromiseEntry } from 'models'
 import { validateEvaluation, auth, storeManager } from 'storage'
 import { EvaluationPayload } from '../../data/api/cart'
 import { commentOrderAPI, getOrderDetailAPI } from '../../data/api'
@@ -44,6 +44,7 @@ export struct EvaluationView {
   @State logisticsScore: number = 0
   @State serviceScore: number = 0
   @State choices: ReviewChoice[] = []
+  @State sizes:SizeChoice[] = []
   @State content: string = ''
   @State errorText: string = ''
   @State resultUnknown: boolean = false
@@ -112,6 +113,7 @@ export struct EvaluationView {
     this.logisticsScore = 0
     this.serviceScore = 0
     this.choices = []
+    this.sizes=[]
     this.content = ''
     this.errorText = ''
     this.submitted = false
@@ -129,6 +131,7 @@ export struct EvaluationView {
         this.logisticsScore=draft.logisticsScore || 0
         this.serviceScore=draft.serviceScore || 0
         this.choices=draft.items || []
+        this.sizes=draft.sizes || []
         this.pendingEvaluation=draft.pending;this.resultUnknown=!!draft.pending
       }
     } catch {}
@@ -193,7 +196,7 @@ export struct EvaluationView {
       const store = storeManager.getStore()
       if (this.submitted) store.deleteSync(key)
       else {
-        const draft: EvaluationDraft = { score: this.score, content: this.content, logisticsScore:this.logisticsScore, serviceScore:this.serviceScore, items:this.choices, pending:this.pendingEvaluation }
+        const draft: EvaluationDraft = { score: this.score, content: this.content, logisticsScore:this.logisticsScore, serviceScore:this.serviceScore, items:this.choices, sizes:this.sizes, pending:this.pendingEvaluation }
         store.putSync(key, JSON.stringify(draft))
       }
       void store.flush().catch(failed)
@@ -263,6 +266,7 @@ export struct EvaluationView {
         const previous = orderToReview.evaluation
         if (!this.content) {
           this.content=previous.content
+          this.sizes=previous.sizes || []
           this.score=previous.score
           this.logisticsScore=previous.logisticsScore || 0
           this.serviceScore=previous.serviceScore || 0
@@ -351,7 +355,9 @@ export struct EvaluationView {
   }
   private sameSubmission(actual:LocalEvaluationItem, expected:EvaluationSnapshot):boolean {
     const items=actual.items || [], choices=expected.items || []
-    return !actual.hiddenReason && actual.score===expected.score && actual.content===expected.content.trim()
+    const sizes=expected.sizes || [], saved=actual.sizes || []
+    return sizes.length===saved.length && sizes.every(choice=>saved.some(value=>value.skuId===choice.skuId &&
+      value.sizeFit===choice.sizeFit && (value.sizeShift || '')===(choice.sizeShift || ''))) && !actual.hiddenReason && actual.score===expected.score && actual.content===expected.content.trim()
       && (actual.logisticsScore||0)===(expected.logisticsScore||0) && (actual.serviceScore||0)===(expected.serviceScore||0)
       && (!expected.revision || actual.revision===expected.revision+1) && items.length===choices.length &&
       choices.every(choice=>items.some(item=>item.skuId===choice.skuId && item.fieldId===choice.fieldId &&
@@ -383,6 +389,9 @@ export struct EvaluationView {
       field.status==='known' && !this.choice(sku.id,field.fieldId)?.result))) {
       this.errorText='请逐条选择符合、不符或没注意';return
     }
+    if ((this.order.skus || []).some(sku=>sku.sizeReviewRequired && !this.sizeChoice(sku.id))) {
+      this.errorText='请选择尺码合不合适';return
+    }
     this.submitting = true
     const generation: number = this.pageGeneration
     const token: string = this.sessionToken
@@ -392,7 +401,7 @@ export struct EvaluationView {
       const content: string = this.content
       const snapshot:EvaluationSnapshot={score,content,logisticsScore:this.logisticsScore || undefined,
         serviceScore:this.order.afterSales?.length ? this.serviceScore || undefined : undefined,
-        items:this.choices,revision:this.order.evaluation?.revision}
+        items:this.choices,sizes:this.sizes.length ? this.sizes : undefined,revision:this.order.evaluation?.revision}
       this.pendingEvaluation=snapshot;this.saveDraft()
       const actions: EvaluationSubmitActions = {
         submitRemote: async (): Promise<void> => {
@@ -429,6 +438,38 @@ export struct EvaluationView {
     }
   }
 
+  private sizeChoice(skuId:string):SizeChoice|undefined {
+    return this.sizes.find(value=>value.skuId===skuId)
+  }
+  private chooseSize(skuId:string,sizeFit:string,sizeShift?:string):void {
+    if(!this.canEditEvaluation()) return
+    const choice:SizeChoice={skuId,sizeFit,sizeShift:sizeFit==='true' ? undefined : sizeShift}
+    this.sizes=this.sizes.filter(value=>value.skuId!==skuId).concat([choice])
+    this.errorText=''
+    this.queueDraft()
+  }
+  @Builder
+  private SizePicker(sku:OrderSku) {
+    Text(sku.attrsText+' · 尺码合不合适').fontColor($r('[ui_components].color.text'))
+    Row({space:6}){
+      ForEach(['larger','true','smaller'],(fit:string)=>{
+        Button((this.sizeChoice(sku.id)?.sizeFit===fit?'✓ ':'')+(fit==='larger'?'偏大':fit==='true'?'合适':'偏小'))
+          .fontColor(this.sizeChoice(sku.id)?.sizeFit===fit?Color.White:'#252525')
+          .backgroundColor(this.sizeChoice(sku.id)?.sizeFit===fit?'#D91B2B':Color.White)
+          .onClick(()=>this.chooseSize(sku.id,fit))
+      })
+    }
+    if(this.sizeChoice(sku.id) && this.sizeChoice(sku.id)?.sizeFit!=='true'){
+      Row({space:6}){
+        ForEach(['half','full'],(shift:string)=>{
+          Button((this.sizeChoice(sku.id)?.sizeShift===shift?'✓ ':'')+(shift==='half'?'约半码':'约一码'))
+            .fontColor(this.sizeChoice(sku.id)?.sizeShift===shift?Color.White:'#252525')
+            .backgroundColor(this.sizeChoice(sku.id)?.sizeShift===shift?'#D91B2B':Color.White)
+            .onClick(()=>this.chooseSize(sku.id,this.sizeChoice(sku.id)!.sizeFit,this.sizeChoice(sku.id)?.sizeShift===shift?undefined:shift))
+        })
+      }
+    }
+  }
   @Builder
   private OptionalScore(label:string, logistics:boolean) {
     Text(label + ((logistics ? this.logisticsScore : this.serviceScore) ? ' · '+(logistics ? this.logisticsScore : this.serviceScore)+'分' : ' · 未评分')).fontColor($r('[ui_components].color.text'))
@@ -611,6 +652,9 @@ export struct EvaluationView {
                 }
                 .width('100%')
                 this.ScorePicker()
+                ForEach(this.order?.skus || [],(sku:OrderSku)=>{
+                  if(sku.sizeReviewRequired){this.SizePicker(sku)}
+                })
                 this.OptionalScore('物流评分',true)
                 if(this.order?.afterSales?.length) { this.OptionalScore('售后评分',false) }
                 else { Text('售后：未发生').fontColor($r('[ui_components].color.gray')) }

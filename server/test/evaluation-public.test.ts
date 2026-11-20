@@ -12,7 +12,11 @@ test('商家评价列表全响应排除收件电话、账号、邮箱及完整�
     const id = (await f.create({ titleType:'individual', title:fullName, email })).body.result.id
     await f.complete(id)
     const path = '/member/order/' + id
-    assert.equal((await f.call('PUT',path+'/evaluation',{ score:4, content:'商品手感和描述一致' })).status,200)
+    f.advance(16*3600000+60000)
+    f.loginBuyer()
+    f.loginMerchant()
+    f.ctx.db.run("UPDATE orders SET address=json_set(address,'$.fullLocation','雪原省 银杉市','$.countyCode','928431') WHERE id=?",id)
+    assert.equal((await f.call('PUT',path+'/evaluation',{ score:4, content:'在银杉市收到商品，手感和描述一致' })).status,200)
     const order = (await f.call('GET',path)).body.result
     assert.equal(order.invoice.email,email)
     assert.equal(order.address.contact,'13800000000')
@@ -24,6 +28,15 @@ test('商家评价列表全响应排除收件电话、账号、邮箱及完整�
       assert.ok(!JSON.stringify(response.body).includes(secret))
     }
     assert.equal(list.items[0].member.nickname,'林***澄')
+    const publicPage=(await f.call('GET','/goods/'+f.product.id+'/evaluate/page')).body.result
+    for(const view of [publicPage,list]){
+      for(const secret of ['雪原省','银杉市','928431','fullLocation','countyCode',order.address.contact,f.buyer.account,id,f.buyer.id]){
+        assert.ok(!JSON.stringify(view).includes(secret))
+      }
+      assert.equal(view.items[0].spec,'其他规格')
+      assert.equal(view.items[0].createTime,'2026-11-12')
+      assert.equal((await f.call('GET','/member/order/'+view.items[0].id)).status,404)
+    }
     assert.equal((await f.call('GET','/merchant/orders/'+list.items[0].id,undefined,f.merchant.token)).status,404)
   } finally { await f.close() }
 })
@@ -40,8 +53,9 @@ test('评价只公开独立编号，商家只能公开回复，3分计作中评'
     const item = result.items[0]
     assert.notEqual(item.id,id)
     assert.deepEqual(item.badges,['已真实收货'])
-    assert.equal(result.summary.neutral,1)
-    assert.equal(result.summary.negative,0)
+    assert.equal(result.summary.sampleSufficient,false)
+    assert.equal(result.summary.neutral,undefined)
+    assert.equal(result.summary.negative,undefined)
     const merchant = (await f.call('GET','/merchant/goods/'+f.product.id+'/reviews',undefined,f.merchant.token)).body.result.items[0]
     assert.equal(merchant.id,item.id)
     for (const view of [merchant,item]) for(const sensitive of [id,f.buyer.id,f.buyer.account,'13800000000']) {
