@@ -1,4 +1,6 @@
 import { KeyboardAvoidMode } from '@kit.ArkUI'
+import { RequestAxios } from 'network'
+import { reviewLabel, formatBeijingTime } from 'models'
 import { connection } from '@kit.NetworkKit'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { HDMNavBar } from 'ui_components'
@@ -16,6 +18,8 @@ import {
   hasEvaluationTag,
   toggleEvaluationTag
 } from '../utils/EvaluationPresentation'
+
+interface CorrectionRequest {reason:string}
 
 @Builder
 function EvaluationViewBuilder() {
@@ -48,6 +52,8 @@ export struct EvaluationView {
   @State content: string = ''
   @State errorText: string = ''
   @State resultUnknown: boolean = false
+  @State correctionReason:string=''
+  @State correcting:boolean=false
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshEvaluationResult') foregroundSequence:number=0
   private pendingEvaluation:EvaluationSnapshot | undefined=undefined
   private evaluationMonitor:connection.NetConnection | undefined=undefined
@@ -88,6 +94,8 @@ export struct EvaluationView {
   }
 
   private reloadForCurrentAccount(): void {
+    this.correctionReason=''
+    this.correcting=false
     if (this.synchronizeEvaluationContext() && this.pageActive && !this.leaving) {
       this.loadOrderForEvaluation()
     }
@@ -229,7 +237,7 @@ export struct EvaluationView {
 
   private canEditEvaluation(): boolean {
     return this.isCurrentEvaluation(this.pageGeneration, this.sessionToken, this.orderId) &&
-      this.orderId.length > 0 && !this.submitting && !this.submitted
+      this.orderId.length > 0 && this.order?.evaluation?.hiddenSource!=='platform' && !this.submitting && !this.submitted
   }
 
   private async loadOrderForEvaluation(): Promise<void> {
@@ -254,13 +262,13 @@ export struct EvaluationView {
       if(this.pendingEvaluation) {
         const snapshot=this.pendingEvaluation,evaluation=orderToReview.evaluation
         this.resultUnknown=false;this.stopEvaluationMonitor()
-        if(evaluation?.hiddenReason){this.errorText='已被商家隐藏：'+evaluation.hiddenReason+'，请修改后重新发布';this.pendingEvaluation=undefined;this.saveDraft()}
+        if(evaluation?.hiddenReason){this.errorText=evaluation.hiddenSource==='platform'?'':'已被商家隐藏：'+evaluation.hiddenReason+'，请修改后重新发布';this.pendingEvaluation=undefined;this.saveDraft()}
         else if(evaluation && this.sameSubmission(evaluation,snapshot)){
           this.submitted=true;this.pendingEvaluation=undefined;this.errorText='评价已发布';this.saveDraft()
         }else if(evaluation){this.errorText='订单已有不同评价，本次输入已保留';this.pendingEvaluation=undefined;this.saveDraft()}
         else {this.errorText='尚未查到本次评价，可以继续提交';this.pendingEvaluation=undefined;this.saveDraft()}
       } else if (orderToReview.evaluation?.hiddenReason) {
-        this.errorText = '已被商家隐藏：' + orderToReview.evaluation.hiddenReason + '，请修改后重新发布'
+        this.errorText = orderToReview.evaluation.hiddenSource==='platform'?'':'已被商家隐藏：' + orderToReview.evaluation.hiddenReason + '，请修改后重新发布'
         if (!this.content) { this.content = orderToReview.evaluation.content; this.score = orderToReview.evaluation.score }
       } else if (orderToReview.evaluation && orderToReview.canEvaluate) {
         const previous = orderToReview.evaluation
@@ -596,6 +604,19 @@ export struct EvaluationView {
     }, (sku: OrderSku) => sku.id)
   }
 
+  private async requestCorrection():Promise<void>{
+    const token=this.sessionToken, generation=this.pageGeneration, dispute=this.order?.evaluation?.dispute
+    if(!dispute?.canCorrect || this.correcting || Array.from(this.correctionReason.trim()).length<5 || Array.from(this.correctionReason.trim()).length>200)return
+    this.correcting=true
+    try{
+      await RequestAxios.postWithSession<object>('/reviews/'+encodeURIComponent(dispute.reviewId)+'/correction',
+        {reason:this.correctionReason.trim()} as CorrectionRequest,token)
+      if(this.pageActive && generation===this.pageGeneration && token===this.sessionToken){
+        this.correctionReason=''; await this.loadOrderForEvaluation()
+      }
+    }catch(error){if(generation===this.pageGeneration)this.safeToast((error as Error).message)}
+    finally{if(generation===this.pageGeneration)this.correcting=false}
+  }
   build() {
     NavDestination() {
       Column() {
@@ -641,6 +662,7 @@ export struct EvaluationView {
               }
 
               Column({ space: 12 }) {
+                if(this.order?.evaluation?.hiddenSource!=='platform'){
                 Row() {
                   Text('商品评分')
                     .fontSize(15)
@@ -663,13 +685,28 @@ export struct EvaluationView {
                     if(field.status==='known'){this.PromisePicker(sku,field)}
                   })
                 })
+                }
                 if(this.order?.evaluation){
-                  Text('已发布：'+this.order.evaluation.content).fontColor($r('[ui_components].color.text'))
+                  if(this.order.evaluation.hiddenSource==='platform'){
+                    Text(this.order.evaluation.dispute?.canCorrect?'已被平台复核隐藏，可请求更正':'已被平台复核隐藏').fontColor($r('[ui_components].color.text'))
+                  }
+                  if(this.order.evaluation.dispute?.conclusion){
+                    Text('平台复核 · '+reviewLabel(this.order.evaluation.dispute.conclusion.kind)).fontColor($r('[ui_components].color.text'))
+                    Text(this.order.evaluation.dispute.conclusion.reason)
+                    Text(formatBeijingTime(this.order.evaluation.dispute.conclusion.time)+' · '+reviewLabel(this.order.evaluation.dispute.status))
+                    if(this.order.evaluation.dispute.canCorrect){
+                      TextInput({placeholder:'更正理由（5至200字）',text:this.correctionReason}).maxLength(200).onChange((s:string)=>{this.correctionReason=s})
+                      Button('请求更正').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                        .enabled(!this.correcting && Array.from(this.correctionReason.trim()).length>=5).onClick(()=>this.requestCorrection())
+                    }
+                  }
+                  Text((this.order.evaluation.hiddenSource==='platform'?'原评价：':'已发布：')+this.order.evaluation.content).fontColor($r('[ui_components].color.text'))
                   ForEach(this.order.evaluation.history || [],(entry:ReviewHistory)=>{
                     Text('第'+entry.revision+'版：'+entry.content).fontColor($r('[ui_components].color.gray'))
                   })
                 }
 
+                if(this.order?.evaluation?.hiddenSource!=='platform'){
                 Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
 
                 Text('快捷评价')
@@ -718,6 +755,7 @@ export struct EvaluationView {
                 Text('本项目默认自收货起15天内可评价和改评，改评保留原文；未收货仅退款不能评价。')
                   .fontSize(11)
                   .fontColor($r('[ui_components].color.gray'))
+                }
               }
               .width('100%')
               .padding(16)
@@ -731,6 +769,7 @@ export struct EvaluationView {
           .scrollBar(BarState.Off)
           .align(Alignment.Top)
 
+          if(this.order?.evaluation?.hiddenSource!=='platform'){
           Column() {
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
             Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':this.order?.evaluation?'提交改评':'提交评价').fontColor($r('[ui_components].color.on_primary'))
@@ -746,6 +785,7 @@ export struct EvaluationView {
           .width('100%')
           .padding({ left: 16, right: 16, top: 8, bottom: 8 + this.bottomHeight })
           .backgroundColor($r('[ui_components].color.white'))
+          }
         }
         .layoutWeight(1)
       }

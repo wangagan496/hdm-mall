@@ -1,10 +1,12 @@
 import { GlobalVariable } from 'constants'
 import { HDMUser, ReviewField } from 'models'
+import { ReviewAction, ReviewDispute, reviewLabel } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
 
 interface ReviewMember {nickname:string}
 interface MerchantReview {
+  canRegister?:boolean; dispute?:ReviewDispute
   id:string; member:ReviewMember; score:number; logisticsScore?:number; serviceScore?:number; serviceOccurred:boolean
   content:string; reply?:string; items:ReviewField[]
 }
@@ -12,6 +14,8 @@ interface SizeSummary { conclusion:string }
 interface SizeGroup { spec:string; sizeSummary:SizeSummary }
 interface MerchantReviewPage { items: MerchantReview[]; pages: number; sizeGroups?:SizeGroup[] }
 interface ReplyBody { content: string }
+interface RegisterBody {reason:string; images:string[]}
+interface CorrectionBody {reason:string}
 
 @Component
 export struct ReviewManageView {
@@ -22,6 +26,9 @@ export struct ReviewManageView {
   @State items: MerchantReview[] = []
   @State sizeGroups:SizeGroup[] = []
   @State selected: MerchantReview | null = null
+  @State mode:string='reply'
+  @State availableImages:string[]=[]
+  @State selectedImages:string[]=[]
   @State reason: string = ''
   @State message: string = ''
   @State messageOk: boolean = false
@@ -47,7 +54,31 @@ export struct ReviewManageView {
     } catch { if (this.current(generation, token) && query === this.query) this.message = '评价读取失败，请重试' }
     finally { if (this.current(generation, token) && query === this.query) this.loading = false }
   }
-  private open(item: MerchantReview): void { if (this.busy) return; this.selected = item; this.reason = ''; this.message = '' }
+  private open(item: MerchantReview,mode:string='reply'): void {
+    if(this.busy)return
+    this.selected=item;this.mode=mode;this.reason='';this.message='';this.selectedImages=[];this.availableImages=[]
+    if(mode==='register')void this.loadEvidence(item.id)
+  }
+  private async loadEvidence(id:string):Promise<void>{
+    const token=this.user.token,generation=this.generation
+    try{
+      const images=await RequestAxios.getForSession<string[]>('/merchant/review-evidence',token)
+      if(this.current(generation,token) && this.selected?.id===id)this.availableImages=images
+    }catch{if(this.current(generation,token))this.message='图片读取失败，可以重新打开登记表'}
+  }
+  private async fileDispute():Promise<void>{
+    const token=this.user.token,generation=this.generation,item=this.selected
+    if(!item || !this.current(generation,token) || this.busy)return
+    this.busy=true;this.message=''
+    try{
+      const id=encodeURIComponent(item.id)
+      if(this.mode==='register')await RequestAxios.postWithSession<object>('/merchant/reviews/'+id+'/dispute',
+        {reason:this.reason.trim(),images:this.selectedImages} as RegisterBody,token)
+      else await RequestAxios.postWithSession<object>('/reviews/'+id+'/correction',{reason:this.reason.trim()} as CorrectionBody,token)
+      if(this.current(generation,token)){this.selected=null;this.message=this.mode==='register'?'已登记，等待独立复核':'等待重新复核';this.messageOk=true;await this.load(this.page)}
+    }catch(error){if(this.current(generation,token)){this.messageOk=false;this.message=(error as Error).message}}
+    finally{if(this.current(generation,token))this.busy=false}
+  }
   private async submit(): Promise<void> {
     const token = this.user.token, generation = this.generation, item = this.selected
     if (!item || this.busy || !this.current(generation, token)) return
@@ -71,8 +102,23 @@ export struct ReviewManageView {
             if (this.selected) {
               Column({ space: 10 }) {
                 Text(this.selected.content).fontColor($r('[ui_components].color.text'))
-                TextArea({text:this.reason,placeholder:'公开回复买家评价'}).maxLength(500).onChange((v:string)=>{this.reason=v})
-                Button(this.busy?'发布中':'发布回复').enabled(!this.busy).onClick(()=>this.submit())
+                if(this.mode==='reply'){
+                  TextArea({text:this.reason,placeholder:'公开回复买家评价'}).maxLength(500).onChange((v:string)=>{this.reason=v})
+                  Button(this.busy?'发布中':'发布回复').enabled(!this.busy).onClick(()=>this.submit())
+                }else{
+                  TextArea({text:this.reason,placeholder:this.mode==='register'?'请填写理由（5至200字）':'更正理由（5至200字）'}).maxLength(200).onChange((v:string)=>{this.reason=v})
+                  if(this.mode==='register' && this.availableImages.length){
+                    Text('选择已上传的证据图片（最多3张）')
+                    ForEach(this.availableImages,(path:string)=>{
+                      Row(){
+                        Image(GlobalVariable.BASE_URL+path).width(64).height(64)
+                        Checkbox().select(this.selectedImages.includes(path)).enabled(this.selectedImages.includes(path)||this.selectedImages.length<3)
+                          .onChange((checked:boolean)=>{this.selectedImages=checked?[...this.selectedImages,path]:this.selectedImages.filter((p:string)=>p!==path)})
+                      }
+                    })
+                  }
+                  Button(this.mode==='register'?'提交登记':'提交更正请求').enabled(!this.busy && Array.from(this.reason.trim()).length>=5).onClick(()=>this.fileDispute())
+                }
                 Button('取消').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(() => { this.selected = null })
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
             }
@@ -89,8 +135,21 @@ export struct ReviewManageView {
                 })
                 if(item.reply){Text('商家回复：'+item.reply).fontColor($r('[ui_components].color.text'))}
                 else{Button('公开回复').enabled(!this.busy).onClick(()=>this.open(item))}
+                if(item.dispute){
+                  Text(reviewLabel(item.dispute.status))
+                  ForEach(item.dispute.timeline || [],(action:ReviewAction)=>{
+                    Text(reviewLabel(action.kind)+' · '+new Date(action.time).toLocaleString())
+                  })
+                  if(item.dispute.conclusion){
+                    Text('平台复核 · '+reviewLabel(item.dispute.conclusion.kind))
+                    Text(item.dispute.conclusion.reason+' · '+new Date(item.dispute.conclusion.time).toLocaleString())
+                    if(item.dispute.canCorrect){Button('请求更正').enabled(!this.busy).onClick(()=>this.open(item,'correct'))}
+                  }
+                }else if(item.canRegister){
+                  Button('登记疑似恶意差评').enabled(!this.busy).onClick(()=>this.open(item,'register'))
+                }
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12).alignItems(HorizontalAlign.Start)
-            }, (item: MerchantReview) => item.id + ':' + (item.reply || ''))
+            }, (item: MerchantReview) => item.id + ':' + (item.reply || '')+JSON.stringify(item.dispute || null))
             if (!this.loading && this.items.length === 0) { Text('暂无评价').fontColor($r('[ui_components].color.gray')) }
             Row({ space: 12 }) {
               Button('上一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(this.page > 1 && !this.loading && !this.busy).onClick(() => this.load(this.page - 1))

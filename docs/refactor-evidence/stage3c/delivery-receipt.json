@@ -1,0 +1,15 @@
+{
+  "task_id": "stage3c-20261120-01",
+  "message_id": "result-stage3c-20261120-01",
+  "session_id": "91d4181b-f199-41e1-ae0b-d7d8f36836b2",
+  "source_thread_id": "01a1f84e-2041-7c10-ba29-1bb32ae0eccc",
+  "status": "submitted",
+  "receipt": {
+    "status": "written",
+    "messageId": "0cd2ad66-a5fa-4d8e-bf5e-f4988bb95677",
+    "acknowledged": false
+  },
+  "updatedAt": 1795171721255,
+  "attempts": 1,
+  "final": true
+}

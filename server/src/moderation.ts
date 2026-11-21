@@ -30,7 +30,7 @@ export function replyToReview(db: Database, user: User, id: string, input: unkno
 export function merchantReviews(db: Database, user: User, productId: string, input: unknown) {
   ensure(user.identity === 'merchant', 403, '需要商家权限')
   const query = z.object({ page: z.coerce.number().int().min(1).max(1_000_000).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(input)
-  return evaluationPage(db,productId,query,true)
+  return evaluationPage(db,productId,query,user.id)
 }
 
 export function resetAvatar(db: Database, user: User, buyerId: string, input: unknown, now: number) {

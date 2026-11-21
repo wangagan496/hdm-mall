@@ -466,7 +466,30 @@ export interface SizeChoice {
   sizeFit:string
   sizeShift?:string
 }
+export interface ReviewAction {kind:string; time:number}
+export interface ReviewConclusion extends ReviewAction {reason:string}
+export interface ReviewDispute {
+  reviewId:string; status:string; conclusion?:ReviewConclusion; canCorrect:boolean; timeline?:ReviewAction[]
+}
+export function reviewLabel(code:string):string {
+  switch(code){
+    case 'registered': return '已登记，等待独立复核'
+    case 'under-review': return '平台已受理'
+    case 'correction-requested': return '等待重新复核'
+    case 'concluded': return '复核已完成'
+    case 'maintain': return '维持评价'
+    case 'hide': return '隐藏评价'
+    case 'correct': return '部分更正'
+    case 'register': return '商家登记'
+    case 'accept': return '平台受理'
+    case 'conclude': return '平台给出结论'
+    case 'merchant-correction': return '商家请求更正'
+    case 'buyer-correction': return '买家请求更正'
+    default: return ''
+  }
+}
 export interface LocalEvaluationItem {
+  dispute?:ReviewDispute
   sizes?:SizeChoice[]
   logisticsScore?: number | null
   serviceScore?: number | null
@@ -474,6 +497,7 @@ export interface LocalEvaluationItem {
   revision?: number
   history?: ReviewHistory[]
   hiddenReason?: string | null
+  hiddenSource?: 'platform' | 'content' | null
   orderId: string
   score: number
   content: string

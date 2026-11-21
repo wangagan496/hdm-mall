@@ -1,0 +1,11 @@
+{
+  "listener": false,
+  "albumAfter": 1,
+  "themeBefore": "dark",
+  "ports": [
+    "[Empty]",
+    ""
+  ],
+  "albumBefore": 1,
+  "themeAfter": "dark"
+}

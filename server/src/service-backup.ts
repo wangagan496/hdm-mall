@@ -12,7 +12,10 @@ export function inspectServices(db: DatabaseSync, version: number) {
     if (!db.prepare("SELECT id FROM audit_log WHERE action='invoice.request' AND order_id=?").get(invoice.order_id!)) throw new Error('开票登记审计缺失')
     if (invoice.status === 'issued' && !db.prepare("SELECT id FROM audit_log WHERE action='invoice.issued' AND order_id=?").get(invoice.order_id!)) throw new Error('开票标记审计缺失')
   }
-  for (const row of db.prepare('SELECT hidden_by,hidden_at FROM review_moderation').iterate()) {
+  for (const row of db.prepare('SELECT order_id,hidden_by,hidden_at FROM review_moderation').iterate()) {
+    if(version>=26 && db.prepare(`SELECT 1 FROM evaluations e JOIN review_dispute_actions a ON a.review_id=e.public_id
+      JOIN review_dispute_conclusions c ON c.action_id=a.id WHERE e.order_id=? AND c.hidden=1 AND a.actor_id=? AND a.created=?`)
+      .get(row.order_id!,row.hidden_by!,row.hidden_at!)) continue
     if (!held(row.hidden_by, 'merchant', row.hidden_at)) throw new Error('评价隐藏操作人无效')
   }
   for (const thread of db.prepare(`SELECT t.buyer_id,t.created, (t.buyer_read_id=0 OR EXISTS

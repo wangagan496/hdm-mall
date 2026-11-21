@@ -1,5 +1,6 @@
 import type { Database } from './database.ts'
 import { evaluationItems } from './evaluations.ts'
+import { partyDispute, ownsReview } from './review-disputes.ts'
 import { beijingDate } from './channel-bill.ts'
 
 export const REVIEW_SAMPLE_THRESHOLD = 3
@@ -45,7 +46,7 @@ interface Row {
   address:string; buyer_account:string; nickname:string; status:string; order_id:string; public_id:string; content:string; created:number; score:number; logistics_score:number|null;
   service_score:number|null; service_occurred:number; received_at:number|null; received_by:string|null; signed_at:number|null; reply:string|null
 }
-export function evaluationPage(db: Database, product: string, query: Query, merchant=false) {
+export function evaluationPage(db: Database, product: string, query: Query, merchant?:string) {
   // Each page counts orders once, even when a buyer purchased several matching SKUs.
   const skuId = query.skuId ?? (merchant ? undefined : db.one<{id:string}>(
     'SELECT id FROM skus WHERE product_id=? AND enabled=1 ORDER BY id LIMIT 1',product)?.id ?? '')
@@ -60,10 +61,12 @@ export function evaluationPage(db: Database, product: string, query: Query, merc
     bindings.push(query.templateVersion)
   }
   const from = `FROM evaluations e JOIN orders o ON o.id=e.order_id JOIN users u ON u.id=o.owner_id
-    WHERE NOT EXISTS(SELECT 1 FROM review_moderation m WHERE m.order_id=e.order_id)
+    WHERE (NOT EXISTS(SELECT 1 FROM review_moderation m WHERE m.order_id=e.order_id)
+      OR EXISTS(SELECT 1 FROM review_disputes d WHERE d.review_id=e.public_id AND d.merchant_id=?))
     AND EXISTS(SELECT 1 FROM order_items i JOIN products p ON p.id=i.product_id
     LEFT JOIN order_item_promise_snapshots s ON s.order_id=i.order_id AND s.sku_id=i.sku_id
     WHERE i.order_id=e.order_id AND ${scope})`
+  bindings.unshift(merchant??'')
   const groups=publicGroups(db,product,skuId,query.templateVersion)
   const group=groups.length===1 ? groups[0] : undefined
   const counts=merchant ? db.one<{n:number}>(`SELECT count(*) n ${from}`,...bindings)!.n : groups.reduce((sum,g)=>sum+g.counts,0)
@@ -90,7 +93,7 @@ export function evaluationPage(db: Database, product: string, query: Query, merc
     }
     const fields = evaluationItems(db,row.order_id,skuId).filter(field=>db.one(
       `SELECT 1 FROM order_items i JOIN products p ON p.id=i.product_id LEFT JOIN order_item_promise_snapshots s
-       ON s.order_id=i.order_id AND s.sku_id=i.sku_id WHERE i.order_id=? AND i.sku_id=? AND ${scope}`,row.order_id,field.skuId,...bindings)).map(({skuId:_,...field})=>({...field,note:safeText(field.note),quote:safeText(field.quote),value:field.value && safeText(field.value)}))
+       ON s.order_id=i.order_id AND s.sku_id=i.sku_id WHERE i.order_id=? AND i.sku_id=? AND ${scope}`,row.order_id,field.skuId,...bindings.slice(1))).map(({skuId:_,...field})=>({...field,note:safeText(field.note),quote:safeText(field.quote),value:field.value && safeText(field.value)}))
     const badges:string[]=[]
     const receipt = row.received_at !== null && (!!row.received_by || !!row.signed_at)
     if(receipt) badges.push('已真实收货')
@@ -98,6 +101,7 @@ export function evaluationPage(db: Database, product: string, query: Query, merc
     const name = Array.from(row.nickname)
     const nickname = row.status==='deleted' ? '已注销用户' : (name[0]??'')+'***'+(name.length>2 ? name.at(-1) : '')
     return { id:row.public_id,score:row.score,productScore:row.score,logisticsScore:row.logistics_score,
+      ...(merchant?{canRegister:ownsReview(db,row.order_id,merchant),dispute:partyDispute(db,row.public_id,'merchant',merchant)}:{}),
       spec:[...new Set(orderSpecs.filter(item=>skuId===undefined || item.sku===skuId).map(item=>disclosed(item)?item.spec:'其他规格'))].join('、'),
       serviceScore:row.service_score,serviceOccurred:!!row.service_occurred,content:safeText(row.content),createTime:beijingDate(row.created),
       member:{nickname},pictures:[],items:fields,badges,receiptBasis:receipt ? (row.signed_at?'订单签收':'买家确认收货') : null,reply:row.reply && safeText(row.reply) }

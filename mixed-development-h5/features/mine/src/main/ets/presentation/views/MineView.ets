@@ -7,6 +7,7 @@ import { CurrentIdentityLayout, IDENTITY_LAYOUT_KEY, entryVisible, userSession }
 
 interface AccountNotice { id: string; message: string; created: number }
 interface ServiceUnread { count: number }
+interface ReviewCapability { reviewer:boolean }
 
 @Component
 export struct MineView {
@@ -26,6 +27,7 @@ export struct MineView {
   stackPath: NavPathStack
   @StorageProp(IDENTITY_LAYOUT_KEY) identityLayout: CurrentIdentityLayout = {}
   @State switchingIdentity: boolean = false
+  @State reviewer:boolean = false
   @State attentionCount: number = 0
   @State serviceUnread: number = 0
   @State accountNotice: string = ''
@@ -50,6 +52,7 @@ export struct MineView {
   }
 
   private reloadAttentionForAccount(): void {
+    this.reviewer=false
     this.attentionToken = ''
     this.attentionSequence++
     this.attentionCount = 0
@@ -67,6 +70,7 @@ export struct MineView {
     const token: string = this.user.token || ''
     const sequence: number = ++this.attentionSequence
     this.attentionToken = token
+    void this.loadReviewer(token, sequence)
     void this.refreshAccountNotice(token, sequence)
     void this.refreshServiceUnread(token, sequence)
     if (!token || !this.attentionVisible || this.user.identity === 'merchant') {
@@ -89,6 +93,14 @@ export struct MineView {
       const notices = await RequestAxios.getForSession<AccountNotice[]>('/member/account-notices', token)
       if (sequence === this.attentionSequence && token === this.user.token) this.accountNotice = notices.length ? notices[0].message : ''
     } catch { }
+  }
+
+  private async loadReviewer(token:string,sequence:number):Promise<void>{
+    if(!token || !this.attentionVisible){this.reviewer=false;return}
+    try{
+      const capability=await RequestAxios.getForSession<ReviewCapability>('/reviews/capability',token)
+      if(token===this.user.token && sequence===this.attentionSequence)this.reviewer=capability.reviewer
+    }catch{if(sequence===this.attentionSequence)this.reviewer=false}
   }
 
   private async refreshServiceUnread(token: string, sequence: number): Promise<void> {
@@ -245,6 +257,10 @@ export struct MineView {
                 .enabled(!this.switchingIdentity && this.user.status !== 'deleting')
                 .onClick(() => this.stackPath.pushPath({ name: 'IdentityLayoutView' }))
             }.width('100%').justifyContent(FlexAlign.Center).padding({ top: 12 })
+          }
+          if(this.reviewer){
+            Button('平台复核').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+              .onClick(()=>this.stackPath.pushPathByName('ReviewQueueView',null))
           }
           if (this.user.identity === 'merchant') {
             if (entryVisible(this.user, this.identityLayout, 'merchant-reconciliation')) {

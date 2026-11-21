@@ -210,7 +210,7 @@ export class Orders {
   private present(order: Order, user: User, merchantShipment = false, includePromises = false) {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
-    const evaluation = isOrderOwner && user.identity === 'buyer' ? buyerEvaluation(this.db,order.id) : null
+    const evaluation = isOrderOwner && user.identity === 'buyer' ? buyerEvaluation(this.db,order.id,true) : null
     const privateReview = user.identity === 'merchant' && !!this.db.one('SELECT 1 FROM evaluations WHERE order_id=?', order.id)
     const paymentFields = this.payments?.orderFields(order, user)
     const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&

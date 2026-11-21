@@ -1,6 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
 
 export function removeEvaluationSchema(db: DatabaseSync) {
+  if(db.prepare('PRAGMA user_version').get()!.user_version===26) db.exec(`DROP TABLE review_dispute_conclusions;
+    DROP TABLE review_dispute_actions; DROP TABLE review_disputes; PRAGMA user_version=25;`)
   if(db.prepare('PRAGMA user_version').get()!.user_version===25) db.exec(`DROP VIEW required_evaluation_sizes;
     DROP TRIGGER freeze_size_category; DROP TABLE evaluation_sizes; ALTER TABLE order_items DROP COLUMN size_category;
     ALTER TABLE evaluations DROP COLUMN size_shift; ALTER TABLE evaluations DROP COLUMN size_fit; PRAGMA user_version=24;`)

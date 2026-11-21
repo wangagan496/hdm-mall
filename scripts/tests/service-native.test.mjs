@@ -295,7 +295,7 @@ test('复核补改：成功提示不用警示色，关联订单显示商品和�
   assert.equal(routes[0].name, 'MerchantOrderView'); assert.equal(routes[0].param, 'order-1')
 
   const review = sourceOf(mineViews + 'ReviewManageView.ets')
-  assert.ok(review.includes("(item: MerchantReview) => item.id + ':' + (item.reply || ''))"), '公开回复后评价卡片要刷新')
+  assert.ok(review.includes("(item: MerchantReview) => item.id + ':' + (item.reply || '')+JSON.stringify(item.dispute || null)"), '公开回复和复核进度更新后评价卡片要刷新')
   assert.ok(review.includes('if(item.reply)') && !review.includes("Button('隐藏评价')"), '已回复的评价显示回复且无隐藏入口')
   assert.ok(sourceOf(mineViews + 'MerchantServiceView.ets').includes("(item: ServiceThread) => item.buyerId + ':' + item.updatedAt + ':' + item.awaitingReply)"), '回复后留言会话卡片要刷新')
 

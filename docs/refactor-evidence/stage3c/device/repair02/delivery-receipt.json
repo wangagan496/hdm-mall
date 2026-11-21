@@ -1,0 +1,15 @@
+{
+  "task_id": "stage3c-20261120-02",
+  "message_id": "result-stage3c-20261120-02",
+  "session_id": "91d4181b-f199-41e1-ae0b-d7d8f36836b2",
+  "attempts": 2,
+  "previousError": "The chosen Claude Code session is unavailable or has no live inbox.",
+  "targetListed": true,
+  "status": "submitted",
+  "receipt": {
+    "status": "written",
+    "messageId": "a301c4dc-a178-448a-976a-ec91215c038c",
+    "acknowledged": false
+  },
+  "final": true
+}

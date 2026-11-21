@@ -839,12 +839,16 @@ export struct OrderDetailView {
                     .lineHeight(22)
                     .fontColor($r('[ui_components].color.text'))
                     .width('100%')
+                  if(this.evaluation?.dispute?.conclusion){
+                    Button('查看平台复核').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                      .onClick(()=>this.runComment())
+                  }
                   if(this.order.canEvaluate && !this.evaluation?.hiddenReason){
                     Button('修改评价').id('review-edit').onClick(()=>this.runComment())
                   }
                   if (this.evaluation?.hiddenReason) {
-                    Text('已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
-                    if (this.order.canEvaluate) {
+                    Text(this.evaluation.hiddenSource==='platform'?'已被平台复核隐藏':'已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
+                    if (this.order.canEvaluate && this.evaluation.hiddenSource!=='platform') {
                       Button('修改后重新发布').id('review-republish').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.runComment())
                     }
                   }

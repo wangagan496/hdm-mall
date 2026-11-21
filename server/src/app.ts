@@ -25,6 +25,7 @@ import { currentPromotion, editPromotion } from './promotions.ts'
 import { QuotePreview } from './quote-preview/index.ts'
 import { invoiceSchema, issueInvoice, registerCompletedInvoice } from './invoices.ts'
 import { replyToReview, merchantReviews, resetAvatar } from './moderation.ts'
+import { registerDispute, reviewerQueue, reviewer, decide, requestCorrection } from './review-disputes.ts'
 import { evaluationPage } from './evaluation-page.ts'
 import { evaluationSchema } from './evaluations.ts'
 import { ServiceMessages } from './service-messages.ts'
@@ -181,6 +182,14 @@ export async function buildApp(options: AppOptions) {
     return service.upload(user, user.id, requestKey, image, options.uploadsPath)
   })
   protectedRoute('GET', '/merchant/goods/:id/reviews', (req, user) => merchantReviews(db, user, key(req), req.query))
+  protectedRoute('POST','/merchant/reviews/:id/dispute',(req,user)=>registerDispute(db,user,key(req),req.body,clock.now()))
+  protectedRoute('GET','/reviews/capability',(_req,user)=>({reviewer:reviewer(user)}))
+  protectedRoute('GET','/merchant/review-evidence',(_req,user)=>db.all<{path:string}>(
+    'SELECT path FROM product_images WHERE actor_id=? ORDER BY created DESC,image_id',user.id).map(row=>row.path))
+  protectedRoute('GET','/platform/reviews',(_req,user)=>reviewerQueue(db,user))
+  protectedRoute('POST','/platform/reviews/:id/accept',(req,user)=>decide(db,user,key(req),'accept',req.body,clock.now()))
+  protectedRoute('POST','/platform/reviews/:id/conclude',(req,user)=>decide(db,user,key(req),'conclude',req.body,clock.now()))
+  protectedRoute('POST','/reviews/:id/correction',(req,user)=>requestCorrection(db,user,key(req),req.body,clock.now()))
   protectedRoute('POST', '/merchant/reviews/:id/hide', () => { throw new AppError(403,'商家只能公开回复评价') })
   protectedRoute('POST', '/merchant/reviews/:id/reply', (req,user) => replyToReview(db,user,key(req),req.body,clock.now()))
   protectedRoute('POST', '/merchant/members/:id/avatar/reset', (req, user) => resetAvatar(db, user, key(req), req.body, clock.now()))
