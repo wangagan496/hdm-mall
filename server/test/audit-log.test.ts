@@ -24,7 +24,7 @@ async function fixture(databasePath=':memory:',uploadsPath='./unused') {
   const sku = product.skus[0]!
   const call = async(method:string,url:string,payload?:object,token=merchant.token)=>{
     payload=withReturnShipping(ctx,uploadsPath,url,payload,token)
-    const r = await ctx.app.inject({method:method as never,url,headers:{authorization:'Bearer '+token},payload})
+    const r = await ctx.app.inject({method:method as never,url,headers:identityHeaders(ctx.accounts, token),payload})
     return {status:r.statusCode,body:r.json()}
   }
   const logs = ()=>ctx.db.all<{action:string;actor_id:string|null;actor_kind:string;target_id:string;order_id:string|null;summary:string;result:string}>('SELECT * FROM audit_log ORDER BY id')
@@ -227,7 +227,7 @@ test('AL09 013迁移补录可确认历史且重开不重复，当前版本备份
   const db=new Database(path)
   let rows:unknown[]=[]
   try{
-   assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 19)
+   assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version, 26)
    assert.deepEqual(db.all('SELECT * FROM product_changes ORDER BY rowid'),receipts)
    rows=db.all('SELECT * FROM audit_log ORDER BY id')
    const price=db.one<{summary:string}>("SELECT summary FROM audit_log WHERE action='sku.price'")!
@@ -238,7 +238,7 @@ test('AL09 013迁移补录可确认历史且重开不重复，当前版本备份
   }finally{db.close()}
   const next=new Database(path);try{assert.deepEqual(next.all('SELECT * FROM audit_log ORDER BY id'),rows)}finally{next.close()}
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion, 19);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 26);assert.deepEqual(backup.manifest.issues,[])
   const broken=new DatabaseSync(path);try{broken.exec('DROP TRIGGER audit_log_no_delete')}finally{broken.close()}
   await assert.rejects(createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'broken')}),/审计只追加保护无效/)
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
@@ -255,3 +255,4 @@ test('AL10 审计订单可由商家查看，普通买家入口权限不扩大',a
   assert.equal((await f.call('GET',`/member/order/${order}`)).status,403)
  }finally{await f.ctx.app.close()}
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

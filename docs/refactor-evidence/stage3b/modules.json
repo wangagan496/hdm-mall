@@ -1,0 +1,50 @@
+[
+  {
+    "module": "constants",
+    "result": "Tests run: 0, Failure: 0, Error: 0, Pass: 0, Ignore: 0"
+  },
+  {
+    "module": "device",
+    "result": "Tests run: 0, Failure: 0, Error: 0, Pass: 0, Ignore: 0"
+  },
+  {
+    "module": "models",
+    "result": "Tests run: 80, Failure: 0, Error: 0, Pass: 80, Ignore: 0"
+  },
+  {
+    "module": "network",
+    "result": "Tests run: 5, Failure: 0, Error: 0, Pass: 5, Ignore: 0"
+  },
+  {
+    "module": "storage",
+    "result": "Tests run: 0, Failure: 0, Error: 0, Pass: 0, Ignore: 0"
+  },
+  {
+    "module": "ui-components",
+    "result": "Tests run: 0, Failure: 0, Error: 0, Pass: 0, Ignore: 0"
+  },
+  {
+    "module": "utils",
+    "result": "Tests run: 0, Failure: 0, Error: 0, Pass: 0, Ignore: 0"
+  },
+  {
+    "module": "cart",
+    "result": "Tests run: 42, Failure: 0, Error: 0, Pass: 42, Ignore: 0"
+  },
+  {
+    "module": "category",
+    "result": "Tests run: 6, Failure: 0, Error: 0, Pass: 6, Ignore: 0"
+  },
+  {
+    "module": "home",
+    "result": "Tests run: 27, Failure: 0, Error: 0, Pass: 27, Ignore: 0"
+  },
+  {
+    "module": "mine",
+    "result": "Tests run: 8, Failure: 0, Error: 0, Pass: 8, Ignore: 0"
+  },
+  {
+    "module": "phone",
+    "result": "Tests run: 0, Failure: 0, Error: 0, Pass: 0, Ignore: 0"
+  }
+]

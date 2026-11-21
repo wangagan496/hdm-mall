@@ -11,7 +11,7 @@ async function fixture() {
   const merchant = f.accounts.login('merchant_product', 'test-password-123')
   const buyer = f.accounts.login('buyer_product', 'test-password-123')
   const call = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object, token = merchant.token) =>
-    f.app.inject({ method, url, payload, headers: { authorization: `Bearer ${token}` } })
+    f.app.inject({ method, url, payload, headers: identityHeaders(f.accounts, token) })
   const categories = await call('GET', '/merchant/products/categories')
   const categoryId = categories.statusCode === 200 ? categories.json().result[0].id : 'missing-category'
   const input = () => ({ requestKey: randomUUID(), name: '商家新商品', categoryId, description: '说明',
@@ -171,3 +171,4 @@ test('商品下架与规格停用贯穿搜索详情购物车预结算和提交�
     assert.equal(unavailable.inventory, 0); assert.equal(Number.isFinite(unavailable.price), true)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

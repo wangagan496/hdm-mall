@@ -1,0 +1,179 @@
+{
+  "directory": "mixed-development-h5/commons/storage",
+  "files": [
+    {
+      "path": "mixed-development-h5/commons/storage/Index.ets",
+      "exists": true,
+      "bytes": 1180,
+      "sha256": "4937056ec13a2850a9063b8768788ad2a16def304dd2f9ffa3ce749445fd3966"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 1678,
+      "sha256": "3250ad36b0aafd2125d06d9c7ebcb449ac0deba80d2b607cac0ebe8999a8f755"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/oh-package.json5",
+      "exists": true,
+      "bytes": 368,
+      "sha256": "19e46e422da2ba7f604611e1d6674ee0c0838f98d2ada786bfcb542c23cb617b"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/AccountScope.ets",
+      "exists": true,
+      "bytes": 825,
+      "sha256": "fe53ec1f4f0000b813284e244efa618be1e3df3a9e5a42ac7e3e92da5afe5f02"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets",
+      "exists": true,
+      "bytes": 4791,
+      "sha256": "359de50711b205c5fa55901d6b4446a03fd22c6ecd1e79a6cd8477f4c954b471"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/Auth.ets",
+      "exists": true,
+      "bytes": 815,
+      "sha256": "7089c27bbe0051dec4ee069b099d7bccaf0bbe0f618b00796b5e5a293f264513"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/AuthCart.ets",
+      "exists": true,
+      "bytes": 3118,
+      "sha256": "c9337baaccf801856b966c92cb933bd934ea9da5bea43684fdc73d0f2965cc9e"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/CancelActionAPI.ets",
+      "exists": true,
+      "bytes": 1844,
+      "sha256": "204ed16bc6f08a739c3c68f3a7c3cb4ca7ad93c3197a100cf8a51be912772b49"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets",
+      "exists": true,
+      "bytes": 6933,
+      "sha256": "4bd9f4abbe482f21a601d517132e5d7647c0eae24aaba52575f6b7273cc2be24"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/ConsentDialog.ets",
+      "exists": true,
+      "bytes": 2282,
+      "sha256": "8d075bf5fa8dfa5e516d681b2567b7d0e111913dc9e7bcfc7dba356c57f65c7e"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets",
+      "exists": true,
+      "bytes": 4702,
+      "sha256": "b8447847606b642e114a8a1c9b10cc18e6b3f5ea0d63d76133e8d9dd19e67a38"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/DemoOrderStore.ets",
+      "exists": true,
+      "bytes": 4073,
+      "sha256": "567de5bda3e187e0dcda8246531d4cb35671e71e37795ec4a319df328276057f"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/DeviceFixtureForm.ets",
+      "exists": true,
+      "bytes": 725,
+      "sha256": "940a2fcaa3db605eda275bdf8e3186968fc5ffe2ea5380f076bc3840329a9109"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/EvaluationValidation.ets",
+      "exists": true,
+      "bytes": 437,
+      "sha256": "0bc7c1d3daf54c036ecdc6b85f31127fc828217fb8e196c6ee3f2ef6cd8f2771"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/Index.ets",
+      "exists": true,
+      "bytes": 343,
+      "sha256": "2bcd5053fdd3b533a85c13449650578cea36693a5449cc4cd667094557a8531f"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets",
+      "exists": true,
+      "bytes": 7670,
+      "sha256": "03a13c9895eabdfbba82043f5f04e4a0ff78b6a0abbb6a484708a7b4583e9d73"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/OrderRequest.ets",
+      "exists": true,
+      "bytes": 940,
+      "sha256": "c37dfc320a21533093510d38f7983294f9fe88e89ed2c60b7ea0e45f9faf3d08"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/RecoveryQuery.ets",
+      "exists": true,
+      "bytes": 1688,
+      "sha256": "f4ab49f9552f27e7ed8243f7988068bfa2478d3d477e429fc6c2e085df367ad5"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets",
+      "exists": true,
+      "bytes": 5059,
+      "sha256": "cea955a8ebd8785e06ad4bb87f8a9044ba0356ddeab580f6b8b1145cd0afa501"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/UserSession.ets",
+      "exists": true,
+      "bytes": 1745,
+      "sha256": "b08594f8c03244219b9eca1b113a82cb07160498cfa4063088c0aefd60ef8e98"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 101,
+      "sha256": "9bf2b3e4f829fdabb95376c2a63c42fa17cd54a4c942b7dda5331be328c05096"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/module.json5",
+      "exists": true,
+      "bytes": 249,
+      "sha256": "719653fc4d076132c501adc65d2f738b55a51d9352a755422e439928b1afb246"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/resources/base/element/color.json",
+      "exists": true,
+      "bytes": 188,
+      "sha256": "97bac0cb870df2d4fd14b68400979de25278ea6d59497ef384bbc327b5a6157a"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 115,
+      "sha256": "4c8a5b7d7017c7e4664800ccc92e1365b544d34044d5c74fa6369c979d15e477"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 37,
+      "sha256": "f21984fb1d5096f0db41314da0bb94c573e7ad018e5afae3044f8d5ff71b0bfc"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/main/resources/dark/element/color.json",
+      "exists": true,
+      "bytes": 188,
+      "sha256": "c2236e512edc0659a55c3218f52487a9af1b4eb6dc9e275e95af5c16b405aff4"
+    },
+    {
+      "path": "mixed-development-h5/commons/storage/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 48,
+      "sha256": "fde31346ab4b7da1e313e8ff46cd5d4fd6d04dde0031ddaf4f22e8f2e1b128f3"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "client-targeted",
+  "cwd": "D:\\hdm-mall",
+  "command": "node --test scripts/tests/quote-preview.test.mjs",
+  "exitCode": 0,
+  "durationSeconds": 0.986,
+  "observedAt": "2026-11-17T22:56:42.2303544+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-02\\client-targeted.log",
+  "tests": 10,
+  "pass": 10,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

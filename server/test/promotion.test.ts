@@ -13,7 +13,7 @@ async function fixture() {
   const product = ctx.testData.product({ name: '满减测试商品', skus: [{ spec: '标准', priceCents: 3300, stock: 100 }] })
   const sku = product.skus[0]!
   const call = async (method: string, url: string, payload?: object, token = buyer.token) => {
-    const response = await ctx.app.inject({ method: method as never, url, headers: { authorization: 'Bearer ' + token }, payload })
+    const response = await ctx.app.inject({ method: method as never, url, headers: identityHeaders(ctx.accounts, token), payload })
     return { status: response.statusCode, body: response.json() }
   }
   return { ctx, buyer, merchant, address, sku, call }
@@ -182,3 +182,4 @@ test('A2 边界：默认满减保留低价商品1分实付并允许售后', asyn
     assert.deepEqual(detail.skus.map((item: { discountShareCents: number }) => item.discountShareCents), [1000, 0, 0])
   } finally { await f.ctx.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

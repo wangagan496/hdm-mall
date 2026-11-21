@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-18T08:57:27.9880254+08:00",
+  "completedAt": "2026-11-18T08:59:21.7048546+08:00",
+  "durationSeconds": 113.72,
+  "target": "127.0.0.1:5555",
+  "mode": "QuotePreviewProbe",
+  "result": "failed",
+  "counts": {
+    "failed": 1,
+    "skipped": 0,
+    "passed": 0
+  },
+  "packageSha256": "F7DA4523F8B737D7F103152DF21597D8131C99FC855C7F598CF3BD7128B1D796",
+  "scriptStackTrace": "at Wait-FixturePassword, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 183\r\nat Login, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 165\r\nat Invoke-QuotePreviewProbe, D:\\hdm-mall\\scripts\\device-promotion-probe.ps1: line 142\r\nat <ScriptBlock>, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 2203",
+  "error": "Debug-only in-memory fixture form did not become ready."
+}

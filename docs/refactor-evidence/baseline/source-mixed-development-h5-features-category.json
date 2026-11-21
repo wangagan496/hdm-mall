@@ -1,0 +1,155 @@
+{
+  "directory": "mixed-development-h5/features/category",
+  "files": [
+    {
+      "path": "mixed-development-h5/features/category/.gitignore",
+      "exists": true,
+      "bytes": 60,
+      "sha256": "8952629c0d3ba41b6cb5db4afbfa2e672fbeb4677b8579c84f97e853d2064312"
+    },
+    {
+      "path": "mixed-development-h5/features/category/Index.ets",
+      "exists": true,
+      "bytes": 49,
+      "sha256": "b2129d8fdf251f4c5dc6c5691e1d73e6fb034c8768d46e6a0b77bc4b890fd222"
+    },
+    {
+      "path": "mixed-development-h5/features/category/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    {
+      "path": "mixed-development-h5/features/category/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    {
+      "path": "mixed-development-h5/features/category/obfuscation-rules.txt",
+      "exists": true,
+      "bytes": 1030,
+      "sha256": "9dc6d7012424bc68f30e58946d25719ee5073246ea59a9ce64617736610ecf36"
+    },
+    {
+      "path": "mixed-development-h5/features/category/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 2732,
+      "sha256": "de1331a15a16b0ef60740d0ff91325bcee68680d0916bb9a1b2dca9f7e8d049e"
+    },
+    {
+      "path": "mixed-development-h5/features/category/oh-package.json5",
+      "exists": true,
+      "bytes": 394,
+      "sha256": "8d93c787c94b014004bfb0b09be899f66ab4e55debf4d37929618ed3aa5f2bca"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/data/api/categoryPresentation.ets",
+      "exists": true,
+      "bytes": 3814,
+      "sha256": "1a7d59efa23e6bbf02742e53d589be307213639422b872f278f33ddb4032e003"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/data/api/index.ets",
+      "exists": true,
+      "bytes": 1703,
+      "sha256": "784ce8f30cce5d16a1ae01b7fbb3a793d5f1733a7a9b9503aa9c503c04bba10a"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/domain/models/index.ets",
+      "exists": true,
+      "bytes": 83,
+      "sha256": "f42d3c4856de3b6d2be218b3f09bd89e05237074d594b43b9bd2e670522615c5"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 283,
+      "sha256": "a4a083d6ad5ce91cb0b462f37183bbef33b1ae2e48cca3ddd3f6d1f131fe24fe"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/presentation/components/CategoryContent.ets",
+      "exists": true,
+      "bytes": 1511,
+      "sha256": "c536fbc069d4f31c4dcca88d7d8f624f084a914dd3d3455ef097c8b65d538a76"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/presentation/components/CategorySideBar.ets",
+      "exists": true,
+      "bytes": 929,
+      "sha256": "5ce778b412d3b19fb1b770e172bb4a2b5dd23f549caa38f142f51d5a6f52f934"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/presentation/components/index.ets",
+      "exists": true,
+      "bytes": 70,
+      "sha256": "9b86888525c6092635327f0a89fbf4c8763796cb146bb74868c116a2f41f0992"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/presentation/views/CategoryView.ets",
+      "exists": true,
+      "bytes": 3531,
+      "sha256": "3c361dfce7b70f01b0bdbd624309f04de9333159df177b1d27d046444f7b52c5"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/ets/presentation/views/index.ets",
+      "exists": true,
+      "bytes": 30,
+      "sha256": "cd74dc6625b9395053b1682283b712f0f33877c9b7f6d1203b22bb63c3c52e39"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/module.json5",
+      "exists": true,
+      "bytes": 262,
+      "sha256": "db601f90bb22d635e3e4f49a90b45c8db26dc3144a0ece5d408aea3062fd6d1e"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 98,
+      "sha256": "f8aeba389af9ebaf5c16b4fa1d28c7ec465498df0eeecf1d47495397a3fbf6eb"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/resources/base/media/category_storage_bag.svg",
+      "exists": true,
+      "bytes": 657,
+      "sha256": "c611f87bcddc183facd569a0aef33e2ee97e6e2396586f19d2030f79b5c6e711"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 42,
+      "sha256": "b7248e3d58d4006a4bb01d9991e34b1292c03f3d212b5945470ec5bdcf9f1cbd"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/ohosTest/ets/test/Ability.test.ets",
+      "exists": true,
+      "bytes": 1768,
+      "sha256": "30c15dc50846bc079d4d5b787db3f3480e1c8b7b021454346bc63bc13ba42720"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/ohosTest/ets/test/List.test.ets",
+      "exists": true,
+      "bytes": 103,
+      "sha256": "58c6babaf2babd4a7c3e36c5e160f37e1a9a739401ca7f7981073e1b3ab5accc"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/ohosTest/module.json5",
+      "exists": true,
+      "bytes": 220,
+      "sha256": "b7cdd8fa3878a4e6756a54baa9182964eaab2026580ee2d4234d6d111dcbfb93"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 109,
+      "sha256": "741baf724fe8512a593d67acedfedd74ea1f93512e50b3e17ebc9c502f731940"
+    },
+    {
+      "path": "mixed-development-h5/features/category/src/test/LocalUnit.test.ets",
+      "exists": true,
+      "bytes": 5490,
+      "sha256": "f3d851db2beff4e218c7b31bad29235da12a0facc6ec05b508efa5aee2a4a104"
+    }
+  ]
+}

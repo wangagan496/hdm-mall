@@ -93,7 +93,11 @@ try {
   Wait-Text '当前可售库存：23'
   Tap-Text '取消编辑'
   $Login = Invoke-RestMethod 'http://127.0.0.1:3102/login' -Method Post -ContentType 'application/json' -Body (@{account='stock_smoke'; password='Smoke-password-123'} | ConvertTo-Json)
-  $Headers = @{ Authorization = 'Bearer ' + $Login.result.token }
+  $Headers = @{
+    Authorization = 'Bearer ' + $Login.result.token
+    'X-HDM-Identity' = $Login.result.identity
+    'X-HDM-Identity-Revision' = [string]$Login.result.identityRevision
+  }
   $Inventory = Invoke-RestMethod 'http://127.0.0.1:3102/merchant/inventory?skuId=hdm-1-a' -Headers $Headers
   $Movements = Invoke-RestMethod 'http://127.0.0.1:3102/merchant/inventory/hdm-1-a/movements' -Headers $Headers
   $Adjustments = @($Movements.result.items | Where-Object { $_.kind -eq 'adjust' })

@@ -34,7 +34,9 @@ export default function localUnitTest() {
     it('mergesProfileOnlyForCurrentSessionAndUser', 0, () => {
       const current: HDMUser = {
         id: 'current-user',
-        role: 'buyer',
+        identity: 'buyer',
+        identities: ['buyer', 'merchant'],
+        identityRevision: 3,
         token: 'session-token',
         nickname: '旧昵称',
         avatar: 'old-avatar.jpg',
@@ -42,7 +44,8 @@ export default function localUnitTest() {
       };
       const profileUpdate: HDMUser = {
         id: 'current-user',
-        role: 'merchant',
+        identity: 'buyer',
+        identityRevision: 3,
         token: 'session-token',
         nickname: '新昵称',
         avatar: 'new-avatar.jpg',
@@ -56,7 +59,28 @@ export default function localUnitTest() {
       expect(merged.avatar).assertEqual('new-avatar.jpg');
       expect(merged.account).assertEqual('zhousg');
       expect(merged.id).assertEqual('current-user');
-      expect(merged.role).assertEqual('buyer');
+      expect(merged.identity).assertEqual('buyer');
+      expect(merged.identities?.length).assertEqual(2);
+      expect(merged.identityRevision).assertEqual(3);
+    });
+    it('rejectsOtherIdentityAndStaleIdentityRevision', 0, () => {
+      const current: HDMUser = {
+        id: 'current-user', identity: 'buyer', identityRevision: 3,
+        token: 'session-token', nickname: '旧昵称', avatar: '', account: 'zhousg'
+      };
+      const otherIdentity: HDMUser = {
+        id: 'current-user', identity: 'merchant', identityRevision: 3,
+        token: 'session-token', nickname: '新昵称', avatar: '', account: 'zhousg'
+      };
+      const staleRevision: HDMUser = {
+        id: 'current-user', identity: 'buyer', identityRevision: 1,
+        token: 'session-token', nickname: '新昵称', avatar: '', account: 'zhousg'
+      };
+      [otherIdentity, staleRevision].forEach((update: HDMUser) => {
+        let rejected: boolean = false;
+        try { mergeBridgeUser(current, update); } catch { rejected = true; }
+        expect(rejected).assertTrue();
+      });
     });
     it('rejectsMissingOrMismatchedSessionToken', 0, () => {
       const current: HDMUser = { id: 'current-user', token: 'session-token', nickname: '旧昵称', avatar: '', account: 'zhousg' };

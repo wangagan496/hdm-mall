@@ -1,0 +1,8 @@
+✓ Lockfile passes supply-chain policies (verified 100d ago)
+[ERR_PNPM_FETCH_404] GET https://repo.harmonyos.com/npm/@vue%2Feslint-config-typescript: Not Found - 404
+
+This error happened while installing a direct dependency of D:\hdm-mall\shoph5-vue3
+
+@vue/eslint-config-typescript is not in the npm registry, or you have no permission to fetch it.
+
+No authorization header was set for the request.

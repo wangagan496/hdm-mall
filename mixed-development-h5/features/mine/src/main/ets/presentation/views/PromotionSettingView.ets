@@ -25,7 +25,7 @@ export struct PromotionSettingView {
   @State message: string = ''
   private active: boolean = false
   private query: number = 0
-  private allowed(): boolean { return this.active && this.user.role === 'merchant' && !!this.user.id && !!this.user.token }
+  private allowed(): boolean { return this.active && this.user.identity === 'merchant' && !!this.user.id && !!this.user.token }
   private current(query: number, token: string, account: string): boolean { return this.allowed() && query === this.query && token === this.user.token && account === this.user.id }
   private accountChanged(): void {
     this.query++; this.threshold = ''; this.discount = ''; this.promotionEnabled = false; this.rule = null; this.pending = null; this.busy = false; this.loading = false; this.message = ''

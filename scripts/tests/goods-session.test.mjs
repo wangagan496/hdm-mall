@@ -57,6 +57,25 @@ function fixture(shared = { raw: '', now: 1000 }) {
     setEntry: value => { entry = value } }
 }
 
+test('商品评价从一条切换到零条时仅显示暂无评价，并清空尺码汇总', async () => {
+  const f = fixture()
+  await f.page.getDetailData()
+  const card = sourceOf('mixed-development-h5/features/home/src/main/ets/presentation/components/GoodsComment.ets')
+  assert.match(card, /if\(this\.summary\)\{Text\(this\.summary\)/)
+  assert.match(card, /else if \(this\.evaluations\.length === 0\) \{\s*Text\('暂无评价'\)/)
+  for (const counts of [1, 0]) {
+    f.api.evaluations = async () => ({
+      items: counts ? [{ id: 'review-a' }] : [], counts,
+      summary: { sampleSufficient: false },
+      sizeSummary: { counts, conclusion: '样本有限，暂不足以判断' },
+    })
+    await f.page.loadEvaluations('goods-a')
+    assert.equal(f.page.evaluationLoading, false)
+    assert.equal(f.page.evaluations.length, counts)
+    assert.equal(f.page.reviewSummary, counts ? '样本有限，暂不足以判断' : '')
+  }
+})
+
 test('B-10/B-11: 游客意图持久化，登录后自动只执行一次', async () => {
   for (const action of ['cart', 'buy-now']) {
     const f = fixture(); f.setUser({ id: '', token: '', account: '' }, false); f.page.user = { id: '', token: '', account: '' }

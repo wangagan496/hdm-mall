@@ -1,5 +1,5 @@
 import { HDMCell, HDMNavBar } from 'ui_components'
-import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, ExcludedCheckoutGoods, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary, PromotionQuote } from 'models'
+import { AddressItem, CheckoutSelection, CheckoutPrice, CheckoutShortage, ExcludedCheckoutGoods, CreateOrderParams, CreateOrderParamsGoods, HDMUser, OrderGoodsItem, Summary, PromotionQuote, PromotionRule } from 'models'
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
 import { authCart, checkoutFailure, getOrderByRequestAPI, storeManager } from 'storage'
 import { emitter } from '@kit.BasicServicesKit'
@@ -10,6 +10,9 @@ import { normalizeCheckoutAddress } from '../utils/CartPresentation'
 import { ReturnPolicyConfirmation, ReturnPolicyGoods, returnPolicyLabel } from 'models'
 import { InvoiceInput, normalizedInvoice, invoiceInputError } from 'models'
 import { InvoiceForm } from '../components/InvoiceForm'
+import { QuoteResponse, QuoteItem } from 'models'
+import { QuotePanel } from '../components/QuotePanel'
+import { QuoteMemory, getQuotePreviewAPI, hasMultipleQuoteItems, quoteFailureText, quoteRemovalText } from '../utils/QuotePreview'
 
 // 用业务名称区分弹层，避免读者猜测 1、2 各代表什么。
 enum CheckoutSheet {
@@ -24,6 +27,45 @@ function CheckViewBuilder() {
 
 @Component
 export struct CheckView {
+  @State exactQuote: QuoteResponse | null = null
+  @State quoteError: string = ''
+  @State quoteBusy: boolean = false
+  @State quoteExpanded: boolean = false
+  private quoteSequence: number = 0
+  private async refreshExactQuote(): Promise<void> {
+    const sequence = ++this.quoteSequence, token = this.user.token || '', accountId = this.user.id || ''
+    const generation = this.pageGeneration
+    this.exactQuote = null; this.quoteError = ''; this.quoteBusy = false
+    if (!token || !accountId || !this.pageActive || GlobalVariable.DEMO_ORDER_FLOW) return
+    this.quoteBusy = true
+    try {
+      const items: QuoteItem[] | undefined = this.checkoutSelection ? [{ skuId: this.checkoutSelection.skuId, count: this.checkoutSelection.count }] : undefined
+      const source = this.checkoutSelection ? 'buy-now:' + this.checkoutSelection.skuId : 'cart'
+      const response = await getQuotePreviewAPI(token, items, QuoteMemory.get(accountId, source)?.receipt)
+      if (sequence !== this.quoteSequence || !this.isCurrentCheckout(generation, token)) return
+      const quote = QuoteMemory.preserveChange(accountId, source, response)
+      this.exactQuote = quote
+      QuoteMemory.put(accountId, source, quote)
+      this.applyExactQuoteSummary()
+    } catch (error) {
+      if (sequence === this.quoteSequence && this.isCurrentCheckout(generation, token)) this.quoteError = quoteFailureText(error as Error)
+    } finally { if (sequence === this.quoteSequence && token === this.user.token) this.quoteBusy = false }
+  }
+  private applyExactQuoteSummary(): void {
+    if (!this.exactQuote || this.exactQuote.lines.length !== this.goodsList.length || this.goodsList.some((item: OrderGoodsItem) => !this.exactQuote?.lines.some(line => line.skuId === item.skuId && line.count === item.count))) return
+    this.summary = { totalPrice: this.exactQuote.subtotalCents / 100, totalPayPrice: this.exactQuote.amountCents / 100,
+      discountPrice: this.exactQuote.promotion.appliedDiscountCents / 100, postFee: 0, goodsCount: this.goodsList.reduce((sum: number, item: OrderGoodsItem) => sum + item.count, 0) }
+    const rule: PromotionRule = { enabled: this.exactQuote.promotion.rule.enabled,
+      revision: this.exactQuote.promotion.rule.revision, thresholdCents: this.exactQuote.promotion.rule.thresholdCents,
+      discountCents: this.exactQuote.promotion.rule.discountCents }
+    const promotion: PromotionQuote = { rule, discountCents: this.exactQuote.promotion.appliedDiscountCents,
+      amountCents: this.exactQuote.amountCents, remainingCents: this.exactQuote.promotion.remainingCents }
+    this.promotion = promotion
+  }
+  private exactQuoteMatchesGoods(): boolean {
+    return !!this.exactQuote && this.exactQuote.lines.length === this.goodsList.length &&
+      !this.goodsList.some((item: OrderGoodsItem) => !this.exactQuote?.lines.some(line => line.skuId === item.skuId && line.count === item.count))
+  }
   // 结算流程：读取商品／地址／金额 → 用户确认 → 创建订单 → 带订单号进入收银台。
   // loadCheckoutPreview 只读取结算信息；createOrderAndOpenCashier 才真正下单。
   // 创建成功不代表支付成功，支付结果由收银台后续查询服务端确认。
@@ -52,7 +94,7 @@ export struct CheckView {
   private clearPromotion(): void { this.promotion = { rule: { thresholdCents: 0, discountCents: 0, enabled: false, revision: 0 }, discountCents: 0, amountCents: 0, remainingCents: 0 } }
   private promotionText(): string {
     if (!this.promotion.rule.enabled) return ''
-    if (this.promotion.remainingCents > 0) return '再买 ¥' + (this.promotion.remainingCents / 100).toFixed(2) + ' 可减 ¥' + (this.promotion.rule.discountCents / 100).toFixed(2) + '，回首页继续选购'
+    if (this.promotion.remainingCents > 0) return '还差 ' + (this.promotion.remainingCents / 100).toFixed(2) + ' 元可满减'
     return '满 ¥' + (this.promotion.rule.thresholdCents / 100).toFixed(2) + ' 减 ¥' + (this.promotion.rule.discountCents / 100).toFixed(2) + ' −¥' + (this.promotion.discountCents / 100).toFixed(2)
   }
   private continueShopping(): void { AppStorage.setOrCreate<number>('currentTabIndex', 0); this.stackPath.clear() }
@@ -111,6 +153,7 @@ export struct CheckView {
   }
 
   aboutToDisappear(): void {
+    this.quoteSequence++; this.quoteBusy = false
     this.stopOrderRecovery()
     this.confirmationSequence++
     this.confirmingRequest = false
@@ -144,6 +187,7 @@ export struct CheckView {
     const changedAccount: boolean = !!accountId && !!this.checkoutAccountId && accountId !== this.checkoutAccountId
     if (accountId) this.checkoutAccountId = accountId
     this.checkoutToken = token
+    this.quoteSequence++; this.exactQuote = null; this.quoteError = ''; this.quoteBusy = false
     this.stopOrderRecovery()
     this.confirmationSequence++
     this.confirmingOrder = false
@@ -204,6 +248,7 @@ export struct CheckView {
     const sequence: number = ++this.checkoutQuerySequence
     this.checkoutLoading = true
     this.checkoutRefreshFailed = false
+    void this.refreshExactQuote()
     try {
       if (!GlobalVariable.DEMO_ORDER_FLOW && storeManager.getPendingOrder(this.user.id || '')) {
         this.confirmingOrder = true
@@ -243,6 +288,7 @@ export struct CheckView {
       this.clearPromotion()
       if (checkoutPreview.promotion) this.promotion = checkoutPreview.promotion
       this.goodsList = checkoutPreview.goods || []
+      this.applyExactQuoteSummary()
     } catch {
       if (sequence === this.checkoutQuerySequence && this.isCurrentCheckout(generation, token)) {
         this.checkoutRefreshFailed = true
@@ -522,7 +568,8 @@ export struct CheckView {
   private buildOrderRequest(): CreateOrderParams {
     const invoice: InvoiceInput | undefined = this.invoiceEnabled ? normalizedInvoice(this.invoiceDraft) : undefined
     const source: 'cart' | 'buy-now' = this.checkoutSelection ? 'buy-now' : 'cart'
-    const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents: Math.round(this.summary.totalPayPrice * 100), expectedPromotionRevision: this.promotion.rule.revision || undefined,
+    const expectedAmountCents: number = this.exactQuoteMatchesGoods() ? this.exactQuote!.amountCents : Math.round(this.summary.totalPayPrice * 100)
+    const summary: string = JSON.stringify({ source, addressId: this.addressId, expectedAmountCents, expectedPromotionRevision: this.promotion.rule.revision || undefined,
       returnPolicyConfirmed: this.returnPolicy.confirmed, expectedReturnPolicyToken: this.returnPolicy.token, invoice,
       goods: this.goodsList.map((item: OrderGoodsItem): CreateOrderParamsGoods => ({ skuId: item.skuId, count: item.count }))
         .sort((left: CreateOrderParamsGoods, right: CreateOrderParamsGoods) => left.skuId.localeCompare(right.skuId)) })
@@ -534,7 +581,7 @@ export struct CheckView {
       source,
       invoice,
       requestKey: this.orderRequestKey,
-      expectedAmountCents: Math.round(this.summary.totalPayPrice * 100),
+      expectedAmountCents,
       expectedPromotionRevision: this.promotion.rule.revision || undefined,
       returnPolicyConfirmed: this.returnPolicy.confirmed,
       expectedReturnPolicyToken: this.returnPolicy.token || undefined,
@@ -717,6 +764,10 @@ export struct CheckView {
           .width('100%')
           .fontSize(16)
           .fontColor($r('[ui_components].color.black'))
+        if (hasMultipleQuoteItems(this.exactQuote)) {
+          Text(quoteRemovalText(this.exactQuote, goods.skuId)).id('quote-removal-' + goods.skuId)
+            .fontSize(12).fontColor($r('[ui_components].color.gray'))
+        }
         if (this.stockShortageText(goods).length > 0) {
           Text(this.stockShortageText(goods))
             .fontColor($r('[ui_components].color.red'))
@@ -788,6 +839,8 @@ export struct CheckView {
             .onClick(() => this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true }))
         }
         List({ scroller: this.checkoutScroller }) {
+          ListItem() { QuotePanel({ quote: this.exactQuote, busy: this.quoteBusy, error: this.quoteError, expanded: $quoteExpanded,
+            onRetry: () => { void this.refreshExactQuote() } }) }
           ListItem() {
             ChangeAddressComp({
               addressList: this.addressList,
@@ -840,10 +893,9 @@ export struct CheckView {
               Column() {
                 PriceCell({ label: '商品总价', price: this.summary.totalPrice })
                 if (this.promotion.rule.enabled) {
-                  Text(this.promotionText()).id('checkout-promotion').fontSize(14).fontColor($r('[ui_components].color.red')).width('100%')
-                    .onClick(() => { if (this.promotion.remainingCents > 0) this.continueShopping() })
+                  Text(this.promotionText()).id('checkout-promotion').fontSize(14)
+                    .fontColor(this.promotion.remainingCents > 0 ? $r('[ui_components].color.gray') : $r('[ui_components].color.red')).width('100%')
                 }
-                PriceCell({ label: '运费', price: this.summary.postFee })
                 PriceCell({ label: '实付金额', price: this.summary.totalPayPrice, isRed: true })
               }
               .padding({ left: 8, right: 8 })
@@ -883,6 +935,7 @@ export struct CheckView {
             }
             .fontColor($r('[ui_components].color.red'))
             .fontWeight(500)
+            .id('checkout-total').onClick(() => { this.quoteExpanded = !this.quoteExpanded })
 
             Text() {
               Span('共减')

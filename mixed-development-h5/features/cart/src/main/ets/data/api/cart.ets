@@ -1,3 +1,4 @@
+import { ReviewChoice, SizeChoice } from 'models'
 import { RequestAxios } from 'network'
 import {
   CartGoodsModel,
@@ -148,6 +149,11 @@ export const receiptOrderAPI = (orderId: string, token?: string): Promise<OrderI
 }
 
 export interface EvaluationPayload {
+  sizes?:SizeChoice[]
+  logisticsScore?:number
+  serviceScore?:number
+  items?:ReviewChoice[]
+  revision?:number
   score: number
   content: string
 }

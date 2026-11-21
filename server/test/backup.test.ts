@@ -31,7 +31,7 @@ async function fixture() {
   context.db.run('PRAGMA wal_autocheckpoint=0')
   context.accounts.register('backup_buyer', password)
   const user = context.accounts.login('backup_buyer', password)
-  const auth = { authorization: `Bearer ${user.token}` }
+  const auth = identityHeaders(context.accounts, user.token)
   const authenticated = context.accounts.authenticate(auth.authorization)
   const avatar = async () => {
     const boundary = 'hdm-backup-test-boundary'
@@ -87,7 +87,7 @@ test('在线 WAL 快照与头像恢复后，订单库存亲友一致，旧会话
       assert.equal(login.status, 200)
       const loginBody = await login.json() as { result: { token: string; nickname: string } }
       assert.equal(loginBody.result.nickname, 'backup_buyer')
-      const detail = await fetch(address + `/member/order/${id}`, { headers: { authorization: `Bearer ${loginBody.result.token}` } })
+      const detail = await fetch(address + `/member/order/${id}`, { headers: identityHeaders(next.accounts, loginBody.result.token) })
       assert.equal(detail.status, 200)
       const body = await detail.json() as { result: { orderState: number; payMoney: number } }
       assert.equal(body.result.orderState, 2)
@@ -196,7 +196,7 @@ test('清单哈希匹配仍检查数据库版本、外键和头像引用，链�
     const backup = await f.backup()
     const path = join(backup.root, 'mall.sqlite')
     const db = new DatabaseSync(path)
-    try { db.exec('PRAGMA foreign_keys=OFF'); db.prepare('INSERT INTO sessions VALUES(?,?,?)').run('invalid', 'missing-user', Date.now()) }
+    try { db.exec('PRAGMA foreign_keys=OFF'); db.prepare('INSERT INTO sessions(digest,user_id,expires) VALUES(?,?,?)').run('invalid', 'missing-user', Date.now()) }
     finally { db.close() }
     const data = await readFile(path)
     backup.manifest.files[0] = { path: 'mall.sqlite', bytes: data.length, sha256: createHash('sha256').update(data).digest('hex') }
@@ -267,3 +267,4 @@ test('命令行保存不一致快照后非零退出，显式参数允许恢复�
     await assert.rejects(restoreBackup({ backupPath: destination, destination: join(f.root, 'corrupt'), allowInconsistent: true }), /校验失败/)
   } finally { await f.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

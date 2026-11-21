@@ -1,0 +1,15 @@
+{
+  "name": "server-random",
+  "cwd": "D:/hdm-mall/server",
+  "command": "node --test --test-randomize --test-random-seed=271113 test/*.test.ts",
+  "exitCode": 0,
+  "durationSeconds": 73.489,
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-stage1a-server-random-221249.log",
+  "observedAt": "2026-11-17T22:14:03.5096264+08:00",
+  "tests": 400,
+  "pass": 400,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

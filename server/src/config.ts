@@ -5,6 +5,9 @@ import { readFileSync } from 'node:fs'
 import { AlipayChannel } from './alipay-channel.ts'
 import { KdniaoChannel } from './kdniao-channel.ts'
 import { MockLogisticsChannel, type LogisticsChannel } from './logistics.ts'
+import { createPromiseDriver } from './promises/extract.ts'
+
+export const DEFAULT_ZHIPU_BUDGET_TOKENS = 50_000
 
 export interface RuntimeOptions {
   publicUrl: string
@@ -17,6 +20,7 @@ export interface RuntimeOptions {
   paymentChannel?: PaymentChannel | null
   paymentCallbackSecret?: string
   logisticsChannel?: LogisticsChannel
+  quotePreviewSecret?: string
 }
 
 function originUrl(value: string, field: string): URL {
@@ -37,6 +41,7 @@ function localHostname(hostname: string): boolean {
 }
 
 export function validateRuntimeOptions(options: RuntimeOptions): void {
+  if (options.quotePreviewSecret !== undefined && options.quotePreviewSecret.length < 32) throw new Error('QUOTE_PREVIEW_SECRET 至少需要32个字符')
   if (options.testFixtures) {
     if (options.production) throw new Error('正式环境禁止启用测试夹具')
     if (!options.testMode) throw new Error('测试夹具必须显式开启测试模式')
@@ -69,6 +74,7 @@ export function validateRuntimeOptions(options: RuntimeOptions): void {
       throw new Error('TRUSTED_PROXIES 只接受明确的 IP 或 CIDR，不接受全信任、跳数或 /0')
     }
   }
+  if (options.production && !options.quotePreviewSecret) throw new Error('正式环境必须配置 QUOTE_PREVIEW_SECRET 或 QUOTE_PREVIEW_SECRET_FILE')
 }
 
 export function readConfig(source: Record<string, string | undefined>) {
@@ -84,15 +90,26 @@ export function readConfig(source: Record<string, string | undefined>) {
     PUBLIC_URL: z.string().default('http://127.0.0.1:3000'),
     MOCK_PAYMENTS: z.enum(['true', 'false']).default('false'), NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     CORS_ORIGINS: z.string().optional(), TRUSTED_PROXIES: z.string().default(''),
-    MERCHANT_ACCOUNT: z.string().default(''), MERCHANT_PASSWORD: z.string().default('')
+    MERCHANT_ACCOUNT: z.string().default(''), MERCHANT_PASSWORD: z.string().default(''),
+    ZHIPU_MOCK: z.enum(['true', 'false']).default('false'),
+    ZHIPU_BUDGET_TOKENS: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_ZHIPU_BUDGET_TOKENS),
+    ZHIPU_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(20_000)
   }).parse(source)
   const production = env.NODE_ENV === 'production'
+  const usePromiseMock = env.ZHIPU_MOCK === 'true'
+  const hasZhipuSecret = Boolean(source.ZHIPU_API_KEY || source.ZHIPU_API_KEY_FILE)
+  if (usePromiseMock && production) throw new Error('正式环境禁止使用承诺抽取替身')
+  if (usePromiseMock && hasZhipuSecret) throw new Error('承诺抽取替身不能与智谱密钥同时配置')
+  const promiseDriver = createPromiseDriver({ mock: usePromiseMock,
+    apiKey: hasZhipuSecret ? secretValue(source, 'ZHIPU_API_KEY') : undefined })
   const split = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
   const appOptions = {
     databasePath: env.DATABASE_PATH, uploadsPath: env.UPLOADS_PATH,
     publicUrl: env.PUBLIC_URL.replace(/\/$/, ''), mockPayments: paymentMode ? paymentMode === 'mock' : env.MOCK_PAYMENTS === 'true', production,
     corsOrigins: split(env.CORS_ORIGINS ?? (production ? '' : 'http://localhost:5173,http://127.0.0.1:5173')),
     trustedProxies: split(env.TRUSTED_PROXIES), logger: true, paymentCallbackSecret: source.PAYMENT_CALLBACK_SECRET,
+    promiseDriver, promiseBudgetTokens: env.ZHIPU_BUDGET_TOKENS, promiseTimeoutMs: env.ZHIPU_TIMEOUT_MS,
+    ...((source.QUOTE_PREVIEW_SECRET || source.QUOTE_PREVIEW_SECRET_FILE) ? { quotePreviewSecret: secretValue(source, 'QUOTE_PREVIEW_SECRET') } : {}),
     ...(paymentMode === 'alipay-sandbox' ? { paymentChannel: sandboxChannel(source, env.PUBLIC_URL) } : {}),
     ...(logisticsMode === 'kdniao' ? { logisticsChannel: new KdniaoChannel({ businessId: secretValue(source,'KDNIAO_BUSINESS_ID'), appKey: secretValue(source,'KDNIAO_APP_KEY') }) } : {}),
     ...(logisticsMode === 'mock' ? { logisticsChannel: new MockLogisticsChannel() } : {})

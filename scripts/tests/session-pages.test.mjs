@@ -29,7 +29,8 @@ test('并发401只清一次，旧token不能清新账号，离线注销仍本地
     './Auth': { auth: { getUserInfo: () => user, clearUserInfo: () => { user = { token: '' }; clears++ }, createEmptyUser: () => ({ token: '' }) } },
     './AuthCart': { authCart: { clearCartCount: () => {} } },
     './StoreManager': { storeManager: { getUserInfo: () => pendingStoredUser ?? user, saveUserInfo: async () => { saves++ } } },
-    network: { RequestAxios: { setSessionExpiredHandler: () => {}, postForSession: async (_url, token) => { serverToken = token; throw new Error('offline') } } },
+    network: { RequestAxios: { setSessionExpiredHandler: () => {}, setIdentityChangedHandler: () => {},
+      postForSession: async (_url, token) => { serverToken = token; throw new Error('offline') } } },
   }
   const { UserSession } = execute(sourceOf(base + 'commons/storage/src/main/ets/UserSession.ets'), deps)
   const session = new UserSession()

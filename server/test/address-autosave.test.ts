@@ -12,7 +12,7 @@ test('重复请求幂等：地址自动保存沿用同一地址，用户隔离�
     const other = ctx.accounts.login('address_other', 'test-password-123')
     const requestKey = randomUUID()
     const payload = { receiver: '测试收货人', contact: '13800000000', address: '一号楼', isDefault: 0, requestKey, revision: 1 }
-    const create = (token: string, data: object) => ctx.app.inject({ method: 'POST', url: '/member/address', headers: { authorization: `Bearer ${token}` }, payload: data })
+    const create = (token: string, data: object) => ctx.app.inject({ method: 'POST', url: '/member/address', headers: identityHeaders(ctx.accounts, token), payload: data })
     // 模拟第一次成功回应丢失，随后提交最新填写内容。
     const first = await create(buyer.token, payload)
     assert.equal(first.statusCode, 200)
@@ -44,13 +44,13 @@ test('重复请求幂等：地址自动保存沿用同一地址，用户隔离�
     const isolated = await create(other.token, payload)
     assert.equal(isolated.statusCode, 200)
     assert.notEqual(isolated.json().result.id, id)
-    const forbidden = await ctx.app.inject({ method: 'PUT', url: `/member/address/${id}`, headers: { authorization: `Bearer ${other.token}` }, payload: { address: '不能覆盖别人地址' } })
+    const forbidden = await ctx.app.inject({ method: 'PUT', url: `/member/address/${id}`, headers: identityHeaders(ctx.accounts, other.token), payload: { address: '不能覆盖别人地址' } })
     assert.equal(forbidden.statusCode, 404)
-    const updated = await ctx.app.inject({ method: 'PUT', url: `/member/address/${id}`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { address: '三号楼', requestKey, revision: 6 } })
+    const updated = await ctx.app.inject({ method: 'PUT', url: `/member/address/${id}`, headers: identityHeaders(ctx.accounts, buyer.token), payload: { address: '三号楼', requestKey, revision: 6 } })
     assert.equal(updated.statusCode, 200)
     assert.equal(ctx.accounts.addresses(buyerUser)[0].address, '三号楼')
     await create(buyer.token, { ...payload, revision: 5 })
-    await ctx.app.inject({ method: 'PUT', url: `/member/address/${id}`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { address: '迟到更新', requestKey, revision: 4 } })
+    await ctx.app.inject({ method: 'PUT', url: `/member/address/${id}`, headers: identityHeaders(ctx.accounts, buyer.token), payload: { address: '迟到更新', requestKey, revision: 4 } })
     assert.equal(ctx.accounts.addresses(buyerUser)[0].address, '三号楼')
     const legacyPayload = { receiver: '兼容旧客户端', contact: '13800000000', address: '原新增方式', isDefault: 1 }
     const legacy1 = await create(buyer.token, legacyPayload)
@@ -73,7 +73,7 @@ test('删除后同一编辑会话的迟到新增和更新都不能复活地址',
     ctx.accounts.register('deleted_address', 'test-password-123')
     const buyer = ctx.accounts.login('deleted_address', 'test-password-123')
     const user = ctx.accounts.authenticate(`Bearer ${buyer.token}`)
-    const headers = { authorization: `Bearer ${buyer.token}` }
+    const headers = identityHeaders(ctx.accounts, buyer.token)
     const payload = { receiver: '测试收货人', contact: '13800000000', address: '已删除地址', isDefault: 0, requestKey: randomUUID(), revision: 1 }
     const created = await ctx.app.inject({ method: 'POST', url: '/member/address', headers, payload })
     assert.equal(created.statusCode, 200)
@@ -97,3 +97,4 @@ test('删除后同一编辑会话的迟到新增和更新都不能复活地址',
     assert.notEqual(fresh.json().result.id, id)
   } finally { await ctx.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

@@ -1,0 +1,587 @@
+{
+  "status": "passed",
+  "packageSha256": "90F3299509790D9E1BD9002BF112F9F09810BAEA803005819E6D81BFA2A2164E",
+  "target": "127.0.0.1:5555",
+  "api": 24,
+  "scenes": [
+    {
+      "identity": "buyer",
+      "revision": 1,
+      "loginOrdinal": 1,
+      "sameTokenAsLogin": true
+    },
+    {
+      "identity": "merchant",
+      "revision": 2,
+      "loginOrdinal": 1,
+      "sameTokenAsLogin": true
+    },
+    {
+      "identity": "buyer",
+      "revision": 3,
+      "loginOrdinal": 1,
+      "sameTokenAsLogin": true
+    },
+    {
+      "identity": "buyer",
+      "revision": 1,
+      "loginOrdinal": 2,
+      "sameTokenAsLogin": true
+    },
+    {
+      "identity": "merchant",
+      "revision": 2,
+      "loginOrdinal": 2,
+      "sameTokenAsLogin": true
+    },
+    {
+      "identity": "buyer",
+      "revision": 3,
+      "loginOrdinal": 2,
+      "sameTokenAsLogin": true
+    }
+  ],
+  "themes": [
+    {
+      "name": "light",
+      "merchantLayout": {
+        "identity": "merchant",
+        "layout": "[\"merchant-products\"]",
+        "revision": 1
+      },
+      "buyerLayout": {
+        "identity": "buyer",
+        "layout": "[\"home-banner\"]",
+        "revision": 1
+      },
+      "merchantEntryInitiallyVisible": true,
+      "buyerBannerInitiallyVisible": true,
+      "ordinaryIdentities": [
+        "buyer"
+      ]
+    },
+    {
+      "name": "dark",
+      "merchantLayout": {
+        "identity": "merchant",
+        "layout": "[\"merchant-products\"]",
+        "revision": 3
+      },
+      "buyerLayout": {
+        "identity": "buyer",
+        "layout": "[\"home-banner\"]",
+        "revision": 3
+      },
+      "merchantEntryInitiallyVisible": true,
+      "buyerBannerInitiallyVisible": true,
+      "ordinaryIdentities": [
+        "buyer"
+      ]
+    }
+  ],
+  "captures": [
+    {
+      "file": "light-01-merchant-mine.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 87556,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为买家身份",
+          "text": "切换为买家身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "商品管理",
+          "text": "商品管理",
+          "type": "Button",
+          "bounds": "[492,1851][828,1991]"
+        }
+      ],
+      "absent": []
+    },
+    {
+      "file": "light-06-merchant-layout.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 77285,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[0,353][1320,419]"
+        },
+        {
+          "control": "店铺订单",
+          "text": "店铺订单",
+          "type": "Text",
+          "bounds": "[56,495][1011,561]"
+        },
+        {
+          "control": "订单和售后结果，始终显示",
+          "text": "订单和售后结果，始终显示",
+          "type": "Text",
+          "bounds": "[56,575][1011,624]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-orders",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,521][1264,598]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-after-sales",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,724][1264,801]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-service",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,927][1264,1004]"
+        },
+        {
+          "control": "联系人工客服，始终显示",
+          "text": "联系人工客服，始终显示",
+          "type": "Text",
+          "bounds": "[56,981][1011,1030]"
+        }
+      ],
+      "absent": [
+        "identity-entry-merchant-orders"
+      ]
+    },
+    {
+      "file": "light-03-merchant-product-hidden.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 87458,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为买家身份",
+          "text": "切换为买家身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "库存管理",
+          "text": "库存管理",
+          "type": "Button",
+          "bounds": "[492,1669][828,1809]"
+        },
+        {
+          "control": "售后处理",
+          "text": "售后处理",
+          "type": "Button",
+          "bounds": "[492,1851][828,1991]"
+        }
+      ],
+      "absent": [
+        "商品管理"
+      ]
+    },
+    {
+      "file": "light-05-buyer-after-switch.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 97353,
+      "present": [
+        {
+          "control": "买家身份",
+          "text": "买家身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为店主身份",
+          "text": "切换为店主身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "device_merchant",
+          "text": "device_merchant",
+          "type": "Text",
+          "bounds": "[252,404][689,470]"
+        }
+      ],
+      "absent": [
+        "立即登录",
+        "商品管理"
+      ]
+    },
+    {
+      "file": "light-07-buyer-layout.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 81710,
+      "present": [
+        {
+          "control": "买家身份",
+          "text": "买家身份",
+          "type": "Text",
+          "bounds": "[0,353][1320,419]"
+        },
+        {
+          "control": "首页搜索",
+          "text": "首页搜索",
+          "type": "Text",
+          "bounds": "[56,526][1098,592]"
+        },
+        {
+          "control": "首页轮播商品",
+          "text": "首页轮播商品",
+          "type": "Text",
+          "bounds": "[56,729][1098,795]"
+        },
+        {
+          "control": "identity-entry-locked-buyer-orders",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,1130][1264,1207]"
+        },
+        {
+          "control": "identity-entry-locked-buyer-family",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,1333][1264,1410]"
+        },
+        {
+          "control": "含亲友代付、代收的订单，始终显示",
+          "text": "含亲友代付、代收的订单，始终显示",
+          "type": "Text",
+          "bounds": "[56,1387][1011,1436]"
+        },
+        {
+          "control": "identity-entry-locked-buyer-service",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,1942][1264,2019]"
+        },
+        {
+          "control": "联系人工客服，始终显示",
+          "text": "联系人工客服，始终显示",
+          "type": "Text",
+          "bounds": "[56,1996][1011,2045]"
+        }
+      ],
+      "absent": [
+        "identity-entry-buyer-orders",
+        "identity-entry-buyer-family",
+        "identity-entry-buyer-service"
+      ]
+    },
+    {
+      "file": "light-02-buyer-banner-hidden.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 76424,
+      "present": [
+        {
+          "control": "爆款推荐",
+          "text": "爆款推荐",
+          "type": "Text",
+          "bounds": "[91,1319][288,1376]"
+        }
+      ],
+      "absent": [
+        "home-banner-entry"
+      ]
+    },
+    {
+      "file": "light-04-ordinary-buyer-mine.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 91470,
+      "present": [
+        {
+          "control": "device_buyer",
+          "text": "device_buyer",
+          "type": "Text",
+          "bounds": "[252,404][593,470]"
+        },
+        {
+          "control": "亲友中心 · 代付与代收",
+          "text": "亲友中心 · 代付与代收",
+          "type": "Button",
+          "bounds": "[323,941][998,1081]"
+        }
+      ],
+      "absent": [
+        "current-identity",
+        "identity-switch",
+        "切换为买家身份",
+        "切换为店主身份"
+      ]
+    },
+    {
+      "file": "dark-01-merchant-mine.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 84358,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为买家身份",
+          "text": "切换为买家身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "商品管理",
+          "text": "商品管理",
+          "type": "Button",
+          "bounds": "[492,1851][828,1991]"
+        }
+      ],
+      "absent": []
+    },
+    {
+      "file": "dark-06-merchant-layout.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 74099,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[0,353][1320,419]"
+        },
+        {
+          "control": "店铺订单",
+          "text": "店铺订单",
+          "type": "Text",
+          "bounds": "[56,495][1011,561]"
+        },
+        {
+          "control": "订单和售后结果，始终显示",
+          "text": "订单和售后结果，始终显示",
+          "type": "Text",
+          "bounds": "[56,575][1011,624]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-orders",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,521][1264,598]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-after-sales",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,724][1264,801]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-service",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,927][1264,1004]"
+        },
+        {
+          "control": "联系人工客服，始终显示",
+          "text": "联系人工客服，始终显示",
+          "type": "Text",
+          "bounds": "[56,981][1011,1030]"
+        }
+      ],
+      "absent": [
+        "identity-entry-merchant-orders"
+      ]
+    },
+    {
+      "file": "dark-03-merchant-product-hidden.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 84673,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为买家身份",
+          "text": "切换为买家身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "库存管理",
+          "text": "库存管理",
+          "type": "Button",
+          "bounds": "[492,1669][828,1809]"
+        },
+        {
+          "control": "售后处理",
+          "text": "售后处理",
+          "type": "Button",
+          "bounds": "[492,1851][828,1991]"
+        }
+      ],
+      "absent": [
+        "商品管理"
+      ]
+    },
+    {
+      "file": "dark-05-buyer-after-switch.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 97729,
+      "present": [
+        {
+          "control": "买家身份",
+          "text": "买家身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为店主身份",
+          "text": "切换为店主身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "device_merchant",
+          "text": "device_merchant",
+          "type": "Text",
+          "bounds": "[252,404][689,470]"
+        }
+      ],
+      "absent": [
+        "立即登录",
+        "商品管理"
+      ]
+    },
+    {
+      "file": "dark-07-buyer-layout.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 78225,
+      "present": [
+        {
+          "control": "买家身份",
+          "text": "买家身份",
+          "type": "Text",
+          "bounds": "[0,353][1320,419]"
+        },
+        {
+          "control": "首页搜索",
+          "text": "首页搜索",
+          "type": "Text",
+          "bounds": "[56,526][1098,592]"
+        },
+        {
+          "control": "首页轮播商品",
+          "text": "首页轮播商品",
+          "type": "Text",
+          "bounds": "[56,729][1098,795]"
+        },
+        {
+          "control": "identity-entry-locked-buyer-orders",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,1130][1264,1207]"
+        },
+        {
+          "control": "identity-entry-locked-buyer-family",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,1333][1264,1410]"
+        },
+        {
+          "control": "含亲友代付、代收的订单，始终显示",
+          "text": "含亲友代付、代收的订单，始终显示",
+          "type": "Text",
+          "bounds": "[56,1387][1011,1436]"
+        },
+        {
+          "control": "identity-entry-locked-buyer-service",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,1942][1264,2019]"
+        },
+        {
+          "control": "联系人工客服，始终显示",
+          "text": "联系人工客服，始终显示",
+          "type": "Text",
+          "bounds": "[56,1996][1011,2045]"
+        }
+      ],
+      "absent": [
+        "identity-entry-buyer-orders",
+        "identity-entry-buyer-family",
+        "identity-entry-buyer-service"
+      ]
+    },
+    {
+      "file": "dark-02-buyer-banner-hidden.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 78112,
+      "present": [
+        {
+          "control": "爆款推荐",
+          "text": "爆款推荐",
+          "type": "Text",
+          "bounds": "[91,1319][288,1376]"
+        }
+      ],
+      "absent": [
+        "home-banner-entry"
+      ]
+    },
+    {
+      "file": "dark-04-ordinary-buyer-mine.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 91663,
+      "present": [
+        {
+          "control": "device_buyer",
+          "text": "device_buyer",
+          "type": "Text",
+          "bounds": "[252,404][593,470]"
+        },
+        {
+          "control": "亲友中心 · 代付与代收",
+          "text": "亲友中心 · 代付与代收",
+          "type": "Button",
+          "bounds": "[323,941][998,1081]"
+        }
+      ],
+      "absent": [
+        "current-identity",
+        "identity-switch",
+        "切换为买家身份",
+        "切换为店主身份"
+      ]
+    }
+  ],
+  "originalThemeRestored": true,
+  "portsRestored": true,
+  "fixtureStopped": true,
+  "port3103Free": true,
+  "uploadsRemoved": true
+}

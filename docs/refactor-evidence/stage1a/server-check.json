@@ -1,0 +1,9 @@
+{
+  "name": "server-check",
+  "cwd": "D:/hdm-mall/server",
+  "command": "npm.cmd run check",
+  "exitCode": 0,
+  "durationSeconds": 2.971,
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-stage1a-server-check-220504.log",
+  "observedAt": "2026-11-17T22:05:07.5297947+08:00"
+}

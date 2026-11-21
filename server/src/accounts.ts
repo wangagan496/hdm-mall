@@ -1,12 +1,51 @@
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash, createHmac } from 'node:crypto'
 import { Database } from './database.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { AppError, ensure } from './errors.ts'
 import { localAvatarPath } from './avatar.ts'
 import { checkPublicContent } from './content-filter.ts'
+import { appendAudit } from './audit.ts'
+import type { Identity, IdentityContext } from './identity-context/generated.ts'
 
-export interface User { id: string; account: string; nickname: string; role: 'buyer' | 'merchant'; profile: string; status?: 'active' | 'deleting' | 'deleted'; deletion_due_at?: number | null }
+interface UserRow { id: string; account: string; nickname: string; profile: string; status?: 'active' | 'deleting' | 'deleted'; deletion_due_at?: number | null }
+export interface User extends UserRow, IdentityContext {}
+const activeIdentities = `SELECT json_group_array(identity ORDER BY CASE identity WHEN 'merchant' THEN 0 ELSE 1 END)
+  FROM user_identities g WHERE g.user_id=u.id AND g.granted_at<=? AND g.revoked_at IS NULL`
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')
+const sessionDigests = new WeakMap<User, string>()
+
+export function confirmationSubject(user: User, purpose: 'quote-preview' | 'return-policy' | 'publish-promises'): string {
+  const sessionDigest = sessionDigests.get(user)
+  ensure(sessionDigest, 401, '请先登录')
+  // Controllers may return this marker as part of a signed receipt. It cannot be used to authenticate.
+  return createHmac('sha256', sessionDigest)
+    .update(JSON.stringify([purpose, user.id, user.identity, user.identityRevision])).digest('hex')
+}
+
+export function requireBuyer(user: User) {
+  if (user.identity !== 'buyer') throw new AppError(403, '请先切换到买家身份', 'BUYER_REQUIRED')
+}
+
+export function isStoreOwner(db: Database, userId: string): boolean {
+  return !!db.one("SELECT user_id FROM user_identities WHERE user_id=? AND identity='merchant'", userId)
+}
+
+export function restrictOwnStore(db: Database, userId: string) {
+  // 当前所有商品都属于这家店。即使商家授权失效，历史店主归属不随会话或撤权消失。
+  if (isStoreOwner(db, userId)) throw new AppError(403, '店主不能评价自家店铺的商品，也不能申请售后或已付款订单取消', 'OWN_STORE_ACTION')
+}
+
+export function restrictOwnOrder(ownerId: string, user: User, message: string) {
+  if (ownerId === user.id) throw new AppError(403, message, 'OWN_STORE_ACTION')
+}
+
+function identityContext(user: User): IdentityContext {
+  return { identity: user.identity, identities: user.identities, identityRevision: user.identityRevision }
+}
+
+function identityChanged(user?: User): never {
+  throw new AppError(409, '当前身份已变化，请按当前身份重新操作', 'IDENTITY_CHANGED', user && identityContext(user))
+}
 
 export class Accounts {
   db: Database
@@ -15,11 +54,21 @@ export class Accounts {
   constructor(db: Database, publicUrl: string, clock: Clock = systemClock) {
     this.db = db; this.publicUrl = publicUrl.replace(/\/$/, ''); this.clock = clock
   }
-  register(account: string, password: string, role: User['role'] = 'buyer') {
+  register(account: string, password: string, initialIdentity: Identity = 'buyer') {
     const salt = randomBytes(16).toString('hex')
     const hash = scryptSync(password, salt, 64).toString('hex')
     const id = randomUUID()
-    try { this.db.run('INSERT INTO users(id,account,password,nickname,role) VALUES(?,?,?,?,?)', id, account, `${salt}:${hash}`, account, role) }
+    try {
+      this.db.transaction(() => {
+        // role 仅供历史迁移识别建档身份，运行时一律读取 user_identities。
+        this.db.run('INSERT INTO users(id,account,password,nickname,role) VALUES(?,?,?,?,?)', id, account, `${salt}:${hash}`, account, initialIdentity)
+        const grantedAt = this.clock.now()
+        if (initialIdentity === 'merchant') {
+          this.db.run('INSERT INTO user_identities(user_id,identity,source,granted_at) VALUES(?,?,?,?)', id, 'merchant', 'configured-merchant', grantedAt)
+        }
+        this.db.run('INSERT INTO user_identities(user_id,identity,source,granted_at) VALUES(?,?,?,?)', id, 'buyer', 'registration-default', grantedAt)
+      })
+    }
     catch (error) {
       if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) throw new AppError(409, '账号已存在')
       throw error
@@ -27,13 +76,19 @@ export class Accounts {
     return { id }
   }
   login(account: string, password: string) {
-    const user = this.db.one<User & { password: string }>('SELECT * FROM users WHERE account=?', account)
+    const user = this.db.one<UserRow>('SELECT id,account,nickname,profile,status,deletion_due_at FROM users WHERE account=?', account)
     const valid = this.verifyPassword(user?.id ?? '', password)
     ensure(user && valid, 401, '账号或密码不正确')
-    const token = randomBytes(32).toString('hex')
-    this.db.run('DELETE FROM sessions WHERE expires<?', this.clock.now())
-    this.db.run('INSERT INTO sessions VALUES(?,?,?)', digest(token), user.id, this.clock.now() + 24 * 3600_000)
-    return { ...this.profile(user), token }
+    return this.db.transaction(() => {
+      const now = this.clock.now()
+      const identities = this.identities(user.id, now)
+      const identity = identities[0]
+      ensure(identity, 403, '账号没有可用身份')
+      const token = randomBytes(32).toString('hex')
+      this.db.run('DELETE FROM sessions WHERE expires<?', now)
+      this.db.run('INSERT INTO sessions(digest,user_id,expires,identity) VALUES(?,?,?,?)', digest(token), user.id, now + 24 * 3600_000, identity)
+      return { ...this.profile({ ...user, identity, identities, identityRevision: 0 }), token }
+    })
   }
   verifyPassword(userId: string, password: string): boolean {
     const row = this.db.one<{password:string;status:string}>('SELECT password,status FROM users WHERE id=?',userId)
@@ -43,33 +98,80 @@ export class Accounts {
     const hash = validHash ? parts![1]! : '00'.repeat(64)
     return timingSafeEqual(scryptSync(password,salt,64),Buffer.from(hash,'hex')) && row?.status !== 'deleted' && validHash
   }
+  identities(userId: string, now = this.clock.now()): Identity[] {
+    const row = this.db.one<{ identities: string }>(`SELECT (${activeIdentities}) AS identities FROM users u WHERE u.id=?`, now, userId)
+    return JSON.parse(row?.identities ?? '[]') as Identity[]
+  }
+  defaultUser(userId: string): User | undefined {
+    const user = this.db.one<UserRow>('SELECT id,account,nickname,profile,status,deletion_due_at FROM users WHERE id=?', userId)
+    const identities = this.identities(userId)
+    if (!user || !identities[0]) return undefined
+    return { ...user, identity: identities[0], identities, identityRevision: 0 }
+  }
   authenticate(authorization: string | undefined): User {
     ensure(authorization && authorization.startsWith('Bearer '), 401, '请先登录')
-    const user = this.db.one<User>('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.digest=? AND s.expires>?', digest(authorization.slice(7)), this.clock.now())
+    return this.authenticateDigest(digest(authorization.slice(7)))
+  }
+  private authenticateDigest(sessionDigest: string): User {
+    const now = this.clock.now()
+    const user = this.db.one<UserRow & Pick<User, 'identity' | 'identityRevision'> & { identities: string }>(`SELECT u.id,u.account,u.nickname,u.profile,u.status,u.deletion_due_at,
+      s.identity,s.identity_revision AS identityRevision,(${activeIdentities}) AS identities
+      FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.digest=? AND s.expires>?`, now, sessionDigest, now)
     ensure(user && user.status !== 'deleted', 401, '登录已过期，请重新登录')
+    const identities = JSON.parse(user.identities) as Identity[]
+    ensure(identities.includes(user.identity), 401, '当前身份已失效，请重新登录')
+    const authenticated = { ...user, identities }
+    sessionDigests.set(authenticated, sessionDigest)
+    return authenticated
+  }
+  authenticateRequest(authorization: string | undefined, identity: unknown, revision: unknown): User {
+    const user = this.authenticate(authorization)
+    if (user.identity !== identity || String(user.identityRevision) !== revision) identityChanged(user)
     return user
+  }
+  assertCurrent(user: User) {
+    const sessionDigest = sessionDigests.get(user)
+    if (!sessionDigest) return
+    const current = this.authenticateDigest(sessionDigest)
+    if (user.identity !== current.identity || user.identityRevision !== current.identityRevision) identityChanged(current)
+  }
+  switchIdentity(user: User, identity: Identity): IdentityContext {
+    const sessionDigest = sessionDigests.get(user)
+    ensure(sessionDigest, 401, '请先登录')
+    return this.db.transaction(() => {
+      this.assertCurrent(user)
+      const current = this.authenticateDigest(sessionDigest)
+      if (!current.identities.includes(identity)) throw new AppError(403, '当前账号未获授该身份', 'IDENTITY_NOT_GRANTED')
+      if (current.identity === identity) return identityContext(current)
+      this.db.run('UPDATE sessions SET identity=?,identity_revision=identity_revision+1 WHERE digest=?', identity, sessionDigest)
+      appendAudit(this.db, { created: this.clock.now(), actor: current, action: 'identity.switch', targetType: 'account',
+        targetId: current.id, summary: { before: current.identity, after: identity } })
+      return identityContext(this.authenticateDigest(sessionDigest))
+    })
   }
   logout(authorization: string) { this.db.run('DELETE FROM sessions WHERE digest=?', digest(authorization.slice(7))) }
   profile(user: User) {
     const stored = JSON.parse(user.profile)
     const path = localAvatarPath(stored.avatar)
     return { avatar: '', birthday: '', cityCode: '', provinceCode: '', countyCode: '', gender: '未知', profession: '', fullLocation: '', mobile: '',
-      ...stored, ...(path ? { avatar: this.publicUrl + path } : {}), id: user.id, account: user.account, nickname: user.nickname, role: user.role,
+      ...stored, ...(path ? { avatar: this.publicUrl + path } : {}), id: user.id, account: user.account, nickname: user.nickname, ...identityContext(user),
       status: user.status ?? 'active', deletionDueAt: user.deletion_due_at ?? null }
   }
   updateProfile(user: User, data: Record<string, string>) {
     if (data.nickname !== undefined) checkPublicContent(data.nickname)
-    const latest = this.db.one<User>('SELECT * FROM users WHERE id=?', user.id)!
+    const latest = this.db.one<UserRow>('SELECT id,account,nickname,profile,status,deletion_due_at FROM users WHERE id=?', user.id)!
     const profile = { ...JSON.parse(latest.profile), ...data }
     const path = localAvatarPath(profile.avatar)
     if (path) profile.avatar = path
     this.db.run('UPDATE users SET nickname=?, profile=? WHERE id=?', data.nickname ?? latest.nickname, JSON.stringify(profile), user.id)
-    return this.profile({ ...latest, nickname: data.nickname ?? latest.nickname, profile: JSON.stringify(profile) })
+    return this.profile({ ...user, ...latest, nickname: data.nickname ?? latest.nickname, profile: JSON.stringify(profile) })
   }
   relations(user: User) {
+    requireBuyer(user)
     return this.db.all('SELECT r.id,r.status,r.owner_id AS ownerId,r.friend_id AS friendId,u.account AS ownerAccount,f.account AS friendAccount FROM relations r JOIN users u ON u.id=r.owner_id JOIN users f ON f.id=r.friend_id WHERE (r.owner_id=? OR r.friend_id=?) AND r.status<>?', user.id, user.id, 'revoked')
   }
   relationsPage(user: User, page: number, pageSize: number, scope: 'all' | 'payer') {
+    requireBuyer(user)
     const where = scope === 'payer' ? "r.owner_id=? AND r.status='accepted'" : "(r.owner_id=? OR r.friend_id=?) AND r.status<>'revoked'"
     const params = scope === 'payer' ? [user.id] : [user.id, user.id]
     const counts = this.db.one<{ count: number }>(`SELECT COUNT(*) AS count FROM relations r WHERE ${where}`, ...params)!.count
@@ -81,8 +183,9 @@ export class Accounts {
     return { items, counts, pages: Math.ceil(counts / pageSize), page, pageSize }
   }
   invite(user: User, account: string) {
-    const friend = this.db.one<User>('SELECT * FROM users WHERE account=?', account)
-    ensure(friend && friend.status === 'active' && friend.id !== user.id && friend.role === 'buyer', 400, '请输入其他买家账号')
+    requireBuyer(user)
+    const friend = this.db.one<UserRow>('SELECT id,status FROM users WHERE account=?', account)
+    ensure(friend && friend.status === 'active' && friend.id !== user.id && this.identities(friend.id).includes('buyer'), 400, '请输入其他买家账号')
     return this.db.transaction(() => {
       const existing = this.db.one<{ id: string; status: string }>('SELECT id,status FROM relations WHERE owner_id=? AND friend_id=?', user.id, friend.id)
       if (existing && existing.status !== 'revoked') return { id: existing.id }
@@ -93,6 +196,7 @@ export class Accounts {
     })
   }
   updateRelation(user: User, id: string, action: 'accept' | 'revoke') {
+    requireBuyer(user)
     const relation = this.db.one<{ owner_id: string; friend_id: string; status: string }>('SELECT * FROM relations WHERE id=?', id)
     ensure(relation, 404, '绑定请求不存在')
     if (action === 'accept') {

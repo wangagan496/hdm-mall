@@ -1,7 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want, bundleManager } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import { auth, localGoodsStore, storeManager } from 'storage';
+import { auth, localGoodsStore, storeManager, userSession } from 'storage';
 import { screenManager, screenManagerByMedia, LaunchPerf } from 'utils';
 import { GlobalVariable } from 'constants';
 import { HomePrefetch } from 'home';
@@ -18,6 +18,7 @@ export default class PhoneAbility extends UIAbility {
       const userInfo = storeManager.getUserInfo()
       if (userInfo?.token) {
         auth.updateCurrentUser(userInfo)
+        void userSession.refreshIdentity().catch(() => {})
         localGoodsStore.migrateLegacyData().catch((error: Error) => {
           hilog.error(DOMAIN, 'LocalGoodsStore', 'Failed to migrate legacy local goods. Cause: %{public}s',
             JSON.stringify(error) ?? '')

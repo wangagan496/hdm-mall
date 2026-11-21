@@ -10,7 +10,7 @@ for (const decision of ['withdraw', 'approve', 'reject-and-ship']) {
       const buyer = fixture.context.accounts.login('device_buyer', fixture.password)
       const merchant = fixture.context.accounts.login('device_merchant', fixture.password)
       const call = (method: string, url: string, payload?: object, token = buyer.token) => fixture.context.app.inject({
-        method: method as never, url, payload, headers: { authorization: 'Bearer ' + token }
+        method: method as never, url, payload, headers: identityHeaders(fixture.context.accounts, token)
       })
       const created = await call('POST', '/member/order', { requestKey: randomUUID(), expectedAmountCents: 2371,
         addressId: fixture.addressId, goods: [{ skuId: fixture.skuId, count: 1 }] })
@@ -82,3 +82,4 @@ test('B-83 barrier rejects unsupported kinds and mismatched release', async () =
     assert.equal((await call({ kind: 'cancel-request', hold: false })).statusCode, 200)
   } finally { await fixture.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

@@ -1,0 +1,28 @@
+{
+  "taskId": "stage2a-20261118-03",
+  "model": "glm-5.3-flash",
+  "attempts": {
+    "hdm-1": {
+      "markedBeforeCall": "2026-11-19T07:05:19.171Z",
+      "completedAt": "2026-11-19T07:05:24.342Z",
+      "providerHttpStatus": 200,
+      "providerErrorCode": null,
+      "providerStatus": "completed"
+    },
+    "hdm-2": {
+      "markedBeforeCall": "2026-11-19T07:05:24.365Z",
+      "completedAt": "2026-11-19T07:05:27.341Z",
+      "providerHttpStatus": 200,
+      "providerErrorCode": null,
+      "providerStatus": "completed"
+    },
+    "hdm-4": {
+      "markedBeforeCall": "2026-11-19T07:05:27.364Z",
+      "completedAt": "2026-11-19T07:05:30.119Z",
+      "providerHttpStatus": 200,
+      "providerErrorCode": null,
+      "providerStatus": "completed"
+    }
+  },
+  "finalized": true
+}

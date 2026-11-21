@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-19T00:04:39.9510158+08:00",
+  "completedAt": "2026-11-19T00:07:49.5526033+08:00",
+  "durationSeconds": 189.6,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "failed",
+  "counts": {
+    "passed": 0,
+    "skipped": 0,
+    "failed": 1
+  },
+  "packageSha256": "7432B664A0CADE383A7D69A647609D273364D97B754A912DF0ABD00D390A3862",
+  "scriptStackTrace": "at Wait-Text, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 83\r\nat Tap-Text, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 94\r\nat Ship, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 221\r\nat Invoke-PromisesProbe, D:\\hdm-mall\\scripts\\device-promises-probe.ps1: line 99\r\nat <ScriptBlock>, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 2206",
+  "error": "Expected visible text not found: 亲友中心 / 商家发货"
+}

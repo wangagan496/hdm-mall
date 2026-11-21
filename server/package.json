@@ -9,15 +9,17 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/main.ts",
     "check": "tsc --noEmit",
+    "check:zhipu": "node --env-file-if-exists=.env src/zhipu-check.ts",
+    "draft:promises": "node --env-file-if-exists=.env src/promises/draft-cli.ts",
     "test": "node --test test/*.test.ts",
     "backup": "node src/backup-cli.ts create",
     "backup:verify": "node src/backup-cli.ts verify",
     "restore": "node src/backup-cli.ts restore"
   },
   "dependencies": {
-    "@fastify/multipart": "^10.1.6",
-    "@fastify/rate-limit": "^11.2.1",
-    "fastify": "^5.6.2",
+    "@fastify/multipart": "^10.1.9",
+    "@fastify/rate-limit": "^11.2.2",
+    "fastify": "^5.12.8",
     "zod": "^4.1.12"
   },
   "devDependencies": {

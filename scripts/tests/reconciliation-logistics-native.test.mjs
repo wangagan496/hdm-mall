@@ -7,7 +7,7 @@ test('D18 商家发货先填写运单，校验通过才提交承运商和运单�
  const calls=[]
  const Page=pageMethods(mine+'FamilyView.ets','FamilyView',{}, {OrderState:{AWAITING_SHIPMENT:2},shipOrderAPI:async(...args)=>calls.push(args)})
  const page=new Page(),order={id:'order',canShip:true,orderState:2}
- page.user={role:'merchant',token:'session'};page.ordersToShip=[order];page.canManageFamily=()=>true
+ page.user={identity:'merchant',token:'session'};page.ordersToShip=[order];page.canManageFamily=()=>true
  page.submitThenRefresh=async fn=>fn('session');page.safeToast=()=>{}
  page.shipOrder(order)
  assert.equal(calls.length,0,'打开填写发货信息后才能提交')
@@ -26,11 +26,11 @@ test('D18 商家对账入口可达，处理原因校验且异步结果不会串�
   reconciliationDay:()=> '2026-11-11',validReconciliationDate:()=>true,
   RequestAxios:{postWithSession:(...args)=>{calls.push(args);return pending.promise}}
  })
- const page=new Page();page.active=true;page.user={id:'seller',role:'merchant',token:'session'}
+ const page=new Page();page.active=true;page.user={id:'seller',identity:'merchant',token:'session'}
  page.report={differences:[{id:'diff',state:'pending'}]};page.selectedId='diff';page.reason='短'
  await page.resolve();assert.equal(calls.length,0)
  page.reason='已经核实差异原因';const task=page.resolve();await page.resolve();assert.equal(calls.length,1)
- page.user={id:'other',role:'merchant',token:'other-session'};page.accountChanged()
+ page.user={id:'other',identity:'merchant',token:'other-session'};page.accountChanged()
  pending.resolve({id:'diff',state:'resolved'});await task
  assert.equal(page.report,null)
 })
@@ -71,7 +71,7 @@ test('D18 对账初次加载期间的日期回调不使查询失效或永久锁�
   reconciliationDay:()=> '2026-11-13',validReconciliationDate:()=>true,
   RequestAxios:{getForSession:()=>pending.promise}
  })
- const page=new Page();page.active=true;page.user={id:'seller',role:'merchant',token:'session'}
+ const page=new Page();page.active=true;page.user={id:'seller',identity:'merchant',token:'session'}
  const task=page.load();assert.equal(page.working,true)
  page.changeDate('2026-11-13')
  pending.resolve({date:'2026-11-13',differences:[]});await task

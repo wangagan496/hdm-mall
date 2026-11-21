@@ -1,0 +1,170 @@
+{
+  "startedAt": "2026-11-18T09:06:40.8941061+08:00",
+  "completedAt": "2026-11-18T09:11:14.8420423+08:00",
+  "durationSeconds": 273.95,
+  "target": "127.0.0.1:5555",
+  "mode": "QuotePreviewProbe",
+  "result": "passed",
+  "counts": {
+    "skipped": 0,
+    "passed": 1,
+    "failed": 0
+  },
+  "packageSha256": "F7DA4523F8B737D7F103152DF21597D8131C99FC855C7F598CF3BD7128B1D796",
+  "screenshots": [
+    "03-cart-quote-expanded",
+    "04-cart-quote-details",
+    "05-checkout-quote",
+    "07-checkout-quote-changed",
+    "08-module-structure",
+    "09-module-structure-bottom"
+  ],
+  "checks": [
+    "quote-product-line-visible",
+    "cart-price-visible",
+    "cart-quantity-visible",
+    "single-unit-removal-hidden",
+    "module-order-and-titles-visible"
+  ],
+  "paymentActions": 0,
+  "quoteRequests": [
+    {
+      "id": "req-h",
+      "status": 403
+    },
+    {
+      "id": "req-i",
+      "status": 403
+    },
+    {
+      "id": "req-m",
+      "status": 403
+    },
+    {
+      "id": "req-y",
+      "status": 200,
+      "quoteId": "052F8FA8DA10",
+      "amountCents": 0,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-z",
+      "status": 200,
+      "quoteId": "052F8FA8DA10",
+      "amountCents": 0,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-13",
+      "status": 200,
+      "quoteId": "052F8FA8DA10",
+      "amountCents": 0,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-1e",
+      "status": 200,
+      "quoteId": "76429D82932D",
+      "amountCents": 1871,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-1g",
+      "status": 200,
+      "quoteId": "052F8FA8DA10",
+      "amountCents": 0,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-1h",
+      "status": 200,
+      "quoteId": "76429D82932D",
+      "amountCents": 1871,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-1k",
+      "status": 200,
+      "quoteId": "76429D82932D",
+      "amountCents": 1871,
+      "promotionRevision": 2,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-1u",
+      "status": 403
+    },
+    {
+      "id": "req-1v",
+      "status": 403
+    },
+    {
+      "id": "req-1z",
+      "status": 403
+    },
+    {
+      "id": "req-2b",
+      "status": 200,
+      "quoteId": "7AD622D041C3",
+      "amountCents": 0,
+      "promotionRevision": 3,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-2c",
+      "status": 200,
+      "quoteId": "473E0A4242AF",
+      "amountCents": 2371,
+      "promotionRevision": 3,
+      "comparisonReasons": [
+        "promotion"
+      ]
+    },
+    {
+      "id": "req-2g",
+      "status": 200,
+      "quoteId": "473E0A4242AF",
+      "amountCents": 2371,
+      "promotionRevision": 3,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-2l",
+      "status": 200,
+      "quoteId": "473E0A4242AF",
+      "amountCents": 2371,
+      "promotionRevision": 3,
+      "comparisonReasons": []
+    },
+    {
+      "id": "req-2n",
+      "status": 200,
+      "quoteId": "473E0A4242AF",
+      "amountCents": 2371,
+      "promotionRevision": 3,
+      "comparisonReasons": []
+    }
+  ],
+  "moduleSummary": "1 个壳 · 4 个功能包 · 7 个基础包",
+  "tradeRequests": [
+    {
+      "id": "req-1c",
+      "method": "POST",
+      "route": "/member/cart",
+      "requestKey": "757eeaf5-8ac3-41e2-b3e8-58506d49b2d6",
+      "body": {
+        "skuId": "8f3b804d-3825-4733-a4ac-94149b2e1fa1",
+        "count": 1,
+        "requestKey": "757eeaf5-8ac3-41e2-b3e8-58506d49b2d6"
+      },
+      "status": 200
+    }
+  ],
+  "task_id": "stage1a-20261117-03"
+}

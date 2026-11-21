@@ -25,7 +25,7 @@ async function fixture(kind = 'return-no-reason', family = false) {
   const product = ctx.testData.product({ name: '运费测试商品', skus: [{ spec: '标准', priceCents: 100, stock: 100 }] })
   const sku = product.skus[0]!
   const call = async (method: string, url: string, payload?: object, token = buyer.token) => {
-    const response = await ctx.app.inject({ method: method as never, url, headers: { authorization: 'Bearer ' + token }, payload })
+    const response = await ctx.app.inject({ method: method as never, url, headers: identityHeaders(ctx.accounts, token), payload })
     return { status: response.statusCode, body: response.json() }
   }
   const created = await call('POST', '/member/order', { requestKey: randomUUID(), addressId: address.id, goods: [{ skuId: sku.id, count: 1 }], expectedAmountCents: 100 })
@@ -45,7 +45,7 @@ async function fixture(kind = 'return-no-reason', family = false) {
     const boundary = 'shipping-test-boundary'
     const fields = { orderId: targetOrderId, applicationKey, requestKey: randomUUID() }
     const header = Object.entries(fields).map(([name, value]) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`).join('')
-    const response = await ctx.app.inject({ method: 'POST', url: '/member/after-sales/images', headers: { authorization: 'Bearer ' + token, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    const response = await ctx.app.inject({ method: 'POST', url: '/member/after-sales/images', headers: { ...identityHeaders(ctx.accounts, token), 'content-type': `multipart/form-data; boundary=${boundary}` },
       payload: Buffer.concat([Buffer.from(header + `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="waybill.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`), bytes, Buffer.from(`\r\n--${boundary}--\r\n`)]) })
     return { status: response.statusCode, body: response.json() }
   }
@@ -140,7 +140,7 @@ test('A1 v16运费退款超过货款，图片与独立退款备份校验及恢�
     assert.equal((await f.act('inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
     const destination = join(f.root, 'backup')
     const backup = await createBackup({ databasePath: f.databasePath, uploadsPath: f.uploadsPath, destination })
-    assert.equal(backup.manifest.schemaVersion, 19)
+    assert.equal(backup.manifest.schemaVersion, 26)
     assert.deepEqual(backup.manifest.issues, [])
     await verifyBackup(destination)
     const restored = await restoreBackup({ backupPath: destination, destination: join(f.root, 'restored') })
@@ -189,7 +189,7 @@ test('A1 代付运费退给原付款账户，运单仅本人和商家可读', as
     assert.equal((await f.act('ship-back', { carrier: 'SF', trackingNo: 'SF12345678', shippingAmountCents: 1500, shippingImageId: imageId }, randomUUID())).status, 400)
     assert.equal((await f.act('ship-back', { carrier: 'SF', trackingNo: 'SF12345678', shippingAmountCents: 1500, shippingImageId: imageId }, key)).status, 200)
     for (const token of [f.buyer.token, f.merchant.token]) {
-      const response = await f.ctx.app.inject({ method: 'GET', url: uploaded.body.result.path, headers: { authorization: 'Bearer ' + token } })
+      const response = await f.ctx.app.inject({ method: 'GET', url: uploaded.body.result.path, headers: identityHeaders(f.ctx.accounts, token) })
       assert.equal(response.statusCode, 200)
     }
     assert.equal((await f.act('inspect', { items: [{ skuId: f.sku.id, restockCount: 1 }] })).status, 200)
@@ -226,7 +226,7 @@ test('A2 v15历史订单和售后迁移016后金额不变，重复打开不重�
     for (let iteration = 0; iteration < 2; iteration++) {
       const db = new Database(f.databasePath)
       try {
-        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 19)
+        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 26)
         assert.deepEqual(db.all('PRAGMA foreign_key_check'), [])
         assert.equal(db.one<{amount: number}>('SELECT amount FROM orders WHERE id=?', f.orderId)!.amount, Math.round(before.payMoney * 100))
         assert.equal(db.one<{state: string}>('SELECT state FROM after_sales WHERE id=?', f.saleId)!.state, 'refunded')
@@ -276,3 +276,4 @@ test('A2 零元货款退货无需货款退款渠道，运费仍单独补偿', as
     await verifyBackup(destination)
   } finally { await f.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

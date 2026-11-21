@@ -54,6 +54,7 @@ test('实际Hvigor插件每次注入新字段并保留原构建选项，直接re
   const { default: config } = execute(sourceOf('mixed-development-h5/hvigorfile.ts'), {
     '@ohos/hvigor': {}, '@ohos/hvigor-ohos-plugin': { OhosPluginId: { OHOS_APP_PLUGIN: 'app' } },
     './build-support/client-environment': environment, fs: { existsSync: () => false },
+    child_process: { execFileSync: () => {} },
   }, { process: { env } })
   const context = { getBuildMode: () => mode, getCurrentProduct: () => ({ getProductName: () => 'default' }),
     getBuildProfileOpt: () => profile, setBuildProfileOpt: value => { profile = value; writes++ } }

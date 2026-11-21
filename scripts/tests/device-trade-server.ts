@@ -6,6 +6,9 @@ import { mkdtempSync } from 'node:fs'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
 import { beijingDate } from '../../server/src/channel-bill.ts'
+import { createPromiseDriver } from '../../server/src/promises/extract.ts'
+const sizingProbe = process.argv.includes('--sizing-probe')
+const promisesProbe = process.argv.includes('--promises-probe')
 const paymentCallbackSecret = randomUUID()
 const channel = new MockPaymentChannel(paymentCallbackSecret)
 const refund = channel.refund.bind(channel)
@@ -27,11 +30,29 @@ Object.defineProperty(channel, 'refund', { value: (refundId: string, paymentId: 
   return completion
 } })
 const uploadsPath = mkdtempSync(join(tmpdir(), 'hdm-device-trade-uploads-' + process.pid + '-'))
+const defaultPromiseDriver = createPromiseDriver({ mock: true })!
+const promiseDriver = promisesProbe && !sizingProbe ? { ...defaultPromiseDriver, model: 'device-promise-fixture-v2',
+    extract: async (messages: ReadonlyArray<{ role: string; content: string }>) => {
+    const input = JSON.parse(messages[1]!.content) as { materials?: { id: string; text: string }[] }
+    const materialClaims = (input.materials ?? []).map(material => ({ fieldId: 'material', source: 'material',
+      materialId: material.id, quote: material.text, value: '100%纯棉', unit: null, condition: null }))
+    return { status: 'completed' as const, tokens: 120, content: JSON.stringify({ claims: [
+      { fieldId: 'return-window', source: 'description', quote: '未拆封商品可在收货后7天内退换。', value: '7', unit: '天', condition: '收货后' },
+      { fieldId: 'dispatch-window', source: 'description', quote: '付款后48小时内发货。', value: '48', unit: '小时', condition: '付款后' },
+      { fieldId: 'gift', source: 'description', quote: '赠送收纳袋。', value: '赠送收纳袋', unit: null, condition: null },
+      ...materialClaims,
+    ] }) }
+  } } : defaultPromiseDriver
 const f = await buildTestApp({ databasePath: ':memory:', mockPayments: true,
   paymentChannel: channel, paymentCallbackSecret, corsOrigins: ['null'], clock: {now:()=>Date.now()+clockOffset},
+  promiseDriver,
   publicUrl: 'http://127.0.0.1:3000', uploadsPath })
 const product = f.testData.product({ name: '设备独立测试商品',
+  ...(sizingProbe ? { category: '服饰', description: '尺码表：M码 胸围96厘米，L码 胸围100厘米。版型偏大，建议选小一码。' } : promisesProbe ? {
+    category: '箱包', description: '未拆封商品可在收货后7天内退换。付款后48小时内发货。赠送收纳袋。'
+  } : {}),
   skus: [{ spec: '标准款', priceCents: 2371, stock: 23 }] })
+const sizingBag = sizingProbe ? f.testData.product({name:'轻便验收包', category:'箱包', description:'日常收纳。', skus:[{spec:'标准款',priceCents:1200,stock:4}]}) : undefined
 const sku = product.skus[0]!
 const s1 = process.argv.includes('--s1')
 const s2 = process.argv.includes('--s2')
@@ -40,6 +61,8 @@ const extra = s2 || loginProbe ? f.testData.product({ name: '购物车保留商�
 for (const account of ['device_buyer', 'device_friend', 'device_merchant']) {
   f.testData.account({ account, password: fixturePassword, role: account === 'device_merchant' ? 'merchant' : 'buyer' })
 }
+if (promisesProbe) f.db.run(`INSERT INTO product_source_batches(product_id,batch) VALUES(?,?)
+  ON CONFLICT(product_id) DO UPDATE SET batch=excluded.batch`, product.id, 'LOT-2026-A')
 const buyer = f.accounts.login('device_buyer', fixturePassword)
 const user = f.accounts.authenticate(`Bearer ${buyer.token}`)
 const address = s1 ? undefined : f.testData.address({ userId: user.id, receiver: '设备验收', contact: '13800138000', fullLocation: '测试省 测试市 测试区',
@@ -107,6 +130,7 @@ f.app.get('/device-fixture/lifecycle',async()=>({
  sessions:f.db.one<{n:number}>('SELECT COUNT(*) n FROM sessions')!.n
 }))
 f.app.get('/device-fixture', async () => ({ fixture: 'device-trade', pid: process.pid, uploadsPath,
+  sizingBagSkuId: sizingBag?.skus[0]?.id,
   skuId: sku.id, productId: product.id, amountCents: sku.priceCents, initialStock: sku.stock,
   extraSkuId: extra?.skus[0]?.id, mode: s1 ? 'S1' : s2 ? 'S2' : loginProbe ? 'LoginProbe' : 'default' }))
 type ResponseKind = 'order' | 'payment' | 'cancel' | 'receipt' | 'evaluation'
@@ -124,6 +148,10 @@ type TradeRequest = { id: string; method: string; route: string; requestKey?: st
   body?: unknown; status?: number; stateBefore?: number; stateAfter?: number }
 const tradeRequests: TradeRequest[] = []
 f.app.get('/device-fixture/trade-requests', async () => tradeRequests)
+type QuoteRequestProof = { id: string; status?: number; quoteId?: string; amountCents?: number;
+  promotionRevision?: number; comparisonReasons?: string[] }
+const quoteRequests: QuoteRequestProof[] = []
+f.app.get('/device-fixture/quote-requests', async () => quoteRequests)
 f.app.post('/device-fixture/expire-buyer-session', async () => {
   const before = f.db.all('SELECT digest FROM sessions WHERE user_id=?', user.id).length
   f.db.run('DELETE FROM sessions WHERE user_id=?', user.id)
@@ -132,6 +160,7 @@ f.app.post('/device-fixture/expire-buyer-session', async () => {
 })
 f.app.addHook('preHandler', async req => {
   const route = req.routeOptions.url ?? ''
+  if (req.method === 'POST' && route === '/member/quote-preview') quoteRequests.push({ id: req.id })
   if ((req.method === 'POST' && ['/member/order', '/member/cart', '/member/order/:id/payments'].includes(route)) ||
     (req.method === 'GET' && route === '/member/order/by-request/:requestKey') ||
     (req.method === 'PUT' && Object.values(responseRoutes).some(value => value.method === 'PUT' && value.route === route))) {
@@ -160,6 +189,23 @@ f.app.post<{ Body: { kind: ResponseKind; hold: boolean } }>('/device-fixture/res
 })
 f.app.get('/device-fixture/response-barrier', async () => responseBarrier ?? { received: false })
 f.app.addHook('onSend', async (req, reply, payload) => {
+  const quote = quoteRequests.find(value => value.id === req.id)
+  if (quote) {
+    quote.status = reply.statusCode
+    if (reply.statusCode === 200) {
+      try {
+        const parsed = JSON.parse(typeof payload === 'string' ? payload : Buffer.from(payload as Buffer).toString('utf8')) as {
+          result?: { quoteId?: string; amountCents?: number; promotion?: { rule?: { revision?: number } }; comparison?: { reasons?: { kind?: string }[] } };
+          quoteId?: string; amountCents?: number; promotion?: { rule?: { revision?: number } }; comparison?: { reasons?: { kind?: string }[] }
+        }
+        const result = parsed.result ?? parsed
+        quote.quoteId = result.quoteId
+        quote.amountCents = result.amountCents
+        quote.promotionRevision = result.promotion?.rule?.revision
+        quote.comparisonReasons = result.comparison?.reasons?.map(reason => reason.kind) ?? []
+      } catch { /* Keep the request status as useful failure evidence without persisting response data. */ }
+    }
+  }
   const recorded = tradeRequests.find(value => value.id === req.id)
   if (recorded) {
     recorded.status = reply.statusCode
@@ -235,8 +281,10 @@ f.app.addHook('onResponse', async (req, reply) => {
     status: reply.statusCode, contentType: req.headers['content-type'], contentLength: req.headers['content-length'] }))
 })
 f.app.addHook('onError', async (_req, _reply, error) => { console.log(JSON.stringify({ errorCode: error.code })) })
-if (!s1 && !loginProbe) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
-if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` }, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
+const buyerHeaders = { authorization: `Bearer ${buyer.token}`,
+  'x-hdm-identity': buyer.identity, 'x-hdm-identity-revision': String(buyer.identityRevision) }
+if (!s1 && !loginProbe && !process.argv.includes('--quote-preview-probe')) await f.app.inject({ method: 'POST', url: '/member/cart', headers: buyerHeaders, payload: { skuId: sku.id, count: s2 ? 2 : 1, requestKey: randomUUID() } })
+if (extra) await f.app.inject({ method: 'POST', url: '/member/cart', headers: buyerHeaders, payload: { skuId: extra.skus[0]!.id, count: 1, requestKey: randomUUID() } })
 if (process.argv.includes('--relations')) {
   for (let index = 0; index <= 10; index++) {
     const account = `probe_${String(index).padStart(2, '0')}`

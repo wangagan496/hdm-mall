@@ -1,0 +1,621 @@
+[
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/constants/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/constants/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/device/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/device/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/models/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/models/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/network/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/network/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/storage/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/storage/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/ui-components/build-profile.json5",
+      "exists": true,
+      "bytes": 67,
+      "sha256": "ab63c7f0389610182d04e468b119a33cda51584ef1b085794c8c75d85740c091"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/ui-components/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/utils/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/commons/utils/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/cart/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "buildOption": {},
+      "buildOptionSet": [
+        {
+          "name": "release",
+          "arkOptions": {
+            "obfuscation": {
+              "ruleOptions": {
+                "enable": false,
+                "files": [
+                  "./obfuscation-rules.txt"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "name": "default"
+        },
+        {
+          "name": "ohosTest"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/cart/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/category/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "buildOption": {},
+      "buildOptionSet": [
+        {
+          "name": "release",
+          "arkOptions": {
+            "obfuscation": {
+              "ruleOptions": {
+                "enable": false,
+                "files": [
+                  "./obfuscation-rules.txt"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "name": "default"
+        },
+        {
+          "name": "ohosTest"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/category/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/home/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "buildOption": {},
+      "buildOptionSet": [
+        {
+          "name": "release",
+          "arkOptions": {
+            "obfuscation": {
+              "ruleOptions": {
+                "enable": false,
+                "files": [
+                  "./obfuscation-rules.txt"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "name": "default"
+        },
+        {
+          "name": "ohosTest"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/home/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/mine/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "buildOption": {},
+      "buildOptionSet": [
+        {
+          "name": "release",
+          "arkOptions": {
+            "obfuscation": {
+              "ruleOptions": {
+                "enable": false,
+                "files": [
+                  "./obfuscation-rules.txt"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "name": "default"
+        },
+        {
+          "name": "ohosTest"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/features/mine/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/build-profile.json5",
+      "exists": true,
+      "bytes": 3371,
+      "sha256": "092fdace0d5c0090ca23f3ada7fa2252a0ec9591580ff3373e897d90d02fdb44"
+    },
+    "config": {
+      "app": {
+        "products": [
+          {
+            "name": "default",
+            "targetSdkVersion": "6.1.1(24)",
+            "compatibleSdkVersion": "6.1.1(24)",
+            "runtimeOS": "HarmonyOS",
+            "signingConfig": "hdm",
+            "buildOption": {
+              "packOptions": {
+                "appWithSignedPkg": true
+              },
+              "strictMode": {
+                "caseSensitiveCheck": true,
+                "useNormalizedOHMUrl": true
+              }
+            }
+          }
+        ],
+        "buildModeSet": [
+          {
+            "name": "debug"
+          },
+          {
+            "name": "release"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "phone",
+          "srcPath": "./products/phone",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "constants",
+          "srcPath": "./commons/constants",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "models",
+          "srcPath": "./commons/models",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "storage",
+          "srcPath": "./commons/storage",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "network",
+          "srcPath": "./commons/network",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "utils",
+          "srcPath": "./commons/utils",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ui_components",
+          "srcPath": "./commons/ui-components",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "device",
+          "srcPath": "./commons/device",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "home",
+          "srcPath": "./features/home",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "category",
+          "srcPath": "./features/category",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "cart",
+          "srcPath": "./features/cart",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "mine",
+          "srcPath": "./features/mine",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/hvigorfile.ts",
+      "exists": true,
+      "bytes": 1466,
+      "sha256": "7f635e98ccef1f663eaef272b44882e8a97450d3591a39aca9e8ddcd102202dd"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/products/phone/build-profile.json5",
+      "exists": true,
+      "bytes": 540,
+      "sha256": "165c5e02e368cfae38401dbfc371a106ab3f5a8a1ed05078625c0f1c573476dc"
+    },
+    "config": {
+      "apiType": "stageMode",
+      "buildOption": {
+        "resOptions": {
+          "copyCodeResource": {
+            "enable": false
+          }
+        }
+      },
+      "buildOptionSet": [
+        {
+          "name": "release",
+          "arkOptions": {
+            "obfuscation": {
+              "ruleOptions": {
+                "enable": false,
+                "files": [
+                  "./obfuscation-rules.txt"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "name": "default"
+        },
+        {
+          "name": "ohosTest"
+        }
+      ]
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/products/phone/hvigorfile.ts",
+      "exists": true,
+      "bytes": 232,
+      "sha256": "e447ac68aee7bb0042621eee1183984a888ed611f031009ed4b19b721645fecc"
+    },
+    "config": null
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/hvigor/hvigor-config.json5",
+      "exists": true,
+      "bytes": 1481,
+      "sha256": "630f4ab2253217051068b08bc5f34abea0a63a95e28805065ddcbf9dfd620039"
+    },
+    "config": {
+      "modelVersion": "6.0.2",
+      "dependencies": {},
+      "execution": {},
+      "logging": {},
+      "debugging": {},
+      "nodeOptions": {}
+    }
+  },
+  {
+    "file": {
+      "path": "mixed-development-h5/build-profile.local.json5",
+      "exists": true,
+      "bytes": 687,
+      "sha256": "e2486aee928ed7506ab7353bc506db4a57bd40d781c8a9e3762cc049707a1554"
+    },
+    "config": "本机签名覆盖只记录存在性、字节数与哈希，不复制内容。"
+  }
+]

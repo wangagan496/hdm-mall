@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-11-17T07:28:24.333Z",
+  "head": "282b006a03af38b986a6ef86c03bf5e05140eaca",
+  "branch": "mall-crazy-design-20261116",
+  "initialStatus": "## mall-crazy-design-20261116（开工时无修改、无未跟踪文件）",
+  "documents": [
+    {
+      "path": "docs/疯子重构最终方案.md",
+      "exists": true,
+      "bytes": 154375,
+      "sha256": "9aeed578cb4a511dfdc23ccfa2b8ebc39eee839da675580275869a722245718d"
+    },
+    {
+      "path": "docs/疯子重构技术进化分析.md",
+      "exists": true,
+      "bytes": 241809,
+      "sha256": "b30bd45aa59757021f375a4d94049a77ba2c93ac87cc34704e52ef7ceb662b8b"
+    },
+    {
+      "path": "docs/执行须知.md",
+      "exists": true,
+      "bytes": 13885,
+      "sha256": "fd051932502c36c042de13a7945a8916728b891691a2d5ecbbd45c6de12ff548"
+    }
+  ],
+  "sourceCount": 704
+}

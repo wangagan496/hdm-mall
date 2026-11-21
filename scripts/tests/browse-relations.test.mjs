@@ -108,16 +108,19 @@ test('首页和分类使用轻量入口，推荐和代付选择发送固定页�
 
 test('亲友关系与订单页码独立，解除末页关系后回退，失败保留原页和数据', async () => {
   const calls = [], api = { relations: async p => pageResult(p, [{ id: `r${p}` }]) }
+  const merchantQueries = []
   const Family = pageMethods(base + 'features/mine/src/main/ets/presentation/views/FamilyView.ets', 'FamilyView', {}, {
     cancelActions: emptyCancelActions, cancelActionFailure,
     getFamilyRelationsPageAPI: async (p, token) => { calls.push([p, token]); return api.relations(p) },
-    getFamilyOrdersPageAPI: async p => pageResult(p, []), getMerchantOrdersPageAPI: async p => pageResult(p, []),
+    getFamilyOrdersPageAPI: async p => pageResult(p, []),
+    getMerchantOrdersPageAPI: async p => { merchantQueries.push(p); return pageResult(p, []) },
   })
-  const page = new Family(); page.user = { role: 'merchant', token: 'fixed' }
+  const page = new Family()
+  page.user = { identity: 'buyer', identityRevision: 1, token: 'fixed' }
   await page.loadFamilyCenter()
   calls.length = 0
   await page.loadFamilyCenter(2, 3, 3)
-  assert.equal(page.relationPage, 3); assert.equal(page.familyPage, 2); assert.equal(page.merchantPage, 3)
+  assert.equal(page.relationPage, 3); assert.equal(page.familyPage, 2); assert.equal(page.merchantPage, 1)
   api.relations = async p => pageResult(p, p === 3 ? [] : [{ id: 'last' }], 2)
   await page.loadFamilyCenter()
   assert.equal(page.relationPage, 2); assert.equal(page.familyRelations[0].id, 'last')
@@ -125,6 +128,7 @@ test('亲友关系与订单页码独立，解除末页关系后回退，失败�
   api.relations = async () => { throw new Error('offline') }
   await page.loadFamilyCenter(2, 3, 1)
   assert.equal(page.relationPage, 2); assert.equal(page.familyRelations[0].id, 'last'); assert.match(page.errorText, /加载失败/)
+  assert.deepEqual(merchantQueries, [])
 })
 
 function payFixture() {

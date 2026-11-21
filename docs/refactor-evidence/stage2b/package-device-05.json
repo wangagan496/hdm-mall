@@ -1,0 +1,20 @@
+{
+  "phoneEntryIdentified": true,
+  "photoMarkerMatches": 0,
+  "bytecodeFiles": [
+    "cart-default.hsp/ets/modules.abc",
+    "category-default.hsp/ets/modules.abc",
+    "constants-default.hsp/ets/modules.abc",
+    "device-default.hsp/ets/modules.abc",
+    "home-default.hsp/ets/modules.abc",
+    "mine-default.hsp/ets/modules.abc",
+    "models-default.hsp/ets/modules.abc",
+    "network-default.hsp/ets/modules.abc",
+    "phone-default.hap/ets/modules.abc",
+    "storage-default.hsp/ets/modules.abc",
+    "ui_components-default.hsp/ets/modules.abc",
+    "utils-default.hsp/ets/modules.abc"
+  ],
+  "bytes": 10264934,
+  "sha256": "1AC5C2ED26B816B17FD8749C422E1B69262DB5568DA4D01E48F7E58C5F3D9418"
+}

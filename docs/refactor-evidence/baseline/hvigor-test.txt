@@ -1,0 +1,103 @@
+原日志 SHA256: 0ea0055ac74e5fe28f2bba084b6555cac369c644f1daee1be9ce388265a662c6
+原日志字节数: 76033
+提取规则: 首8行、末20行（Hvigor末70行）、失败/构建/包哈希关键行、前6处警告；保留原行号。完整日志仅位于系统临时目录，不纳入证据目录。
+
+    1 | > hvigor hvigor client: Starting hvigor daemon.
+    2 | > hvigor Hvigor Daemon started in 6.73 s
+    3 | > hvigor UP-TO-DATE :phone:default@PreBuild...  
+    4 | > hvigor UP-TO-DATE :constants:default@PreBuild...  
+    5 | > hvigor UP-TO-DATE :models:default@PreBuild...  
+    6 | > hvigor UP-TO-DATE :storage:default@PreBuild...  
+    7 | > hvigor UP-TO-DATE :network:default@PreBuild...  
+    8 | > hvigor UP-TO-DATE :utils:default@PreBuild...  
+[省略重复任务/成功用例/警告输出]
+  210 | > hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+  211 |  The system capacity of this api 'audio' is not supported on all devices
+  212 | 
+  213 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+  214 |  The system capacity of this api 'audio' is not supported on all devices
+  215 | 
+  216 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+  217 |  The system capacity of this api 'audio' is not supported on all devices
+  218 | 
+  219 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+  220 |  The system capacity of this api 'audio' is not supported on all devices
+  221 | 
+  222 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+  223 |  The system capacity of this api 'audio' is not supported on all devices
+  224 | 
+  225 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+  226 |  The system capacity of this api 'audio' is not supported on all devices
+  227 | 
+  228 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+[省略重复任务/成功用例/警告输出]
+ 1139 | 
+ 1140 | > hvigor Finished :storage:default@UnitTestArkTS... after 31 s 116 ms 
+ 1141 | > hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ 1142 |  Function may throw exceptions. Special handling is required.
+ 1143 | 
+ 1144 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ 1145 |  Function may throw exceptions. Special handling is required.
+ 1146 | 
+ 1147 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:38:19
+ 1148 |  Function may throw exceptions. Special handling is required.
+ 1149 | 
+ 1150 | 
+ 1151 | > hvigor Finished :ui_components:default@UnitTestArkTS... after 27 s 718 ms 
+ 1152 | > hvigor Finished write html report
+ 1153 | > hvigor Windows_NT
+ 1154 | > hvigor Finished :models:default@GenerateUnitTestResult... after 48 s 879 ms 
+ 1155 | > hvigor Finished file written successfully
+ 1156 | > hvigor Finished write html report
+ 1157 | > hvigor Windows_NT
+ 1158 | > hvigor Finished :device:default@GenerateUnitTestResult... after 52 s 393 ms 
+ 1159 | > hvigor Finished file written successfully
+ 1160 | > hvigor Finished write html report
+ 1161 | > hvigor Windows_NT
+ 1162 | > hvigor Finished :utils:default@GenerateUnitTestResult... after 53 s 381 ms 
+ 1163 | > hvigor Finished file written successfully
+ 1164 | > hvigor Finished write html report
+ 1165 | > hvigor Windows_NT
+ 1166 | > hvigor Finished :network:default@GenerateUnitTestResult... after 39 s 770 ms 
+ 1167 | > hvigor Finished file written successfully
+ 1168 | > hvigor Finished write html report
+ 1169 | > hvigor Windows_NT
+ 1170 | > hvigor Finished :storage:default@GenerateUnitTestResult... after 10 s 133 ms 
+ 1171 | > hvigor Finished file written successfully
+ 1172 | > hvigor Finished write html report
+ 1173 | > hvigor Windows_NT
+ 1174 | > hvigor Finished :phone:default@GenerateUnitTestResult... after 15 s 924 ms 
+ 1175 | > hvigor Finished :models:test... after 1 ms 
+ 1176 | > hvigor Finished :device:test... after 1 ms 
+ 1177 | > hvigor Finished :utils:test... after 1 ms 
+ 1178 | > hvigor Finished :network:test... after 1 ms 
+ 1179 | > hvigor Finished :storage:test... after 1 ms 
+ 1180 | > hvigor Finished :phone:test... after 1 ms 
+ 1181 | > hvigor Finished file written successfully
+ 1182 | > hvigor Finished write html report
+ 1183 | > hvigor Windows_NT
+ 1184 | > hvigor Finished :ui_components:default@GenerateUnitTestResult... after 17 s 239 ms 
+ 1185 | > hvigor Finished :ui_components:test... after 1 ms 
+ 1186 | > hvigor Finished file written successfully
+ 1187 | > hvigor Finished write html report
+ 1188 | > hvigor Windows_NT
+ 1189 | > hvigor Finished :home:default@GenerateUnitTestResult... after 17 s 123 ms 
+ 1190 | > hvigor Finished :home:test... after 1 ms 
+ 1191 | > hvigor Finished file written successfully
+ 1192 | > hvigor Finished write html report
+ 1193 | > hvigor Windows_NT
+ 1194 | > hvigor Finished :category:default@GenerateUnitTestResult... after 18 s 479 ms 
+ 1195 | > hvigor Finished :category:test... after 1 ms 
+ 1196 | > hvigor Finished file written successfully
+ 1197 | > hvigor Finished write html report
+ 1198 | > hvigor Windows_NT
+ 1199 | > hvigor Finished :cart:default@GenerateUnitTestResult... after 20 s 90 ms 
+ 1200 | > hvigor Finished :cart:test... after 1 ms 
+ 1201 | > hvigor Finished file written successfully
+ 1202 | > hvigor Finished write html report
+ 1203 | > hvigor Finished :mine:default@GenerateUnitTestResult... after 23 s 426 ms 
+ 1204 | > hvigor Finished :mine:test... after 1 ms 
+ 1205 | > hvigor BUILD SUCCESSFUL in 3 min 24 s 264 ms 
+ 1206 | 
+ 1207 | 240 tasks in total: 216 executed, 24 up-to-date
+ 1208 | 

@@ -73,7 +73,7 @@ async function relationsFixture() {
     f.db.run('INSERT INTO relations VALUES(?,?,?,?,?)', 'incoming', outsider.id, owner.id, 'accepted', 2)
     f.db.run('INSERT INTO relations VALUES(?,?,?,?,?)', 'private', outsider.id, 'friend-00', 'accepted', 3)
   })
-  const get = (path: string) => f.app.inject({ url: path, headers: { authorization: `Bearer ${owner.token}` } })
+  const get = (path: string) => f.app.inject({ url: path, headers: identityHeaders(f.accounts, owner.token) })
   return { ...f, owner, get }
 }
 
@@ -126,3 +126,4 @@ test('关系列表拒绝未登录和非法条件，空页及超大页码安全�
     assert.equal(reads, 0)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

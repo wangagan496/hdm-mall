@@ -7,7 +7,11 @@ $ErrorActionPreference = 'Stop'
 $baseUrl = 'http://127.0.0.1:3000'
 $loginBody = @{ account = $Account; password = $Password } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri "$baseUrl/login" -ContentType 'application/json' -Body $loginBody
-$headers = @{ Authorization = "Bearer $($login.result.token)" }
+$headers = @{
+  Authorization = "Bearer $($login.result.token)"
+  'X-HDM-Identity' = $login.result.identity
+  'X-HDM-Identity-Revision' = [string]$login.result.identityRevision
+}
 $addresses = Invoke-RestMethod -Method Get -Uri "$baseUrl/member/address" -Headers $headers
 if (-not $addresses.result -or $addresses.result.Count -eq 0) {
   $addressBody = @{

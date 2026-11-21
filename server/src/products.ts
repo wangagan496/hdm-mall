@@ -42,7 +42,7 @@ export class Products {
   constructor(db: Database, publicUrl: string, clock: Clock = systemClock) {
     this.db = db; this.publicUrl = publicUrl; this.clock = clock
   }
-  private merchant(user: User) { ensure(user.role === 'merchant', 403, '需要商家权限') }
+  private merchant(user: User) { ensure(user.identity === 'merchant', 403, '需要商家权限') }
   categories(user: User) {
     this.merchant(user)
     return this.db.all<{ id: string; name: string }>('SELECT id,name FROM categories WHERE parent_id IS NULL ORDER BY rowid')

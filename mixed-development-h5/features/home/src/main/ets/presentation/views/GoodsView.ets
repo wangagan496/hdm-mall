@@ -52,6 +52,7 @@ export struct GoodsView {
   private navigatingPurchase: boolean = false
   private addRequestCreated: number = 0
   private addOutcomeUnknown: boolean = false
+  @State reviewSummary:string = ''
   @State evaluations: GoodsEvaluation[] = []
   @State evaluationCount: number = 0
   @State evaluationLoading: boolean = false
@@ -302,11 +303,22 @@ export struct GoodsView {
       return
     }
     const requestId: number = ++this.evaluationRequestId
+    this.reviewSummary=''
     this.evaluationLoading = true
     this.evaluations = []
     this.evaluationCount = 0
     try {
-      const result = await getGoodsEvaluationsAPI(goodsId)
+      const skuId=this.sku?.id || this.goods?.skus?.[0]?.id
+      if(!skuId) return
+      const result = await getGoodsEvaluationsAPI(goodsId,1,10,skuId,this.goods.promiseSnapshot?.templateVersion || '')
+      if(requestId===this.evaluationRequestId && this.isCurrentGoods(generation,token,sequence,goodsId) && result.counts>0 && result.summary) {
+        this.reviewSummary=result.summary.sampleSufficient ? '商品 '+(result.summary.product?.toFixed(1) || '未评分')+' · 物流 '+(result.summary.logistics?.toFixed(1) || '未评分')+
+          ' · 售后 '+(result.summary.service?.toFixed(1) || '未评分')+' · 中评 '+result.summary.neutral+'条' : '样本有限，暂不足以判断'
+        if(result.summary.sampleSufficient && result.sizeSummary && (result.sizeSummary.counts>0 ||
+          this.goods.promiseSnapshot?.entries.some(field=>field.status==='known' && (field.fieldId==='fit'||field.fieldId==='size-chart')))){
+          this.reviewSummary+='\n尺码：'+result.sizeSummary.conclusion
+        }
+      }
       if (requestId !== this.evaluationRequestId || !this.isCurrentGoods(generation, token, sequence, goodsId)) {
         return
       }
@@ -597,6 +609,7 @@ export struct GoodsView {
             onSkuChange: (sku) => {
               if (this.loading || !this.detailReady) return
               this.sku = normalizeSkuSelection(sku)
+              void this.loadEvaluations(this.goods.id)
               if (this.sku.inventory > 0 && this.count > this.sku.inventory) {
                 this.count = this.sku.inventory
               }
@@ -689,6 +702,7 @@ export struct GoodsView {
               GoodsComment({
                 evaluations: this.evaluations,
                 totalCount: this.evaluationCount,
+                summary: this.reviewSummary,
                 loading: this.evaluationLoading
               })
             }

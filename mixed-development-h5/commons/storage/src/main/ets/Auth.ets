@@ -14,6 +14,9 @@ export class Auth {
   }
 
   updateCurrentUser(user: HDMUser): void {
+    const previous = this.getUserInfo()
+    if (previous?.token !== user.token || previous?.identityRevision !== user.identityRevision ||
+      previous?.identity !== user.identity) AppStorage.setOrCreate<Object>('identityHomeLayout', {})
     AppStorage.setOrCreate<HDMUser>(this.key, user)
   }
 

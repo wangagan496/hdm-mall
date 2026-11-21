@@ -1,5 +1,5 @@
 import { GlobalVariable } from 'constants'
-import { HDMUser } from 'models'
+import { HDMUser, sameIdentitySession } from 'models'
 import { auth, storeManager, userSession } from 'storage'
 import { cameraPlugin, locationPlugin, photoPlugin, sensorPlugin } from 'device'
 import { common } from '@kit.AbilityKit'
@@ -80,8 +80,8 @@ class HDMWebBridge {
     const updatedAppUser: HDMUser = mergeBridgeUser(currentAppUser, webUser)
     // 保存到手机本地，下次启动 App 时还能恢复这份用户资料。
     await storeManager.saveProfileForSession(updatedAppUser, currentAppUser?.token || '')
-    if (auth.getUserInfo()?.token !== currentAppUser?.token ||
-      storeManager.getUserInfo()?.token !== currentAppUser?.token) {
+    if (!sameIdentitySession(auth.getUserInfo(), currentAppUser) ||
+      !sameIdentitySession(storeManager.getUserInfo(), currentAppUser)) {
       throw new Error('登录状态已变化，请重新打开资料页')
     }
     // 更新 App 当前运行中的用户资料，让已打开的页面也能读到新值。

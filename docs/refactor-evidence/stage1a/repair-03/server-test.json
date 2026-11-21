@@ -1,0 +1,15 @@
+{
+  "name": "server-test",
+  "cwd": "D:\\hdm-mall\\server",
+  "command": "npm.cmd test",
+  "exitCode": 0,
+  "durationSeconds": 35.074,
+  "observedAt": "2026-11-18T00:27:42.3475889+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\server-test.log",
+  "tests": 406,
+  "pass": 406,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

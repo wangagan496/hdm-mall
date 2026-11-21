@@ -61,7 +61,7 @@ export struct ProductEditView {
   }
   private current(generation: number, token: string): boolean {
     return this.active && generation === this.generation && !!token && token === this.token && token === this.user.token &&
-      !!this.accountId && this.accountId === this.user.id && this.user.role === 'merchant'
+      !!this.accountId && this.accountId === this.user.id && this.user.identity === 'merchant'
   }
   private accountChanged(): void { this.synchronizeSession(); if (this.active) void this.load() }
   private foreground(): void { if (this.active && this.pending && !this.saving) void this.save() }
@@ -372,7 +372,7 @@ export struct ProductEditView {
       this.FieldError('category')
     }
     this.FieldLabel('商品说明（选填）', 'description')
-    TextArea({ text: this.draft.description, placeholder: '补充商品特点或使用说明' }).maxLength(2000)
+    TextArea({ text: this.draft.description, placeholder: '补充商品特点或使用说明' }).id('product-description').maxLength(2000)
       .onChange(value => { this.draft.description = value; this.touch('description'); this.changed() }).onBlur(() => this.touch('description'))
     this.FieldError('description')
     this.FieldLabel('商品图片', 'image')

@@ -12,7 +12,7 @@ function fixture() {
     pickProductImage: async () => '', GlobalVariable: {}, setTimeout, clearTimeout,
     Scroller: class { scrollTo() {} currentOffset() { return { yOffset: 0 } } }
   })
-  const page = new Page(); page.user = { id: 'merchant', token: 'token', role: 'merchant' }
+  const page = new Page(); page.user = { id: 'merchant', token: 'token', identity: 'merchant' }
   page.stackPath = { pop: result => paths.push(result) }; page.active = true
   return { page, disk, paths, calls, api, flow }
 }
@@ -120,7 +120,7 @@ test('商品表单自动恢复账号草稿，字段错误阻止提交，成功�
 test('切换账号后迟到的商品读取与保存不能覆盖新表单或跳页面', async () => {
   const f = fixture(), gate = deferred()
   f.page.productId = 'p'; f.api.getForSession = () => gate.promise
-  const load = f.page.load(); f.page.user = { id: 'other', token: 'other-token', role: 'merchant' }
+  const load = f.page.load(); f.page.user = { id: 'other', token: 'other-token', identity: 'merchant' }
   f.page.synchronizeSession(); f.page.draft.name = '新账号'
   gate.resolve(product()); await load
   assert.equal(f.page.draft.name, '新账号'); assert.equal(f.paths.length, 0)

@@ -32,6 +32,8 @@ interface HDMUser {
   profession: string
   provinceCode: string // 省
   token: string
+  identity: 'buyer' | 'merchant'
+  identityRevision: number
   countyCode: string // 区
   fullLocation: string
 }

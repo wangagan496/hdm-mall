@@ -1,0 +1,107 @@
+{
+  "directory": "mixed-development-h5/commons/device",
+  "files": [
+    {
+      "path": "mixed-development-h5/commons/device/Index.ets",
+      "exists": true,
+      "bytes": 531,
+      "sha256": "74899eaa203fad8eeca1b77ddbc844f185b49751311927642cda48bbe8244a7a"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/oh-package.json5",
+      "exists": true,
+      "bytes": 278,
+      "sha256": "a582c086cac3d16572b0de5038628de901aed81c51a3f42de476e912c97f2aa6"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/AccessManager.ets",
+      "exists": true,
+      "bytes": 3392,
+      "sha256": "0426a452d666bd8c27c35f3eb0eb3c9af6d0f6917e79a36dfa0cb308c6368624"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets",
+      "exists": true,
+      "bytes": 2231,
+      "sha256": "5a03ce443b243fd28ab1a592225ee2e94467b2f23c30ff951f124bb34ebcf4dd"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/AvatarImage.ets",
+      "exists": true,
+      "bytes": 1755,
+      "sha256": "ba6f63e1bb05cbf1a8bb9039e4c97b564d5bdfeb146fc8fb169b15085fa8a16f"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/CameraPlugin.ets",
+      "exists": true,
+      "bytes": 1474,
+      "sha256": "4a118058eb0f5dd77c4ced8495271d98cb1260c9c41a6005a08690d02bdc216a"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/LocationPlugin.ets",
+      "exists": true,
+      "bytes": 459,
+      "sha256": "b21a59e92cd87c9777a5d81a45a2d9351315a10ed346f35b8923a96f71a22771"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/PhotoPlugin.ets",
+      "exists": true,
+      "bytes": 1443,
+      "sha256": "09bfa57f3fcae0e79c660a950d1478b1b0103a50f2f77b4fb0cd59acdb117d6f"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/SensorPlugin.ets",
+      "exists": true,
+      "bytes": 291,
+      "sha256": "f8daf3c04dffc31d8ab2665d278be0b1c174228f7029f31b55adecfbcd3da4eb"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets",
+      "exists": true,
+      "bytes": 5040,
+      "sha256": "b94782393543ab977e36064033c02bdb08bd01c0441e271b4533c0a418bbd5b2"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 100,
+      "sha256": "1b58cd47d878c312656713638874147c52acddf16a839437b6e3085f4211adc2"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/module.json5",
+      "exists": true,
+      "bytes": 360,
+      "sha256": "73f449fc948ff583745b4e0cbc97b6b0616637f43339aaaf5f9da286d3d15f32"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 114,
+      "sha256": "8f9ad3337206cbef6c05b44a76f74b3af15c6b50b42afc066009d87896da71f0"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 29,
+      "sha256": "5308f930c5518fda4f244086266274cf6e1f09c8a3c1200830cfef22bbd7ae74"
+    },
+    {
+      "path": "mixed-development-h5/commons/device/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 48,
+      "sha256": "fde31346ab4b7da1e313e8ff46cd5d4fd6d04dde0031ddaf4f22e8f2e1b128f3"
+    }
+  ]
+}

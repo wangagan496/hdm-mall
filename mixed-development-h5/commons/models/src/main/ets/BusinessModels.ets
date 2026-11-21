@@ -1,6 +1,10 @@
 import { AfterSale } from './AfterSaleModels'
 import { InvoiceInput, InvoiceDetail } from './InvoiceModels'
 import { ReturnPolicyFields } from './ReturnPolicy'
+import { Identity } from './IdentityContext'
+import { PromiseSnapshot } from './Promises'
+import { OrderPromiseCheck } from './OrderPromises'
+import { PromiseMaterialSource } from './SourceRecords'
 
 export interface HDMGoodsItem extends ReturnPolicyFields {
   id: string
@@ -51,7 +55,9 @@ export interface HDMUser {
   status?: string
   deletionDueAt?: number
   id?: string
-  role?: string
+  identity?: string
+  identities?: Identity[]
+  identityRevision?: number
   birthday?: string
   cityCode?: string
   gender?: string
@@ -64,6 +70,11 @@ export interface HDMUser {
   nickname: string
   avatar: string
   account: string
+}
+
+export function sameIdentitySession(current: HDMUser | null | undefined, expected: HDMUser | null | undefined): boolean {
+  return !!current?.token && !!expected?.token && current.token === expected.token &&
+    current.identity === expected.identity && current.identityRevision === expected.identityRevision
 }
 
 export interface FamilyRelation {
@@ -231,6 +242,7 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  canCheckPromises?: boolean
   shippedAt?: number | null
   signedAt?: number | null
   receivedAt?: number | null
@@ -269,6 +281,7 @@ export interface OrderItem {
   serverNow?: number
   canReceive?: boolean
   canEvaluate?: boolean
+  evaluationRule?: string
   canInvitePayer?: boolean
   evaluation?: LocalEvaluationItem | null
   countdown: number
@@ -402,8 +415,13 @@ export interface OrderPage {
 }
 
 export interface OrderSku extends ReturnPolicyFields {
+  sizeReviewRequired?:boolean
+  promiseSnapshot?: PromiseSnapshot | null
+  promiseChecks?: OrderPromiseCheck[]
+  promiseSources?: PromiseMaterialSource[]
   afterSaleKinds?: string[]
   afterSaleRemaining?: number
+  sizeApplicable?: boolean
   discountShareCents?: number
   attrsText: string
   curPrice: number
@@ -427,8 +445,59 @@ export interface PayResultParams {
 }
 
 /** 本地演示评价：仅用于补齐「待评价」演示闭环，不会提交到后端。 */
+export interface ReviewChoice {
+  skuId: string
+  fieldId: string
+  result: string
+  note: string
+}
+export interface ReviewField extends ReviewChoice {
+  label: string
+  quote: string
+  templateVersion: string
+}
+export interface ReviewHistory {
+  content: string
+  revision: number
+  productScore: number
+}
+export interface SizeChoice {
+  skuId:string
+  sizeFit:string
+  sizeShift?:string
+}
+export interface ReviewAction {kind:string; time:number}
+export interface ReviewConclusion extends ReviewAction {reason:string}
+export interface ReviewDispute {
+  reviewId:string; status:string; conclusion?:ReviewConclusion; canCorrect:boolean; timeline?:ReviewAction[]
+}
+export function reviewLabel(code:string):string {
+  switch(code){
+    case 'registered': return '已登记，等待独立复核'
+    case 'under-review': return '平台已受理'
+    case 'correction-requested': return '等待重新复核'
+    case 'concluded': return '复核已完成'
+    case 'maintain': return '维持评价'
+    case 'hide': return '隐藏评价'
+    case 'correct': return '部分更正'
+    case 'register': return '商家登记'
+    case 'accept': return '平台受理'
+    case 'conclude': return '平台给出结论'
+    case 'merchant-correction': return '商家请求更正'
+    case 'buyer-correction': return '买家请求更正'
+    default: return ''
+  }
+}
 export interface LocalEvaluationItem {
+  dispute?:ReviewDispute
+  sizes?:SizeChoice[]
+  logisticsScore?: number | null
+  serviceScore?: number | null
+  items?: ReviewField[]
+  revision?: number
+  history?: ReviewHistory[]
   hiddenReason?: string | null
+  hiddenSource?: 'platform' | 'content' | null
   orderId: string
   score: number
   content: string

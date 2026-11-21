@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import type { HTTPMethods } from 'fastify'
 import { buildApp } from '../src/app.ts'
 import { buildTestApp } from './helpers/fixtures.ts'
@@ -18,7 +18,7 @@ async function fixture(databasePath = ':memory:') {
   const ctx = await buildTestApp({ databasePath, publicUrl: 'http://127.0.0.1:3000', mockPayments: true, uploadsPath: './data/test-uploads' })
   ctx.testData.product(productInput)
   const call = async (method: HTTPMethods, url: string, token = '', payload?: object) => {
-    const res = await ctx.app.inject({ method, url, headers: token ? { authorization: `Bearer ${token}` } : {}, payload })
+    const res = await ctx.app.inject({ method, url, headers: token ? identityHeaders(ctx.accounts, token) : {}, payload })
     return { status: res.statusCode, body: res.json() }
   }
   const login = async (name: string) => {
@@ -222,7 +222,7 @@ test('数据重启后可恢复；真实 HTTP 监听与查询通过', async () =>
   try {
     const url = await next.app.listen({ port: 0, host: '127.0.0.1' })
     assert.equal((await fetch(url + '/health')).status, 200)
-    const response = await fetch(`${url}/member/order/${id}`, { headers: { authorization: `Bearer ${token}` } })
+    const response = await fetch(`${url}/member/order/${id}`, { headers: identityHeaders(next.accounts, token) })
     assert.equal(response.status, 200)
     const order = (await response.json()).result
     assert.equal(order.orderState, 3); assert.equal(order.payerAccount, 'payer')
@@ -235,8 +235,8 @@ test('正式环境拒绝模拟支付配置', async () => {
 
 test('Origin null 在生产环境也完全按显式白名单配置放行', async () => {
   const development = await buildApp({ databasePath: ':memory:', publicUrl: 'http://127.0.0.1:3000', mockPayments: false, corsOrigins: ['null'], uploadsPath: './unused' })
-  const productionBlocked = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, corsOrigins: ['https://example.invalid'], uploadsPath: './unused' })
-  const production = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, corsOrigins: ['null'], uploadsPath: './unused' })
+  const productionBlocked = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, quotePreviewSecret: randomBytes(32).toString('hex'), corsOrigins: ['https://example.invalid'], uploadsPath: './unused' })
+  const production = await buildApp({ databasePath: ':memory:', publicUrl: 'https://example.invalid', mockPayments: false, production: true, quotePreviewSecret: randomBytes(32).toString('hex'), corsOrigins: ['null'], uploadsPath: './unused' })
   try {
     assert.equal((await development.app.inject({ method: 'GET', url: '/health', headers: { origin: 'null' } })).statusCode, 200)
     assert.equal((await productionBlocked.app.inject({ method: 'GET', url: '/health', headers: { origin: 'null' } })).statusCode, 403)
@@ -246,7 +246,7 @@ test('Origin null 在生产环境也完全按显式白名单配置放行', async
     const preflight = await production.app.inject({ method: 'OPTIONS', url: '/member/profile', headers: { origin: 'null', 'access-control-request-method': 'GET', 'access-control-request-headers': 'authorization' } })
     assert.equal(preflight.statusCode, 204)
     assert.equal(preflight.headers['access-control-allow-origin'], 'null')
-    assert.equal(preflight.headers['access-control-allow-headers'], 'Authorization,Content-Type')
+    assert.equal(preflight.headers['access-control-allow-headers'], 'Authorization,Content-Type,X-HDM-Identity,X-HDM-Identity-Revision')
     assert.equal((await production.app.inject({ method: 'GET', url: '/member/profile', headers: { origin: 'null' } })).statusCode, 401)
   } finally {
     await development.app.close()
@@ -279,3 +279,4 @@ test('默认地址局部更新和空更新保留默认标记，显式传入仍�
     assert.equal((await f.call('GET', url, token)).body.result.isDefault, 1)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

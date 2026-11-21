@@ -6,6 +6,7 @@ import { Database } from '../src/database.ts'
 import { Catalog } from '../src/catalog.ts'
 import { createBackup, verifyBackup, restoreBackup } from '../src/backup.ts'
 import { serviceFixture } from './helpers/service-fixture.ts'
+import { removeIdentitySchema } from './helpers/legacy-v19.ts'
 
 test('E19 v18备份升级保留历史商品订单与分类摘要，索引随备份恢复且重开不重复迁移', async () => {
   const f = await serviceFixture(true)
@@ -18,7 +19,10 @@ test('E19 v18备份升级保留历史商品订单与分类摘要，索引随备�
     const path = join(f.root, 'data', 'mall.sqlite')
     await f.ctx.app.close()
     const raw = new DatabaseSync(path)
-    try { raw.exec('DROP INDEX IF EXISTS skus_product_availability; DROP INDEX IF EXISTS categories_parent; PRAGMA user_version=18') } finally { raw.close() }
+    try {
+      removeIdentitySchema(raw)
+      raw.exec('DROP INDEX IF EXISTS skus_product_availability; DROP INDEX IF EXISTS categories_parent; PRAGMA user_version=18')
+    } finally { raw.close() }
     const legacy = await createBackup({ databasePath: path, uploadsPath: join(f.root, 'uploads'), destination: join(f.root, 'v18') })
     assert.equal(legacy.manifest.schemaVersion, 18)
     await verifyBackup(legacy.root)
@@ -28,7 +32,7 @@ test('E19 v18备份升级保留历史商品订单与分类摘要，索引随备�
     for (let attempt = 0; attempt < 2; attempt++) {
       const db = new Database(upgradedPath)
       try {
-        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 19)
+        assert.equal(db.one<{user_version: number}>('PRAGMA user_version')!.user_version, 26)
         assert.deepEqual(db.all('SELECT * FROM products ORDER BY id'), products)
         assert.deepEqual(db.all('SELECT * FROM skus ORDER BY id'), skus)
         assert.deepEqual(db.all('SELECT * FROM orders ORDER BY id'), orders)
@@ -44,7 +48,7 @@ test('E19 v18备份升级保留历史商品订单与分类摘要，索引随备�
       } finally { db.close() }
     }
     const current = await createBackup({ databasePath: upgradedPath, uploadsPath: join(f.root, 'uploads'), destination: join(f.root, 'v19') })
-    assert.equal(current.manifest.schemaVersion, 19)
+    assert.equal(current.manifest.schemaVersion, 26)
     assert.equal((await verifyBackup(current.root)).counts.orders, 1)
     const next = await restoreBackup({ backupPath: current.root, destination: join(f.root, 'restored-v19') })
     const db = new Database(join(next.root, 'mall.sqlite'))

@@ -3,20 +3,22 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { Database } from './database.ts'
-import type { User } from './accounts.ts'
+import { requireBuyer, restrictOwnOrder, restrictOwnStore, type User } from './accounts.ts'
 import type { Clock } from './clock.ts'
 import type { Payments } from './payments.ts'
 import { ensure } from './errors.ts'
 import { appendAudit, type AuditAction } from './audit.ts'
 import { canReturnNoReason, requiresCondition, type PolicyRow } from './return-policy.ts'
 import { inspectionState, pendingReturnInspection } from './inventory.ts'
+import { afterSalePromiseMismatch, attachPromiseMismatch, promiseItemRefSchema } from './promises/order-promises.ts'
 
 const DAY = 86400000
 const active = ['pending', 'awaiting-return', 'returned', 'refunding']
 export const returnAddressSchema = z.object({ receiver: z.string().trim().min(1).max(50), contact: z.string().regex(/^\d{6,20}$/), address: z.string().trim().min(1).max(300) }).strict()
 export const afterSaleRequestSchema = z.object({ requestKey: z.string().uuid(), kind: z.enum(['return-no-reason', 'return-quality', 'refund-missing']),
   description: z.string().trim().max(200).default(''), items: z.array(z.object({ skuId: z.string().min(1).max(100), count: z.number().int().min(1).max(999),conditionDeclared:z.enum(['sealed','unsealed']).optional() }).strict()).min(1).max(100),
-  imageIds: z.array(z.string().uuid()).max(3).default([]) }).strict()
+  sizeReason: z.literal('personal-fit').optional(),
+  imageIds: z.array(z.string().uuid()).max(3).default([]), promiseMismatch: promiseItemRefSchema.optional() }).strict()
 export const afterSaleActionSchema = z.object({ requestKey: z.string().uuid(), reason: z.string().trim().min(5).max(200).optional(),
   shippingAmountCents: z.number().int().min(1).max(10000).optional(), shippingImageId: z.string().uuid().optional(),
   shippingCompensationCents: z.number().int().min(0).max(10000).optional(), shippingAdjustmentReason: z.string().trim().min(5).max(200).optional(),
@@ -25,7 +27,7 @@ export const afterSaleActionSchema = z.object({ requestKey: z.string().uuid(), r
 type ActionData = z.infer<typeof afterSaleActionSchema>
 type ReturnAddress = z.infer<typeof returnAddressSchema>
 interface Order { id: string; owner_id: string; paid_by: string; state: number; received_at: number | null; address: string }
-interface Sale { id: string; order_id: string; sequence: number; requested_by: string; payment_id: string; kind: string; description: string; state: string; amount: number;
+interface Sale { size_reason: string | null; id: string; order_id: string; sequence: number; requested_by: string; payment_id: string; kind: string; description: string; state: string; amount: number;
   created: number; review_deadline: number; approved_at: number | null; return_deadline: number | null; returned_at: number | null; inspect_deadline: number | null;
   resolved_at: number | null; return_address: string | null; carrier: string | null; tracking_no: string | null; reject_reason: string | null; refund_id: string | null;
   shipping_amount: number | null; shipping_image_id: string | null; shipping_compensation: number | null; shipping_adjustment_reason: string | null; shipping_refund_id: string | null }
@@ -42,8 +44,11 @@ export class AfterSales {
   constructor(db: Database, payments: Payments, clock: Clock) { this.db = db; this.payments = payments; this.clock = clock }
   private order(id: string) { const row = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id); ensure(row, 404, '订单不存在'); return row }
   private sale(id: string) { const row = this.db.one<Sale>('SELECT * FROM after_sales WHERE id=?', id); ensure(row, 404, '售后申请不存在'); return row }
-  private merchant(user: User) { ensure(user.role === 'merchant', 403, '需要商家权限') }
-  private owner(user: User, order: Order) { ensure(order.owner_id === user.id, 403, '只有下单人可以操作售后') }
+  private merchant(user: User) { ensure(user.identity === 'merchant', 403, '需要商家权限') }
+  private owner(user: User, order: Order) {
+    requireBuyer(user)
+    ensure(order.owner_id === user.id, 403, '只有下单人可以操作售后')
+  }
   private address() { const row = this.db.one<{ return_address: string }>('SELECT return_address FROM merchant_settings WHERE id=1'); return row ? JSON.parse(row.return_address) as ReturnAddress : null }
   getAddress(user: User) { this.merchant(user); return this.address() }
   private storeAddress(user: User, address: ReturnAddress) {
@@ -60,18 +65,22 @@ export class AfterSales {
     return kind === 'return-no-reason' ? Math.floor((receivedAt + 8 * 3600000) / DAY) * DAY - 8 * 3600000 + 8 * DAY : receivedAt + 15 * DAY
   }
   private remaining(orderId: string) {
-    return this.db.all<Item & { remaining: number }>(`SELECT i.*, i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id
-      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining FROM order_items i WHERE i.order_id=?`, orderId)
+    return this.db.all<Item & { remaining: number; size_applicable: number }>(`SELECT i.*, CASE WHEN p.category IN ('服饰','鞋靴') THEN 1 ELSE 0 END AS size_applicable,
+      i.count-COALESCE((SELECT SUM(a.count) FROM after_sale_items a JOIN after_sales s ON s.id=a.after_sale_id
+      WHERE s.order_id=i.order_id AND a.sku_id=i.sku_id AND s.state NOT IN ('rejected','withdrawn','closed')),0) AS remaining
+      FROM order_items i LEFT JOIN products p ON p.id=i.product_id WHERE i.order_id=?`, orderId)
   }
   private replay(user: User | undefined, key: string, body: string) {
-    const row = this.db.one<{ actor_id: string | null; request_body: string; result: string }>('SELECT * FROM after_sale_actions WHERE request_key=?', key)
+    const row = this.db.one<{ actor_id: string | null; acting_identity: User['identity'] | null; request_body: string; result: string }>('SELECT * FROM after_sale_actions WHERE request_key=?', key)
     if (!row) return undefined
-    ensure(row.actor_id === (user?.id ?? null) && row.request_body === body, 409, '本次操作内容已变化，请先确认原结果')
+    ensure(row.actor_id === (user?.id ?? null) && row.acting_identity === (user?.identity ?? null) && row.request_body === body,
+      409, '本次操作内容已变化，请先确认原结果')
     return JSON.parse(row.result) as Receipt
   }
   private receipt(sale: Sale, user: User | undefined, action: string, key: string, body: string): Receipt {
     const result = { id: randomUUID(), orderId: sale.order_id, afterSaleId: sale.id, action, appliedState: sale.state, appliedAt: this.clock.now(), refundId: sale.refund_id }
-    this.db.run('INSERT INTO after_sale_actions(id,after_sale_id,actor_id,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?)', result.id, sale.id, user?.id ?? null, action, key, body, JSON.stringify(result), result.appliedAt)
+    this.db.run('INSERT INTO after_sale_actions(id,after_sale_id,actor_id,acting_identity,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?,?)',
+      result.id, sale.id, user?.id ?? null, user?.identity ?? null, action, key, body, JSON.stringify(result), result.appliedAt)
     const actions:Record<string,AuditAction>={approve:'aftersale.approve',reject:'aftersale.reject',inspect:'aftersale.inspect','refund-reject':'aftersale.refund_reject','auto-approve':'aftersale.auto_approve',close:'aftersale.auto_close','auto-refund':'aftersale.auto_refund'}
     const auditAction=actions[action]
     if(auditAction)appendAudit(this.db,{created:result.appliedAt,actor:user,action:auditAction,targetType:'after_sale',targetId:sale.id,orderId:sale.order_id,requestKey:key,
@@ -79,9 +88,12 @@ export class AfterSales {
     return result
   }
   async request(user: User, orderId: string, input: unknown) {
+    this.owner(user, this.order(orderId))
+    restrictOwnStore(this.db, user.id)
     const data = afterSaleRequestSchema.parse(input)
     const body = canonical({ orderId, action: 'request', ...data, items: [...data.items].sort((a,b) => a.skuId.localeCompare(b.skuId)), imageIds: [...data.imageIds].sort() })
     await this.processDue()
+    this.payments.accounts.assertCurrent(user)
     return this.db.transaction(() => {
       const order = this.order(orderId); this.owner(user, order)
       const replay = this.replay(user, data.requestKey, body); if (replay) return replay
@@ -92,12 +104,18 @@ export class AfterSales {
       ensure(data.kind === 'return-no-reason' || data.description.length >= 5, 400, '请填写5到200字的问题说明')
       ensure(data.kind === 'return-quality' || data.imageIds.length === 0, 400, '仅质量问题可以上传照片')
       ensure(new Set(data.items.map(i => i.skuId)).size === data.items.length && new Set(data.imageIds).size === data.imageIds.length, 400, '请勿重复选择商品或照片')
+      if (data.promiseMismatch) {
+        ensure(!data.sizeReason, 400, '请选择一个退货原因')
+        ensure(data.items.some(item => item.skuId === data.promiseMismatch?.skuId), 400, '请保留需要申请售后的承诺商品')
+      }
       const available = this.remaining(orderId)
+      if (data.sizeReason) ensure(data.kind === 'return-no-reason', 400, '个人穿着不合适只能用于七日无理由退货')
       const shares = new Map<string, number>()
       let amount = 0
       for (const item of data.items) {
         const original = available.find(i => i.sku_id === item.skuId)
         ensure(original && item.count <= original.remaining, 409, '申请数量超过可售后数量，请刷新')
+        if (data.sizeReason) ensure(original.size_applicable === 1, 400, '选择个人穿着不合适时，请只选服饰或鞋靴')
         if(data.kind==='return-no-reason'){
           ensure(canReturnNoReason(original),409,'该商品不适用七日无理由退货，如有质量问题请选择质量问题退货')
           if(requiresCondition(original)){
@@ -114,7 +132,10 @@ export class AfterSales {
       const payment = this.payments.effectivePaymentId(orderId)
       ensure(payment, 409, '付款记录异常，请联系客服')
       const id = randomUUID(), sequence = this.db.one<{ n: number }>('SELECT COALESCE(MAX(sequence),0)+1 n FROM after_sales WHERE order_id=?', orderId)!.n
-      this.db.run("INSERT INTO after_sales(id,order_id,sequence,requested_by,payment_id,kind,description,state,amount,created,review_deadline) VALUES(?,?,?,?,?,?,?,'pending',?,?,?)", id, orderId, sequence, user.id, payment, data.kind, data.description, amount, now, now + 2 * DAY)
+      const mismatchField = data.promiseMismatch?.fieldId
+      const sizeReason = mismatchField === 'fit' || mismatchField === 'size-chart' ? 'size-promise-mismatch' : data.sizeReason ?? null
+      this.db.run("INSERT INTO after_sales(id,order_id,sequence,requested_by,payment_id,kind,description,state,amount,created,review_deadline,size_reason) VALUES(?,?,?,?,?,?,?,'pending',?,?,?,?)", id, orderId, sequence, user.id, payment, data.kind, data.description, amount, now, now + 2 * DAY, sizeReason)
+      if (data.promiseMismatch) attachPromiseMismatch(this.db, id, orderId, data.promiseMismatch)
       for (const item of data.items) this.db.run('INSERT INTO after_sale_items(after_sale_id,sku_id,count,condition_declared,discount_share) VALUES(?,?,?,?,?)', id, item.skuId, item.count,data.kind==='return-no-reason'&&requiresCondition(available.find(i=>i.sku_id===item.skuId)!)?item.conditionDeclared!:null,shares.get(item.skuId)!)
       for (const imageId of data.imageIds) {
         const changed = this.db.run('UPDATE after_sale_images SET after_sale_id=? WHERE image_id=? AND actor_id=? AND order_id=? AND application_key=? AND after_sale_id IS NULL', id, imageId, user.id, orderId, data.requestKey)
@@ -155,8 +176,13 @@ export class AfterSales {
     ensure(Object.keys(data).every(k => k === 'requestKey' || allowed[action]!.includes(k)), 400, '操作参数不正确')
     const body = canonical({ afterSaleId: id, action, ...data, ...(data.items ? { items: [...data.items].sort((a,b) => a.skuId.localeCompare(b.skuId)) } : {}) })
     const sale = this.sale(id)
-    if (['withdraw','ship-back'].includes(action)) this.owner(user, this.order(sale.order_id)); else this.merchant(user)
+    if (['withdraw','ship-back'].includes(action)) this.owner(user, this.order(sale.order_id))
+    else {
+      this.merchant(user)
+      restrictOwnOrder(sale.requested_by, user, '店主不能处理自己的售后申请')
+    }
     await this.processDue()
+    this.payments.accounts.assertCurrent(user)
     const refundIds: string[] = []
     const result = this.db.transaction(() => {
       const replay = this.replay(user, data.requestKey, body); if (replay) return replay
@@ -247,7 +273,8 @@ export class AfterSales {
       shippingRefundState: sale.shipping_refund_id ? this.db.one<{state:string}>('SELECT state FROM refunds WHERE id=?',sale.shipping_refund_id)?.state ?? '' : '',
       createdAt: sale.created, reviewDeadline: sale.review_deadline, returnDeadline: sale.return_deadline, inspectDeadline: sale.inspect_deadline,
       refundId: sale.refund_id, refundState: refund?.state ?? '', refundReview: refund?.review_at !== undefined && refund.review_at !== null,
-      ...(details ? { description: sale.description, returnAddress: sale.return_address ? JSON.parse(sale.return_address) as ReturnAddress : null,
+      ...(details ? { sizeReason: sale.size_reason, description: sale.description, promiseMismatch: afterSalePromiseMismatch(this.db, sale.id),
+        returnAddress: sale.return_address ? JSON.parse(sale.return_address) as ReturnAddress : null,
         shippingImage: sale.shipping_image_id ? this.db.one<{imageId:string;path:string}>('SELECT image_id imageId,path FROM after_sale_images WHERE image_id=?',sale.shipping_image_id) : null,
         carrier: sale.carrier ?? '', trackingNo: sale.tracking_no ?? '', rejectReason: sale.reject_reason ?? '',
         inspectionState: inspection, inspectionPending: inspection === 'pending',
@@ -262,7 +289,7 @@ export class AfterSales {
     const sales = this.db.all<Sale>('SELECT * FROM after_sales WHERE order_id=? ORDER BY sequence DESC', orderId)
     const received = order.received_at ?? now, remaining = this.remaining(orderId)
     const kinds = ['return-no-reason','return-quality','refund-missing'].filter(kind => now < this.deadline(received, kind))
-    const allowed=remaining.map(i=>({skuId:i.sku_id,count:i.remaining,kinds:kinds.filter(kind=>kind!=='return-no-reason'||canReturnNoReason(i))}))
+    const allowed=remaining.map(i=>({skuId:i.sku_id,count:i.remaining,sizeApplicable:i.size_applicable===1,kinds:kinds.filter(kind=>kind!=='return-no-reason'||canReturnNoReason(i))}))
     const hasActive = sales.some(s => active.includes(s.state))
     return { afterSales: owner || order.paid_by === user.id ? sales.map(s => this.present(s, owner)) : [], afterSaleActive: hasActive,
       canApplyAfterSale: owner && [3,4,5].includes(order.state) && kinds.length > 0 && !hasActive && remaining.some(i => i.remaining > 0),
@@ -270,10 +297,15 @@ export class AfterSales {
       afterSaleNotice: owner && [4,5].includes(order.state) && kinds.length === 0 ? '已超过售后期，如有问题请联系客服' : '',
       afterSaleRemaining: owner ? allowed : [] }
   }
-  async list(user: User, state: string, page: number, pageSize: number) {
+  async list(user: User, state: string, page: number, pageSize: number, sizeReason?: string) {
     this.merchant(user); await this.processDue()
-    const where = state === 'all' ? '' : state === 'returned' ? `WHERE ${pendingReturnInspection}` : 'WHERE s.state=?'
+    this.payments.accounts.assertCurrent(user)
+    let where = state === 'all' ? '' : state === 'returned' ? `WHERE ${pendingReturnInspection}` : 'WHERE s.state=?'
     const params = state === 'all' || state === 'returned' ? [] : [state]
+    if (sizeReason) {
+      where += (where ? ' AND ' : 'WHERE ') + 's.size_reason=?'
+      params.push(sizeReason)
+    }
     const counts = this.db.one<{ n: number }>(`SELECT COUNT(*) n FROM after_sales s ${where}`, ...params)!.n
     const rows = this.db.all<Sale>(`SELECT s.* FROM after_sales s ${where} ORDER BY s.created DESC,s.id LIMIT ? OFFSET ?`, ...params, pageSize, (page-1)*pageSize)
     const stateCounts = this.db.one<{ pending: number; returned: number; all: number }>(`SELECT COUNT(*) AS 'all',COUNT(CASE WHEN s.state='pending' THEN 1 END) AS pending,COUNT(CASE WHEN ${pendingReturnInspection} THEN 1 END) AS returned FROM after_sales s`)!
@@ -281,6 +313,7 @@ export class AfterSales {
   }
   uploadImage(user: User, orderId: string, applicationKey: string, requestKey: string, bytes: Buffer, uploadsPath: string) {
     const order = this.order(orderId); this.owner(user, order)
+    restrictOwnStore(this.db, user.id)
     ensure(bytes.length <= 512 * 1024, 413, '图片过大，请换一张')
     ensure(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff, 400, '请选择JPEG照片')
     const sha256 = createHash('sha256').update(bytes).digest('hex')
@@ -302,6 +335,6 @@ export class AfterSales {
   }
   canReadImage(user: User, imageId: string) {
     const image = this.db.one<{ actor_id: string; after_sale_id: string | null }>('SELECT actor_id,after_sale_id FROM after_sale_images WHERE image_id=?', imageId)
-    ensure(image && (image.actor_id === user.id || user.role === 'merchant' && image.after_sale_id !== null), 403, '无权查看售后照片')
+    ensure(image && (user.identity === 'buyer' && image.actor_id === user.id || user.identity === 'merchant' && image.after_sale_id !== null), 403, '无权查看售后照片')
   }
 }

@@ -1,0 +1,179 @@
+{
+  "directory": "shoph5-vue3",
+  "files": [
+    {
+      "path": "shoph5-vue3/.editorconfig",
+      "exists": true,
+      "bytes": 216,
+      "sha256": "140a3af47b162217409f8e635fc70d0b01caf0ee81612d8904412366e83a1063"
+    },
+    {
+      "path": "shoph5-vue3/.gitattributes",
+      "exists": true,
+      "bytes": 19,
+      "sha256": "d60f352d0db1404c70afb4bb8b2ca3fd1c610572aa40720e8a0b7baa7885418c"
+    },
+    {
+      "path": "shoph5-vue3/.gitignore",
+      "exists": true,
+      "bytes": 396,
+      "sha256": "aaf850032ebd5ba963ab779a087807f817e1bcb5d49350d2087f12f591ca82ef"
+    },
+    {
+      "path": "shoph5-vue3/.oxlintrc.json",
+      "exists": true,
+      "bytes": 217,
+      "sha256": "58cbfc88952fb4161e8c8f0e6ae42dec56ef318030bd98e74cd3f56144aa0e45"
+    },
+    {
+      "path": "shoph5-vue3/.prettierrc.json",
+      "exists": true,
+      "bytes": 120,
+      "sha256": "f676d50058f1d9c72b54328a9a44c0f0df5ad31be3252849ab910ce83123cca6"
+    },
+    {
+      "path": "shoph5-vue3/README.md",
+      "exists": true,
+      "bytes": 1428,
+      "sha256": "87448f7e6475f2167d43d4ffc005ceb4fab25f10860f45c1d4f508ddb0e4c2df"
+    },
+    {
+      "path": "shoph5-vue3/env.d.ts",
+      "exists": true,
+      "bytes": 38,
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "path": "shoph5-vue3/eslint.config.ts",
+      "exists": true,
+      "bytes": 920,
+      "sha256": "4aaed3af724a98905d44ff7c7a20b5cecd0dfd142789f40d072972bffaba3884"
+    },
+    {
+      "path": "shoph5-vue3/index.html",
+      "exists": true,
+      "bytes": 647,
+      "sha256": "d79c24a48f51f1f0e7eb1632badd8c1c4a009dc09a25afa4d20a9d1761cb96dc"
+    },
+    {
+      "path": "shoph5-vue3/package.json",
+      "exists": true,
+      "bytes": 1436,
+      "sha256": "5ec5324db59ec467f2000cf2644bd7eeef502b6492aa1588d7fd46533387be6d"
+    },
+    {
+      "path": "shoph5-vue3/pnpm-lock.yaml",
+      "exists": true,
+      "bytes": 126979,
+      "sha256": "b65b986686813a0830cfeb925e2063d03748e39b7d6934c09fa3e5f7cf7306db"
+    },
+    {
+      "path": "shoph5-vue3/public/favicon.ico",
+      "exists": true,
+      "bytes": 4286,
+      "sha256": "db74ab0b78338c1f778f8398c45f4103c99aea0e845a3118a7750b4eeafd3445"
+    },
+    {
+      "path": "shoph5-vue3/scripts/check-bridge.mjs",
+      "exists": true,
+      "bytes": 4661,
+      "sha256": "f89f6dc99a24748bebda5e6c71b1a86834210a1b2fb9b6c43435db8b532e72e0"
+    },
+    {
+      "path": "shoph5-vue3/scripts/sync-rawfile.mjs",
+      "exists": true,
+      "bytes": 573,
+      "sha256": "6703b707a7043ebe244ef3f0d68ff5e25d326927d6dd9f5a08ae02d6195e14d2"
+    },
+    {
+      "path": "shoph5-vue3/src/App.vue",
+      "exists": true,
+      "bytes": 545,
+      "sha256": "707d9bd0e55c74bbd28d865d1f1a1e1deead5c74be19540d0b583edef309ee66"
+    },
+    {
+      "path": "shoph5-vue3/src/api/index.ts",
+      "exists": true,
+      "bytes": 3085,
+      "sha256": "202d69930e2a0f3e316be76ea0adfedd35dbb6d34f8572737e7068a9fd9bc91f"
+    },
+    {
+      "path": "shoph5-vue3/src/assets/main.css",
+      "exists": true,
+      "bytes": 2491,
+      "sha256": "b2723e3719569fe617b44f7a154a01d3b3ea06531b412774dd04787f638e2c9c"
+    },
+    {
+      "path": "shoph5-vue3/src/components/profile/ProfileAvatar.vue",
+      "exists": true,
+      "bytes": 2739,
+      "sha256": "cf089187aa66e3ae17ae2026c5c3f00733b5ea6a1f6c7f513db1ce819883daa9"
+    },
+    {
+      "path": "shoph5-vue3/src/components/profile/ProfileFields.vue",
+      "exists": true,
+      "bytes": 5413,
+      "sha256": "7d623c2abfebcf4e1f4f91aef34d930093a1c6175830e01f2f82fafec6521280"
+    },
+    {
+      "path": "shoph5-vue3/src/main.ts",
+      "exists": true,
+      "bytes": 947,
+      "sha256": "b4b8eabff62005df68510ffb97aafccdddce8a672b6655ee226027f40187082b"
+    },
+    {
+      "path": "shoph5-vue3/src/router/index.ts",
+      "exists": true,
+      "bytes": 630,
+      "sha256": "187639aeef2a4c98068bec931c4e4634a1248f2f9708f012831b0525283ff2c9"
+    },
+    {
+      "path": "shoph5-vue3/src/stores/profile.ts",
+      "exists": true,
+      "bytes": 9594,
+      "sha256": "82ae538ddec767ed1751cf32be57797206b415097926d4da49a4e1228e9abe71"
+    },
+    {
+      "path": "shoph5-vue3/src/types/harmonyos.d.ts",
+      "exists": true,
+      "bytes": 1233,
+      "sha256": "edfe6264164960f6d8737a8c26e489dfd4895bc6d99a5db55d09f01abc9b9804"
+    },
+    {
+      "path": "shoph5-vue3/src/utils/area.ts",
+      "exists": true,
+      "bytes": 652,
+      "sha256": "bae7ca77cfcb95222a5a6ab27018c8a9e9934b14cf30dc571683a94b7170ae85"
+    },
+    {
+      "path": "shoph5-vue3/src/views/ProfileEdit.vue",
+      "exists": true,
+      "bytes": 4031,
+      "sha256": "75395cd7203d7fbbe54360badb8109332c69adddaadc088345733ec4594afa63"
+    },
+    {
+      "path": "shoph5-vue3/tsconfig.app.json",
+      "exists": true,
+      "bytes": 492,
+      "sha256": "6c378284a70bb6fc14cc0325880849cfa9bef14117b9b871afc1e248458afc7c"
+    },
+    {
+      "path": "shoph5-vue3/tsconfig.json",
+      "exists": true,
+      "bytes": 139,
+      "sha256": "3dd280df663fb5fbe9e85e5981289d27a7120b97a852827dd16e0ac296836d1b"
+    },
+    {
+      "path": "shoph5-vue3/tsconfig.node.json",
+      "exists": true,
+      "bytes": 964,
+      "sha256": "72dbb38a180d6832378935c54353979bf05436c8b9ffd931af742af5991b6e03"
+    },
+    {
+      "path": "shoph5-vue3/vite.config.ts",
+      "exists": true,
+      "bytes": 1135,
+      "sha256": "94d0990387ceed072c3add11b657a5d086a8cc59102dd8703f759436fb647885"
+    }
+  ]
+}

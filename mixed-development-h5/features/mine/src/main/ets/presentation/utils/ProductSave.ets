@@ -16,7 +16,7 @@ export class ProductSave {
   }
   private assertSession(token: string): string {
     const user = auth.getUserInfo()
-    if (!user?.id || user.role !== 'merchant' || !token || user.token !== token || storeManager.getUserInfo()?.token !== token) {
+    if (!user?.id || user.identity !== 'merchant' || !token || user.token !== token || storeManager.getUserInfo()?.token !== token) {
       throw new Error('登录状态已变化，请重新登录后确认保存结果')
     }
     return user.id

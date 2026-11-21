@@ -61,6 +61,7 @@ export struct FamilyView {
   @State pageGeneration: number = 0
   @State sessionToken: string = ''
   @State sessionRole: string = ''
+  private sessionIdentityRevision: number | undefined
   @State loadedToken: string = ''
   private dialogSequence: number = 0
   @State relationsExpanded: boolean = false
@@ -220,16 +221,18 @@ export struct FamilyView {
   }
   private synchronizeFamilySession(): boolean {
     const token: string = this.user.token || ''
-    const role: string = this.user.role || ''
-    if (token === this.sessionToken && role === this.sessionRole) return false
+    const identity: string = this.user.identity || ''
+    if (token === this.sessionToken && identity === this.sessionRole &&
+      this.sessionIdentityRevision === this.user.identityRevision) return false
     this.stopFamilyChecks()
     this.pendingFamilyOrders = []
     this.relationsExpanded = false
-    this.familyGroup = 'all'
+    this.familyGroup = identity === 'merchant' ? 'merchant' : 'all'
     this.familyGroupInitialized = false
     this.familyGroupCounts = null
     this.sessionToken = token
-    this.sessionRole = role
+    this.sessionRole = identity
+    this.sessionIdentityRevision = this.user.identityRevision
     this.loadedToken = ''
     this.pendingCancelActions = []
     this.closeCancelResolution()
@@ -269,34 +272,38 @@ export struct FamilyView {
     this.loading = true
     this.errorText = ''
     try {
-      let relationResult: FamilyRelationPage = await getFamilyRelationsPageAPI(relationPage, token)
-      if (!this.isCurrentQuery(currentRequestId, generation, token)) { return }
-      if (relationResult.page > Math.max(1, relationResult.pages)) {
-        relationResult = await getFamilyRelationsPageAPI(Math.max(1, relationResult.pages), token)
-      }
-      if (!this.isCurrentQuery(currentRequestId, generation, token)) {
-        return
-      }
+      let relationResult: FamilyRelationPage = { items: [], counts: 0, page: 1, pageSize: 10, pages: 0 }
       let group: string = this.familyGroup === 'merchant' ? 'all' : this.familyGroup
-      let familyResult: OrderPage = await getFamilyOrdersPageAPI(familyPage, token, group)
-      if (!this.isCurrentQuery(currentRequestId, generation, token)) {
-        return
-      }
-      if (!this.familyGroupInitialized && familyResult.groupCounts) {
-        const counts: FamilyGroupCounts = familyResult.groupCounts
-        const initial: string = counts.pay > 0 ? 'pay' : counts.receipt > 0 ? 'receipt' : counts.pending > 0 ? 'pending' : 'all'
-        if (initial !== group) {
-          group = initial
-          familyResult = await getFamilyOrdersPageAPI(1, token, group)
-          if (!this.isCurrentQuery(currentRequestId, generation, token)) return
+      let familyResult: OrderPage = { items: [], counts: 0, page: 1, pageSize: 10, pages: 0 }
+      if (!merchant) {
+        relationResult = await getFamilyRelationsPageAPI(relationPage, token)
+        if (!this.isCurrentQuery(currentRequestId, generation, token)) { return }
+        if (relationResult.page > Math.max(1, relationResult.pages)) {
+          relationResult = await getFamilyRelationsPageAPI(Math.max(1, relationResult.pages), token)
         }
-      }
-      // 操作或其他人的更新使末页消失时，回到当前最后一页。
-      if (familyResult.page > Math.max(1, familyResult.pages)) {
-        familyResult = await getFamilyOrdersPageAPI(Math.max(1, familyResult.pages), token, group)
-      }
-      if (!this.isCurrentQuery(currentRequestId, generation, token)) {
-        return
+        if (!this.isCurrentQuery(currentRequestId, generation, token)) {
+          return
+        }
+        familyResult = await getFamilyOrdersPageAPI(familyPage, token, group)
+        if (!this.isCurrentQuery(currentRequestId, generation, token)) {
+          return
+        }
+        if (!this.familyGroupInitialized && familyResult.groupCounts) {
+          const counts: FamilyGroupCounts = familyResult.groupCounts
+          const initial: string = counts.pay > 0 ? 'pay' : counts.receipt > 0 ? 'receipt' : counts.pending > 0 ? 'pending' : 'all'
+          if (initial !== group) {
+            group = initial
+            familyResult = await getFamilyOrdersPageAPI(1, token, group)
+            if (!this.isCurrentQuery(currentRequestId, generation, token)) return
+          }
+        }
+        // 操作或其他人的更新使末页消失时，回到当前最后一页。
+        if (familyResult.page > Math.max(1, familyResult.pages)) {
+          familyResult = await getFamilyOrdersPageAPI(Math.max(1, familyResult.pages), token, group)
+        }
+        if (!this.isCurrentQuery(currentRequestId, generation, token)) {
+          return
+        }
       }
       let merchantResult: OrderPage = { items: [], counts: 0, page: 1, pageSize: 10, pages: 0 }
       if (merchant) {
@@ -319,7 +326,7 @@ export struct FamilyView {
       this.familyGroupCounts = familyResult.groupCounts || null
       this.familyPage = familyResult.page
       this.familyPages = familyResult.pages
-      if (!this.familyGroupInitialized) {
+      if (!merchant && !this.familyGroupInitialized) {
         this.familyGroup = familyResult.groupCounts ? group : (this.familyGroupCount('pay') > 0 ? 'pay' : this.familyGroupCount('receipt') > 0 ? 'receipt' :
           this.familyGroupCount('pending') > 0 ? 'pending' : 'all')
         this.familyGroupInitialized = true
@@ -493,7 +500,8 @@ export struct FamilyView {
 
   private isCurrentFamilySession(generation: number, token: string): boolean {
     return this.isPageActive && generation === this.pageGeneration && token.length > 0 &&
-      token === this.sessionToken && token === (this.user.token || '') && this.sessionRole === (this.user.role || '')
+      token === this.sessionToken && token === (this.user.token || '') && this.sessionRole === (this.user.identity || '') &&
+      this.sessionIdentityRevision === this.user.identityRevision
   }
   private isCurrentQuery(requestId: number, generation: number, token: string): boolean {
     return requestId === this.loadRequestId && this.isCurrentFamilySession(generation, token)
@@ -571,7 +579,7 @@ export struct FamilyView {
 
   private shipOrder(order: OrderItem): void {
     const current: OrderItem | undefined = this.ordersToShip.find((item: OrderItem) => item.id === order.id)
-    if (this.user.role !== 'merchant' || !current?.canShip || this.pendingCancelActions.includes(order.id) || current.orderState !== OrderState.AWAITING_SHIPMENT) return
+    if (this.user.identity !== 'merchant' || !current?.canShip || this.pendingCancelActions.includes(order.id) || current.orderState !== OrderState.AWAITING_SHIPMENT) return
     this.shippingOrderId = current.id; this.shippingCarrier = '顺丰'; this.shippingOtherCarrier = ''; this.shippingTrackingNo = ''
   }
   private shippingInput(): ShipmentInput | null {
@@ -582,7 +590,7 @@ export struct FamilyView {
     return { carrier, trackingNo }
   }
   private async submitShipment(): Promise<void> {
-    if (!this.canManageFamily() || this.user.role !== 'merchant') return
+    if (!this.canManageFamily() || this.user.identity !== 'merchant') return
     const current: OrderItem | undefined = this.ordersToShip.find(item => item.id === this.shippingOrderId)
     if (!current?.canShip || current.orderState !== OrderState.AWAITING_SHIPMENT || this.pendingCancelActions.includes(current.id)) return
     const data: ShipmentInput | null = this.shippingInput()
@@ -851,9 +859,10 @@ export struct FamilyView {
   build() {
     NavDestination() {
       Column() {
-        HDMNavBar({ title: '亲友中心', onLeftClick: () => this.stackPath.pop() })
+        HDMNavBar({ title: this.user.identity === 'merchant' ? '店铺订单' : '亲友中心', onLeftClick: () => this.stackPath.pop() })
         Scroll() {
           Column({ space: 12 }) {
+            if (this.user.identity !== 'merchant') {
             Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
               ForEach([{ key: 'pay', label: '待我付款' }, { key: 'receipt', label: '待我收货' },
                 { key: 'pending', label: '待处理' }, { key: 'all', label: '全部订单' }],
@@ -877,13 +886,7 @@ export struct FamilyView {
                 .fontColor($r('[ui_components].color.text'))
                 .border({ width: 1, color: $r('[ui_components].color.border') })
                 .onClick(() => { this.relationsExpanded = !this.relationsExpanded })
-              if (this.user.role === 'merchant') {
-                Button('商家发货').fontSize(13)
-                  .backgroundColor($r('[ui_components].color.under'))
-                  .fontColor($r('[ui_components].color.text'))
-                  .border({ width: 1, color: $r('[ui_components].color.border') })
-                  .onClick(() => { this.familyGroup = 'merchant' })
-              }
+            }
             }
             if (this.relationsExpanded) {
             Text('添加代付与代收亲友').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('[ui_components].color.text'))
@@ -926,7 +929,7 @@ export struct FamilyView {
               Button('重试加载').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(!this.loading && !this.isSubmitting)
                 .onClick(() => this.loadFamilyCenter())
             }
-            if (this.familyGroup !== 'merchant') {
+            if (this.user.identity !== 'merchant') {
             Text('亲友订单').fontSize(18).fontWeight(FontWeight.Bold).fontColor($r('[ui_components].color.text'))
             if (!this.loading && this.visibleFamilyOrders().length === 0) { Text(this.familyEmptyText()).fontSize(14).fontColor($r('[ui_components].color.text')) }
             ForEach(this.visibleFamilyOrders(), (order: OrderItem) => { this.FamilyOrderCard(order) }, (order: OrderItem) => JSON.stringify(order))
@@ -940,7 +943,7 @@ export struct FamilyView {
               }
             }
             }
-            if (this.user.role === 'merchant' && (this.familyGroup === 'merchant' || this.familyGroup === 'all')) {
+            if (this.user.identity === 'merchant' && (this.familyGroup === 'merchant' || this.familyGroup === 'all')) {
               if (this.pendingCancelActions.length > 0) {
                 Text('操作结果待确认，请重新查询').fontSize(12).fontColor($r('[ui_components].color.text'))
                 Button('重新查询').backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text')).border({ width: 1, color: $r('[ui_components].color.border') }).enabled(this.canManageFamily()).onClick(() => this.recoverCancelActions())

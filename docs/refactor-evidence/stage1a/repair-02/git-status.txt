@@ -1,0 +1,39 @@
+## mall-crazy-design-20261116
+ M README.md
+ M mixed-development-h5/commons/models/Index.ets
+ M mixed-development-h5/commons/models/src/test/List.test.ets
+ M mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets
+ M mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets
+ M mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets
+ M mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json
+ M mixed-development-h5/features/mine/src/test/List.test.ets
+ M mixed-development-h5/hvigorfile.ts
+ M scripts/device-promotion-probe.ps1
+ M scripts/device-trade-regression.ps1
+ M scripts/tests/client-environment.test.mjs
+ M scripts/tests/device-trade-server.ts
+ M scripts/tests/fullscreen-bottom-safe-area.test.mjs
+ M scripts/tests/list-render-keys.test.mjs
+ M scripts/tests/native-harness.mjs
+ M scripts/tests/promotion-native.test.mjs
+ M server/README.md
+ M server/src/app.ts
+ M server/src/config.ts
+ M server/src/promotions.ts
+ M server/test/production-config.test.ts
+ M server/test/trade.test.ts
+?? contract-kit/
+?? docs/refactor-evidence/stage1a/
+?? mixed-development-h5/commons/models/src/main/ets/QuotePreview.ets
+?? mixed-development-h5/commons/models/src/test/QuoteVectors.test.ets
+?? mixed-development-h5/features/cart/src/main/ets/presentation/components/QuotePanel.ets
+?? mixed-development-h5/features/cart/src/main/ets/presentation/utils/QuotePreview.ets
+?? mixed-development-h5/features/mine/src/main/ets/presentation/views/ModuleBayView.ets
+?? mixed-development-h5/features/mine/src/main/ets/presentation/views/ModuleStructure.ets
+?? mixed-development-h5/features/mine/src/test/ModuleStructure.test.ets
+?? scripts/generate-module-structure.mjs
+?? scripts/stage1a-repair-checks.ps1
+?? scripts/tests/quote-preview.test.mjs
+?? server/src/quote-preview/
+?? server/test/quote-contract.test.ts
+?? server/test/quote-preview.test.ts

@@ -47,7 +47,7 @@ test('结算缺省报价清除旧规则，未达标提示能回首页', () => {
   const page = new Page()
   page.stackPath = { clear: () => navigation.push('clear') }
   page.promotion = { rule: { thresholdCents: 9900, discountCents: 1000, revision: 1, enabled: true }, remainingCents: 3300, discountCents: 0, amountCents: 6600 }
-  assert.equal(page.promotionText(), '再买 ¥33.00 可减 ¥10.00，回首页继续选购')
+  assert.equal(page.promotionText(), '还差 33.00 元可满减')
   page.continueShopping()
   assert.deepEqual(navigation, [['currentTabIndex', 0], 'clear'])
   page.clearPromotion()
@@ -61,7 +61,7 @@ test('满减页展示达标优惠与未达门槛提示，并带规则版本下�
   assert.match(models, /interface PromotionQuote/)
   assert.match(checkout, /promotion\.remainingCents/)
   assert.match(checkout, /expectedPromotionRevision/)
-  assert.match(checkout, /再买/)
+  assert.match(checkout, /还差 .* 元可满减/)
 })
 
 test('零元售后显示已完成和无需退款说明', () => {
@@ -93,7 +93,7 @@ test('满减设置校验、未知结果同号重试、账号切换隔离迟到�
     RequestAxios: { getForSession: () => gate.promise, putForSession: async (url, body) => { calls.push(structuredClone(body)); if (fail) throw Error('unknown'); return { ...rule, revision: 2 } } }
   })
   const page = new Page()
-  page.active = true; page.user = { id: 'merchant', token: 'token', role: 'merchant' }; page.rule = rule
+  page.active = true; page.user = { id: 'merchant', token: 'token', identity: 'merchant' }; page.rule = rule
   page.threshold = '99'; page.discount = '99'
   await page.save(); assert.equal(calls.length, 0); assert.match(page.message, /小于/)
   page.discount = '10'
@@ -101,7 +101,7 @@ test('满减设置校验、未知结果同号重试、账号切换隔离迟到�
   fail = false; await page.save(); assert.deepEqual(calls[0], calls[1]); assert.equal(page.pending, null)
   assert.ok([...disk.values()].every(value => !value.includes('token')))
   const loading = page.load()
-  page.user = { id: 'other', token: 'other', role: 'merchant' }; page.query++; page.threshold = '5'
+  page.user = { id: 'other', token: 'other', identity: 'merchant' }; page.query++; page.threshold = '5'
   gate.resolve(rule); await loading
   assert.equal(page.threshold, '5')
 })
@@ -128,7 +128,7 @@ test('商家验收默认全额运费，下调缺原因不提交，填写后含�
     afterSaleActions: { pending: () => null, start: async (...args) => calls.push(args) }
   })
   const page = new Page()
-  page.active = true; page.user = { id: 'merchant', token: 't', role: 'merchant' }; page.token = 't'; page.accountId = 'merchant'; page.load = async () => {}
+  page.active = true; page.user = { id: 'merchant', token: 't', identity: 'merchant' }; page.token = 't'; page.accountId = 'merchant'; page.load = async () => {}
   page.open({ id: 'sale', orderId: 'order', amountCents: 0, shippingAmountCents: 1000, items: [] }, 'inspect')
   assert.equal(page.shippingCompensation, '10.00'); assert.equal(page.actionLabel(), '验收并退款 ¥10.00')
   page.shippingCompensation = '5'; await page.submit(); assert.equal(calls.length, 0); assert.match(page.message, /原因/)

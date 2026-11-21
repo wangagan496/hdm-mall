@@ -1,0 +1,15 @@
+{
+  "status": "failed",
+  "packageSha256": "8168A4E03043D719293C68707E4A2B91C875C9EAFC39AC59D6AEA08865AEBCE5",
+  "target": "127.0.0.1:5555",
+  "api": 24,
+  "error": "Current sandbox login identity was not found",
+  "portsRestored": true,
+  "fixtureStopped": true,
+  "fixturePortReleased": true,
+  "checks": [
+    "isolated-fixture-verified",
+    "signed-app-installed"
+  ],
+  "screenshots": []
+}

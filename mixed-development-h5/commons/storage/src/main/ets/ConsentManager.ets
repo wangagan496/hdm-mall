@@ -1,6 +1,7 @@
 import { UIContext } from '@kit.ArkUI'
 import { util } from '@kit.ArkTS'
 import { RequestAxios } from 'network'
+import { HDMUser } from 'models'
 import { storeManager } from './StoreManager'
 import { showConsentDialog } from './ConsentDialog'
 
@@ -35,7 +36,7 @@ export class ConsentManager {
     AppStorage.setOrCreate('privacyConsentAccepted', true)
   }
 
-  async report(token: string, accountId: string): Promise<void> {
+  async report(token: string, accountId: string, loginUser?: HDMUser): Promise<void> {
     const record = this.record()
     if (record && this.accepted() && token && accountId) {
       const store = storeManager.getStore()
@@ -43,7 +44,7 @@ export class ConsentManager {
       let key = store.getSync(storageKey, '') as string
       if (!key) { key = util.generateRandomUUID(); store.putSync(storageKey, key); await store.flush() }
       const body: ConsentRecord = { version: record.version, agreedAt: record.agreedAt, source: record.source, requestKey: key }
-      await RequestAxios.postWithSession<object>('/member/consents', body, token)
+      await RequestAxios.postWithSession<object>('/member/consents', body, token, loginUser)
     }
   }
 

@@ -35,14 +35,14 @@ test('资料读写返回本次凭证和完整资料，不更新会话期限，�
   const f = await fixture()
   try {
     const sessions = f.db.all('SELECT * FROM sessions')
-    const response = await f.app.inject({ method: 'PUT', url: '/member/profile', headers: { authorization: `Bearer ${f.login.token}` }, payload: {
+    const response = await f.app.inject({ method: 'PUT', url: '/member/profile', headers: identityHeaders(f.accounts, f.login.token), payload: {
       nickname: '  最新昵称  ', gender: '未知', birthday: '2000-01-02', provinceCode: '11', cityCode: '1101', countyCode: '110101', profession: '工程师', fullLocation: '北京市 北京市 东城区'
     } })
     assert.equal(response.statusCode, 200)
     assert.equal(response.json().result.token, f.login.token)
     assert.equal(response.json().result.id, f.user.id)
     assert.equal(response.json().result.nickname, '最新昵称')
-    const loaded = await f.app.inject({ method: 'GET', url: '/member/profile', headers: { authorization: `Bearer ${f.login.token}` } })
+    const loaded = await f.app.inject({ method: 'GET', url: '/member/profile', headers: identityHeaders(f.accounts, f.login.token) })
     assert.equal(loaded.json().result.fullLocation, '北京市 北京市 东城区')
     assert.deepEqual(f.db.all('SELECT * FROM sessions'), sessions)
     assert.equal((await f.app.inject({ method: 'GET', url: '/member/profile' })).statusCode, 401)
@@ -161,7 +161,7 @@ test('商品和购物车 GET 首次读取沿用合并过期检查', async () => 
     assert.equal(goods.statusCode, 200)
     assert.equal(f.db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', id)!.state, 6)
     assert.equal(f.catalog.sku('optimization-product-a').stock, beforeStock + 1)
-    const cart = await f.app.inject({ method: 'GET', url: '/member/cart', headers: { authorization: `Bearer ${f.login.token}` } })
+    const cart = await f.app.inject({ method: 'GET', url: '/member/cart', headers: identityHeaders(f.accounts, f.login.token) })
     assert.equal(cart.statusCode, 200)
     assert.equal(f.db.all("SELECT id FROM inventory_movements WHERE order_id=? AND kind='expire'", id).length, 1)
   } finally { await f.app.close() }
@@ -206,7 +206,7 @@ test('购物车角标只读取数量汇总，包含未勾选和售罄商品并�
       return rows
     }) as typeof f.db.all
     const count = async (token?: string) => f.app.inject({ method: 'GET', url: '/member/cart/count',
-      headers: token ? { authorization: `Bearer ${token}` } : {} })
+      headers: token ? identityHeaders(f.accounts, token) : {} })
     const own = await count(f.login.token)
     assert.equal(own.statusCode, 200)
     assert.deepEqual(own.json(), { code: '1', result: { count: 5 } })
@@ -237,7 +237,7 @@ test('购物车修改单项只读取该项，保留完整回应、库存校验�
       return rows
     }) as typeof f.db.all
     const update = (skuId: string, payload: object, token = f.login.token) => f.app.inject({
-      method: 'PUT', url: `/member/cart/${skuId}`, headers: { authorization: `Bearer ${token}` }, payload })
+      method: 'PUT', url: `/member/cart/${skuId}`, headers: identityHeaders(f.accounts, token), payload })
     const result = await update('optimization-bag-a', { count: 4, selected: false })
     assert.equal(result.statusCode, 200)
     assert.deepEqual(result.json().result, expected)
@@ -267,7 +267,7 @@ test('购物车全选只修改本人状态，不读取商品明细且保留 null
     }) as typeof f.db.all
     for (const selected of [false, true]) {
       const response = await f.app.inject({ method: 'PUT', url: '/member/cart/selected',
-        headers: { authorization: `Bearer ${f.login.token}` }, payload: { selected } })
+        headers: identityHeaders(f.accounts, f.login.token), payload: { selected } })
       assert.equal(response.statusCode, 200)
       assert.deepEqual(response.json(), { code: '1', result: null })
       assert.equal(f.db.one<{ count: number }>('SELECT COUNT(*) AS count FROM carts WHERE user_id=? AND selected=?', f.user.id, Number(selected))!.count, 2)
@@ -298,9 +298,10 @@ test('旧版数据库迁移保留商品，分类编号重启后保持稳定', ()
     const reloaded = new Catalog(migrated, 'http://fixture'); reloaded.seed()
     assert.equal(reloaded.categories().find(row => row.name === '原有分类')!.id, category.id)
     assert.equal(reloaded.categories().find(row => row.id === category.id)!.children[0]!.id, child.id)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 26)
   } finally {
     migrated?.close()
     rmSync(directory, { recursive: true, force: true })
   }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

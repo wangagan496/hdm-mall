@@ -1,0 +1,761 @@
+{
+  "directory": "scripts",
+  "files": [
+    {
+      "path": "scripts/device-inventory-probe.ps1",
+      "exists": true,
+      "bytes": 6959,
+      "sha256": "9c3269ddd1ca35c1390847043b254768d7da9e83dc3785f0ba311366c00adb2f"
+    },
+    {
+      "path": "scripts/device-inventory-smoke.ps1",
+      "exists": true,
+      "bytes": 5990,
+      "sha256": "15056a9b447c8fc189f41581bab903b2e12a1d0d392d3f7fa8f0aa979c7218ae"
+    },
+    {
+      "path": "scripts/device-optimization-smoke.ps1",
+      "exists": true,
+      "bytes": 4537,
+      "sha256": "7d56bf24da5bb21ea7d2c285c5f773b2bd0812559d76ae2c18621e0f807b8dfb"
+    },
+    {
+      "path": "scripts/device-promotion-probe.ps1",
+      "exists": true,
+      "bytes": 7143,
+      "sha256": "2c35355651892e8279d8b4cac5707f4fbe5afa1e27a03ef7ed33a62d2ed95ade"
+    },
+    {
+      "path": "scripts/device-reconciliation-logistics-probe.ps1",
+      "exists": true,
+      "bytes": 8724,
+      "sha256": "b8fe8a1f0e25d8aa180c890a5548aab90f78ac7428be7538bac13f598d13b3c1"
+    },
+    {
+      "path": "scripts/device-service-probe.ps1",
+      "exists": true,
+      "bytes": 8186,
+      "sha256": "3be4ae5dda58323e3a55fcd76a46be216ba129c614c0f745cd92324052d07caa"
+    },
+    {
+      "path": "scripts/device-trade-network-probe.ps1",
+      "exists": true,
+      "bytes": 19782,
+      "sha256": "54d8237bf37c2466f607ad001bde1776841f2f9c229ecc099dbdf02a2fd134f0"
+    },
+    {
+      "path": "scripts/device-trade-regression.ps1",
+      "exists": true,
+      "bytes": 143001,
+      "sha256": "64599434f8ca9c21c2aa798f318d96b140d0c6cc8649aa1d3d1e43e3513d59b7"
+    },
+    {
+      "path": "scripts/device-trade.ps1",
+      "exists": true,
+      "bytes": 3334,
+      "sha256": "dd92329dc893d2d0a1664e0bbbbcd28177c242c9fdae295c5ebf52ddbd4ed0dc"
+    },
+    {
+      "path": "scripts/inspect-device-layout.ps1",
+      "exists": true,
+      "bytes": 665,
+      "sha256": "530f804b7fe3465d703b6d039069366f31a25c0de593d214016f1c2e4dd5d0f8"
+    },
+    {
+      "path": "scripts/perf/README.md",
+      "exists": true,
+      "bytes": 6052,
+      "sha256": "862548248b8d3b95cb4beaca773fd176865ab473e23951502e66309583b67908"
+    },
+    {
+      "path": "scripts/perf/analyze.mjs",
+      "exists": true,
+      "bytes": 9157,
+      "sha256": "fca5d53ec64f4052e5fee6debe2c6c8e4684bf1f88ecb47043f743a43ec51f53"
+    },
+    {
+      "path": "scripts/perf/audit-callers.mjs",
+      "exists": true,
+      "bytes": 1686,
+      "sha256": "6be11f2a633b3e6b420222d767bbb012222fee68a97f53d19bcf21cb82aa0fcc"
+    },
+    {
+      "path": "scripts/perf/check.mjs",
+      "exists": true,
+      "bytes": 3376,
+      "sha256": "c70de43fa8ff33e2ef882a1dce987840499a7d0d2aa400f5e0ac4d316393873b"
+    },
+    {
+      "path": "scripts/perf/common.mjs",
+      "exists": true,
+      "bytes": 1726,
+      "sha256": "5bb20a1f7e73d674f54c90f6cda911b1f57d09653cdd1a4a2a69b90fa13657bb"
+    },
+    {
+      "path": "scripts/perf/compare-optimization.mjs",
+      "exists": true,
+      "bytes": 3246,
+      "sha256": "b4c2f9081ca1c3708795bf2e17669164ea0a48878ac9e5405ad99597d49f3e04"
+    },
+    {
+      "path": "scripts/perf/fixture.mjs",
+      "exists": true,
+      "bytes": 5230,
+      "sha256": "d6a89380cb804854b33f20f0c6e8b639e421565c58f0b51277d2975bec8abbfb"
+    },
+    {
+      "path": "scripts/perf/optimization.mjs",
+      "exists": true,
+      "bytes": 3280,
+      "sha256": "93bbe50d05c7723c193beb5f7d09600292a81e440260e0fcaea0e7487f0541aa"
+    },
+    {
+      "path": "scripts/perf/report.mjs",
+      "exists": true,
+      "bytes": 24303,
+      "sha256": "25a15f09ef84e8391be7956fddd70e064371d464f68c46e59b3710d37f045c2d"
+    },
+    {
+      "path": "scripts/perf/run.mjs",
+      "exists": true,
+      "bytes": 15992,
+      "sha256": "0ac50407ae8166311f13a1ae99ec66dec7c60a6567193090277c27fbdc1d4f0d"
+    },
+    {
+      "path": "scripts/perf/service.mjs",
+      "exists": true,
+      "bytes": 3403,
+      "sha256": "00e01b39170c9a996e9ceaf37a75d0d40ce001489181cde8e83f4c45821ca7bf"
+    },
+    {
+      "path": "scripts/perf/verify.mjs",
+      "exists": true,
+      "bytes": 6472,
+      "sha256": "cbb271b1b7c37849d7785cc6b89911f1e7be99d847c92b15bb8170c763ea98be"
+    },
+    {
+      "path": "scripts/prepare-device-checkout.ps1",
+      "exists": true,
+      "bytes": 1486,
+      "sha256": "042c0a4150663a21d72f9d75ae06dad17421f4181307ca676d00fe134e5941e1"
+    },
+    {
+      "path": "scripts/record-enterprise-progress.ps1",
+      "exists": true,
+      "bytes": 7187,
+      "sha256": "4da37b3e12fdd82a2f1041e3356deb96c354231fa61d61ebca421be3b8e95b2a"
+    },
+    {
+      "path": "scripts/start-trade-server.ps1",
+      "exists": true,
+      "bytes": 453,
+      "sha256": "267027a128579c38db29999fdccbe24e0ea2cbf84b23105bc440093650c4e448"
+    },
+    {
+      "path": "scripts/tests/account-deletion.test.mjs",
+      "exists": true,
+      "bytes": 4898,
+      "sha256": "cdb0c770d4d3ffdfcc482bbd2bb1afb3674644b537c4bea09134c28bea387ab7"
+    },
+    {
+      "path": "scripts/tests/address-api-session.test.mjs",
+      "exists": true,
+      "bytes": 4194,
+      "sha256": "c01f54430076d82e5873c5661f68a166ba2e25d237a5484ec9c601d0b7974bf2"
+    },
+    {
+      "path": "scripts/tests/address-autosave.test.mjs",
+      "exists": true,
+      "bytes": 8940,
+      "sha256": "39b983c8d4d893ad90a02d27bb04092e0c120fc622c6ff815814c8bdb5f27dcf"
+    },
+    {
+      "path": "scripts/tests/address-harness.mjs",
+      "exists": true,
+      "bytes": 932,
+      "sha256": "883abc25dc3b85d2b8eacd1d0a99191a00f2ff574bd304af49df64d20332bb14"
+    },
+    {
+      "path": "scripts/tests/address-session.test.mjs",
+      "exists": true,
+      "bytes": 11384,
+      "sha256": "39382076533a8a02f586a3b67b36ac9789f0d2b0b96d414b270ce803b7a34255"
+    },
+    {
+      "path": "scripts/tests/after-sale-merchant.test.mjs",
+      "exists": true,
+      "bytes": 3030,
+      "sha256": "c52a2b5d43610838dca35bc0b4aca10cdade459a20b268be4f52ade04a46d75c"
+    },
+    {
+      "path": "scripts/tests/after-sale-repair.test.mjs",
+      "exists": true,
+      "bytes": 5629,
+      "sha256": "a8dbe0a9781cf3d8e351fbe1d02c1529ef81a54c62ab4274bb81cdd70012ba8d"
+    },
+    {
+      "path": "scripts/tests/after-sale.test.mjs",
+      "exists": true,
+      "bytes": 7522,
+      "sha256": "769a94b4758ed61fa1c9985a9ec0df68a347c74dc6e8578f50345889f4eb2a77"
+    },
+    {
+      "path": "scripts/tests/audit-native.test.mjs",
+      "exists": true,
+      "bytes": 4461,
+      "sha256": "5c9eefc0181e670054f924473242ed4dcb715461c97bee628ab129b8c0a4abee"
+    },
+    {
+      "path": "scripts/tests/bridge-contract.test.mjs",
+      "exists": true,
+      "bytes": 2818,
+      "sha256": "344781a3165bd030cc0c090d051310bdb7072e2b698698fc2c3b0753639d454f"
+    },
+    {
+      "path": "scripts/tests/browse-relations.test.mjs",
+      "exists": true,
+      "bytes": 10523,
+      "sha256": "24cbbb3a1665bc96aa5b6844c40e2e417c1c7af3bc5c1b148dc4c7f7e4c89316"
+    },
+    {
+      "path": "scripts/tests/cancel-boundaries.mjs",
+      "exists": true,
+      "bytes": 372,
+      "sha256": "9b80758438f804deea2c7feadc5a45b900fbd8d8f1e8650db07d412e87ac1ed8"
+    },
+    {
+      "path": "scripts/tests/cancel-requests.test.mjs",
+      "exists": true,
+      "bytes": 38742,
+      "sha256": "54f4b85db8ec637cd0ee820f1e1294667d18c65c267b2dde29ff8eec0c1c65a5"
+    },
+    {
+      "path": "scripts/tests/cancellation.test.mjs",
+      "exists": true,
+      "bytes": 4552,
+      "sha256": "bda0e6870c9ba39c7f6622535af2ad9c1f86fb259a572a84330fc8eca7e38bb0"
+    },
+    {
+      "path": "scripts/tests/cart-invalid-request.test.mjs",
+      "exists": true,
+      "bytes": 2368,
+      "sha256": "7dd930583ae3a3b526f46271b2afb07279635a79ba62c6e31a0e425596c5bed9"
+    },
+    {
+      "path": "scripts/tests/cart-loading.test.mjs",
+      "exists": true,
+      "bytes": 11119,
+      "sha256": "ba0f1c0b207d9db1afd4b62649e3af611b8f469712bb0213802562f2cbd78e57"
+    },
+    {
+      "path": "scripts/tests/cart-selection.test.mjs",
+      "exists": true,
+      "bytes": 8583,
+      "sha256": "3838c08819c04455ea8e1930afe1317dc17528e6ff984cf61baa14cf8f7c0d39"
+    },
+    {
+      "path": "scripts/tests/cashier-session.test.mjs",
+      "exists": true,
+      "bytes": 15444,
+      "sha256": "2b31f45f159066fdc64af884d335fedb1faea6c5be42d24cc55722cd0fedfdb4"
+    },
+    {
+      "path": "scripts/tests/checkout-auto-recovery.test.mjs",
+      "exists": true,
+      "bytes": 4320,
+      "sha256": "fad474bd3f0f96851cc8360dbc7006eb0299e63a5506a09acaadb1303d693bcb"
+    },
+    {
+      "path": "scripts/tests/checkout-inline-edit.test.mjs",
+      "exists": true,
+      "bytes": 4221,
+      "sha256": "33033a9804ac7e811fef33897f83e119fd09d28b679359ba2643a8b234c93de0"
+    },
+    {
+      "path": "scripts/tests/checkout-readiness.test.mjs",
+      "exists": true,
+      "bytes": 11795,
+      "sha256": "f655383e858b0354bb8b7462c6a0a3a92c45dcfe3da032f2a5d3c2090796b62f"
+    },
+    {
+      "path": "scripts/tests/checkout-submission.test.mjs",
+      "exists": true,
+      "bytes": 12146,
+      "sha256": "12d9af9e143c4fe9c98662a8ee090897b4a62051e0766a9480a864011d41a352"
+    },
+    {
+      "path": "scripts/tests/client-environment.test.mjs",
+      "exists": true,
+      "bytes": 10371,
+      "sha256": "af9d4d95d9b21146ec91d5a8f4c1e9eb1a830ffde0607afc77307c7b7aac723f"
+    },
+    {
+      "path": "scripts/tests/client-step5.test.mjs",
+      "exists": true,
+      "bytes": 7625,
+      "sha256": "91b03b0a3fa747e806eb2df7946d0d56557af314d896c6d1681d5bc7429ccc0c"
+    },
+    {
+      "path": "scripts/tests/consent.test.mjs",
+      "exists": true,
+      "bytes": 8129,
+      "sha256": "14973bcc776103dfc77de416cc95e7f321d8803ed62635773098e5d62f6a42df"
+    },
+    {
+      "path": "scripts/tests/device-cache.test.mjs",
+      "exists": true,
+      "bytes": 15126,
+      "sha256": "fd80ebebf166d118621d9f0d640ba78433b2d5d96176e532003e9a8c017234a1"
+    },
+    {
+      "path": "scripts/tests/device-inventory-server.ts",
+      "exists": true,
+      "bytes": 562,
+      "sha256": "0e3debf7fb5f551b5582e779b81918db90620044d654dd34d670b6c0085eeca4"
+    },
+    {
+      "path": "scripts/tests/device-port-scope.test.mjs",
+      "exists": true,
+      "bytes": 837,
+      "sha256": "f6df8bb9f0eca8548352854c90c9215dd3b55bfdbc6e24dd5670d2425933dcba"
+    },
+    {
+      "path": "scripts/tests/device-smoke-server.ts",
+      "exists": true,
+      "bytes": 596,
+      "sha256": "5e4733489e61c3e1e98a62313f0fe2197098aee2fac9acf57e64b8cd79039081"
+    },
+    {
+      "path": "scripts/tests/device-trade-server.ts",
+      "exists": true,
+      "bytes": 18061,
+      "sha256": "b13dc4d4cd27033ccebfe86f4be8a4ab9135361669b906cc1e182122a993ab46"
+    },
+    {
+      "path": "scripts/tests/evaluation-harness.mjs",
+      "exists": true,
+      "bytes": 2865,
+      "sha256": "2f563012b94a07a324717e81a28372fd074635258c6f2559b8f266d63c3a6698"
+    },
+    {
+      "path": "scripts/tests/evaluation-orders.test.mjs",
+      "exists": true,
+      "bytes": 10499,
+      "sha256": "d83caf8c9b7b1bfb0b5e876932b813b63d1274398ae24dc3cf0a5a32149b688e"
+    },
+    {
+      "path": "scripts/tests/evaluation-session.test.mjs",
+      "exists": true,
+      "bytes": 8135,
+      "sha256": "a23d06bf884c310fa22d489eff009977378985907215309b261057d434b00c07"
+    },
+    {
+      "path": "scripts/tests/family-api-session.test.mjs",
+      "exists": true,
+      "bytes": 6082,
+      "sha256": "bdad0e509eda2150917aa264a6cb3607d8b8c649adcfbd39feac20c2cf763729"
+    },
+    {
+      "path": "scripts/tests/family-pagination.test.mjs",
+      "exists": true,
+      "bytes": 5753,
+      "sha256": "c69454931652c904e8d14122c04bf0c65ecff2d016b677c1892d51ae0790e1d8"
+    },
+    {
+      "path": "scripts/tests/family-retry-placement.test.mjs",
+      "exists": true,
+      "bytes": 767,
+      "sha256": "2caeb51664846ea8004e6850f3e305aa685bba4c59b70af019d7f650bb3e5feb"
+    },
+    {
+      "path": "scripts/tests/family-session.test.mjs",
+      "exists": true,
+      "bytes": 17340,
+      "sha256": "bcbfbd58713ad25ca281ab39d916a39971b55f5f01fa29ea4680c71664d7ebf7"
+    },
+    {
+      "path": "scripts/tests/friendly-failure.test.mjs",
+      "exists": true,
+      "bytes": 2192,
+      "sha256": "e11923fc54431ea7dd297d76b00cfc96c7faf9d36b52ac500789963719715c43"
+    },
+    {
+      "path": "scripts/tests/fullscreen-bottom-safe-area.test.mjs",
+      "exists": true,
+      "bytes": 4016,
+      "sha256": "b631e87b0ad6b1d429479b679a471a84f79b68a84b7633a31f3087460e88fef5"
+    },
+    {
+      "path": "scripts/tests/goods-api-session.test.mjs",
+      "exists": true,
+      "bytes": 4975,
+      "sha256": "13b485569b0db838c86f0b387d5a5f4d41b37b613626e0aed02e22c249c6e9e4"
+    },
+    {
+      "path": "scripts/tests/goods-availability-presentation.test.mjs",
+      "exists": true,
+      "bytes": 912,
+      "sha256": "ea609f3af3f28b4c2e5ef2081ff68e35e5d6d1273c8e76033f075133ecc97c84"
+    },
+    {
+      "path": "scripts/tests/goods-session.test.mjs",
+      "exists": true,
+      "bytes": 24583,
+      "sha256": "2afbe25f3ca29324047aa6950b2ddaa886424101d20fef7d87c2ba8f22006f47"
+    },
+    {
+      "path": "scripts/tests/inventory-acceptance.test.mjs",
+      "exists": true,
+      "bytes": 5669,
+      "sha256": "ccd16ef887fa9f5e13428ed39a4bf9708f20796d3f594e947d65a05941c8c1a2"
+    },
+    {
+      "path": "scripts/tests/inventory-adjustment.test.mjs",
+      "exists": true,
+      "bytes": 8359,
+      "sha256": "6d5a962dadfac8ec1a618333ea15248f943fd668e48e6d50e5d7e71a3b4785f4"
+    },
+    {
+      "path": "scripts/tests/inventory-session.test.mjs",
+      "exists": true,
+      "bytes": 11869,
+      "sha256": "3ef0cf895caa00b3c608c24e2520209cbfa5fdf83982cbaba9243507fc49640f"
+    },
+    {
+      "path": "scripts/tests/legacy-buyer-migration.test.mjs",
+      "exists": true,
+      "bytes": 6970,
+      "sha256": "0d0f0db13f7b7c70afa77dd8fd25f7a4da069e6f526c0bc508b354a56b4628c5"
+    },
+    {
+      "path": "scripts/tests/light-mode-contrast.test.mjs",
+      "exists": true,
+      "bytes": 3728,
+      "sha256": "6eab8618c271013cbe246b5ac95ee98cc8688aaafa6900b9506e352f4b76d9da"
+    },
+    {
+      "path": "scripts/tests/list-render-keys.test.mjs",
+      "exists": true,
+      "bytes": 3488,
+      "sha256": "b0d5fd1088fbadbdc1d85a28c356f8f7be0d5372b07098c614fc430458e06b91"
+    },
+    {
+      "path": "scripts/tests/local-goods-pages.test.mjs",
+      "exists": true,
+      "bytes": 10102,
+      "sha256": "5c3302e401135538c6fb6772b3b031ea8147e05eba228557bce3c899f71755a7"
+    },
+    {
+      "path": "scripts/tests/local-goods-store.test.mjs",
+      "exists": true,
+      "bytes": 6190,
+      "sha256": "6477a505210822123ccf1ccc6ca696891231a78ac89405355d13ffab771dcd7c"
+    },
+    {
+      "path": "scripts/tests/mine-attention.test.mjs",
+      "exists": true,
+      "bytes": 2680,
+      "sha256": "2bf703cadba69bdc7b42544f5ea85d13a55307ae3bf96b4c5962fb25af7f2901"
+    },
+    {
+      "path": "scripts/tests/native-harness.mjs",
+      "exists": true,
+      "bytes": 2575,
+      "sha256": "6cb198700a2e5648eca2a52122de7b803adedbdeb8a8aa7348f0b01a85eeeed9"
+    },
+    {
+      "path": "scripts/tests/native-write-requests.test.mjs",
+      "exists": true,
+      "bytes": 16653,
+      "sha256": "8bb375c12f5e0d8764c355a1aa71757dcf4558d9a2187bc843797dcfe541cd20"
+    },
+    {
+      "path": "scripts/tests/order-detail-session.test.mjs",
+      "exists": true,
+      "bytes": 10395,
+      "sha256": "3b294135d73beee1e4dad67714b539b80a60f3fb629b32e973b51d67e24d5e2d"
+    },
+    {
+      "path": "scripts/tests/order-loading.test.mjs",
+      "exists": true,
+      "bytes": 7863,
+      "sha256": "6ed775b5eefb32687e60ff5bca18da87d27631916318b564ef11e5bb9a653de0"
+    },
+    {
+      "path": "scripts/tests/order-logistics-copy.test.mjs",
+      "exists": true,
+      "bytes": 1061,
+      "sha256": "57e53b199972dc38ecb1b1168f91d58c5c68f6ede29ce134f84b9e7acb020d8a"
+    },
+    {
+      "path": "scripts/tests/order-request-recovery.test.mjs",
+      "exists": true,
+      "bytes": 7052,
+      "sha256": "f3871fd4daa20b0fd8b8947b6d23fd0ba79fb7d2b4668fcf122898aa81c6ac98"
+    },
+    {
+      "path": "scripts/tests/order-session.test.mjs",
+      "exists": true,
+      "bytes": 18568,
+      "sha256": "064c4c6b09d5dd3d0fc079c3bdef814ba271bc0b3275f63dca1ee35aee8b293a"
+    },
+    {
+      "path": "scripts/tests/order-write-boundaries.mjs",
+      "exists": true,
+      "bytes": 513,
+      "sha256": "90db0ad217d56e86dbc7cec2ad348f82132977f1cd11f92bae0cbbc699ce5bb7"
+    },
+    {
+      "path": "scripts/tests/payment-presentation.test.mjs",
+      "exists": true,
+      "bytes": 3751,
+      "sha256": "de9792a87055021e5ba895f91dc074c0df9a69cb5da9c031f46694e940398749"
+    },
+    {
+      "path": "scripts/tests/payment-result.test.mjs",
+      "exists": true,
+      "bytes": 19115,
+      "sha256": "e341fa07af2bc26e0cbb37330a14e9b609dfffd284bd9e7e0b1d715f16d8691e"
+    },
+    {
+      "path": "scripts/tests/permission-recovery.test.mjs",
+      "exists": true,
+      "bytes": 7844,
+      "sha256": "1ce9be7bd0aad6e8f46a172a63f228e150140409f803518702f15566bdf57e5a"
+    },
+    {
+      "path": "scripts/tests/product-availability.test.mjs",
+      "exists": true,
+      "bytes": 979,
+      "sha256": "ff475cfd9435e47d766b8cebff05d0804e0fb8266f1e1cdadc781315f3526832"
+    },
+    {
+      "path": "scripts/tests/product-image.test.mjs",
+      "exists": true,
+      "bytes": 1785,
+      "sha256": "b3a2a4d06b0cc2031fc443c4b5f6d05433beffefb42bec2f7ed01fa826571b0f"
+    },
+    {
+      "path": "scripts/tests/product-manage.test.mjs",
+      "exists": true,
+      "bytes": 5264,
+      "sha256": "87ddc3f9d726bfe281659076cd61bf5de04f8ca6c979fd4dbda5c46e55e085b6"
+    },
+    {
+      "path": "scripts/tests/product-session.test.mjs",
+      "exists": true,
+      "bytes": 9809,
+      "sha256": "c8c4190e87c70004814db52bbbdd9509f81da6bdf1e86d8d226071f0e0999665"
+    },
+    {
+      "path": "scripts/tests/product-sort.test.mjs",
+      "exists": true,
+      "bytes": 2631,
+      "sha256": "40ddcd7d7578e3dba98221e9f39ef6176fbe97c8fcbd7b1375414bd085ee47c7"
+    },
+    {
+      "path": "scripts/tests/product-ui.test.mjs",
+      "exists": true,
+      "bytes": 5034,
+      "sha256": "8a96cfccdd10a3ae0b24ada468cc9ccf2fcc90c8c726a0dad3dc53ee6e93ad3d"
+    },
+    {
+      "path": "scripts/tests/profile-lifecycle.test.mjs",
+      "exists": true,
+      "bytes": 6235,
+      "sha256": "b467a6f61e42057468a7cbbba3d6146469b2cfd3be33d72e5695b2fb1ea53cb7"
+    },
+    {
+      "path": "scripts/tests/profile-save.test.mjs",
+      "exists": true,
+      "bytes": 9558,
+      "sha256": "8ffcda1a3c8c708ac9c926d3a865fc1413e83307bd04cd0d5c8ede270d2f6060"
+    },
+    {
+      "path": "scripts/tests/promotion-native.test.mjs",
+      "exists": true,
+      "bytes": 10960,
+      "sha256": "3ec036cec0eacc072555ce8a3c57d573191c168761da47353c797dd0a2092920"
+    },
+    {
+      "path": "scripts/tests/promotion-probe.test.mjs",
+      "exists": true,
+      "bytes": 705,
+      "sha256": "642d5484a81caae8cc5754bd8f85a2bd24a44c538d44e6768cfd0d3132ae709f"
+    },
+    {
+      "path": "scripts/tests/reconciliation-logistics-native.test.mjs",
+      "exists": true,
+      "bytes": 4672,
+      "sha256": "61b4e6d924eb3eb093e0073d372709916da7a09f4b9481dc8781984bf2eb2cc3"
+    },
+    {
+      "path": "scripts/tests/reconciliation-order-display.test.mjs",
+      "exists": true,
+      "bytes": 2148,
+      "sha256": "ba943c201d3544eb3fe54201de1e5f65d8766cb2d42d1a125f192fd4eb7b8051"
+    },
+    {
+      "path": "scripts/tests/return-policy-native.test.mjs",
+      "exists": true,
+      "bytes": 11805,
+      "sha256": "fb27d44da4e46381364c94c62bdb71627e64cf3e8a9b24f6c0a394a9304668b0"
+    },
+    {
+      "path": "scripts/tests/sandbox-cashier-navigation.test.mjs",
+      "exists": true,
+      "bytes": 3464,
+      "sha256": "b19da04fa535e458c65218dd04ae23443686dd51c80f56c0b2aa4da3e47f3bb2"
+    },
+    {
+      "path": "scripts/tests/service-native.test.mjs",
+      "exists": true,
+      "bytes": 19427,
+      "sha256": "979558116cb65a6f652619c5e450df18cbf840a5a62ec94f05d82948b4cfd092"
+    },
+    {
+      "path": "scripts/tests/service-probe.test.mjs",
+      "exists": true,
+      "bytes": 1077,
+      "sha256": "06c641154b415066625dcfd8def8bb1d7e4c5f776dc8cbd10cf18a3e3f04b803"
+    },
+    {
+      "path": "scripts/tests/session-get-retry.test.mjs",
+      "exists": true,
+      "bytes": 3539,
+      "sha256": "747fcca589595e7f86ca3cd1af85907e4e2deda34ad75dfbd152e1142020a429"
+    },
+    {
+      "path": "scripts/tests/session-pages.test.mjs",
+      "exists": true,
+      "bytes": 11323,
+      "sha256": "dccb9b62a56baadaf00428e32205fb0cd5c83ec6ec69755a3b799be9be9b6cc1"
+    },
+    {
+      "path": "scripts/tests/time-format.test.mjs",
+      "exists": true,
+      "bytes": 2165,
+      "sha256": "15544b184d7ae12b06a9c2fe0c361d96ba29a6e0332a409f7adef479d4e864dc"
+    },
+    {
+      "path": "scripts/tests/trade-network-probe.test.mjs",
+      "exists": true,
+      "bytes": 1547,
+      "sha256": "235db8969741cf66885d8185ed5567b477d9a74823ff50354dfb184eafd22803"
+    },
+    {
+      "path": "scripts/tests/trade-network-recovery.test.mjs",
+      "exists": true,
+      "bytes": 9846,
+      "sha256": "f6b4d9608f8f32895f9fe7ef948b614220801127480a3eec8ab0d974a0db4739"
+    },
+    {
+      "path": "scripts/tests/ux-cart.test.mjs",
+      "exists": true,
+      "bytes": 4312,
+      "sha256": "750e2ce1e52bd1b279bb81a3fbe16753d085d0870102b1d0b6641ecb28b7c912"
+    },
+    {
+      "path": "scripts/tests/ux-cashier.test.mjs",
+      "exists": true,
+      "bytes": 2558,
+      "sha256": "2438c5f2e20b42d136e1f9349076a458dde6ce0cd4eb0bdeaac1bacb60324213"
+    },
+    {
+      "path": "scripts/tests/ux-confirm.test.mjs",
+      "exists": true,
+      "bytes": 1300,
+      "sha256": "658578f863cc7f16281db1dbbb7e2fd562cd09774195b2615584b1ce5f3c6871"
+    },
+    {
+      "path": "scripts/tests/ux-evaluation.test.mjs",
+      "exists": true,
+      "bytes": 1877,
+      "sha256": "56100c32eb8189ca971960bd527bfa97bb5815b46c839dd945849379ec91666d"
+    },
+    {
+      "path": "scripts/tests/ux-family.test.mjs",
+      "exists": true,
+      "bytes": 4221,
+      "sha256": "377fc599a9c002cfe90e1bf8f614aedc8be8141f68210d8044956aa2c7a7f608"
+    },
+    {
+      "path": "scripts/tests/ux-login.test.mjs",
+      "exists": true,
+      "bytes": 2453,
+      "sha256": "5d3e28a5e5cc84e7b926be16775b1594d16763e63d69d7638d688538f6a182fb"
+    },
+    {
+      "path": "scripts/tests/ux-order-recovery.test.mjs",
+      "exists": true,
+      "bytes": 3369,
+      "sha256": "4efc87542da05ec7768fef9dafa20db547f289727b69d1fcbe88d685b0aa62ab"
+    },
+    {
+      "path": "scripts/tests/ux-profile-bridge.test.mjs",
+      "exists": true,
+      "bytes": 2092,
+      "sha256": "b68eab29078ef46c25c77f3b22246beb8f0ff727d714b79f769b376211d42663"
+    },
+    {
+      "path": "scripts/tests/ux-search.test.mjs",
+      "exists": true,
+      "bytes": 1369,
+      "sha256": "acf13e51f4a5a96248a5fb0f83e1a93b0e9d77275161a170d3ea485607a1e4a5"
+    },
+    {
+      "path": "scripts/tests/ux-theme.test.mjs",
+      "exists": true,
+      "bytes": 1446,
+      "sha256": "d1316a50855fd6c5ba031c551f42927c66a28155624374a6f0a4b832994b32f7"
+    },
+    {
+      "path": "scripts/verify-client-environment.ps1",
+      "exists": true,
+      "bytes": 4053,
+      "sha256": "c7c6b646d1cad217e89d05410bfd35e9a9cf7fd5c88b50e5ed5dbf148b1bfbd8"
+    },
+    {
+      "path": "scripts/verify-enterprise-baseline.ps1",
+      "exists": true,
+      "bytes": 276,
+      "sha256": "89bd761d6bc5d97682bfcb3527079431b545b8dc3e5052d9d2f88c1d9936d8ac"
+    },
+    {
+      "path": "scripts/verify-optimization-build.ps1",
+      "exists": true,
+      "bytes": 534,
+      "sha256": "e16143dfdac36e6bc28326fc35ac495bbf8fa7f67bbb2b27ac8d2cf7e8a085b2"
+    },
+    {
+      "path": "scripts/verify-optimization.ps1",
+      "exists": true,
+      "bytes": 1340,
+      "sha256": "548402f1f11837a99ee922b96d1a4bdee7621fb01eb46f5ea627f6e9c9d15464"
+    },
+    {
+      "path": "scripts/verify-package-web.ps1",
+      "exists": true,
+      "bytes": 1850,
+      "sha256": "ddcef9188daf2e0cd5a2f1b11ccda30ebbb3d61f22f7bd267459b33a323f414c"
+    },
+    {
+      "path": "scripts/verify-project.ps1",
+      "exists": true,
+      "bytes": 3254,
+      "sha256": "8bd0e4a7b62071075a8eee6612e39f35f0ee0a0bebb1c923470bfc8e233e445b"
+    },
+    {
+      "path": "scripts/verify-server.ps1",
+      "exists": true,
+      "bytes": 345,
+      "sha256": "e74eb65908cb3ddd0e63e09f481b8694d6ead21e285d087666f9ecf0c000f0e9"
+    },
+    {
+      "path": "scripts/verify-trade.ps1",
+      "exists": true,
+      "bytes": 810,
+      "sha256": "40837f8fa17cc0e2f7ddce08597e4ef049849401dc35c6b0562f37d4ea889428"
+    }
+  ]
+}

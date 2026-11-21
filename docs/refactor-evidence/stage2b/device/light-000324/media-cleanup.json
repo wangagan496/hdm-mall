@@ -1,0 +1,15 @@
+{
+  "removed": 1,
+  "entries": [
+    {
+      "devicePath": "file://media/Photo/5/IMG_1795104313_004/hdm-report-4c847f2cd1b1482dadff12f2dd22fa18.jpg",
+      "countRestored": true,
+      "mediaCountBeforeDelete": 2,
+      "deleted": true,
+      "displayName": "hdm-report-4c847f2cd1b1482dadff12f2dd22fa18.jpg",
+      "mediaCountAfterDelete": 1,
+      "sha256": "E19DF8F9FD75FD23C2D8CD6AADDCDE1D38ED510054CE169F920ACD2C8AB19BCA"
+    }
+  ],
+  "created": 1
+}

@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-20T11:14:40.3264151+08:00",
+  "completedAt": "2026-11-20T11:16:17.6817683+08:00",
+  "durationSeconds": 97.36,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "failed",
+  "counts": {
+    "failed": 1,
+    "skipped": 0,
+    "passed": 0
+  },
+  "packageSha256": "009FAFC7D97DCC7A042C6B0B121B7715F37F7369CBE7DB4D7F9998B014C23A1B",
+  "error": "Could not frame source evidence: 尺码表：M码 胸围96厘米，L码 胸围100厘米",
+  "scriptStackTrace": "at Show-Stage2bText, D:\\hdm-mall\\scripts\\device-promises-probe.ps1: line 94\r\nat Invoke-SizingProbe, D:\\hdm-mall\\scripts\\device-promises-probe.ps1: line 314\r\nat <ScriptBlock>, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 2226"
+}

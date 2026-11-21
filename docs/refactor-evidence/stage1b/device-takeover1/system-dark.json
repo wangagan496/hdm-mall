@@ -1,0 +1,58 @@
+[
+  {
+    "text": "浅色, tab_unlock",
+    "type": "Column",
+    "checked": "false",
+    "selected": "false",
+    "bounds": "[70,542][660,1765]"
+  },
+  {
+    "text": "浅色",
+    "type": "Text",
+    "checked": "false",
+    "selected": "false",
+    "bounds": "[316,1561][415,1618]"
+  },
+  {
+    "text": "tab_unlock",
+    "type": "Radio",
+    "checked": "false",
+    "selected": "false",
+    "bounds": "[323,1639][407,1723]"
+  },
+  {
+    "text": "深色, tab_unlock",
+    "type": "Column",
+    "checked": "false",
+    "selected": "true",
+    "bounds": "[660,542][1250,1765]"
+  },
+  {
+    "text": "深色",
+    "type": "Text",
+    "checked": "false",
+    "selected": "false",
+    "bounds": "[906,1561][1005,1618]"
+  },
+  {
+    "text": "tab_unlock",
+    "type": "Radio",
+    "checked": "true",
+    "selected": "false",
+    "bounds": "[913,1639][997,1723]"
+  },
+  {
+    "text": "深色模式",
+    "type": "Text",
+    "checked": "false",
+    "selected": "false",
+    "bounds": "[98,1818][378,1884]"
+  },
+  {
+    "text": "全天开启",
+    "type": "Text",
+    "checked": "false",
+    "selected": "false",
+    "bounds": "[968,1823][1165,1880]"
+  }
+]

@@ -25,17 +25,17 @@ export struct MerchantServiceView {
   aboutToDisappear(): void { this.active = false; this.query++; this.items = []; this.loading = false }
   private async load(page: number): Promise<void> {
     const token = this.user.token, query = ++this.query
-    if (!this.active || !token || this.user.role !== 'merchant') { this.message = '请使用商家账号查看客服留言'; return }
+    if (!this.active || !token || this.user.identity !== 'merchant') { this.message = '请使用商家账号查看客服留言'; return }
     this.loading = true; this.message = ''
     try {
       const result = await RequestAxios.getForSession<ServiceThreadPage>('/merchant/service?state=' + this.filter + '&page=' + page + '&pageSize=10', token)
-      if (this.active && query === this.query && token === this.user.token && this.user.role === 'merchant') { this.items = result.items; this.pages = result.pages; this.page = page }
+      if (this.active && query === this.query && token === this.user.token && this.user.identity === 'merchant') { this.items = result.items; this.pages = result.pages; this.page = page }
     } catch { if (this.active && query === this.query && token === this.user.token) this.message = '留言列表读取失败，请重试' }
     finally { if (query === this.query) this.loading = false }
   }
   private async changeFilter(filter: string): Promise<void> { this.filter = filter; this.items = []; this.page = 1; await this.load(1) }
   private open(item: ServiceThread): void {
-    if (!this.active || this.user.role !== 'merchant') return
+    if (!this.active || this.user.identity !== 'merchant') return
     this.stackPath.pushPath({ name: 'MerchantServiceThread', param: { buyerId: item.buyerId } as ThreadRoute,
       onPop: () => { this.active = true; void this.load(this.page) } })
   }

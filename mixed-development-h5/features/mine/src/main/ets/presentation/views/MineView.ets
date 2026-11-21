@@ -3,9 +3,11 @@ import { HDMUser } from 'models'
 import { HDMGuess, HDMNavCol } from 'ui_components'
 import { getGuessLikeAPI, getOrderAttentionCountAPI } from '../../data/api'
 import { RequestAxios } from 'network'
+import { CurrentIdentityLayout, IDENTITY_LAYOUT_KEY, entryVisible, userSession } from 'storage'
 
 interface AccountNotice { id: string; message: string; created: number }
 interface ServiceUnread { count: number }
+interface ReviewCapability { reviewer:boolean }
 
 @Component
 export struct MineView {
@@ -23,6 +25,9 @@ export struct MineView {
   }
   @Consume
   stackPath: NavPathStack
+  @StorageProp(IDENTITY_LAYOUT_KEY) identityLayout: CurrentIdentityLayout = {}
+  @State switchingIdentity: boolean = false
+  @State reviewer:boolean = false
   @State attentionCount: number = 0
   @State serviceUnread: number = 0
   @State accountNotice: string = ''
@@ -47,10 +52,12 @@ export struct MineView {
   }
 
   private reloadAttentionForAccount(): void {
+    this.reviewer=false
     this.attentionToken = ''
     this.attentionSequence++
     this.attentionCount = 0
     this.serviceUnread = 0
+    this.accountNotice = ''
     this.refreshOrderAttention()
   }
 
@@ -63,9 +70,10 @@ export struct MineView {
     const token: string = this.user.token || ''
     const sequence: number = ++this.attentionSequence
     this.attentionToken = token
+    void this.loadReviewer(token, sequence)
     void this.refreshAccountNotice(token, sequence)
     void this.refreshServiceUnread(token, sequence)
-    if (!token || !this.attentionVisible) {
+    if (!token || !this.attentionVisible || this.user.identity === 'merchant') {
       this.attentionCount = 0
       return
     }
@@ -87,8 +95,16 @@ export struct MineView {
     } catch { }
   }
 
+  private async loadReviewer(token:string,sequence:number):Promise<void>{
+    if(!token || !this.attentionVisible){this.reviewer=false;return}
+    try{
+      const capability=await RequestAxios.getForSession<ReviewCapability>('/reviews/capability',token)
+      if(token===this.user.token && sequence===this.attentionSequence)this.reviewer=capability.reviewer
+    }catch{if(sequence===this.attentionSequence)this.reviewer=false}
+  }
+
   private async refreshServiceUnread(token: string, sequence: number): Promise<void> {
-    if (!token || !this.attentionVisible || this.user.role === 'merchant') { this.serviceUnread = 0; return }
+    if (!token || !this.attentionVisible || this.user.identity === 'merchant') { this.serviceUnread = 0; return }
     try {
       const result = await RequestAxios.getForSession<ServiceUnread>('/member/service/unread', token)
       if (this.attentionVisible && sequence === this.attentionSequence && token === this.attentionToken && token === this.user.token) this.serviceUnread = result.count
@@ -97,7 +113,7 @@ export struct MineView {
 
   private openService(): void {
     if (!this.user.token) { this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE }); return }
-    this.stackPath.pushPath({ name: this.user.role === 'merchant' ? 'MerchantServiceView' : PAGE_PATH.CUSTOMER_SERVICE_PAGE,
+    this.stackPath.pushPath({ name: this.user.identity === 'merchant' ? 'MerchantServiceView' : PAGE_PATH.CUSTOMER_SERVICE_PAGE,
       onPop: () => this.refreshAttentionOnOrdersReturn() })
   }
 
@@ -114,7 +130,18 @@ export struct MineView {
     })
   }
 
-  // @StorageProp(auth.KEY) user: MkUser = {} as MkUser
+  private async switchIdentity(): Promise<void> {
+    if (this.switchingIdentity || !this.user.identities || this.user.identities.length < 2 || !this.user.identity) return
+    this.switchingIdentity = true
+    try {
+      await userSession.switchIdentity(this.user.identity === 'merchant' ? 'buyer' : 'merchant')
+    } catch (error) {
+      this.getUIContext().getPromptAction().showToast({ message: (error as Error).message })
+    } finally {
+      this.switchingIdentity = false
+    }
+  }
+
   build() {
     Column() {
       Scroll() {
@@ -215,21 +242,51 @@ export struct MineView {
             colors: [[$r('[ui_components].color.yellow'), 0], [$r('[ui_components].color.under'), 1]]
           })
 
-          if (this.user.role === 'merchant') {
-            Button('对账').id('merchant-reconciliation-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
-              .onClick(() => this.stackPath.pushPath({ name: 'ReconciliationView' }))
+          if (this.user.token && this.user.identity) {
+            Row({ space: 8 }) {
+              if ((this.user.identities?.length || 0) > 1) {
+                Text(this.user.identity === 'merchant' ? '店主身份' : '买家身份').id('current-identity')
+                  .fontSize(14).fontColor($r('[ui_components].color.text'))
+                Button(this.switchingIdentity ? '切换中' : this.user.identity === 'merchant' ? '切换为买家身份' : '切换为店主身份')
+                  .id('identity-switch').height(44).fontSize(14)
+                  .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+                  .enabled(!this.switchingIdentity && this.user.status !== 'deleting').onClick(() => this.switchIdentity())
+              }
+              Button('入口整理').id('identity-layout-entry').height(44).fontSize(14)
+                .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+                .enabled(!this.switchingIdentity && this.user.status !== 'deleting')
+                .onClick(() => this.stackPath.pushPath({ name: 'IdentityLayoutView' }))
+            }.width('100%').justifyContent(FlexAlign.Center).padding({ top: 12 })
+          }
+          if(this.reviewer){
+            Button('平台复核').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+              .onClick(()=>this.stackPath.pushPathByName('ReviewQueueView',null))
+          }
+          if (this.user.identity === 'merchant') {
+            if (entryVisible(this.user, this.identityLayout, 'merchant-reconciliation')) {
+              Button('对账').id('merchant-reconciliation-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                .onClick(() => this.stackPath.pushPath({ name: 'ReconciliationView' }))
+            }
             Button('客服留言').id('merchant-service-entry').margin({ top: 12 }).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.openService())
-            Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
-              .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))
-            Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')
-              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
-              .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))
-            Button('库存管理').margin({ top: 12 })
-              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
-              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))
-            Button('商品管理').margin({ top: 12 })
-              .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
-              .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MANAGE_PAGE }))
+            if (entryVisible(this.user, this.identityLayout, 'merchant-promotions')) {
+              Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
+                .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))
+            }
+            if (entryVisible(this.user, this.identityLayout, 'merchant-audit')) {
+              Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')
+                .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                .onClick(() => this.stackPath.pushPath({ name: 'AuditLogView' }))
+            }
+            if (entryVisible(this.user, this.identityLayout, 'merchant-inventory')) {
+              Button('库存管理').margin({ top: 12 })
+                .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.INVENTORY_PAGE }))
+            }
+            if (entryVisible(this.user, this.identityLayout, 'merchant-products')) {
+              Button('商品管理').margin({ top: 12 })
+                .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.PRODUCT_MANAGE_PAGE }))
+            }
             Button($r('app.string.after_sale_manage')).margin({ top: 12 })
               .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
               .onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_MANAGE_PAGE }))
@@ -240,35 +297,38 @@ export struct MineView {
               .onClick(() => this.stackPath.pushPath({ name: 'AccountDeletionView' }))
           }
           if (this.accountNotice && this.user.token) { Text(this.accountNotice).fontSize(14).padding(12).width('100%') }
-          Button(this.user.role === 'merchant' ? '亲友中心 / 商家发货' : '亲友中心 · 代付与代收')
+          Button(this.user.identity === 'merchant' ? '店铺订单' : '亲友中心 · 代付与代收')
             .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
             .margin({ top: 12, bottom: 12 })
             .onClick(() => {
               this.stackPath.pushPath({ name: this.user.token ? PAGE_PATH.FAMILY_PAGE : PAGE_PATH.LOGIN_PAGE })
             })
+          Button('拆开看看 · 应用的真实结构').id('module-bay-entry')
+            .fontSize(14).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+            .width('92%').onClick(() => this.stackPath.pushPath({ name: 'ModuleBayView' }))
           // nav
           Column({ space: 8 }) {
             GridRow({ columns: 3 }) {
-              GridCol() {
-                HDMNavCol({
-                  icon: $r('app.media.ic_user_collect'),
-                  text: '我的收藏',
-                  color: $r('[ui_components].color.text'),
-                  onNavClick: () => {
-                    this.stackPath.pushPath({ name: PAGE_PATH.FAVORITES_PAGE })
-                  }
-                })
+              if (this.user.identity !== 'merchant' && entryVisible(this.user, this.identityLayout, 'favorites')) {
+                GridCol() {
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_collect'),
+                    text: '我的收藏',
+                    color: $r('[ui_components].color.text'),
+                    onNavClick: () => this.stackPath.pushPath({ name: PAGE_PATH.FAVORITES_PAGE })
+                  })
+                }
               }
 
-              GridCol() {
-                HDMNavCol({
-                  icon: $r('app.media.ic_user_history'),
-                  text: '我的足迹',
-                  color: $r('[ui_components].color.text'),
-                  onNavClick: () => {
-                    this.stackPath.pushPath({ name: PAGE_PATH.HISTORY_PAGE })
-                  }
-                })
+              if (this.user.identity !== 'merchant' && entryVisible(this.user, this.identityLayout, 'history')) {
+                GridCol() {
+                  HDMNavCol({
+                    icon: $r('app.media.ic_user_history'),
+                    text: '我的足迹',
+                    color: $r('[ui_components].color.text'),
+                    onNavClick: () => this.stackPath.pushPath({ name: PAGE_PATH.HISTORY_PAGE })
+                  })
+                }
               }
 
               GridCol() {
@@ -292,6 +352,7 @@ export struct MineView {
             })
             .borderRadius(10)
 
+            if (this.user.identity !== 'merchant') {
             Column() {
               Row() {
                 Text('我的订单')
@@ -351,6 +412,7 @@ export struct MineView {
             }
             .backgroundColor($r('[ui_components].color.white'))
             .borderRadius(10)
+            }
           }
           .padding({ left: 8, right: 8 })
 

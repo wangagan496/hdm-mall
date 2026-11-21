@@ -1,0 +1,96 @@
+{
+  "status": "failed",
+  "packageSha256": "90F3299509790D9E1BD9002BF112F9F09810BAEA803005819E6D81BFA2A2164E",
+  "target": "127.0.0.1:5555",
+  "api": 24,
+  "scenes": [],
+  "themes": [],
+  "captures": [
+    {
+      "file": "light-01-merchant-mine.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 87647,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[151,794][348,851]"
+        },
+        {
+          "control": "切换为买家身份",
+          "text": "切换为买家身份",
+          "type": "Button",
+          "bounds": "[376,745][832,899]"
+        },
+        {
+          "control": "商品管理",
+          "text": "商品管理",
+          "type": "Button",
+          "bounds": "[492,1851][828,1991]"
+        }
+      ],
+      "absent": []
+    },
+    {
+      "file": "light-06-merchant-layout.jpg",
+      "width": 720,
+      "height": 1558,
+      "bytes": 77378,
+      "present": [
+        {
+          "control": "店主身份",
+          "text": "店主身份",
+          "type": "Text",
+          "bounds": "[0,353][1320,419]"
+        },
+        {
+          "control": "店铺订单",
+          "text": "店铺订单",
+          "type": "Text",
+          "bounds": "[56,495][1011,561]"
+        },
+        {
+          "control": "订单和售后结果，始终显示",
+          "text": "订单和售后结果，始终显示",
+          "type": "Text",
+          "bounds": "[56,575][1011,624]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-orders",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,521][1264,598]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-after-sales",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,724][1264,801]"
+        },
+        {
+          "control": "identity-entry-locked-merchant-service",
+          "text": "始终显示",
+          "type": "Text",
+          "bounds": "[1039,927][1264,1004]"
+        },
+        {
+          "control": "联系人工客服，始终显示",
+          "text": "联系人工客服，始终显示",
+          "type": "Text",
+          "bounds": "[56,981][1011,1030]"
+        }
+      ],
+      "absent": [
+        "identity-entry-merchant-orders"
+      ]
+    }
+  ],
+  "error": "Unexpected visible node: 商品管理",
+  "originalThemeRestored": true,
+  "portsRestored": true,
+  "fixtureStopped": true,
+  "port3103Free": true,
+  "uploadsRemoved": true
+}

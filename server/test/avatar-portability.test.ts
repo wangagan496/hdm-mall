@@ -42,7 +42,7 @@ test('上传头像只持久保存相对路径，接口仍返回完整地址且�
     const login = f.accounts.login('avatar_buyer', password)
     const boundary = 'avatar-portability-boundary'
     const response = await f.app.inject({ method: 'POST', url: '/member/profile/avatar',
-      headers: { authorization: `Bearer ${login.token}`, 'content-type': `multipart/form-data; boundary=${boundary}` },
+      headers: { ...identityHeaders(f.accounts, login.token), 'content-type': `multipart/form-data; boundary=${boundary}` },
       payload: Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="avatar.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`), jpeg, Buffer.from(`\r\n--${boundary}--\r\n`)]) })
     assert.equal(response.statusCode, 200)
     const url = new URL(response.json().result.avatar)
@@ -75,7 +75,7 @@ test('旧版绝对头像随备份恢复迁移，登录读取和资料保存均�
     try {
       const login = next.accounts.login('legacy_buyer', password)
       assert.equal(login.avatar, newOrigin + path)
-      const headers = { authorization: `Bearer ${login.token}` }
+      const headers = identityHeaders(next.accounts, login.token)
       const profile = await next.app.inject({ url: '/member/profile', headers: { ...headers, host: 'untrusted.invalid', 'x-forwarded-host': 'untrusted.invalid' } })
       assert.equal(profile.json().result.avatar, newOrigin + path)
       assert.equal(profile.json().result.profession, '测试职业')
@@ -87,7 +87,7 @@ test('旧版绝对头像随备份恢复迁移，登录读取和资料保存均�
       const stored = JSON.parse(next.db.one<{ profile: string }>('SELECT profile FROM users WHERE id=?', login.id)!.profile)
       assert.equal(stored.avatar, path)
       assert.equal(stored.profession, '修改后职业')
-      assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+      assert.equal(next.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 26)
       const address = await next.app.listen({ host: '127.0.0.1', port: 0 })
       const httpProfile = await fetch(address + '/member/profile', { headers })
       assert.equal(httpProfile.status, 200)
@@ -147,8 +147,9 @@ test('头像迁移中途失败时资料与版本一起回滚，修复后可重�
     } finally { check.close() }
     const recovered = new Database(options.databasePath)
     try {
-      assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+      assert.equal(recovered.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 26)
       assert.equal(JSON.parse(recovered.one<{ profile: string }>("SELECT profile FROM users WHERE account='legacy_buyer'")!.profile).avatar, path)
     } finally { recovered.close() }
   } finally { await rm(root, { recursive: true, force: true }) }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

@@ -24,7 +24,7 @@ export class InventoryAdjustment {
 
   start(skuId: string, delta: number, expectedStock: number, reason: string, token: string): Promise<StockAdjustmentReceipt> {
     const user = auth.getUserInfo()
-    if (!user?.id || !user.token || user.role !== 'merchant') return Promise.reject(new Error('请使用商家账号登录'))
+    if (!user?.id || !user.token || user.identity !== 'merchant') return Promise.reject(new Error('请使用商家账号登录'))
     if (user.token !== token) return Promise.reject(new Error('登录状态已变化，请重新登录后确认库存调整结果'))
     const active = this.running.get(user.id)
     if (active) return active
@@ -39,7 +39,7 @@ export class InventoryAdjustment {
 
   resume(token: string): Promise<StockAdjustmentReceipt> {
     const user = auth.getUserInfo()
-    if (!user?.id || !user.token || user.role !== 'merchant') return Promise.reject(new Error('请使用商家账号登录'))
+    if (!user?.id || !user.token || user.identity !== 'merchant') return Promise.reject(new Error('请使用商家账号登录'))
     if (user.token !== token) return Promise.reject(new Error('登录状态已变化，请重新登录后确认库存调整结果'))
     const active = this.running.get(user.id)
     if (active) return active

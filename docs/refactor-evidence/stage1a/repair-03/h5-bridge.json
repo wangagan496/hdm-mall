@@ -1,0 +1,9 @@
+{
+  "name": "h5-bridge",
+  "cwd": "D:\\hdm-mall\\shoph5-vue3",
+  "command": "pnpm.cmd run check:bridge",
+  "exitCode": 0,
+  "durationSeconds": 0.806,
+  "observedAt": "2026-11-18T00:33:03.5414076+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\h5-bridge.log"
+}

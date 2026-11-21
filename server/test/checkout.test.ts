@@ -33,8 +33,8 @@ test('B-31/B-32/B-34: 请求号只读恢复、本人隔离、幂等与过期状�
     assert.equal(found.json().result.id, replies[0].json().result.id)
     assert.equal(found.json().result.orderState, 1)
     const other = f.testData.account({ account: 'other_buyer', password: 'checkout-password' })
-    assert.equal((await f.app.inject({ url: path, headers: { authorization: 'Bearer ' + other.token } })).statusCode, 404)
-    assert.equal((await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: 'Bearer ' + other.token }, payload: f.request })).statusCode, 400)
+    assert.equal((await f.app.inject({ url: path, headers: identityHeaders(f.accounts, other.token) })).statusCode, 404)
+    assert.equal((await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, other.token), payload: f.request })).statusCode, 400)
     assert.equal(f.catalog.sku('apple-red').stock, 7)
     assert.equal(f.orders.list(f.user).length, 1)
     assert.equal((await f.create({ ...f.request, expectedAmountCents: 31 })).statusCode, 409)
@@ -72,7 +72,7 @@ async function fixture() {
     mockPayments: true, clock: { now: () => now } })
   const buyer = context.testData.account({ account: 'checkout_buyer', password: 'checkout-password' })
   const user = context.accounts.authenticate('Bearer ' + buyer.token)
-  const headers = { authorization: 'Bearer ' + buyer.token }
+  const headers = identityHeaders(context.accounts, buyer.token)
   const address = context.testData.address({ userId: user.id, receiver: '买家', contact: '13800000000', address: '测试地址' })
   const product = context.testData.product({ name: '苹果', skus: [
     { id: 'apple-red', spec: '红', priceCents: 10, stock: 10 },
@@ -124,3 +124,4 @@ test('B-21 L1/L2: 0.1元乘3的行小计、购物车、结算、详情和支付�
     assert.equal(f.db.one<{ amount: number }>('SELECT amount FROM payments')!.amount, 30)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

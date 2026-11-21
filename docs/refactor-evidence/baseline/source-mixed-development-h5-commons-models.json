@@ -1,0 +1,131 @@
+{
+  "directory": "mixed-development-h5/commons/models",
+  "files": [
+    {
+      "path": "mixed-development-h5/commons/models/Index.ets",
+      "exists": true,
+      "bytes": 2361,
+      "sha256": "f12656f07816c291f7722837803cfb8697507067a32d8c216704138b6588f058"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 494,
+      "sha256": "91e8db59aa7782e5ce7d5d5e9449f5ddf54e7e23f7129321f4ad51a53b1044ac"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/oh-package.json5",
+      "exists": true,
+      "bytes": 299,
+      "sha256": "2b3c6901d7086583aff9e069684e3bbef4579536f716eb1a40a6228ef7da591c"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/AfterSaleModels.ets",
+      "exists": true,
+      "bytes": 6627,
+      "sha256": "31b170c0d830bac192f795c60b1ab92cc23875e00183fcd37a80a2e78f0a0f45"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/BreakPoint.ets",
+      "exists": true,
+      "bytes": 915,
+      "sha256": "d04571623474ac71f93cc3ff8658547560ec2877f4604bbf9aa85295aa5d21e9"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/BusinessModels.ets",
+      "exists": true,
+      "bytes": 10357,
+      "sha256": "47c2ad68428e3b42464f4fecddfa70eaed8af35ab44c9d4698c6ba9b04786308"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/CheckoutModels.ets",
+      "exists": true,
+      "bytes": 946,
+      "sha256": "9b856f5092c84623d291e17e7a46addee02beac84f2ea92ff05ffb9dff171874"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/Index.ets",
+      "exists": true,
+      "bytes": 942,
+      "sha256": "0c845a3bef520c848605f5f6b3ac3f292b89bf868d788466f43b2395fa7053ef"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/InvoiceModels.ets",
+      "exists": true,
+      "bytes": 1036,
+      "sha256": "249feb2fb0a132723cdd6c1cb7cc73d0d5faed186026d1be66f39122c129936f"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/ListDataSource.ets",
+      "exists": true,
+      "bytes": 1826,
+      "sha256": "da17e560f1a561a36cf41064e03f705050d2e6d5f87537e8a776a863402650a2"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/OrderState.ets",
+      "exists": true,
+      "bytes": 524,
+      "sha256": "09659d065ef876488ff1d2badb7aeda52eb75810ac79121f09504462deee9fe7"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/ReturnPolicy.ets",
+      "exists": true,
+      "bytes": 5843,
+      "sha256": "07943c739f0d20960171eeb0e86004ddf32bb210927269971493f9b09d1ecd89"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/TabItem.ets",
+      "exists": true,
+      "bytes": 88,
+      "sha256": "3e5bd0e1d4f2a3d8f1256b96588b73ddef90228110c463fe09e4452c542f7eef"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/TimeFormat.ets",
+      "exists": true,
+      "bytes": 1260,
+      "sha256": "8465bbcb25639ff6fe016031f871d4d57ef1f3bb7f0d588e1f31ed354a4274cc"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 100,
+      "sha256": "47a8a8a3f3dbb1420a9e6c157793fb3d0e5b32b4893e2621c6d54389d80e9775"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/module.json5",
+      "exists": true,
+      "bytes": 248,
+      "sha256": "6e882dcb1862ce045179d0ea10d04a966e8bcb2a457f587eb288a258062f7038"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 115,
+      "sha256": "8e03758aaee0a24f027ce81ccded8fde4dec90951b825e8fbeceff75e2dc5746"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 37,
+      "sha256": "f21984fb1d5096f0db41314da0bb94c573e7ad018e5afae3044f8d5ff71b0bfc"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 48,
+      "sha256": "fde31346ab4b7da1e313e8ff46cd5d4fd6d04dde0031ddaf4f22e8f2e1b128f3"
+    }
+  ]
+}

@@ -2,8 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { randomUUID } from 'node:crypto'
-import { execute, sourceOf } from './native-harness.mjs'
+import { deferred, execute, sourceOf } from './native-harness.mjs'
 import { buildApp } from '../../server/src/app.ts'
+import { identityHeaders } from '../../server/test/helpers/identity-headers.ts'
 
 const requireH5 = createRequire(new URL('../../shoph5-vue3/package.json', import.meta.url))
 const axios = requireH5('axios')
@@ -19,12 +20,12 @@ test('收银台邀请切回本人和模拟付款固定凭证，真实路由保�
       receiver: '收银台回归', contact: '13800138000', address: '仅测试', isDefault: 0,
     })
     const invite = await f.app.inject({ method: 'POST', url: '/member/relations',
-      headers: { authorization: `Bearer ${buyer.token}` }, payload: { account: 'cashier_friend' } })
+      headers: identityHeaders(f.accounts, buyer.token), payload: { account: 'cashier_friend' } })
     assert.equal(invite.statusCode, 200)
     const accepted = await f.app.inject({ method: 'PUT', url: `/member/relations/${invite.json().result.id}`,
-      headers: { authorization: `Bearer ${friend.token}` }, payload: { action: 'accept' } })
+      headers: identityHeaders(f.accounts, friend.token), payload: { action: 'accept' } })
     assert.equal(accepted.statusCode, 200)
-    const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
+    const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, buyer.token),
       payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id
@@ -43,24 +44,25 @@ test('收银台邀请切回本人和模拟付款固定凭证，真实路由保�
       constants: { GlobalVariable: { BASE_URL: 'http://fixture', SUCCESS_CODE: '1', USER_INFO_KEY: 'user' } },
     }, { AppStorage: { get: key => key === 'user' ? current : undefined } })
     const api = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/data/api/cart.ets'), { network: { RequestAxios } })
-    const inviting = api.invitePayerAPI(id, friend.id, buyer.token); current = stranger
-    await inviting
+    await api.invitePayerAPI(id, friend.id, buyer.token)
     const detail = async () => (await f.app.inject({ method: 'GET', url: `/member/order/${id}`,
-      headers: { authorization: `Bearer ${buyer.token}` } })).json().result
+      headers: identityHeaders(f.accounts, buyer.token) })).json().result
     assert.equal((await detail()).invitedPayerAccount, 'cashier_friend')
     let count = requests.length
+    current = stranger
     await assert.rejects(api.invitePayerAPI(id, null, stranger.token)); assert.equal(requests.length, count + 1)
     assert.equal((await detail()).invitedPayerAccount, 'cashier_friend')
     current = buyer
-    const self = api.invitePayerAPI(id, null, buyer.token); current = stranger; await self
+    await api.invitePayerAPI(id, null, buyer.token)
     assert.equal((await detail()).canPay, true)
     count = requests.length
     await assert.rejects(api.startPaymentAPI(id, 18, buyer.token)); assert.equal(requests.length, count + 1)
     count = requests.length
+    current = stranger
     await assert.rejects(api.startPaymentAPI(id, 19, stranger.token)); assert.equal(requests.length, count + 1)
     assert.equal((await detail()).orderState, 1)
     current = buyer
-    const paying = api.startPaymentAPI(id, 19, buyer.token); current = stranger; await paying
+    await api.startPaymentAPI(id, 19, buyer.token)
     const paid = await detail()
     assert.equal(paid.orderState, 2); assert.equal(paid.payerAccount, 'cashier_buyer')
     for (const index of [0, 2, 3, 5]) assert.equal(requests[index].headers.Authorization, `Bearer ${buyer.token}`)
@@ -85,11 +87,11 @@ test('订单列表详情提醒和收货固定原会话，真实路由拒绝无�
     const address = f.accounts.saveAddress(f.accounts.authenticate(`Bearer ${buyer.token}`), {
       receiver: '详情回归', contact: '13800138000', address: '测试地址', isDefault: 0,
     })
-    const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
+    const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, buyer.token),
       payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
     assert.equal(created.statusCode, 200)
     const id = created.json().result.id
-    await f.app.inject({ method: 'POST', url: `/member/order/${id}/mock-pay`, headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents: 1900 } })
+    await f.app.inject({ method: 'POST', url: `/member/order/${id}/mock-pay`, headers: identityHeaders(f.accounts, buyer.token), payload: { amountCents: 1900 } })
     let current = merchant
     const requests = []
     const adapter = async config => {
@@ -106,34 +108,29 @@ test('订单列表详情提醒和收货固定原会话，真实路由拒绝无�
     }, { AppStorage: { get: key => key === 'user' ? current : undefined } })
     const api = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/data/api/cart.ets'), { network: { RequestAxios } })
     current = buyer
-    const listing = api.getOrderListAPI({ page: 1, pageSize: 10, orderState: 2 }, buyer.token)
-    current = merchant
-    const list = await listing
+    const list = await api.getOrderListAPI({ page: 1, pageSize: 10, orderState: 2 }, buyer.token)
     assert.equal(list.items.length, 1)
     assert.equal(list.items[0].id, id)
     assert.equal(requests[0].url, '/member/order?page=1&pageSize=10&orderState=2')
     for (const method of ['getOrderDetailAPI', 'remindShipmentAPI']) {
       current = buyer
-      const task = api[method](id, buyer.token)
-      current = merchant
-      const order = await task
+      const order = await api[method](id, buyer.token)
       assert.equal(order.id, id)
       assert.equal(order.orderState, 2)
     }
     await assert.rejects(api.receiptOrderAPI(id, buyer.token))
     assert.equal(requests.length, 4)
-    const shipped = await f.app.inject({ method: 'POST', url: `/merchant/orders/${id}/ship`, headers: { authorization: `Bearer ${merchant.token}` }, payload: { carrier: '顺丰', trackingNo: 'SF12345678' } })
+    const shipped = await f.app.inject({ method: 'POST', url: `/merchant/orders/${id}/ship`, headers: identityHeaders(f.accounts, merchant.token), payload: { carrier: '顺丰', trackingNo: 'SF12345678' } })
     assert.equal(shipped.statusCode, 200)
     current = buyer
-    const receiving = api.receiptOrderAPI(id, buyer.token)
-    current = merchant
-    assert.equal((await receiving).orderState, 4)
+    assert.equal((await api.receiptOrderAPI(id, buyer.token)).orderState, 4)
     for (const request of requests) {
       assert.equal(request.headers.Authorization, `Bearer ${buyer.token}`)
       assert.equal(request.headers.xSilentError, '1')
       if (request.data !== undefined) assert.deepEqual(JSON.parse(request.data), {})
     }
     // 商家不能通过买家详情接口获取本人支付订单的私人信息。
+    current = merchant
     await assert.rejects(api.getOrderDetailAPI(id, merchant.token))
   } finally { await f.app.close() }
 })
@@ -146,14 +143,20 @@ test('结算预览和下单固定发起账号，切换登录态后仍保留原�
     const other = f.accounts.login('checkout_b', 'checkout-password')
     const owner = f.accounts.authenticate(`Bearer ${buyer.token}`)
     const address = f.accounts.saveAddress(owner, { receiver: '结算回归', contact: '13800138000', address: '测试', isDefault: 0 })
-    await f.app.inject({ method: 'POST', url: '/member/cart', headers: { authorization: `Bearer ${buyer.token}` },
+    await f.app.inject({ method: 'POST', url: '/member/cart', headers: identityHeaders(f.accounts, buyer.token),
       payload: { skuId: 'hdm-1-a', count: 1, requestKey: randomUUID() } })
     let current = buyer
+    const written = deferred()
+    const release = deferred()
     const requests = []
     const adapter = async config => {
       const headers = config.headers.toJSON()
       requests.push({ url: config.url, data: config.data, headers, timeout: config.timeout })
       const response = await f.app.inject({ method: config.method.toUpperCase(), url: config.url, headers, payload: config.data })
+      if (config.url === '/member/order' && response.statusCode === 200) {
+        written.resolve(response.json().result)
+        await release.promise
+      }
       const result = { status: response.statusCode, statusText: '', data: response.body, headers: response.headers, config }
       if (response.statusCode >= 400) throw new axios.AxiosError('HTTP failure', 'ERR_BAD_RESPONSE', config, null, result)
       return result
@@ -163,22 +166,22 @@ test('结算预览和下单固定发起账号，切换登录态后仍保留原�
       constants: { GlobalVariable: { BASE_URL: 'http://fixture', SUCCESS_CODE: '1', USER_INFO_KEY: 'user' } },
     }, { AppStorage: { get: key => key === 'user' ? current : undefined } })
     const api = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/data/api/cart.ets'), { network: { RequestAxios } })
-    const loading = api.getPreOrderAPI(buyer.token)
-    current = other
-    const preview = await loading
+    const preview = await api.getPreOrderAPI(buyer.token)
     assert.equal(preview.goods[0].skuId, 'hdm-1-a')
     assert.equal(preview.userAddresses[0].id, address.id)
     const body = { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] }
-    current = buyer
-    const saving = api.createOrderAPI(body, buyer.token)
+    const saving = assert.rejects(api.createOrderAPI(body, buyer.token), /身份已切换/)
+    const order = await written.promise
     current = other
-    const order = await saving
+    release.resolve()
+    await saving
     assert.ok(order.id)
-    const own = await f.app.inject({ method: 'GET', url: `/member/order/${order.id}`, headers: { authorization: `Bearer ${buyer.token}` } })
-    const foreign = await f.app.inject({ method: 'GET', url: `/member/order/${order.id}`, headers: { authorization: `Bearer ${other.token}` } })
+    const own = await f.app.inject({ method: 'GET', url: `/member/order/${order.id}`, headers: identityHeaders(f.accounts, buyer.token) })
+    const foreign = await f.app.inject({ method: 'GET', url: `/member/order/${order.id}`, headers: identityHeaders(f.accounts, other.token) })
     assert.equal(own.statusCode, 200)
     assert.equal(foreign.statusCode, 403)
     const attempts = requests.length
+    current = other
     await assert.rejects(api.createOrderAPI(body, other.token))
     assert.equal(requests.length, attempts + 1)
     for (const request of requests.slice(0, 2)) {
@@ -214,7 +217,7 @@ test('原生发货运单及无业务参数的收货注销发送有效 JSON，保
       constants: { GlobalVariable: { BASE_URL: 'http://fixture', SUCCESS_CODE: '1', USER_INFO_KEY: 'user' } },
     }, { AppStorage: { get: key => key === 'user' ? current : undefined } })
     for (const [post, put] of [['post', 'put'], ['postSilent', 'putSilent']]) {
-      const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${buyer.token}` },
+      const created = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, buyer.token),
         payload: { requestKey: randomUUID(), expectedAmountCents: 1900, addressId: address.id, goods: [{ skuId: 'hdm-1-a', count: 1 }] } })
       assert.equal(created.statusCode, 200)
       const order = created.json().result
@@ -229,7 +232,7 @@ test('原生发货运单及无业务参数的收货注销发送有效 JSON，保
       const received = await RequestAxios[put](`/member/order/${order.id}/receipt`)
       assert.equal(received.orderState, 4)
     }
-    await RequestAxios.postForSession('/logout', merchant.token)
+    await RequestAxios.postForSession('/logout', merchant.token, merchant)
     assert.throws(() => f.accounts.authenticate(`Bearer ${merchant.token}`))
     assert.equal(f.accounts.authenticate(`Bearer ${buyer.token}`).id, buyer.id)
     assert.equal(requests.at(-1).headers.Authorization, `Bearer ${merchant.token}`)

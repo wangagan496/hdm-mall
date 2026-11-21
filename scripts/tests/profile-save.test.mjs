@@ -11,7 +11,7 @@ const source = readFileSync(new URL('../../shoph5-vue3/src/stores/profile.ts', i
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
 function fixture() {
-  let user = { id: 'user-a', account: 'account-a', token: 'session-a', nickname: '原昵称', avatar: '', birthday: '', gender: '未知', provinceCode: '', cityCode: '', countyCode: '', profession: '', fullLocation: '', mobile: '' }
+  let user = { id: 'user-a', account: 'account-a', token: 'session-a', identity: 'buyer', identityRevision: 0, nickname: '原昵称', avatar: '', birthday: '', gender: '未知', provinceCode: '', cityCode: '', countyCode: '', profession: '', fullLocation: '', mobile: '' }
   let server = { ...user }
   const writes = [], synced = [], drafts = new Map()
   let put = async data => ({ data: { result: server = { ...server, ...data } } })
@@ -118,6 +118,20 @@ test('保存期间退出，迟到回应不回写原生', async () => {
   f.store.$dispose()
 })
 
+test('同一会话切走又切回时，旧资料保存结果不能回写原生', async () => {
+  const f = fixture(); await f.store.loadProfile()
+  const gate = deferred()
+  const previous = f.user()
+  f.setPut(() => gate.promise)
+  f.store.profileDraft.nickname = '旧请求'
+  const saving = f.store.saveProfile()
+  f.setUser({ ...previous, identity: 'merchant', identityRevision: 1 })
+  f.setUser({ ...previous, identityRevision: 2 })
+  gate.resolve({ data: { result: { ...previous, nickname: '旧请求' } } })
+  assert.equal(await saving, false)
+  assert.equal(f.synced.length, 0)
+  f.store.$dispose()
+})
 test('头像已上传但字段失败时保留已保存头像，重试不重复上传', async () => {
   const f = fixture(); await f.store.loadProfile()
   f.store.setAvatarPreview('aW1hZ2U='); f.store.profileDraft.nickname = '新昵称'

@@ -154,7 +154,7 @@ export struct SettingsView {
             HDMCell({ title: '隐私政策', onRightClick: () => this.openDocument('privacy') })
             HDMCell({ title: '用户协议', onRightClick: () => this.openDocument('terms') })
             HDMCell({ title: '撤回同意', onRightClick: () => this.withdrawConsent() })
-            if (this.user.role !== 'merchant') {
+            if (this.user.identity === 'buyer' && !this.user.identities?.includes('merchant')) {
               HDMCell({ title: '注销账号', onRightClick: () => this.stackPath.pushPath({ name: 'AccountDeletionView' }) })
             } else { Text('商家账号请联系管理员处理').fontSize(13).padding(16) }
           }

@@ -1,0 +1,9 @@
+{
+  "name": "signed-build",
+  "cwd": "D:\\hdm-mall",
+  "command": "pwsh -File scripts/verify-optimization-build.ps1 -SkipH5",
+  "exitCode": 1,
+  "durationSeconds": 28.922,
+  "observedAt": "2026-11-18T00:37:15.6389146+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\signed-build.log"
+}

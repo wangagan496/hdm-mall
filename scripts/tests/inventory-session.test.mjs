@@ -16,7 +16,7 @@ function fixture() {
   const View = pageMethods('mixed-development-h5/features/mine/src/main/ets/presentation/views/InventoryView.ets', 'InventoryView', {},
     { RequestAxios: api, inventoryAdjustment: flow, Scroller: class { scrollEdge(value) { scrolls.push(value) } }, Edge: { Top: 0 },
       setTimeout: callback => { const id = timers.size + 1; timers.set(id, callback); return id }, clearTimeout: id => timers.delete(id) })
-  const page = new View(); page.user = { id: 'merchant', role: 'merchant', token: 'token' }; page.active = true
+  const page = new View(); page.user = { id: 'merchant', identity: 'merchant', token: 'token' }; page.active = true
   page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog) })
   const edit = () => { page.select(page.items[0] || item); page.quantity = '2'; page.reasonCategory = '其他'; page.reason = draft.reason }
   return { page, api, flow, queries, writes, dialogs, timers, scrolls, edit,
@@ -90,7 +90,7 @@ test('库存旧确认框在刷新、重进、换账号、换角色、取消或�
     if (change === 'refresh') await f.page.load(1)
     if (change === 'reenter') { f.page.aboutToDisappear(); f.page.aboutToAppear(); await tick() }
     if (change === 'account') { f.page.user = { ...f.page.user, id: 'other', token: 'other-token' }; f.page.accountChanged(); await tick() }
-    if (change === 'role') { f.page.user = { ...f.page.user, role: 'buyer' }; f.page.accountChanged(); await tick() }
+    if (change === 'role') { f.page.user = { ...f.page.user, identity: 'buyer' }; f.page.accountChanged(); await tick() }
     if (change === 'cancel') f.dialogs[0].primaryButton.action()
     if (change === 'replace') f.page.confirmAdjustment()
     old(); await tick(); assert.equal(f.writes.length, 0, change)
@@ -144,10 +144,10 @@ test('库存隐藏页面不读写，资料变化保留编辑，账号和角色�
   assert.equal(f.queries.length, count); assert.equal(f.page.quantity, '2')
   f.page.aboutToDisappear(); await f.page.load(1); await f.page.submit(item, 2, draft.reason)
   f.page.refreshAfterForeground?.(); assert.equal(f.queries.length, count); assert.equal(f.writes.length, 0)
-  f.page.user = { ...f.page.user, role: 'buyer' }; f.page.accountChanged()
+  f.page.user = { ...f.page.user, identity: 'buyer' }; f.page.accountChanged()
   assert.equal(f.page.items.length, 0); assert.equal(f.page.selected, null); assert.equal(f.page.reason, '')
   f.page.showInventory(); await tick(); assert.equal(f.queries.length, count)
-  f.page.user = { id: 'other', token: 'new-token', role: 'merchant' }; f.page.accountChanged(); await tick()
+  f.page.user = { id: 'other', token: 'new-token', identity: 'merchant' }; f.page.accountChanged(); await tick()
   assert.equal(f.queries.at(-1)[1], 'new-token')
   f.page.refreshAfterForeground(); await tick(); assert.equal(f.queries.length, count + 2)
 })

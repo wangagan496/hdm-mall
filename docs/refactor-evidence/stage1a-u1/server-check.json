@@ -1,0 +1,16 @@
+{
+  "id": "server-check",
+  "cwd": "D:\\hdm-mall\\server",
+  "command": "npm.cmd run check",
+  "startedAt": "2026-11-17T20:43:38.6810179+08:00",
+  "finishedAt": "2026-11-17T20:43:53.7561258+08:00",
+  "elapsedSeconds": 15.075,
+  "exitCode": 0,
+  "seed": null,
+  "counts": {},
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\stage1a-u1-server-check-full.log",
+  "rawBytes": 51,
+  "rawSha256": "fdf19b7168450a3fd56759b4552e7649c5b3aa5098d783cc15359e5e43f67d63",
+  "evidenceLog": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a-u1\\server-check.txt",
+  "evidenceBytes": 51
+}

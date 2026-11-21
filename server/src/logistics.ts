@@ -40,18 +40,20 @@ export class Logistics {
   constructor(db:Database,clock:Clock,channel:LogisticsChannel|undefined,canRead:(user:User,id:string)=>boolean,options:{requireAfterPayment?:boolean}={}) {
     this.db=db;this.clock=clock;this.channel=channel;this.canRead=canRead;this.requireAfterPayment=options.requireAfterPayment??false
   }
-  async read(user:User,id:string) {
+  async read(user: User, id: string, verify?: () => void) {
     ensure(this.db.one('SELECT id FROM orders WHERE id=?',id),404,'订单不存在')
     // 与订单详情同一权限：下单人、付款人、仍绑定的代收亲友、实际收货人和商家。
     ensure(this.canRead(user,id),403,'无权查看此订单的物流')
-    await this.refresh(id)
+    await this.refresh(id, verify)
+    verify?.()
     return shipmentDetail(this.db,id)
   }
-  private async refresh(id:string) {
+  private async refresh(id: string, verify?: () => void) {
     const shipment=shipmentDetail(this.db,id)
     const channel=this.channel
     if (!shipment||!channel) return
     const result=await (channel.source==='carrier' ? channel.query(shipment,this.recipientPhoneTail(id)) : channel.query(shipment))
+    verify?.()
     const events=z.array(logisticsEventSchema).max(200).parse(result)
     // 快递员常在商家录入运单前就已揽收，下限取订单付款时间而不是运单登记时间。
     // 正式环境拒绝早于付款的轨迹（防止填错单号显示别人的旧包裹）；演示和沙箱环境放行，便于用已有包裹的真实单号演示。

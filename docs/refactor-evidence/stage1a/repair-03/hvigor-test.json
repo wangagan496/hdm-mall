@@ -1,0 +1,9 @@
+{
+  "name": "hvigor-test",
+  "cwd": "D:\\hdm-mall\\mixed-development-h5",
+  "command": "hvigorw.bat test --mode module",
+  "exitCode": 0,
+  "durationSeconds": 159.86,
+  "observedAt": "2026-11-18T00:44:54.8807109+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\hvigor-test.log"
+}

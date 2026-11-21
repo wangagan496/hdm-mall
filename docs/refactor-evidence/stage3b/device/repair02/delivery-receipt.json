@@ -1,0 +1,21 @@
+{
+  "id": "result-stage3b-20261120-02",
+  "status": "submitted",
+  "route": {
+    "from": {
+      "kind": "codex",
+      "id": "01a1f80d-cd06-7021-9dd6-e344c3e6cc6c"
+    },
+    "to": {
+      "kind": "claude",
+      "id": "91d4181b-f199-41e1-ae0b-d7d8f36836b2"
+    }
+  },
+  "receipt": {
+    "status": "written",
+    "messageId": "b01819e5-ea58-4d5f-9d01-f62494f1a462",
+    "acknowledged": false
+  },
+  "attempts": 1,
+  "final": true
+}

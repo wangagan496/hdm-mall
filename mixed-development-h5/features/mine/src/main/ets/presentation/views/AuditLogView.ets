@@ -21,7 +21,7 @@ export struct AuditLogView {
   private productId: string = ''
   private active: boolean = false
   private query: number = 0
-  private allowed(): boolean { return this.active && this.user.role === 'merchant' && !!this.user.id && !!this.user.token }
+  private allowed(): boolean { return this.active && this.user.identity === 'merchant' && !!this.user.id && !!this.user.token }
   private current(query: number, token: string, account: string): boolean { return this.allowed() && query === this.query && token === this.user.token && account === this.user.id }
   private accountChanged(): void { this.query++; this.items = []; this.page = 1; this.pages = 0; this.loading = false; if (this.active) void this.load(1) }
   aboutToDisappear(): void { this.active = false; this.query++; this.loading = false; this.items = [] }

@@ -1,0 +1,127 @@
+CHECK client-random.json COMMAND node --test --test-randomize --test-random-seed=271113 scripts/tests/*.test.mjs EXIT 0
+✔ CD-L12 协议读取失败仍重新显示选择，不产生默认同意 (34.9019ms)
+✔ CD-L11 首启读取mine模块协议全文并披露快递鸟与共享数据 (58.3236ms)
+✔ CD-L10 同意弹层仅显式选择后关闭，重复点击只结算一次并释放内容 (14.6198ms)
+✔ CD-L03 旧夹具会话上报401后，新登录固定使用新凭证并可重试上报 (26.3534ms)
+✔ CD-L01 首次不同意不落同意记录，再次同意持久化版本时间并续接 (39.6405ms)
+ℹ Randomized test order seed: 271113
+ℹ tests 628
+ℹ suites 0
+ℹ pass 628
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18786.6527
+CHECK client-test.json COMMAND node --test scripts/tests/*.test.mjs EXIT 0
+✔ UX返修 cart/OrderView 可操作按钮均明确主题背景与文字 (0.574ms)
+✔ UX返修 cart/EvaluationView 可操作按钮均明确主题背景与文字 (0.5596ms)
+✔ UX返修 mine/AddressView 可操作按钮均明确主题背景与文字 (0.5222ms)
+✔ UX返修 mine/HistoryView 可操作按钮均明确主题背景与文字 (0.3616ms)
+✔ UX返修 home/SearchResultView 可操作按钮均明确主题背景与文字 (0.4711ms)
+✔ UX返修 亲友筛选分两列且错误态可重试，分类返回使用主色描边 (1.2791ms)
+ℹ tests 628
+ℹ suites 0
+ℹ pass 628
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17188.3302
+CHECK h5-bridge.json COMMAND pnpm.cmd run check:bridge EXIT 0
+$ node scripts/check-bridge.mjs
+Bridge contract passed: 12 methods; HDMUser fields checked for updateUser/getUser; call sites checked by vue-tsc
+CHECK h5-types.json COMMAND pnpm.cmd run type-check EXIT 0
+$ vue-tsc --build
+CHECK hvigor-test-first-failure.json COMMAND C:/Program Files/Huawei/DevEco Studio/tools/hvigor/bin/hvigorw.bat test --mode module EXIT 1
+> hvigor ERROR: ArkTS Compiler Error
+1 ERROR: 10605150 ArkTS Compiler Error
+Error Message: "import" statements after other statements are not allowed (arkts-no-misplaced-imports) At File: D:/hdm-mall/mixed-development-h5/features/mine/src/test/List.test.ets:7:1
+
+
+COMPILE RESULT:FAIL {ERROR:2 WARN:66}
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+
+> hvigor ERROR: BUILD FAILED in 2 min 32 s 710 ms 
+
+211 tasks in total: 188 executed, 23 up-to-date
+CHECK hvigor-test.json COMMAND C:/Program Files/Huawei/DevEco Studio/tools/hvigor/bin/hvigorw.bat test --mode module EXIT 0
+> hvigor [32mFinished :cart:default@GenerateUnitTestResult... after 4 s 837 ms [39m
+> hvigor [32mWindows_NT[39m
+> hvigor [32mFinished file written successfully[39m
+> hvigor [32mFinished write html report[39m
+> hvigor [32mFinished :mine:default@GenerateUnitTestResult... after 3 s 55 ms [39m
+> hvigor [32mFinished :phone:test... after 1 ms [39m
+> hvigor [32mFinished :ui_components:test... after 1 ms [39m
+> hvigor [32mFinished :home:test... after 1 ms [39m
+> hvigor [32mFinished :category:test... after 1 ms [39m
+> hvigor [32mFinished :cart:test... after 1 ms [39m
+> hvigor [32mFinished :mine:test... after 1 ms [39m
+> hvigor [32mBUILD SUCCESSFUL in 1 min 58 s 179 ms [39m
+
+243 tasks in total: 138 executed, 105 up-to-date
+CHECK server-check.json COMMAND npm.cmd run check EXIT 0
+
+> hdm-mall-server@0.1.0 check
+> tsc --noEmit
+
+CHECK server-random-first-failure.json COMMAND node --test --test-randomize --test-random-seed=271113 test/*.test.ts EXIT -1
+✔ v7 备份统计支付、退款与退款重试审计，并报告缺少有效支付的已付款订单 (330.7246ms)
+✔ B-48、B-55：无支付订单超时和宽限内失败延至付款截止后均只释放一次 (686.3422ms)
+✔ B-59：成功回调与确认中取消并发到达时只创建一笔原路退款 (322.597ms)
+✔ B-44：本人和亲友支付都拒绝签名错误、金额不符和订单不符的回调 (639.1698ms)
+✔ 付款渠道缺失时返回 503，正式环境配置渠道但缺少回调密钥时拒绝启动 (149.7395ms)
+✔ 回调成功与渠道 closed 相反时连续两次后转人工而非判失败 (326.0954ms)
+✔ 无有效支付的订单不进入商家待发货列表且不能发货 (315.3663ms)
+✔ B-59：取消时渠道仍未知，稍后查到成功后原路退款且库存只释放一次 (327.1601ms)
+✔ 付款亲友的退款提醒按用户分别清除，仍可见自身退款但无权查看地址商品 (339.1633ms)
+✔ B-45 与 B-56：付款截止前一分钟可发起，T2 恰好在宽限截止仍成功 (313.0045ms)
+✔ 迁移 007 中途外键失败整体回滚，修复历史付款人后可重新升级 (208.5686ms)
+✔ B-59：确认中下单人取消并遇到渠道已扣款只退款一次，亲友不能取消 (358.7528ms)
+✔ GET 订单与商家列表、库存读取不调用支付渠道 (300.8241ms)
+✔ B-58：转人工核实后下单人仍可取消并只释放一次库存 (358.0828ms)
+CHECK server-random.json COMMAND node --test --test-randomize --test-random-seed=271113 test/*.test.ts EXIT 0
+HOME_PAGE route=/home/recommend/page total=1000 materialized=8
+CATEGORY_SUMMARY legacyRows=2000 legacyQueries=3 summaryQueries=1 legacyBytes=324262 summaryBytes=242
+✔ 首页新增分页只读当前页，分类摘要不加载商品正文且售罄分类隐藏 (478.5049ms)
+✔ 关系列表拒绝未登录和非法条件，空页及超大页码安全返回 (280.2343ms)
+✔ 首页分页拒绝无效参数，越界不读正文，旧数组保持兼容 (103.8845ms)
+ℹ Randomized test order seed: 271113
+ℹ tests 400
+ℹ suites 0
+ℹ pass 400
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 73396.8301
+CHECK server-test.json COMMAND npm.cmd test EXIT 0
+✔ 下单幂等、库存事务回滚、账号隔离与超时释放 (409.6593ms)
+✔ 购买人无发货权限，提醒不改变状态，注销撤销会话 (446.5086ms)
+✔ 数据重启后可恢复；真实 HTTP 监听与查询通过 (1630.1602ms)
+✔ 正式环境拒绝模拟支付配置 (0.6267ms)
+✔ Origin null 在生产环境也完全按显式白名单配置放行 (124.8763ms)
+✔ 默认地址局部更新和空更新保留默认标记，显式传入仍可修改 (384.2071ms)
+ℹ tests 400
+ℹ suites 0
+ℹ pass 400
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35907.7628
+CHECK signed-build.json COMMAND pwsh -File scripts/verify-optimization-build.ps1 -SkipH5 EXIT 0
+SCRIPT D:\hdm-mall\scripts\verify-optimization-build.ps1
+
+438 tasks in total: 363 executed, 75 up-to-date
+==> Signed app package
+Path: D:\hdm-mall\mixed-development-h5\build\outputs\default\mixed-development-h5-default-all-signed.app
+Size: 9,804,512 bytes
+Updated: 2026-11-17 22:30:21
+MATCH mine-default.hsp/resources/rawfile/index.html SHA256 A6175E4433B476E466B8309B9F34AEEEAA5ECE81B96B7D630A839D25A2DFABDF
+SCRIPT D:\hdm-mall\scripts\verify-package-web.ps1 RESULT packaged H5 matches source output (1 file)
+Project verification completed.
+RESULT build passed; log=C:\Users\23203\AppData\Local\Temp\hdm-optimization-build.log
