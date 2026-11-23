@@ -25,7 +25,7 @@ test('023 的旧评价恢复后迁移至025，无冻结条目的订单保留普�
     const restored=await restoreBackup({backupPath:backup.root,destination:join(f.root,'restored')})
     const db=new Database(join(restored.root,'mall.sqlite'))
     try{
-      assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version,27)
+      assert.equal(db.one<{user_version:number}>('PRAGMA user_version')!.user_version,28)
       const review=buyerEvaluation(db,id)!
       assert.equal(review.score,3);assert.equal(review.productScore,3);assert.equal(review.content,'这是一条旧评价')
       assert.equal(review.revision,1);assert.deepEqual(review.items,[]);assert.deepEqual(review.history,[])

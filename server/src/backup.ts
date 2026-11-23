@@ -37,7 +37,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(27), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(28), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -130,7 +130,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 27) throw new Error('仅支持数据库版本 2 至 27')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 28) throw new Error('仅支持数据库版本 2 至 28')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -146,7 +146,8 @@ function inspectDatabase(path: string) {
       ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : []),
       ...(version >= 25 ? ['evaluation_sizes'] : []),
       ...(version >= 26 ? ['review_disputes','review_dispute_actions','review_dispute_conclusions'] : []),
-      ...(version >= 27 ? ['evaluation_followups','evaluation_service_records'] : [])]) {
+      ...(version >= 27 ? ['evaluation_followups','evaluation_service_records'] : []),
+      ...(version >= 28 ? ['price_protection_policies','price_protection_confirmations','price_protection_publications'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []

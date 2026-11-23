@@ -40,6 +40,7 @@ import { PromiseExtractor, type PromiseDriver } from './promises/extract.ts'
 import { PromisePublications, confirmPromisesSchema, publishPromisesSchema } from './promises/publication.ts'
 import { checkOrderPromise, promiseCheckSchema } from './promises/order-promises.ts'
 import { materialBatchSchema, materialLimit, materialUploadSchema, SourceMaterials } from './source-verification/materials.ts'
+import { draftPolicy, draftSchema as protectionDraftSchema, issueConfirmToken, confirmSchema as protectionConfirmSchema, publishPolicy, publishSchema as protectionPublishSchema, merchantPolicyList, activePolicy, policyBrief } from './protection.ts'
 
 export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
   promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
@@ -213,6 +214,10 @@ export async function buildApp(options: AppOptions) {
     return currentPromotion(db)
   })
   protectedRoute('PUT', '/merchant/settings/promotion', (req,user) => editPromotion(db,user,req.body,clock.now()))
+  protectedRoute('GET', '/merchant/settings/protection', (_req,user) => merchantPolicyList(db,user))
+  protectedRoute('POST', '/merchant/settings/protection/draft', (req,user) => draftPolicy(db,user,req.body,clock.now()))
+  protectedRoute('POST', '/merchant/settings/protection/confirm', (req,user) => issueConfirmToken(db,user,req.body,clock.now()))
+  protectedRoute('POST', '/merchant/settings/protection/publish', (req,user) => publishPolicy(db,user,req.body,clock.now()))
   protectedRoute('PUT', '/merchant/settings/return-address', (req,user) => afterSales.setAddress(user,returnAddressSchema.parse(req.body)))
   protectedRoute('POST', '/member/after-sales/images', async (req,user) => {
     let image: Buffer | undefined

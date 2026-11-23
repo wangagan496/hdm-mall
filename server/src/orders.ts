@@ -15,6 +15,7 @@ import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
 import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, saveFollowup, type EvaluationInput } from './evaluations.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
+import { activePolicy, policyBrief } from './protection.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -253,6 +254,14 @@ export class Orders {
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
       evaluation,
+      protectionBrief: (() => {
+        if (!isOrderOwner || order.paid_at === null) return null
+        const policy = activePolicy(this.db, order.paid_at)
+        if (!policy) return null
+        const windowEnd = policy.effective_at + policy.window_days * 86_400_000
+        if (order.paid_at < policy.effective_at || order.paid_at >= windowEnd) return null
+        return policyBrief(policy)
+      })(),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
