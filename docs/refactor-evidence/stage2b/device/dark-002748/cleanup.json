@@ -1,0 +1,15 @@
+{
+  "fixtureExited": true,
+  "port3103Free": true,
+  "portsRestored": true,
+  "syntheticPhoto": {
+    "deleted": true,
+    "mediaCountAfterDelete": 1,
+    "displayName": "hdm-report-f443a0b954e44042967aac4e04091d8f.jpg",
+    "sha256": "E19DF8F9FD75FD23C2D8CD6AADDCDE1D38ED510054CE169F920ACD2C8AB19BCA",
+    "devicePath": "file://media/Photo/7/IMG_1795105776_006/hdm-report-f443a0b954e44042967aac4e04091d8f.jpg",
+    "mediaCountBeforeDelete": 2,
+    "countRestored": true
+  },
+  "uploadsRemoved": true
+}

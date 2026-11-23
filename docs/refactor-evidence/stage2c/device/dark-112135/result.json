@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-20T11:21:34.5979976+08:00",
+  "completedAt": "2026-11-20T11:24:01.2772127+08:00",
+  "durationSeconds": 146.68,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "failed",
+  "counts": {
+    "failed": 1,
+    "skipped": 0,
+    "passed": 0
+  },
+  "packageSha256": "009FAFC7D97DCC7A042C6B0B121B7715F37F7369CBE7DB4D7F9998B014C23A1B",
+  "error": "Expected visible text not found: 尺码与版型",
+  "scriptStackTrace": "at Wait-Text, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 90\r\nat Invoke-SizingProbe, D:\\hdm-mall\\scripts\\device-promises-probe.ps1: line 327\r\nat <ScriptBlock>, D:\\hdm-mall\\scripts\\device-trade-regression.ps1: line 2226"
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "theme": "dark",
+    "file": "01-fit.jpg",
+    "bytes": 82506,
+    "sha256": "8E3A1107D89C647FDC174ADA5A423837F94CC2FFF42AF097EC0C9858E6B93259"
+  },
+  {
+    "theme": "dark",
+    "file": "02-limited.jpg",
+    "bytes": 78546,
+    "sha256": "0214B49DF88EAF2DE1B8EB83587C411AD9280FACE4DEFC77A06B9F3E55C356B7"
+  },
+  {
+    "theme": "dark",
+    "file": "03-summary.jpg",
+    "bytes": 110506,
+    "sha256": "04D4664D5BD2EC887A285422F9170DCF75589FAC0F801DA960E16BA3A1C38A08"
+  },
+  {
+    "theme": "light",
+    "file": "01-fit.jpg",
+    "bytes": 77912,
+    "sha256": "8EFED8202A957DAF05746BDECD33759B2C3E952AD09C0ADBC1EDD9D803AF1A6A"
+  },
+  {
+    "theme": "light",
+    "file": "02-limited.jpg",
+    "bytes": 78731,
+    "sha256": "BFDE5B06C0D50A350D428AD94858689184CD1BC070F4E414FCD3C648ECA3147A"
+  },
+  {
+    "theme": "light",
+    "file": "03-summary.jpg",
+    "bytes": 113043,
+    "sha256": "22D28636DFA03EDA838BB1D29DF1110F52AF33D12FCB09A31DF855539E63645E"
+  }
+]

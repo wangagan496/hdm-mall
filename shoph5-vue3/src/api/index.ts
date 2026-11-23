@@ -21,6 +21,10 @@ request.interceptors.request.use(
       if (loggedInUser?.token && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${loggedInUser.token}`
       }
+      if (loggedInUser?.token && config.headers.Authorization === `Bearer ${loggedInUser.token}`) {
+        config.headers['X-HDM-Identity'] ??= loggedInUser.identity
+        config.headers['X-HDM-Identity-Revision'] ??= String(loggedInUser.identityRevision)
+      }
     } catch {
       return Promise.reject(new Error('登录信息读取失败，请重新登录'))
     }
@@ -49,6 +53,10 @@ export const requestErrorMessage = (error: unknown): string => {
     return typeof message === 'string' && message ? message : '暂时连不上服务，输入已保留'
   }
   if (error.response && error.response.status >= 500) return '还在确认保存结果，输入已保留，请稍后重试'
+  if (error.response?.status === 409 &&
+      (error.response.data as { reason?: string } | undefined)?.reason === 'IDENTITY_CHANGED') {
+    return '当前身份已切换，请返回后重新打开资料页'
+  }
   if (error.response?.status) return TOAST_BY_STATUS[error.response.status] || '请求失败，请稍后重试'
   return '暂时连不上服务，输入已保留，请检查网络后重试'
 }
@@ -58,9 +66,12 @@ request.interceptors.response.use(
   async (error: AxiosError) => {
     const authorization = String(error.config?.headers?.Authorization || '')
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
-    if (error.response?.status === 401 && token && window.nativeApp?.getUser()?.token === token) {
+    const current = window.nativeApp?.getUser()
+    if (error.response?.status === 401 && token && current?.token === token &&
+        error.config?.headers?.['X-HDM-Identity'] === current.identity &&
+        error.config?.headers?.['X-HDM-Identity-Revision'] === String(current.identityRevision)) {
       try {
-        if (await window.nativeApp.expireSession(token)) window.dispatchEvent(new Event('native-session-expired'))
+        if (await window.nativeApp?.expireSession(token)) window.dispatchEvent(new Event('native-session-expired'))
       } catch { /* 本地清理失败由页面显示。 */ }
     }
     return Promise.reject(error)

@@ -78,13 +78,13 @@ test('商家标记开票防重，未知结果沿用编号，迟到结果不串�
     RequestAxios: { postWithSession: (...args) => { calls.push(args); return pending.promise } }
   })
   const page = new Page()
-  page.active = true; page.user = { token: 't', role: 'merchant' }; page.orderId = 'order'
+  page.active = true; page.user = { token: 't', identity: 'merchant' }; page.orderId = 'order'
   page.order = { id: 'order', orderState: 2, invoice: { status: 'requested' } }
   assert.equal(typeof page.issueInvoice, 'function', '商家应能标记已开票')
   const first = page.issueInvoice()
   await page.issueInvoice()
   assert.equal(calls.length, 1)
-  page.user = { token: 'new', role: 'merchant' }; page.order = null
+  page.user = { token: 'new', identity: 'merchant' }; page.order = null
   pending.resolve({ status: 'issued' }); await first
   assert.equal(page.order, null)
 })
@@ -115,22 +115,21 @@ test('隐藏的同文评价不能当作未知提交已成功，不覆盖修改�
   assert.match(page.errorText, /隐藏/)
 })
 
-test('商家商品评价入口只带商品编号，隐藏与头像重置必须选择原因', async () => {
+test('商家评价入口只带商品编号，回复非空且使用独立评价编号', async () => {
   assert.match(sourceOf(mineViews + 'ProductManageView.ets'), /ReviewManageView/, '商品管理缺少评价处理入口')
   const calls = []
   const Page = pageMethods(mineViews + 'ReviewManageView.ets', 'ReviewManageView', {}, {
     RequestAxios: { postWithSession: async (...args) => calls.push(args) }
   })
   const page = new Page()
-  page.active = true; page.user = { token: 't', role: 'merchant' }; page.load = async () => {}
-  page.selected = { id: 'order', buyerId: 'buyer', avatar: '/uploads/avatar' }; page.action = 'hide'
-  await page.submit(); assert.equal(calls.length, 0)
-  page.reason = '广告'; await page.submit()
-  assert.equal(calls[0][0], '/merchant/reviews/order/hide')
-  assert.equal(calls[0][1].reason, '广告')
-  page.selected = { id: 'order', buyerId: 'buyer', avatar: '/uploads/avatar' }; page.action = 'avatar'; page.reason = '泄露隐私'
-  await page.submit()
-  assert.equal(calls[1][0], '/merchant/members/buyer/avatar/reset')
+  page.active = true; page.user = { token: 't', identity: 'merchant' }; page.load = async () => {}
+  page.selected={id:'public-review'}
+  await page.submit(); assert.equal(calls.length,0)
+  page.reason='谢谢您的反馈';await page.submit()
+  assert.equal(calls[0][0],'/merchant/reviews/public-review/reply')
+  assert.deepEqual(Object.keys(calls[0][1]),['content'])
+  assert.equal(calls[0][1].content,'谢谢您的反馈')
+  assert.ok(!sourceOf(mineViews+'ReviewManageView.ets').includes('buyerId'))
   assert.match(sourceOf('mixed-development-h5/products/phone/src/main/ets/pages/Index.ets'), /ReviewManageView\(\)/)
 })
 
@@ -142,7 +141,7 @@ test('客服留言关联当前订单，空文和超长不发送，未知结果�
     RequestAxios: { postWithSession: async (...args) => { calls.push(args); if (fail) throw new Error('offline'); return { id: 1 } } }
   })
   const page = new Page()
-  page.active = true; page.user = { token: 'buyer-token', id: 'buyer', role: 'buyer' }; page.orderId = 'order'; page.load = async () => {}
+  page.active = true; page.user = { token: 'buyer-token', id: 'buyer', identity: 'buyer' }; page.orderId = 'order'; page.load = async () => {}
   assert.equal(typeof page.send, 'function', '客服页必须发送真实留言')
   page.content = ' '; await page.send(); assert.equal(calls.length, 0)
   page.content = '字'.repeat(501); await page.send(); assert.equal(calls.length, 0)
@@ -164,10 +163,10 @@ test('客服历史按时间显示，已读只标记已加载消息，换账号�
       postWithSession: async (...args) => { read.push(args); return { count: 0 } }
     }
   })
-  const page = new Page(); page.active = true; page.user = { token: 't', id: 'buyer', role: 'buyer' }
+  const page = new Page(); page.active = true; page.user = { token: 't', id: 'buyer', identity: 'buyer' }
   assert.equal(typeof page.load, 'function', '客服页必须读取真实历史')
   await page.load(); assert.equal(page.items.length, 2); assert.equal(read[0][1].throughId, 2)
-  slow = true; const old = page.load(); page.user = { token: 'other', id: 'other', role: 'buyer' }; page.active = false; page.accountChanged()
+  slow = true; const old = page.load(); page.user = { token: 'other', id: 'other', identity: 'buyer' }; page.active = false; page.accountChanged()
   late.resolve({ items: [{ id: 3 }], hasMore: false }); await old
   assert.equal(page.items.length, 0); assert.equal(read.length, 1)
 })
@@ -177,7 +176,7 @@ test('客服入口红点使用未读数，返回刷新且切换账号清除', as
   const Page = pageMethods(mineViews + 'MineView.ets', 'MineView', {}, {
     RequestAxios: { getForSession: () => late.promise }
   })
-  const page = new Page(); page.user = { token: 't', id: 'buyer', role: 'buyer' }; page.attentionVisible = true; page.attentionToken = 't'
+  const page = new Page(); page.user = { token: 't', id: 'buyer', identity: 'buyer' }; page.attentionVisible = true; page.attentionToken = 't'
   assert.equal(typeof page.refreshServiceUnread, 'function', '我的页面必须查询客服未读数')
   const first = page.refreshServiceUnread('t', 0); late.resolve({ count: 2 }); await first
   assert.equal(page.serviceUnread, 2)
@@ -191,7 +190,7 @@ test('商家客服默认待回复，切换全部重置分页，回复沿用买�
   const Page = pageMethods(mineViews + 'MerchantServiceView.ets', 'MerchantServiceView', {}, {
     RequestAxios: { getForSession: async (...args) => { calls.push(args); return { items: [], pages: 1 } } }
   })
-  const page = new Page(); page.active = true; page.user = { token: 'm', role: 'merchant' }
+  const page = new Page(); page.active = true; page.user = { token: 'm', identity: 'merchant' }
   await page.load(1); assert.match(calls[0][0], /state=pending/)
   page.page = 4; await page.changeFilter('all'); assert.match(calls[1][0], /state=all/); assert.equal(page.page, 1)
   const routes = []; page.stackPath = { pushPath: path => routes.push(path) }
@@ -228,7 +227,7 @@ test('客服上传照片用原会话，响应丢失只重试原编号，私有�
       getImageForSession: async (...args) => { reads.push(args); return new Uint8Array([255]).buffer }
     }
   })
-  const page = new Page(); page.active = true; page.user = { token: 't', id: 'buyer', role: 'buyer' }; page.load = async () => {}
+  const page = new Page(); page.active = true; page.user = { token: 't', id: 'buyer', identity: 'buyer' }; page.load = async () => {}
   page.photos = [{ bytes: 'jpeg', requestKey: 'photo-key' }]; page.content = '照片里的问题'
   await page.send(); assert.equal(messages.length, 0); assert.equal(page.pending, true)
   fail = false; await page.send(); assert.equal(uploads.length, 2)
@@ -244,13 +243,13 @@ test('客服系统选图临时遮挡后保留照片，销毁页面或换账号�
       pickProductImage: () => selected.promise,
       util: { generateRandomUUID: () => 'selected-photo' }
     })
-    const page = new Page(); page.active = true; page.user = { token: 't', id: 'buyer', role: 'buyer' }
+    const page = new Page(); page.active = true; page.user = { token: 't', id: 'buyer', identity: 'buyer' }
     page.load = async () => {}
     const selecting = page.choosePhoto()
     assert.equal(typeof page.hidden, 'function', '系统选图的遮挡应与页面销毁分开处理')
     page.hidden()
     if (transition === 'destroy') page.aboutToDisappear()
-    if (transition === 'account') { page.user = { token: 'new', id: 'other', role: 'buyer' }; page.accountChanged() }
+    if (transition === 'account') { page.user = { token: 'new', id: 'other', identity: 'buyer' }; page.accountChanged() }
     selected.resolve('selected-jpeg'); await selecting
     assert.equal(page.photos.length, transition === 'picker' ? 1 : 0)
     assert.equal(page.choosing, false)
@@ -292,12 +291,12 @@ test('复核补改：成功提示不用警示色，关联订单显示商品和�
   const serviceSource = sourceOf(mineViews + 'CustomerServiceView.ets')
   assert.ok(!serviceSource.includes("'关联订单：' + this.orderId") && !serviceSource.includes("'关联订单：' + item.orderId"), '关联订单不能直接显示订单编号')
   const routes = []; service.stackPath = { pushPath: route => routes.push(route) }
-  service.user = { role: 'merchant' }; service.openOrder('order-1')
+  service.user = { identity: 'merchant' }; service.openOrder('order-1')
   assert.equal(routes[0].name, 'MerchantOrderView'); assert.equal(routes[0].param, 'order-1')
 
   const review = sourceOf(mineViews + 'ReviewManageView.ets')
-  assert.ok(review.includes("(item: MerchantReview) => item.id + ':' + (item.hiddenReason || ''))"), '隐藏原因变化后评价卡片要刷新')
-  assert.ok(review.includes('if (!item.hiddenReason) {'), '已隐藏的评价不再显示隐藏按钮')
+  assert.ok(review.includes("(item: MerchantReview) => item.id + ':' + (item.reply || '')+JSON.stringify(item.dispute || null)"), '公开回复和复核进度更新后评价卡片要刷新')
+  assert.ok(review.includes('if(item.reply)') && !review.includes("Button('隐藏评价')"), '已回复的评价显示回复且无隐藏入口')
   assert.ok(sourceOf(mineViews + 'MerchantServiceView.ets').includes("(item: ServiceThread) => item.buyerId + ':' + item.updatedAt + ':' + item.awaitingReply)"), '回复后留言会话卡片要刷新')
 
   const form = sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/components/InvoiceForm.ets')

@@ -1,0 +1,23 @@
+{
+  "theme": "dark",
+  "status": "passed",
+  "installedBytes": 10496522,
+  "installedSha256": "367406B6CF93A4E9DCF9CC339CF1E00D895A150F8D783BD3A0D5DB0FF9C409EE",
+  "orderAId": "8aff2768-f44b-4a66-a3b9-c05e6416fc77",
+  "orderBId": "43ac8b81-7f89-4037-8019-d302e0b1e4ea",
+  "scenarios": {
+    "followupSubmitAndDisplay": true,
+    "goodsDetailFollowupAndPendingRecord": true,
+    "originalReadOnlyAnd409Rejected": {
+      "uiReadOnly": true,
+      "api409": true,
+      "message": "已追加处理后感受，原评价不可修改",
+      "originalScore": 2,
+      "originalLogistics": 3,
+      "originalService": 3
+    },
+    "merchantReadOnlyNoEditDelete": true,
+    "pendingAfterSaleNoFollowupEntry": true
+  },
+  "capturedAt": "2026-11-23T15:06:54.2000108+08:00"
+}

@@ -83,9 +83,10 @@ export struct CartItem {
         .borderRadius(4)
 
         Row() {
-          Text(`¥${this.cart.price}`)
+          Text(`¥${this.cart.price}`).id('cart-price-' + this.cart.skuId)
             .fontSize(14)
             .fontWeight(500)
+            .fontColor($r('[ui_components].color.black'))
           Counter() {
             Text(this.cart.count.toString())
           }
@@ -107,7 +108,7 @@ export struct CartItem {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .height(112)
+    .height(136)
     .padding(12)
     .borderRadius(12)
     .clip(true)

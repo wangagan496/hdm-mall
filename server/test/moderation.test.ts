@@ -18,7 +18,7 @@ test('B2 评价与昵称发布前拦截明显违规词，不保存；正常差�
   } finally { await f.close() }
 })
 
-test('B2 隐藏必须选原因，商品页排除而买家看得到原因，修改重发恢复且审计齐全', async () => {
+test('B2 旧版隐藏评价兼容，商品页排除而买家看得到原因，修改重发恢复且审计齐全', async () => {
   const f = await serviceFixture()
   try {
     const id = (await f.create()).body.result.id
@@ -27,10 +27,9 @@ test('B2 隐藏必须选原因，商品页排除而买家看得到原因，修�
     assert.equal((await f.call('PUT', url, { score: 2, content: '这件商品的包装不满意' })).status, 200)
     const hide = `/merchant/reviews/${id}/hide`
     assert.equal((await f.call('POST', hide, { reason: '广告' })).status, 403)
-    assert.equal((await f.call('POST', hide, {}, f.merchant.token)).status, 400)
-    assert.equal((await f.call('POST', hide, { reason: '不喜欢差评' }, f.merchant.token)).status, 400)
-    assert.equal((await f.call('POST', hide, { reason: '无关内容' }, f.merchant.token)).status, 200)
-    assert.equal((await f.call('POST', hide, { reason: '无关内容' }, f.merchant.token)).status, 200)
+    assert.equal((await f.call('POST', hide, { reason: '无关内容' }, f.merchant.token)).status, 403)
+    // 历史隐藏记录仍可由买家改评恢复。
+    f.ctx.db.run('INSERT INTO review_moderation VALUES(?,?,?,?)', id, '无关内容', Date.UTC(2026,10,11), f.merchant.id)
     assert.equal((await f.call('GET', `/goods/${f.product.id}/evaluate/page`)).body.result.counts, 0)
     const detail = (await f.call('GET', `/member/order/${id}`)).body.result
     assert.equal(detail.evaluation.hiddenReason, '无关内容')
@@ -44,10 +43,9 @@ test('B2 隐藏必须选原因，商品页排除而买家看得到原因，修�
     assert.equal((await f.call('GET', `/member/order/${id}`)).body.result.evaluation.hiddenReason, null)
     const merchant = await f.call('GET', `/merchant/goods/${f.product.id}/reviews`, undefined, f.merchant.token)
     assert.equal(merchant.status, 200)
-    assert.equal(merchant.body.result.items[0].buyerId, f.buyer.id)
-    for (const action of ['review.hide', 'review.republish']) {
-      assert.equal((await f.call('GET', '/merchant/audit-log?action=' + action, undefined, f.merchant.token)).body.result.counts, 1)
-    }
+    assert.equal(merchant.body.result.items[0].buyerId, undefined)
+    assert.notEqual(merchant.body.result.items[0].id, id)
+    assert.equal((await f.call('GET', '/member/order/' + id)).body.result.evaluation.history[0].content, '这件商品的包装不满意')
   } finally { await f.close() }
 })
 

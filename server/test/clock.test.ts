@@ -14,7 +14,7 @@ test('注入时钟：十五分钟到期自动取消，重复读取与取消只�
     f.accounts.register('clock_merchant', 'clock-password-123', 'merchant')
     const buyer = f.accounts.login('clock_buyer', 'clock-password-123')
     const merchant = f.accounts.login('clock_merchant', 'clock-password-123')
-    const headers = { authorization: `Bearer ${buyer.token}` }
+    const headers = identityHeaders(f.accounts, buyer.token)
     const address = f.accounts.saveAddress(f.accounts.authenticate(headers.authorization),
       { receiver: '时钟测试', contact: '13800000000', address: '测试地址' })
     f.testData.product({ id: 'clock-product', name: '时钟商品',
@@ -36,7 +36,7 @@ test('注入时钟：十五分钟到期自动取消，重复读取与取消只�
     const stock = await f.app.inject({ url: '/goods?id=clock-product' })
     assert.equal(stock.json().skus[0].inventory, 11)
     const ledger = await f.app.inject({ url: '/merchant/inventory/clock-sku/movements',
-      headers: { authorization: `Bearer ${merchant.token}` } })
+      headers: identityHeaders(f.accounts, merchant.token) })
     const releases = ledger.json().result.items.filter((item: { kind: string }) => item.kind === 'expire')
     assert.equal(releases.length, 1)
     assert.equal(releases[0].createdAt, start + 15 * 60_000)
@@ -51,7 +51,7 @@ test('注入时钟：会话在二十四小时边界失效且拒绝写入，不�
   try {
     f.accounts.register('clock_session', 'clock-password-123')
     const user = f.accounts.login('clock_session', 'clock-password-123')
-    const headers = { authorization: `Bearer ${user.token}` }
+    const headers = identityHeaders(f.accounts, user.token)
     now += 24 * 3600_000 - 1
     assert.equal((await f.app.inject({ url: '/member/profile', headers })).statusCode, 200)
     now++
@@ -79,7 +79,7 @@ test('同一时钟覆盖付款、发货、收货、评价、关系和商家库�
     f.testData.relation({ ownerId: buyer.id, friendId: friend.id })
     assert.equal(f.db.one<{ created: number }>('SELECT created FROM relations')!.created, now)
     const request = (method: 'POST' | 'PUT', url: string, token: string, payload?: object) =>
-      f.app.inject({ method, url, headers: { authorization: 'Bearer ' + token }, payload })
+      f.app.inject({ method, url, headers: identityHeaders(f.accounts, token), payload })
     now = 2000
     assert.equal((await request('POST', '/member/order/' + order.id + '/mock-pay', buyer.token, { amountCents: sku.priceCents })).statusCode, 200)
     assert.equal(f.db.one<{ paid_at: number }>('SELECT paid_at FROM orders WHERE id=?', order.id)!.paid_at, now)
@@ -104,3 +104,4 @@ test('同一时钟覆盖付款、发货、收货、评价、关系和商家库�
     assert.equal(f.db.one<{ created: number }>("SELECT created FROM inventory_movements WHERE kind='cancel'")!.created, now)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

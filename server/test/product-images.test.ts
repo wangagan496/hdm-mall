@@ -23,7 +23,7 @@ test('商品图片按账号与请求号登记，只接受JPEG且大小受限，�
     const merchant = f.accounts.login('image_merchant', 'test-password-123')
     const upload = (requestKey: string, bytes?: Buffer, path = '/merchant/products/images') => {
       const data = imagePayload(requestKey, bytes)
-      return f.app.inject({ method: 'POST', url: path, headers: { authorization: 'Bearer ' + merchant.token,
+      return f.app.inject({ method: 'POST', url: path, headers: { ...identityHeaders(f.accounts, merchant.token),
         'content-type': 'multipart/form-data; boundary=' + data.boundary }, payload: data.payload })
     }
     const key = randomUUID(), first = await upload(key)
@@ -38,3 +38,4 @@ test('商品图片按账号与请求号登记，只接受JPEG且大小受限，�
     assert.equal((await upload(randomUUID(), huge, '/member/profile/avatar')).statusCode, 413)
   } finally { await f.app.close(); await rm(root, { recursive: true, force: true }) }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

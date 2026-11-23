@@ -1,0 +1,26 @@
+{
+  "command": "hvigorw.bat test --mode module --no-daemon",
+  "verifiedAt": "2026-11-19T00:23:50+08:00",
+  "log": "hvigor-module-promise-refresh.log",
+  "baselineStage1B": 129,
+  "total": 145,
+  "passed": 145,
+  "failures": 0,
+  "errors": 0,
+  "ignored": 0,
+  "modules": {
+    "constants": 0,
+    "device": 0,
+    "models": 58,
+    "network": 5,
+    "storage": 0,
+    "ui-components": 0,
+    "utils": 0,
+    "cart": 42,
+    "category": 6,
+    "home": 26,
+    "mine": 8,
+    "phone": 0
+  },
+  "promisesVectors": 16
+}

@@ -24,7 +24,7 @@ async function fixture() {
       payer ? users[payer].id : null, invited ? users[invited].id : null, receiver ? users[receiver].id : null)
     f.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count) VALUES(?,?,?,?,?,?,?,?)', id, 'center-product-a', 'center-product', id, '/assets/product.svg', '标准款', priceCents, 1)
   }
-  const get = (path: string, name = 'friend') => f.app.inject({ url: path, headers: { authorization: `Bearer ${users[name].token}` } })
+  const get = (path: string, name = 'friend') => f.app.inject({ url: path, headers: identityHeaders(f.accounts, users[name].token) })
   return { ...f, users, add, get }
 }
 
@@ -192,18 +192,27 @@ test('商家发货分页只整理当前页的明细，按最早下单顺序返�
   } finally { await f.app.close() }
 })
 
-test('商家身份作为亲友不能从亲友列表或详情取得地址，发货入口仍可取履约地址', async () => {
+test('多身份亲友只用买家身份读取亲友订单且不取得地址，店主发货入口仍可取履约地址', async () => {
   const f = await fixture()
   try {
     f.add('invited-merchant', 1, null, 'merchant')
     f.add('merchant-paid', 2, 'merchant')
+    for (const path of ['/member/family-orders/page', '/member/family-orders', '/member/order/merchant-paid']) {
+      const denied = await f.get(path, 'merchant')
+      assert.equal(denied.statusCode, 403)
+      assert.equal(denied.json().reason, 'BUYER_REQUIRED')
+    }
+    assert.ok((await f.get('/merchant/orders/page', 'merchant')).json().result.items[0].address)
+    assert.ok((await f.get('/merchant/orders', 'merchant')).json().result[0].address)
+    const switchResponse = await f.app.inject({ method: 'POST', url: '/member/identity/switch',
+      headers: identityHeaders(f.accounts, f.users.merchant.token), payload: { identity: 'buyer' } })
+    assert.equal(switchResponse.statusCode, 200)
     for (const path of ['/member/family-orders/page', '/member/family-orders']) {
       const result = (await f.get(path, 'merchant')).json().result
       assert.ok((Array.isArray(result) ? result : result.items).every((r: { address?: object }) => !r.address))
     }
     assert.equal((await f.get('/member/order/merchant-paid', 'merchant')).json().result.address, undefined)
-    assert.ok((await f.get('/merchant/orders/page', 'merchant')).json().result.items[0].address)
-    assert.ok((await f.get('/merchant/orders', 'merchant')).json().result[0].address)
+    assert.equal((await f.get('/merchant/orders', 'merchant')).statusCode, 403)
     assert.ok((await f.get('/member/order/merchant-paid', 'buyer')).json().result.address)
   } finally { await f.app.close() }
 })
@@ -221,3 +230,4 @@ test('订单分页验证登录角色和参数，空页与超大合法页码不�
     assert.equal((await f.get('/merchant/orders/page')).statusCode, 403)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

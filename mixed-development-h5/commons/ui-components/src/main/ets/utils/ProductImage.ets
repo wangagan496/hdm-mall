@@ -30,12 +30,34 @@ export async function encodeProductFile(fd: number): Promise<ArrayBuffer> {
   }
 }
 
-export async function pickProductImage(): Promise<string> {
+async function pickPhotoUri(): Promise<string> {
   const options = new photoAccessHelper.PhotoSelectOptions()
   options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE; options.maxSelectNumber = 1
   const selected = await new photoAccessHelper.PhotoViewPicker().select(options)
-  if (!selected.photoUris[0]) return ''
-  const file = fs.openSync(selected.photoUris[0], fs.OpenMode.READ_ONLY)
+  return selected.photoUris[0] || ''
+}
+
+export async function pickMaterialJpeg(): Promise<ArrayBuffer | null> {
+  const uri = await pickPhotoUri()
+  if (!uri) return null
+  const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+  try {
+    const size = fs.statSync(file.fd).size
+    if (size < 3 || size > 512 * 1024) throw new Error('请选择 512 KB 以内的 JPEG 原件')
+    const buffer = new ArrayBuffer(size)
+    const count = fs.readSync(file.fd, buffer)
+    const header = new Uint8Array(buffer)
+    if (count !== size || header[0] !== 255 || header[1] !== 216 || header[2] !== 255) {
+      throw new Error('请选择 JPEG 原件')
+    }
+    return buffer
+  } finally { try { fs.closeSync(file) } catch {} }
+}
+
+export async function pickProductImage(): Promise<string> {
+  const uri = await pickPhotoUri()
+  if (!uri) return ''
+  const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
   try { return new util.Base64Helper().encodeToStringSync(new Uint8Array(await encodeProductFile(file.fd))) }
   finally { try { fs.closeSync(file) } catch {} }
 }

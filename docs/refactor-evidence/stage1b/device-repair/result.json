@@ -1,0 +1,15 @@
+{
+  "status": "failed",
+  "packageSha256": "90F3299509790D9E1BD9002BF112F9F09810BAEA803005819E6D81BFA2A2164E",
+  "target": "127.0.0.1:5555",
+  "api": 24,
+  "scenes": [],
+  "themes": [],
+  "captures": [],
+  "error": "hdc failed for file: [Fail]Error opening file: no such file or directory, path:/data/local/tmp/hdm-stage1b-repair.jpg ",
+  "originalThemeRestored": true,
+  "portsRestored": true,
+  "fixtureStopped": true,
+  "port3103Free": true,
+  "uploadsRemoved": true
+}

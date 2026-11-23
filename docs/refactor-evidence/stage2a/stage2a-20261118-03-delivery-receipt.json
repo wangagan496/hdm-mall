@@ -1,0 +1,11 @@
+{
+  "task_id": "stage2a-20261118-03",
+  "message_id": "result-stage2a-20261118-03",
+  "target_session_id": "fa755efd-1c78-44e5-8bca-7674b2e79030",
+  "status": "submitted",
+  "transport_receipt_status": "written",
+  "transport_receipt_id": "20c92e39-784c-4c47-9d46-5e9a13e568ff",
+  "acknowledged": false,
+  "attempts": 1,
+  "final": true
+}

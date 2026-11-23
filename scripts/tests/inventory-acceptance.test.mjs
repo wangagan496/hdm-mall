@@ -8,7 +8,7 @@ function fixture() {
   const calls = []
   const Page = pageMethods(merchant, 'AfterSaleManageView', {}, { GlobalVariable: {}, RequestAxios: { getForSession: async url => url.includes('/settings/') ? null : { items: [], page: 1, pages: 0 } },
     afterSaleActions: { pending: () => null, start: async (...args) => calls.push(args) }, $r: x => x, Date, Math })
-  const page = new Page(); page.user = { id: 'merchant', token: 'fixture-session', role: 'merchant' }; page.active = true; page.synchronize()
+  const page = new Page(); page.user = { id: 'merchant', token: 'fixture-session', identity: 'merchant' }; page.active = true; page.synchronize()
   return { page, calls }
 }
 

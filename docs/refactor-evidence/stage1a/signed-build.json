@@ -1,0 +1,9 @@
+{
+  "name": "signed-build",
+  "cwd": "D:/hdm-mall",
+  "command": "pwsh -File scripts/verify-optimization-build.ps1 -SkipH5",
+  "exitCode": 0,
+  "durationSeconds": 98.137,
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-stage1a-signed-build-222845.log",
+  "observedAt": "2026-11-17T22:30:24.1339409+08:00"
+}

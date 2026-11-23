@@ -130,7 +130,7 @@ function merchantFixture() {
     getMerchantOrdersPageAPI: async page => { queries.push(page); return api.merchant(page) },
     shipOrderAPI: async (...args) => { writes.push(args); await api.ship(...args) },
   })
-  const page = new Page(); page.user = { id: 'merchant', token: 'token', role: 'merchant' }
+  const page = new Page(); page.user = { id: 'merchant', token: 'token', identity: 'merchant' }
   page.sessionToken = 'token'; page.sessionRole = 'merchant'; page.loadedToken = 'token'; page.ordersToShip = [order]
   page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog) })
   page.safeToast = text => messages.push(text)
@@ -146,7 +146,11 @@ function detailFixture(demo = false, coordinator) {
     readPhoneClockMillis: () => 1234,
     getOrderDetailAPI: async (...args) => { queries.push(args); return api.read(...args) },
   })
-  const page = new Page(); page.user = { id: 'buyer', token: 'token' }; page.orderId = 'order'; page.detailOrderId = 'order'; page.detailToken = 'token'; page.order = paid(); page.loading = false; page.displayedOrderState = 2
+  const page = new Page()
+  page.user = { id: 'buyer', token: 'token', identity: 'buyer', identityRevision: 0 }
+  page.orderId = 'order'
+  page.synchronizeDetailContext()
+  page.order = paid(); page.loading = false; page.displayedOrderState = 2
   page.safeToast = text => messages.push(text)
   page.getUIContext = () => ({ showAlertDialog: dialog => dialogs.push(dialog) })
   return { page, dialogs, writes, messages, queries, api, actions, legacy }
@@ -223,7 +227,7 @@ test('B-78 旧详情与商家操作离页/换账号返回不清新操作锁，�
   assert.equal(fixture.page.busy, 'new-action'); assert.equal(fixture.queries.length, 0); assert.equal(fixture.messages.length, 0)
   const merchant = merchantFixture(), wait = deferred(); merchant.api.mutate = () => wait.promise
   merchant.page.openCancelResolution(merchant.order); merchant.page.rejectReason = '已打包'; merchant.page.shippingTrackingNo = 'SF12345678'
-  const send = merchant.page.rejectCancellation(); merchant.page.user = { id: 'other', token: 'other', role: 'merchant' }
+  const send = merchant.page.rejectCancellation(); merchant.page.user = { id: 'other', token: 'other', identity: 'merchant' }
   merchant.page.synchronizeFamilySession(); merchant.page.isSubmitting = true; wait.reject(Error('old-failure')); await send
   assert.equal(merchant.page.isSubmitting, true); assert.equal(merchant.queries.length, 0); assert.equal(merchant.messages.length, 0)
 })

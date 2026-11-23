@@ -4,7 +4,7 @@ import {pageMethods,sourceOf,execute} from './native-harness.mjs'
 import {createRequire} from 'node:module'
 const path='mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets'
 function fixture({clearFails=false}={}){
- const calls=[],data=new Map();const user={id:'buyer',token:'session',role:'buyer'}
+ const calls=[],data=new Map();const user={id:'buyer',token:'session',identity:'buyer'}
  const Page=pageMethods(path,'AccountDeletionView',{}, {
   GlobalVariable:{},auth:{getUserInfo:()=>user,updateCurrentUser:u=>Object.assign(user,u)},
   deviceFixturePassword:async()=>'',

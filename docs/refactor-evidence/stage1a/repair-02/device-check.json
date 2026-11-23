@@ -1,0 +1,20 @@
+{
+  "task_id": "stage1a-20261117-02",
+  "observedAt": "2026-11-17T23:51:08.5253731+08:00",
+  "targets": [
+    "127.0.0.1:5555"
+  ],
+  "listener5555Count": 1,
+  "listeners": {
+    "LocalAddress": "127.0.0.1",
+    "LocalPort": 5555,
+    "OwningProcess": 8300
+  },
+  "emulatorProcesses": [
+    {
+      "ProcessId": 8300,
+      "ExecutablePath": "C:\\Program Files\\Huawei\\DevEco Studio\\tools\\emulator\\Emulator.exe",
+      "CommandLine": "\"C:\\Program Files\\Huawei\\DevEco Studio\\tools\\emulator\\Emulator.exe\" -start \"Pura 90 API24\" -instancePath \"C:\\Users\\23203\\AppData\\Local\\Huawei\\Emulator\\deployed\""
+    }
+  ]
+}

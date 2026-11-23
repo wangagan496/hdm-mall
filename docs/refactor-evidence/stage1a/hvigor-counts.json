@@ -1,0 +1,78 @@
+{
+  "fail": 0.0,
+  "modules": [
+    {
+      "fail": 0,
+      "pass": 0,
+      "path": "mixed-development-h5\\products\\phone\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:23.6494181+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 5,
+      "path": "mixed-development-h5\\commons\\network\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:14.6087654+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 22,
+      "path": "mixed-development-h5\\commons\\models\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:21:04.4885080+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 0,
+      "path": "mixed-development-h5\\commons\\storage\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:11.7799857+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 0,
+      "path": "mixed-development-h5\\commons\\utils\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:21:08.8183783+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 0,
+      "path": "mixed-development-h5\\commons\\device\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:21:17.1226033+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 26,
+      "path": "mixed-development-h5\\features\\home\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:31.2559740+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 0,
+      "path": "mixed-development-h5\\commons\\ui-components\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:27.9991892+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 7,
+      "path": "mixed-development-h5\\features\\mine\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:41.9795773+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 6,
+      "path": "mixed-development-h5\\features\\category\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:34.8337390+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 0,
+      "path": "mixed-development-h5\\commons\\constants\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:21:00.8754732+08:00"
+    },
+    {
+      "fail": 0,
+      "pass": 42,
+      "path": "mixed-development-h5\\features\\cart\\.test\\default\\intermediates\\test\\coverage_data\\test_result.txt",
+      "lastWriteTime": "2026-11-17T22:22:37.7278210+08:00"
+    }
+  ],
+  "pass": 108.0
+}

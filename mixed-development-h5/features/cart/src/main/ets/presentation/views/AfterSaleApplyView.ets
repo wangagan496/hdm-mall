@@ -7,6 +7,8 @@ import { pickProductImage } from 'ui_components'
 import { getAfterSaleOrderAPI } from '../../data/api/afterSales'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
 import { returnPolicyAllowsNoReason, returnConditionRequired, returnConditionError, returnPolicyAfterSaleHint } from 'models'
+import { PromiseAfterSaleRoute, PromiseEntry, PromiseMismatch, frozenOrderPromise, legacyPromiseAfterSaleKind } from 'models'
+import { PromiseMismatchNote } from '../components/PromiseMismatchNote'
 
 @Builder
 function AfterSaleApplyViewBuilder() { AfterSaleApplyView() }
@@ -21,20 +23,38 @@ export struct AfterSaleApplyView {
   @State order: OrderItem | null = null
   @State lines: AfterSaleLine[] = []
   @State kind: string = 'return-no-reason'
+  @State personalFit: boolean = false
   @State description: string = ''
   @State photos: AfterSalePhoto[] = []
   @State loading: boolean = false
   @State busy: boolean = false
   @State pending: boolean = false
   @State message: string = ''
+  @State mismatchPromise: PromiseEntry | undefined = undefined
+  private mismatch: PromiseMismatch | undefined = undefined
   private active: boolean = true
   private generation: number = 0
   private token: string = ''
-  private current(generation: number,token: string): boolean {return this.active && this.generation===generation && !!token && token===this.token && token===(this.user.token||'')}
-  private accountChanged(): void {this.generation++;this.order=null;this.lines=[];this.photos=[];this.description='';this.busy=false;if(this.active)void this.load()}
+  private accountId: string | undefined = undefined
+  private identity: string | undefined = undefined
+  private identityRevision: number | undefined = undefined
+  private current(generation: number, token: string): boolean {
+    return this.active && this.generation === generation && !!token && token === this.token && token === (this.user.token || '') &&
+      this.accountId === this.user.id && this.identity === this.user.identity && this.identityRevision === this.user.identityRevision
+  }
+  private accountChanged(): void {
+    if (this.token === (this.user.token || '') && this.accountId === this.user.id &&
+      this.identity === this.user.identity && this.identityRevision === this.user.identityRevision) return
+    this.generation++; this.order = null; this.lines = []; this.photos = []; this.description = ''; this.busy = false
+    this.mismatchPromise = undefined
+    this.personalFit = false
+    this.pending = false
+    if (this.active) void this.load()
+  }
   aboutToDisappear(): void {this.active=false;this.generation++}
   private async load(): Promise<void> {
     this.token=this.user.token||'';const token=this.token,generation=++this.generation
+    this.accountId = this.user.id; this.identity = this.user.identity; this.identityRevision = this.user.identityRevision
     this.loading=true;this.message=''
     try {
       const order=await getAfterSaleOrderAPI(this.orderId,token)
@@ -42,30 +62,67 @@ export struct AfterSaleApplyView {
       this.order=order
       this.lines=order.skus.filter((sku: OrderSku): boolean => (sku.afterSaleRemaining||0)>0).map((sku: OrderSku): AfterSaleLine => {
         return {skuId:sku.id,name:sku.name,spec:sku.attrsText,priceCents:Math.round(sku.realPay*100),count:sku.afterSaleRemaining||0,remaining:sku.afterSaleRemaining||0,
-          boughtCount:sku.quantity,discountShareCents:sku.discountShareCents,
+          boughtCount:sku.quantity,discountShareCents:sku.discountShareCents,sizeApplicable:sku.sizeApplicable,
           returnPolicy:sku.returnPolicy,returnPolicyReason:sku.returnPolicyReason,returnPolicyNote:sku.returnPolicyNote,returnPolicyConfirmed:sku.returnPolicyConfirmed,afterSaleKinds:sku.afterSaleKinds}
       })
       this.kind=order.afterSaleKinds?.[0]||'return-no-reason'
+      if (this.mismatch) this.applyMismatch(order, this.mismatch)
       this.excludeRestrictedLines()
       this.pending=afterSaleActions.pending(this.user.id||'',this.orderId)!==null
       if(!order.canApplyAfterSale && !this.pending)this.message=order.afterSaleNotice||'当前订单暂不能申请售后'
     } catch {if(this.current(generation,token))this.message='订单读取失败，请重试'}
     finally {if(this.current(generation,token))this.loading=false}
   }
+  private applyMismatch(order: OrderItem, reference: PromiseMismatch): void {
+    this.kind = ''
+    const sku = order.skus.find(item => item.id === reference.skuId)
+    const matched = sku?.promiseChecks?.find(item => item.fieldId === reference.fieldId && item.result === 'mismatch')
+    this.mismatchPromise = matched ? frozenOrderPromise(sku?.promiseSnapshot, reference.fieldId) : undefined
+    if (!this.mismatchPromise || this.user.identity !== 'buyer' || !this.lines.some(line => line.skuId === reference.skuId)) {
+      this.mismatchPromise = undefined
+      this.message = '这条下单承诺暂不能用于售后，请返回订单核对'
+      return
+    }
+    const suggested = this.mismatchPromise.suggestedAfterSaleKind ||
+      legacyPromiseAfterSaleKind(sku?.promiseSnapshot?.templateVersion || '', reference.fieldId)
+    if (suggested && this.kindAvailable(suggested)) this.kind = suggested
+    this.lines.forEach(line => { line.count = line.skuId === reference.skuId ? 1 : 0 })
+    if (!this.description) this.description = '实际情况与下单时的「' + this.mismatchPromise.label + '」承诺不符。'
+  }
+  private mismatchError(): string {
+    if (!this.mismatch) return ''
+    if (!this.mismatchPromise) return '这条下单承诺暂不能用于售后，请返回订单核对'
+    return this.lines.some(line => line.skuId === this.mismatch?.skuId && line.count > 0) ? '' : '请选中该承诺对应的商品'
+  }
   private stepCount(index: number,delta: number): void {
     if(this.busy||this.pending||!this.lines[index]||!this.lineAllowed(this.lines[index]))return
     this.lines[index].count=Math.max(0,Math.min(this.lines[index].remaining||0,this.lines[index].count+delta));this.lines=this.lines.slice()
+    if (!this.canChoosePersonalFit()) this.personalFit = false
+  }
+  private canChoosePersonalFit(): boolean {
+    if (this.mismatch || this.kind !== 'return-no-reason') return false
+    const selected = this.lines.filter((line: AfterSaleLine): boolean => line.count > 0)
+    return selected.length > 0 && selected.every((line: AfterSaleLine): boolean => line.sizeApplicable === true)
   }
   private quantityHint():string {return this.lines.some((line:AfterSaleLine):boolean=>line.count>0)?'':'请至少选择 1 件'}
   private lineAllowed(line: AfterSaleLine): boolean {
-    return (!line.afterSaleKinds || line.afterSaleKinds.includes(this.kind)) && (this.kind !== 'return-no-reason' || returnPolicyAllowsNoReason(line))
+    return !this.kind || ((!line.afterSaleKinds || line.afterSaleKinds.includes(this.kind)) &&
+      (this.kind !== 'return-no-reason' || returnPolicyAllowsNoReason(line)))
   }
   private excludeRestrictedLines(): void {
     this.lines.forEach((line: AfterSaleLine) => { if (!this.lineAllowed(line)) line.count = 0 })
     this.lines = this.lines.slice()
+    if (!this.canChoosePersonalFit()) this.personalFit = false
+  }
+  private kindAvailable(kind: string): boolean {
+    if (!this.order?.afterSaleKinds?.includes(kind)) return false
+    if (!this.mismatch) return true
+    const line = this.lines.find(item => item.skuId === this.mismatch?.skuId)
+    return !!line && (!line.afterSaleKinds || line.afterSaleKinds.includes(kind)) &&
+      (kind !== 'return-no-reason' || returnPolicyAllowsNoReason(line))
   }
   private selectKind(kind: string): void {
-    if (this.busy || this.pending || !this.order?.afterSaleKinds?.includes(kind)) return
+    if (this.busy || this.pending || !this.kindAvailable(kind)) return
     this.kind = kind; this.message = ''; this.excludeRestrictedLines()
   }
   private chooseCondition(index: number, condition: string): void {
@@ -75,7 +132,10 @@ export struct AfterSaleApplyView {
   private conditionText(line: AfterSaleLine, condition: string): string {
     return (condition === 'sealed' ? '未' : '已') + (line.returnPolicyReason === 'activated' ? '激活或试用' : '拆封')
   }
-  private canSubmit():boolean {return !this.busy&&!this.loading&&(this.pending||!!this.order?.canApplyAfterSale&&!this.quantityHint())}
+  private canSubmit():boolean {return !this.busy&&!this.loading&&(this.pending||!!this.kind&&!!this.order?.canApplyAfterSale&&!this.quantityHint()&&!this.mismatchError())}
+  private inputError(): string {
+    return this.mismatchError() || (this.kind ? afterSaleInputError(this.lines, this.kind, this.description) : '请先选择售后类型')
+  }
   private total(): string {return (afterSaleAmount(this.lines)/100).toFixed(2)}
   private discount(): string {return (this.lines.reduce((sum:number,line:AfterSaleLine):number=>sum+afterSaleDiscount(line),0)/100).toFixed(2)}
   private async choosePhoto(): Promise<void> {
@@ -89,7 +149,7 @@ export struct AfterSaleApplyView {
     if(this.busy||this.loading||!this.order)return
     if(this.pending){void this.submit();return}
     if(!this.order.canApplyAfterSale)return
-    this.message=afterSaleInputError(this.lines,this.kind,this.description)
+    this.message=this.inputError()
     if(this.message)return
     if(this.order.orderState===3) {
       const generation=this.generation,token=this.token
@@ -101,7 +161,7 @@ export struct AfterSaleApplyView {
     if(this.busy||this.loading||!this.current(this.generation,this.token))return
     if (!this.pending) {
       if (!this.order?.canApplyAfterSale) return
-      this.message = afterSaleInputError(this.lines, this.kind, this.description)
+      this.message = this.inputError()
       if (this.message) return
     }
     const generation=this.generation,token=this.token;this.busy=true;this.message=''
@@ -110,6 +170,8 @@ export struct AfterSaleApplyView {
       else {
         const body: AfterSaleBody={kind:this.kind,description:this.description.trim(),imageIds:[],items:this.lines.filter((line: AfterSaleLine): boolean => line.count>0).map((line: AfterSaleLine): AfterSaleQuantity => {return {skuId:line.skuId,count:line.count,
           conditionDeclared:this.kind==='return-no-reason'&&returnConditionRequired(line)?line.conditionDeclared:undefined}})}
+        if (this.mismatch) body.promiseMismatch = this.mismatch
+        else if (this.personalFit && this.canChoosePersonalFit()) body.sizeReason = 'personal-fit'
         await afterSaleActions.start(this.orderId,'/member/order/'+encodeURIComponent(this.orderId)+'/after-sales',body,this.kind==='return-quality'?this.photos:[],token)
       }
       if(this.current(generation,token))this.stackPath.pop()
@@ -123,6 +185,9 @@ export struct AfterSaleApplyView {
   @Builder
   private Form() {
     Column({space:14}) {
+      if (this.mismatchPromise) {
+        PromiseMismatchNote({ promise: this.mismatchPromise })
+      }
       ForEach(this.lines,(line: AfterSaleLine,index: number)=>{
         Column({space:6}) {
           Text(line.name+' · '+line.spec).fontColor($r('[ui_components].color.text')).width('100%')
@@ -157,14 +222,29 @@ export struct AfterSaleApplyView {
         }.width('100%').padding(12).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
       },(line: AfterSaleLine)=>line.skuId)
       Text('售后类型').fontColor($r('[ui_components].color.text')).width('100%')
+      if (this.order && !this.kind && !this.pending) {
+        Text('请选择适合你的售后类型').id('after-sale-kind-required').fontSize(14)
+          .fontColor($r('[ui_components].color.text')).width('100%')
+      }
       ForEach(this.order?.afterSaleKinds||[],(kind:string)=>{
         Button(afterSaleKind(kind)+(this.kind===kind?' ✓ 已选':'')).id('after-sale-kind-'+kind).width('100%')
           .backgroundColor(this.kind===kind?$r('[ui_components].color.red'):$r('[ui_components].color.white'))
-          .fontColor(this.kind===kind?Color.White:$r('[ui_components].color.text')).enabled(!this.busy&&!this.pending)
+          .fontColor(this.kind===kind?$r('[ui_components].color.on_primary'):$r('[ui_components].color.text'))
+          .enabled(!this.busy&&!this.pending&&this.kindAvailable(kind))
           .onClick(()=>this.selectKind(kind))
       })
+      if (this.canChoosePersonalFit()) {
+        Text('退货原因（选填）').fontSize(14).fontColor($r('[ui_components].color.text')).width('100%')
+        Button('个人穿着不合适' + (this.personalFit ? ' ✓ 已选' : '')).id('after-sale-personal-fit').width('100%')
+          .backgroundColor(this.personalFit ? $r('[ui_components].color.red') : $r('[ui_components].color.white'))
+          .fontColor(this.personalFit ? $r('[ui_components].color.on_primary') : $r('[ui_components].color.text'))
+          .enabled(!this.pending && !this.busy).onClick(() => { this.personalFit = !this.personalFit })
+      }
       // 七日无理由退货 / 质量问题退货 / 少件漏发仅退款
-      Text(this.kind==='refund-missing'?'少件仅退款，无需寄回':'退货运费由商家承担，寄回后填写运费即可随退款退回').fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+      if (this.kind) {
+        Text(this.kind==='refund-missing'?'少件仅退款，无需寄回':'退货运费由商家承担，寄回后填写运费即可随退款退回')
+          .fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+      }
       Text(this.kind==='return-no-reason'?'说明（选填）':'问题说明（5–200字）').fontColor($r('[ui_components].color.text')).width('100%')
       TextArea({text:this.description,placeholder:'请描述需要处理的问题'}).id('after-sale-description').height(100).maxLength(200).fontColor($r('[ui_components].color.text')).backgroundColor($r('[ui_components].color.white')).enabled(!this.busy&&!this.pending).onChange((value:string)=>this.description=value)
       if(this.kind==='return-quality') {
@@ -187,15 +267,28 @@ export struct AfterSaleApplyView {
         if(this.loading){LoadingProgress().width(40).height(40)}
         Scroll(){this.Form()}.align(Alignment.Top).layoutWeight(1).width('100%')
         Column({space:8}) {
-          Text('预计退款 ¥'+this.total()+'，退回 '+(this.order?.payerAccount||'实际付款人账号')).id('after-sale-estimate').fontColor($r('[ui_components].color.text')).fontSize(15)
-          Text('已扣除该商品分摊的满减 ¥'+this.discount()).id('after-sale-discount').fontColor($r('[ui_components].color.gray')).fontSize(13)
-          if(this.total()==='0.00'&&!this.quantityHint()){Text(this.kind==='refund-missing'?'该商品实付 ¥0.00（满减已抵扣），无需货款退款':'该商品实付 ¥0.00（满减已抵扣），退货后无需退款').fontColor($r('[ui_components].color.text')).fontSize(13)}
+          if (this.kind) {
+            Text('预计退款 ¥'+this.total()+'，退回 '+(this.order?.payerAccount||'实际付款人账号')).id('after-sale-estimate').fontColor($r('[ui_components].color.text')).fontSize(15)
+            Text('已扣除该商品分摊的满减 ¥'+this.discount()).id('after-sale-discount').fontColor($r('[ui_components].color.gray')).fontSize(13)
+            if(this.total()==='0.00'&&!this.quantityHint()){Text(this.kind==='refund-missing'?'该商品实付 ¥0.00（满减已抵扣），无需货款退款':'该商品实付 ¥0.00（满减已抵扣），退货后无需退款').fontColor($r('[ui_components].color.text')).fontSize(13)}
+          }
           if(!this.pending&&this.quantityHint()){Text(this.quantityHint()).fontColor($r('[ui_components].color.red'))}
+          if(!this.pending&&!this.loading&&this.mismatchError()){Text(this.mismatchError()).fontColor($r('[ui_components].color.red'))}
           Button(this.busy?'正在提交':this.pending?'重试确认结果':'提交申请').id('after-sale-submit').width('100%').backgroundColor($r('[ui_components].color.red')).enabled(this.canSubmit()).onClick(()=>this.requestSubmit())
           if(!this.order&&!this.loading){Button('重新加载').onClick(()=>this.load())}
         }.padding(16).width('100%')
       }.width('100%').height('100%').padding({top:this.safeTop,bottom:this.safeBottom}).backgroundColor($r('[ui_components].color.under'))
-    }.hideTitleBar(true).onReady((context:NavDestinationContext)=>{this.orderId=context.pathInfo.param as string;void this.load()})
+    }.hideTitleBar(true).onReady((context: NavDestinationContext) => {
+      const param = context.pathInfo.param as string | PromiseAfterSaleRoute | undefined
+      if (typeof param === 'string') {
+        this.orderId = param
+      } else {
+        const route = param as PromiseAfterSaleRoute | undefined
+        this.orderId = route?.orderId || ''
+        this.mismatch = route?.promiseMismatch
+      }
+      void this.load()
+    })
     .onShown(()=>{this.active=true}).onHidden(()=>{this.active=false;this.generation++;this.busy=false})
   }
 }

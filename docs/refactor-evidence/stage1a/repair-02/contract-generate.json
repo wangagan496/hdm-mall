@@ -1,0 +1,9 @@
+{
+  "name": "contract-generate",
+  "cwd": "D:\\hdm-mall",
+  "command": "node contract-kit/v1/generators/generate.ts",
+  "exitCode": 0,
+  "durationSeconds": 0.25,
+  "observedAt": "2026-11-17T22:56:35.2572757+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-02\\contract-generate.log"
+}

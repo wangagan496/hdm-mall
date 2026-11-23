@@ -1,6 +1,11 @@
 {
   "routerMap": [
     {
+      "name": "ModuleBayView",
+      "buildFunction": "ModuleBayViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ModuleBayView.ets"
+    },
+    {
       "name": "AccountDeletionView",
       "buildFunction": "AccountDeletionViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/AccountDeletionView.ets"
@@ -14,6 +19,16 @@
       "name": "ProductManageView",
       "buildFunction": "ProductManageViewBuilder",
       "pageSourceFile": "src/main/ets/presentation/views/ProductManageView.ets"
+    },
+    {
+      "name": "ProductPromisesView",
+      "buildFunction": "ProductPromisesViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductPromisesView.ets"
+    },
+    {
+      "name": "ProductMaterialsView",
+      "buildFunction": "ProductMaterialsViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductMaterialsView.ets"
     },
     {
       "name": "ProductEditView",

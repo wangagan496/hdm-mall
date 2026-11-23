@@ -1,0 +1,9 @@
+{
+  "h5TypesDeclaration": "^24.12.2",
+  "h5TsconfigDeclaration": "^24.0.4",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "serverTypesDeclaration": "^24.0.0",
+  "serverTypesLocked": "24.19.2"
+}

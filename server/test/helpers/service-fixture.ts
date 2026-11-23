@@ -16,7 +16,7 @@ export async function serviceFixture(fileBacked = false) {
   const address = ctx.testData.address({ userId: buyer.id, receiver: 'Buyer', contact: '13800000000', address: '测试地址' })
   const product = ctx.testData.product({ name: '服务测试商品', skus: [{ spec: '标准', priceCents: 1000, stock: 100 }] })
   const call = async (method: string, url: string, payload?: object, token = buyer.token) => {
-    const response = await ctx.app.inject({ method: method as never, url, headers: { authorization: 'Bearer ' + token }, payload })
+    const response = await ctx.app.inject({ method: method as never, url, headers: identityHeaders(ctx.accounts, token), payload })
     return { status: response.statusCode, body: response.json() }
   }
   const create = (invoice?: object) => call('POST', '/member/order', { requestKey: randomUUID(), addressId: address.id,
@@ -25,7 +25,7 @@ export async function serviceFixture(fileBacked = false) {
     const boundary = 'service-' + randomUUID()
     const prefix = Object.entries(fields).map(([name, value]) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`).join('')
     const payload = Buffer.concat([Buffer.from(prefix + `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="photo.jpg"\r\nContent-Type: ${mime}\r\n\r\n`), image, Buffer.from(`\r\n--${boundary}--\r\n`)])
-    const response = await ctx.app.inject({ method: 'POST', url, headers: { authorization: 'Bearer ' + token, 'content-type': 'multipart/form-data; boundary=' + boundary }, payload })
+    const response = await ctx.app.inject({ method: 'POST', url, headers: { ...identityHeaders(ctx.accounts, token), 'content-type': 'multipart/form-data; boundary=' + boundary }, payload })
     return { status: response.statusCode, body: response.json() }
   }
   const complete = async (id: string) => {
@@ -44,3 +44,4 @@ export async function serviceFixture(fileBacked = false) {
     loginMerchant: () => { merchant.token = ctx.accounts.login(merchant.account, password).token },
     advance: (ms: number) => { now += ms }, close: async () => { await ctx.app.close(); await rm(root, { recursive: true, force: true }) } }
 }
+import { identityHeaders } from './identity-headers.ts'

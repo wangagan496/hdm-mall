@@ -1,0 +1,915 @@
+{
+  "basis": "HEAD 282b006；仅静态源码可达入口与注册表，不代表本轮设备逐一点击通过。角色和状态条件保留；动态路由记录是源代码线索。",
+  "entries": [
+    {
+      "role": "共用",
+      "label": "首页",
+      "file": "mixed-development-h5/products/phone/src/main/ets/constants/TabConstants.ets",
+      "line": 13,
+      "sourceAnchor": "text: '首页'",
+      "target": "HomeView",
+      "condition": "底部标签；大屏布局方向由壳页控制"
+    },
+    {
+      "role": "共用",
+      "label": "分类",
+      "file": "mixed-development-h5/products/phone/src/main/ets/constants/TabConstants.ets",
+      "line": 14,
+      "sourceAnchor": "text: '分类'",
+      "target": "CategoryView",
+      "condition": "底部标签；大屏布局方向由壳页控制"
+    },
+    {
+      "role": "共用",
+      "label": "购物袋",
+      "file": "mixed-development-h5/products/phone/src/main/ets/constants/TabConstants.ets",
+      "line": 15,
+      "sourceAnchor": "text: '购物袋'",
+      "target": "CartView",
+      "condition": "底部标签；大屏布局方向由壳页控制"
+    },
+    {
+      "role": "共用",
+      "label": "我的",
+      "file": "mixed-development-h5/products/phone/src/main/ets/constants/TabConstants.ets",
+      "line": 16,
+      "sourceAnchor": "text: '我的'",
+      "target": "MineView",
+      "condition": "底部标签；大屏布局方向由壳页控制"
+    },
+    {
+      "role": "买家",
+      "label": "首页搜索",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/HomeView.ets",
+      "line": 405,
+      "sourceAnchor": "accessibilityText('搜索商品')",
+      "target": "SearchView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "轮播商品入口",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/HomeView.ets",
+      "line": 393,
+      "sourceAnchor": "onBannerClick:",
+      "target": "SearchResultView",
+      "condition": "getBannerSearchParam 返回有效参数"
+    },
+    {
+      "role": "买家",
+      "label": "首页商品分类",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeCategorySection.ets",
+      "line": 29,
+      "sourceAnchor": ".onClick",
+      "target": "分类标签/选中分类",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "分类搜索",
+      "file": "mixed-development-h5/features/category/src/main/ets/presentation/views/CategoryView.ets",
+      "line": 69,
+      "sourceAnchor": "onRightClick:",
+      "target": "SearchView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "二级分类商品",
+      "file": "mixed-development-h5/features/category/src/main/ets/presentation/views/CategoryView.ets",
+      "line": 58,
+      "sourceAnchor": "PAGE_PATH.SEARCH_RESULT_PAGE",
+      "target": "SearchResultView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "商品卡片",
+      "file": "mixed-development-h5/commons/ui-components/src/main/ets/components/HDMGoods.ets",
+      "line": 73,
+      "sourceAnchor": ".onClick",
+      "target": "GoodsView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "商品客服",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 727,
+      "sourceAnchor": "PAGE_PATH.CUSTOMER_SERVICE_PAGE",
+      "target": "CustomerServiceView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "去购物车",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 655,
+      "sourceAnchor": "Button('去购物车')",
+      "target": "CartView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "加入购物袋",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 745,
+      "sourceAnchor": "Button('加入购物袋')",
+      "target": "商品规格选择/加入购物袋",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "立即购买",
+      "file": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "line": 618,
+      "sourceAnchor": "Button('立即购买')",
+      "target": "CheckView（经规格选择）",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "购物袋去结算",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets",
+      "line": 506,
+      "sourceAnchor": "'去结算'",
+      "target": "CheckView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "结算收货地址",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 511,
+      "sourceAnchor": "PAGE_PATH.ADDRESS_PAGE",
+      "target": "AddressView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "提交订单并付款",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "line": 899,
+      "sourceAnchor": "Button('提交订单并付款')",
+      "target": "PayView/OrderDetailView（按付款方式与状态）",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "立即登录",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 162,
+      "sourceAnchor": "Text('立即登录')",
+      "target": "LoginView",
+      "condition": "未登录"
+    },
+    {
+      "role": "共用",
+      "label": "编辑资料",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 154,
+      "sourceAnchor": "Text('编辑资料')",
+      "target": "WebView → H5 /profile",
+      "condition": "已登录"
+    },
+    {
+      "role": "共用",
+      "label": "设置",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 131,
+      "sourceAnchor": "accessibilityText('设置')",
+      "target": "SettingsView（SettingView.ets）",
+      "condition": "已登录"
+    },
+    {
+      "role": "买家",
+      "label": "亲友中心 · 代付与代收",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 243,
+      "sourceAnchor": "'亲友中心 · 代付与代收'",
+      "target": "FamilyView；未登录转 LoginView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "我的收藏",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 255,
+      "sourceAnchor": "text: '我的收藏'",
+      "target": "FavoritesView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "我的足迹",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 266,
+      "sourceAnchor": "text: '我的足迹'",
+      "target": "HistoryView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "我的客服",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 278,
+      "sourceAnchor": "text: '我的客服'",
+      "target": "CustomerServiceView / 商家为 MerchantServiceView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "全部订单",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 313,
+      "sourceAnchor": "text: '全部订单'",
+      "target": "OrderView 参数 0",
+      "condition": "未登录先转 LoginView"
+    },
+    {
+      "role": "买家",
+      "label": "待付款",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 321,
+      "sourceAnchor": "text: '待付款'",
+      "target": "OrderView 参数 1",
+      "condition": "未登录先转 LoginView"
+    },
+    {
+      "role": "买家",
+      "label": "待发货",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 329,
+      "sourceAnchor": "text: '待发货'",
+      "target": "OrderView 参数 2",
+      "condition": "未登录先转 LoginView"
+    },
+    {
+      "role": "买家",
+      "label": "待收货",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 337,
+      "sourceAnchor": "text: '待收货'",
+      "target": "OrderView 参数 3",
+      "condition": "未登录先转 LoginView"
+    },
+    {
+      "role": "买家",
+      "label": "待评价",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 345,
+      "sourceAnchor": "text: '待评价'",
+      "target": "OrderView 参数 4",
+      "condition": "未登录先转 LoginView"
+    },
+    {
+      "role": "买家",
+      "label": "注销处理中进度/撤销",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 238,
+      "sourceAnchor": "Button('账号注销处理中",
+      "target": "AccountDeletionView",
+      "condition": "user.status === 'deleting'"
+    },
+    {
+      "role": "共用",
+      "label": "设置个人信息",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 78,
+      "sourceAnchor": "openProfileEditor():",
+      "target": "WebView → H5 /profile",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "收货地址管理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 151,
+      "sourceAnchor": "title: '收货地址管理'",
+      "target": "AddressView",
+      "condition": "按设置页当前会话状态"
+    },
+    {
+      "role": "共用",
+      "label": "隐私政策",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 154,
+      "sourceAnchor": "title: '隐私政策'",
+      "target": "隐私全文弹窗",
+      "condition": "按设置页当前会话状态"
+    },
+    {
+      "role": "共用",
+      "label": "用户协议",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 155,
+      "sourceAnchor": "title: '用户协议'",
+      "target": "协议全文弹窗",
+      "condition": "按设置页当前会话状态"
+    },
+    {
+      "role": "共用",
+      "label": "撤回同意",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 30,
+      "sourceAnchor": "title: '撤回同意'",
+      "target": "确认弹窗/退出登录",
+      "condition": "按设置页当前会话状态"
+    },
+    {
+      "role": "买家",
+      "label": "注销账号",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 158,
+      "sourceAnchor": "title: '注销账号'",
+      "target": "AccountDeletionView",
+      "condition": "商家不显示注销入口，提示联系管理员"
+    },
+    {
+      "role": "共用",
+      "label": "退出登录",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "line": 164,
+      "sourceAnchor": "title: '退出登录'",
+      "target": "退出确认弹窗",
+      "condition": "按设置页当前会话状态"
+    },
+    {
+      "role": "商家",
+      "label": "对账",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 219,
+      "sourceAnchor": "Button('对账')",
+      "target": "ReconciliationView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "客服留言",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 221,
+      "sourceAnchor": "Button('客服留言')",
+      "target": "MerchantServiceView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "满减设置",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 222,
+      "sourceAnchor": "Button('满减设置')",
+      "target": "PromotionSettingView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "操作记录",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 224,
+      "sourceAnchor": "Button('操作记录')",
+      "target": "AuditLogView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "库存管理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 227,
+      "sourceAnchor": "Button('库存管理')",
+      "target": "InventoryView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "商品管理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 230,
+      "sourceAnchor": "Button('商品管理')",
+      "target": "ProductManageView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "售后管理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 233,
+      "sourceAnchor": "Button($r('app.string.after_sale_manage'))",
+      "target": "AfterSaleManageView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "商家",
+      "label": "亲友中心 / 商家发货",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "line": 243,
+      "sourceAnchor": "'亲友中心 / 商家发货'",
+      "target": "FamilyView",
+      "condition": "user.role === 'merchant'"
+    },
+    {
+      "role": "买家",
+      "label": "亲友：待我付款",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 858,
+      "sourceAnchor": "label: '待我付款'",
+      "target": "FamilyView 分组",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "亲友：待我收货",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 858,
+      "sourceAnchor": "label: '待我收货'",
+      "target": "FamilyView 分组",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "亲友：待处理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 859,
+      "sourceAnchor": "label: '待处理'",
+      "target": "FamilyView 分组",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "亲友：全部订单",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 859,
+      "sourceAnchor": "label: '全部订单'",
+      "target": "FamilyView 分组",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "亲友关系管理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 875,
+      "sourceAnchor": "'关系管理'",
+      "target": "绑定邀请/同意/解除关系",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "商家发货分组",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 881,
+      "sourceAnchor": "Button('商家发货')",
+      "target": "FamilyView merchant 分组",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "确认发货",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 839,
+      "sourceAnchor": "Button('确认发货')",
+      "target": "承运商/运单表单 → 提交发货",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "处理取消申请",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 831,
+      "sourceAnchor": "Button('处理取消申请')",
+      "target": "同意取消 / 拒绝并发货表单",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "商家订单详情",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 844,
+      "sourceAnchor": "Button('查看订单详情')",
+      "target": "MerchantOrderView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "亲友付款与订单详情",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "line": 793,
+      "sourceAnchor": "Button('查看付款与订单详情')",
+      "target": "OrderDetailView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "新建商品",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "line": 99,
+      "sourceAnchor": "Button('新建商品')",
+      "target": "ProductEditView，空 id",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "编辑",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "line": 114,
+      "sourceAnchor": "Button('编辑')",
+      "target": "ProductEditView，商品 id",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "评价",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "line": 115,
+      "sourceAnchor": "Button('评价')",
+      "target": "ReviewManageView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "商品上下架",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "line": 116,
+      "sourceAnchor": "'上架' : '下架'",
+      "target": "原页状态操作/未知结果确认",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "对账订单详情",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReconciliationView.ets",
+      "line": 91,
+      "sourceAnchor": "Button('查看订单详情')",
+      "target": "MerchantOrderView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "按日查询对账",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReconciliationView.ets",
+      "line": 112,
+      "sourceAnchor": "Button('查询记录')",
+      "target": "原页报表",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "开始对账",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReconciliationView.ets",
+      "line": 113,
+      "sourceAnchor": "Button('开始对账')",
+      "target": "原页报表",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "差异处理",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReconciliationView.ets",
+      "line": 100,
+      "sourceAnchor": "Button('标记已处理')",
+      "target": "原因表单/保存处理结果",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "客服查看并回复",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MerchantServiceView.ets",
+      "line": 59,
+      "sourceAnchor": "Button('查看并回复')",
+      "target": "MerchantServiceThread → CustomerServiceView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "调整库存",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/InventoryView.ets",
+      "line": 300,
+      "sourceAnchor": "Button('调整库存')",
+      "target": "原页库存调整表单",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "默认退货地址",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets",
+      "line": 292,
+      "sourceAnchor": "Button('设置默认退货地址')",
+      "target": "原页退货地址表单",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "售后同意",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets",
+      "line": 268,
+      "sourceAnchor": "Button('同意')",
+      "target": "原页同意表单",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "售后拒绝",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets",
+      "line": 269,
+      "sourceAnchor": "Button('拒绝')",
+      "target": "原页拒绝原因表单",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "商家",
+      "label": "验收退款/补验收入库",
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets",
+      "line": 272,
+      "sourceAnchor": "'验收并退款':'补验收入库'",
+      "target": "原页验收数量/退款表单",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "订单详情",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderView.ets",
+      "line": 644,
+      "sourceAnchor": "Button('查看订单')",
+      "target": "OrderDetailView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "去支付",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 474,
+      "sourceAnchor": "去支付",
+      "target": "PayView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "去评价",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 539,
+      "sourceAnchor": "去评价",
+      "target": "EvaluationView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "申请售后",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 615,
+      "sourceAnchor": "申请售后",
+      "target": "AfterSaleApplyView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "联系客服",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 654,
+      "sourceAnchor": "联系客服",
+      "target": "CustomerServiceView",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "买家",
+      "label": "刷新物流",
+      "file": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "line": 611,
+      "sourceAnchor": "刷新物流",
+      "target": "原页物流轨迹",
+      "condition": "按页面现有登录、权限、数据状态控制"
+    },
+    {
+      "role": "共用",
+      "label": "H5 个人信息",
+      "file": "shoph5-vue3/src/router/index.ts",
+      "line": 11,
+      "sourceAnchor": "path: '/profile'",
+      "target": "src/views/ProfileEdit.vue",
+      "condition": "hash 路由；原生 WebView 宿主进入；根路由重定向到 /profile"
+    }
+  ],
+  "registeredRoutes": [
+    {
+      "name": "AfterSaleApplyView",
+      "buildFunction": "AfterSaleApplyViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AfterSaleApplyView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/AfterSaleApplyView.ets"
+    },
+    {
+      "name": "CartView",
+      "buildFunction": "CartViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/CartView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets"
+    },
+    {
+      "name": "CheckView",
+      "buildFunction": "CheckViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/CheckView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets"
+    },
+    {
+      "name": "PayView",
+      "buildFunction": "PayViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/PayView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayView.ets"
+    },
+    {
+      "name": "PayResultView",
+      "buildFunction": "PayResultViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/PayResultView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets"
+    },
+    {
+      "name": "OrderView",
+      "buildFunction": "OrderViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/OrderView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderView.ets"
+    },
+    {
+      "name": "OrderDetailView",
+      "buildFunction": "OrderDetailViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/OrderDetailView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets"
+    },
+    {
+      "name": "EvaluationView",
+      "buildFunction": "EvaluationViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/EvaluationView.ets",
+      "file": "mixed-development-h5/features/cart/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/cart/src/main/ets/presentation/views/EvaluationView.ets"
+    },
+    {
+      "name": "SearchView",
+      "buildFunction": "SearchViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/SearchView.ets",
+      "file": "mixed-development-h5/features/home/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/home/src/main/ets/presentation/views/SearchView.ets"
+    },
+    {
+      "name": "SearchResultView",
+      "buildFunction": "SearchResultViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/SearchResultView.ets",
+      "file": "mixed-development-h5/features/home/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/home/src/main/ets/presentation/views/SearchResultView.ets"
+    },
+    {
+      "name": "GoodsView",
+      "buildFunction": "GoodsViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/GoodsView.ets",
+      "file": "mixed-development-h5/features/home/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets"
+    },
+    {
+      "name": "AccountDeletionView",
+      "buildFunction": "AccountDeletionViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AccountDeletionView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets"
+    },
+    {
+      "name": "AfterSaleManageView",
+      "buildFunction": "AfterSaleManageViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AfterSaleManageView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets"
+    },
+    {
+      "name": "ProductManageView",
+      "buildFunction": "ProductManageViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductManageView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets"
+    },
+    {
+      "name": "ProductEditView",
+      "buildFunction": "ProductEditViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/ProductEditView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductEditView.ets"
+    },
+    {
+      "name": "InventoryView",
+      "buildFunction": "InventoryViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/InventoryView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/InventoryView.ets"
+    },
+    {
+      "name": "FamilyView",
+      "buildFunction": "FamilyViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/FamilyView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets"
+    },
+    {
+      "name": "LoginView",
+      "buildFunction": "LoginViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/LoginView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/LoginView.ets"
+    },
+    {
+      "name": "SettingsView",
+      "buildFunction": "SettingsViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/SettingView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets"
+    },
+    {
+      "name": "WebView",
+      "buildFunction": "WebViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/WebView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/WebView.ets"
+    },
+    {
+      "name": "FavoritesView",
+      "buildFunction": "FavoritesViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/FavoritesView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FavoritesView.ets"
+    },
+    {
+      "name": "HistoryView",
+      "buildFunction": "HistoryViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/HistoryView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/HistoryView.ets"
+    },
+    {
+      "name": "CustomerServiceView",
+      "buildFunction": "CustomerServiceViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/CustomerServiceView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/CustomerServiceView.ets"
+    },
+    {
+      "name": "AddressView",
+      "buildFunction": "AddressViewBuilder",
+      "pageSourceFile": "src/main/ets/presentation/views/AddressView.ets",
+      "file": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "pageFile": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AddressView.ets"
+    },
+    {
+      "name": "AuditLogView",
+      "component": "AuditLogView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 196,
+      "registration": "navDestination auditDestination"
+    },
+    {
+      "name": "ReconciliationView",
+      "component": "ReconciliationView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 197,
+      "registration": "navDestination auditDestination"
+    },
+    {
+      "name": "PromotionSettingView",
+      "component": "PromotionSettingView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 198,
+      "registration": "navDestination auditDestination"
+    },
+    {
+      "name": "MerchantOrderView",
+      "component": "MerchantOrderView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 199,
+      "registration": "navDestination auditDestination"
+    },
+    {
+      "name": "ReviewManageView",
+      "component": "ReviewManageView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 200,
+      "registration": "navDestination auditDestination"
+    },
+    {
+      "name": "MerchantServiceView",
+      "component": "MerchantServiceView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 201,
+      "registration": "navDestination auditDestination"
+    },
+    {
+      "name": "MerchantServiceThread",
+      "component": "CustomerServiceView",
+      "file": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "line": 202,
+      "registration": "navDestination auditDestination"
+    }
+  ],
+  "limitations": [
+    {
+      "file": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "label": "立即开通会员",
+      "status": "UI 有按钮，但该按钮未绑定 onClick，不列作已可用业务入口。"
+    }
+  ]
+}

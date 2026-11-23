@@ -66,13 +66,13 @@ export struct CustomerServiceView {
     return '关联订单：' + (name || '订单') + (createdAt ? ' · ' + formatBeijingTime(createdAt) + ' 下单' : '')
   }
   private openOrder(orderId: string): void {
-    this.stackPath.pushPath({ name: this.user.role === 'merchant' ? 'MerchantOrderView' : PAGE_PATH.ORDER_DETAIL_PAGE, param: orderId })
+    this.stackPath.pushPath({ name: this.user.identity === 'merchant' ? 'MerchantOrderView' : PAGE_PATH.ORDER_DETAIL_PAGE, param: orderId })
   }
-  private endpoint(): string { return this.user.role === 'merchant' ? '/merchant/service/' + encodeURIComponent(this.buyerId) + '/messages' : '/member/service/messages' }
+  private endpoint(): string { return this.user.identity === 'merchant' ? '/merchant/service/' + encodeURIComponent(this.buyerId) + '/messages' : '/member/service/messages' }
   private async load(older: boolean = false): Promise<void> {
     const token = this.user.token, generation = this.generation, query = ++this.query
     if (!this.current(generation, token)) { this.messageOk = false; this.message = '请登录后留言'; return }
-    if (this.user.role === 'merchant' && !this.buyerId) { this.message = '请从商家客服留言列表选择买家'; return }
+    if (this.user.identity === 'merchant' && !this.buyerId) { this.message = '请从商家客服留言列表选择买家'; return }
     if (older && (!this.hasMore || !this.beforeId)) return
     this.loading = true
     try {
@@ -80,14 +80,14 @@ export struct CustomerServiceView {
       if (!this.current(generation, token) || query !== this.query) return
       this.items = older ? history.items.concat(this.items) : history.items
       this.hasMore = history.hasMore; this.beforeId = history.beforeId; this.buyerName = history.buyerName
-      if (!older && this.user.role !== 'merchant' && history.items.length > 0) {
+      if (!older && this.user.identity !== 'merchant' && history.items.length > 0) {
         await RequestAxios.postWithSession<null>('/member/service/read', { throughId: history.items[history.items.length - 1].id } as ServiceRead, token)
       }
     } catch { if (this.current(generation, token) && query === this.query) this.message = '留言读取或已读同步失败，请刷新重试，输入仍保留' }
     finally { if (this.current(generation, token) && query === this.query) this.loading = false }
   }
   private async choosePhoto(): Promise<void> {
-    if (this.sending || this.pending || this.choosing || this.photos.length >= 3 || this.user.role === 'merchant') return
+    if (this.sending || this.pending || this.choosing || this.photos.length >= 3 || this.user.identity === 'merchant') return
     const token = this.user.token, generation = this.generation
     if (!this.current(generation, token)) return
     this.choosing = true
@@ -99,7 +99,7 @@ export struct CustomerServiceView {
   }
   private async send(): Promise<void> {
     const token = this.user.token, generation = this.generation
-    if (this.sending || this.choosing || !this.current(generation, token) || this.user.role === 'merchant' && !this.buyerId) return
+    if (this.sending || this.choosing || !this.current(generation, token) || this.user.identity === 'merchant' && !this.buyerId) return
     if (!this.pendingBody) {
       const content = this.content.trim()
       if (!content || Array.from(content).length > 500) { this.message = '请填写1至500字的留言'; return }
@@ -138,10 +138,10 @@ export struct CustomerServiceView {
   build() {
     NavDestination() {
       Column() {
-        HDMNavBar({ title: this.user.role === 'merchant' ? '回复客服留言' : '联系客服' })
+        HDMNavBar({ title: this.user.identity === 'merchant' ? '回复客服留言' : '联系客服' })
         Scroll() {
           Column({ space: 12 }) {
-            Text(this.user.role === 'merchant' ? this.buyerName : '留言后商家会在这里回复，照片仅你和商家可见。').fontColor($r('[ui_components].color.gray'))
+            Text(this.user.identity === 'merchant' ? this.buyerName : '留言后商家会在这里回复，照片仅你和商家可见。').fontColor($r('[ui_components].color.gray'))
             if (this.orderId) { Text(this.orderLabel(this.orderName, this.orderCreatedAt)).id('service-linked-order').fontColor($r('[ui_components].color.text')) }
             if (this.message) { Text(this.message).id('service-message').fontColor(this.messageColor()) }
             if (!this.user.token) { Button('登录后留言').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.stackPath.pushPath({ name: PAGE_PATH.LOGIN_PAGE })) }
@@ -164,7 +164,7 @@ export struct CustomerServiceView {
                 Button('移除照片 ' + (index + 1)).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.pending && !this.choosing).onClick(() => { this.photos = this.photos.filter((_photo: AfterSalePhoto, position: number): boolean => position !== index) })
               }
             }, (photo: AfterSalePhoto) => photo.requestKey)
-            if (this.user.role !== 'merchant') { Button(this.choosing ? '读取照片中' : '选择照片（最多3张JPEG）').id('service-photo').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.pending && !this.choosing && this.photos.length < 3).onClick(() => this.choosePhoto()) }
+            if (this.user.identity !== 'merchant') { Button(this.choosing ? '读取照片中' : '选择照片（最多3张JPEG）').id('service-photo').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.pending && !this.choosing && this.photos.length < 3).onClick(() => this.choosePhoto()) }
             Button(this.sending ? '发送中' : this.pending ? '重试发送' : '发送留言').id('service-send').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.sending && !this.choosing && !!this.user.token).onClick(() => this.send())
           }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
         }.layoutWeight(1).width('100%').align(Alignment.Bottom)

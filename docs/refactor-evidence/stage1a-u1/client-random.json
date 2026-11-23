@@ -1,0 +1,25 @@
+{
+  "id": "client-random",
+  "cwd": "D:\\hdm-mall",
+  "command": "node --test --test-randomize --test-random-seed=271113 scripts/tests/*.test.mjs",
+  "startedAt": "2026-11-17T20:48:06.7994973+08:00",
+  "finishedAt": "2026-11-17T20:48:22.3194579+08:00",
+  "elapsedSeconds": 15.52,
+  "exitCode": 0,
+  "seed": 271113,
+  "counts": {
+    "tests": 617.0,
+    "suites": 0.0,
+    "pass": 617.0,
+    "fail": 0.0,
+    "cancelled": 0.0,
+    "skipped": 0.0,
+    "todo": 0.0,
+    "duration_ms": 15447.4226
+  },
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\stage1a-u1-client-random-full.log",
+  "rawBytes": 61308,
+  "rawSha256": "9c9fa0b3fb648b7f3f7bed0a5e9d2853d21cef4a2d8c80a7078648d7ba91f0eb",
+  "evidenceLog": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a-u1\\client-random.txt",
+  "evidenceBytes": 61308
+}

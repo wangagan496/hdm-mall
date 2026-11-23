@@ -3,7 +3,7 @@ import { unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import type { Database } from './database.ts'
-import type { Accounts, User } from './accounts.ts'
+import { isStoreOwner, type Accounts, type User } from './accounts.ts'
 import type { Clock } from './clock.ts'
 import { ensure } from './errors.ts'
 import { localAvatarPath } from './avatar.ts'
@@ -83,7 +83,7 @@ export class AccountLifecycle {
  }
  request(user:User,input:unknown){
   const data=deletionSchema.parse(input)
-  ensure(user.role==='buyer',403,'商家账号请联系管理员处理')
+  ensure(user.identity==='buyer'&&!isStoreOwner(this.db,user.id),403,'商家账号请联系管理员处理')
   ensure(this.accounts.verifyPassword(user.id,data.password),400,'当前密码不正确')
   // Passwords are verified but never persisted in idempotency receipts.
   const body=JSON.stringify({action:'request',acknowledged:true})
@@ -145,7 +145,7 @@ export class AccountLifecycle {
  }
  async scan(){
   const now=this.clock.now()
-  this.db.run(`UPDATE orders SET state=4,received_by=owner_id,received_at=? WHERE state=3 AND shipped_at<=?
+  this.db.run(`UPDATE orders SET state=4,received_by=NULL,received_at=? WHERE state=3 AND shipped_at<=?
    AND owner_id IN (SELECT id FROM users WHERE status='deleting')`,now,now-15*DAY)
   for(const user of this.db.all<LifecycleUser>("SELECT * FROM users WHERE status='deleting' AND deletion_due_at<=?",now))if(!this.matters(user.id).length)this.erase(user)
   for(const order of this.db.all<{id:string;address:string}>('SELECT id,address FROM orders WHERE retain_until<=? AND personal_data_cleared_at IS NULL',now)){

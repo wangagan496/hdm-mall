@@ -1,0 +1,95 @@
+{
+  "directory": "mixed-development-h5",
+  "files": [
+    {
+      "path": "mixed-development-h5/.gitignore",
+      "exists": true,
+      "bytes": 144,
+      "sha256": "4dd8afb29be44f6302dec197b7d87a29cff5af3b5bb3cd70d59284a2d9a00cd7"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/app.json5",
+      "exists": true,
+      "bytes": 211,
+      "sha256": "14a4c617b14560b66f26a5e9a370403dfc70251cc8110a036ba8782b48329352"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 100,
+      "sha256": "0736ab5f1359f47db634aecb806f75afaed3089963eb31fefccdb4dbbf5d9851"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/resources/base/media/background.png",
+      "exists": true,
+      "bytes": 91942,
+      "sha256": "497edeafc51af043c73e72ee8c4fbac4663357ef1ba275c0289f31a366b26239"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/resources/base/media/foreground.png",
+      "exists": true,
+      "bytes": 15325,
+      "sha256": "61a796d5a9fc5853e9cd0f1e3e730896a6bcb94a34a37765c4d1959bf64dfa43"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/resources/base/media/hdm_icon_background.svg",
+      "exists": true,
+      "bytes": 151,
+      "sha256": "62ca51791a804ee547d1cca14c4b9aaeb93f9242a782c50ba5588bd057cce6e3"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/resources/base/media/hdm_icon_foreground.svg",
+      "exists": true,
+      "bytes": 418,
+      "sha256": "eb16f7998e7cc77de7dbd25656c532ab27357d3dd8921274f8be03367ae37baf"
+    },
+    {
+      "path": "mixed-development-h5/AppScope/resources/base/media/layered_image.json",
+      "exists": true,
+      "bytes": 132,
+      "sha256": "f5520397372642874b54a89cd9712edc9285e84302acae7c7bd66025e9cbf947"
+    },
+    {
+      "path": "mixed-development-h5/build-profile.json5",
+      "exists": true,
+      "bytes": 3371,
+      "sha256": "092fdace0d5c0090ca23f3ada7fa2252a0ec9591580ff3373e897d90d02fdb44"
+    },
+    {
+      "path": "mixed-development-h5/build-support/client-environment.ts",
+      "exists": true,
+      "bytes": 2745,
+      "sha256": "3514ab46056968846903b8e1f5dfd0cb5134e54e86287c4717c10e13c8046cbd"
+    },
+    {
+      "path": "mixed-development-h5/code-linter.json5",
+      "exists": true,
+      "bytes": 885,
+      "sha256": "f3dc8039b56d6e2a773e8202584f22f9a1419c203f5f473caf6f5fd1017502a7"
+    },
+    {
+      "path": "mixed-development-h5/hvigor/hvigor-config.json5",
+      "exists": true,
+      "bytes": 1481,
+      "sha256": "630f4ab2253217051068b08bc5f34abea0a63a95e28805065ddcbf9dfd620039"
+    },
+    {
+      "path": "mixed-development-h5/hvigorfile.ts",
+      "exists": true,
+      "bytes": 1466,
+      "sha256": "7f635e98ccef1f663eaef272b44882e8a97450d3591a39aca9e8ddcd102202dd"
+    },
+    {
+      "path": "mixed-development-h5/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 1002,
+      "sha256": "738d44a280f1bec5bbcac8cf183d8d02c87c856d45768a02dadd2feba404beef"
+    },
+    {
+      "path": "mixed-development-h5/oh-package.json5",
+      "exists": true,
+      "bytes": 210,
+      "sha256": "ed8aae4db61af1d758cc07f4f49d6ddad067bde4b31818b06aeb440d4ed388b7"
+    }
+  ]
+}

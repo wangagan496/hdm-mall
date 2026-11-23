@@ -1,0 +1,113 @@
+{
+  "directory": "mixed-development-h5/commons/utils",
+  "files": [
+    {
+      "path": "mixed-development-h5/commons/utils/Index.ets",
+      "exists": true,
+      "bytes": 500,
+      "sha256": "ecaac8a96c0cd22d32c34f1e9897d69217cdaba03cd9177ada06f8deae6b8a0b"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/build-profile.json5",
+      "exists": true,
+      "bytes": 85,
+      "sha256": "63107e6ed560d151dc2cc96acc3209017d8e283be9583259704a672f1e6a8bed"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/hvigorfile.ts",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "4069c73c1da6c30ec22390b86136b01673449727f27cc4c9a7644fd350cbf936"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 841,
+      "sha256": "af0fc63e4f5ec2f0695b84cae624ffe7cca09ed7e2013beb4871ce6527dc77b3"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/oh-package.json5",
+      "exists": true,
+      "bytes": 326,
+      "sha256": "ed7c3116ff6486dbd742b31924050ffb15c4ca7c6b7af3d3aa1ad61d411e8ca0"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/BreakPointUtils.ets",
+      "exists": true,
+      "bytes": 1803,
+      "sha256": "5912f011d02205128ec0c47ee44a75bad22f3ca3b54fffcfc9a6856fb93a3a01"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets",
+      "exists": true,
+      "bytes": 6508,
+      "sha256": "f25a42f0af59f01c02fd8679014f481a8de9c078bf6eaff724a793089884dace"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/ImagePreload.ets",
+      "exists": true,
+      "bytes": 1102,
+      "sha256": "12316e95fce46132436e57f391a838547e242335abf643c14ac877bb8bd098ae"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/Index.ets",
+      "exists": true,
+      "bytes": 239,
+      "sha256": "bded1c95e158bc97ce97f0b068354453804532286ce27998503e2fd2709a85b7"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/Logger.ets",
+      "exists": true,
+      "bytes": 514,
+      "sha256": "f55a346b414b4fc5cd163bce27c755aaeccba8de207902b68a4655ce109ab9f4"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets",
+      "exists": true,
+      "bytes": 2874,
+      "sha256": "6667f569ad31e54b78b83ad0f25304201fac7411c5671e6b724efa72e811e05f"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/ScreenManager.ets",
+      "exists": true,
+      "bytes": 1508,
+      "sha256": "8cdf71672fb01392b51ae7dec439a6ca98d39e6c40b28a652e5f89401fa40769"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 99,
+      "sha256": "4ead2a788501fc394060c30834faa4f6de828fe0821124da5a15ad2cbba941b5"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/ets/utils/LaunchPerf.ets",
+      "exists": true,
+      "bytes": 1412,
+      "sha256": "1d04a2ef5661b1d66a3f99db879796da02c2a8232fc53fd87b8a8b4f0eb582f4"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/module.json5",
+      "exists": true,
+      "bytes": 360,
+      "sha256": "cda3691a1b7cb699abe0c09929b75ce09c9ec79d7a43f51958c81d4bdd73a41a"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 110,
+      "sha256": "06340ddcb89cd91c29584e164253eff87e8067462e8951afb2208e73a0853942"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 37,
+      "sha256": "f21984fb1d5096f0db41314da0bb94c573e7ad018e5afae3044f8d5ff71b0bfc"
+    },
+    {
+      "path": "mixed-development-h5/commons/utils/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 48,
+      "sha256": "fde31346ab4b7da1e313e8ff46cd5d4fd6d04dde0031ddaf4f22e8f2e1b128f3"
+    }
+  ]
+}

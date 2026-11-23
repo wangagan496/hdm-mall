@@ -1,0 +1,53 @@
+原日志 SHA256: 02cc298ff72b25f81f7cdb7e2aeb50c4df3d67e4cf813c8414a9d0ad1211dc98
+原日志字节数: 91071
+提取规则: 首8行、末20行（Hvigor末70行）、失败/构建/包哈希关键行、前6处警告；保留原行号。完整日志仅位于系统临时目录，不纳入证据目录。
+
+    1 | ==> HarmonyOS assembleApp
+    2 | > hvigor Finished ::PreBuildApp... after 1 ms 
+    3 | > hvigor UP-TO-DATE :phone:default@PreBuild...  
+    4 | > hvigor UP-TO-DATE :constants:default@PreBuild...  
+    5 | > hvigor UP-TO-DATE :models:default@PreBuild...  
+    6 | > hvigor UP-TO-DATE :storage:default@PreBuild...  
+    7 | > hvigor UP-TO-DATE :network:default@PreBuild...  
+    8 | > hvigor UP-TO-DATE :utils:default@PreBuild...  
+[省略重复任务/成功用例/警告输出]
+  261 | > hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+  262 |  The system capacity of this api 'audio' is not supported on all devices
+  263 | 
+  264 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+  265 |  The system capacity of this api 'audio' is not supported on all devices
+  266 | 
+  267 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+  268 |  The system capacity of this api 'audio' is not supported on all devices
+  269 | 
+  270 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+  271 |  The system capacity of this api 'audio' is not supported on all devices
+  272 | 
+  273 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+  274 |  The system capacity of this api 'audio' is not supported on all devices
+  275 | 
+  276 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+  277 |  The system capacity of this api 'audio' is not supported on all devices
+  278 | 
+  279 | WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+[省略重复任务/成功用例/警告输出]
+ 1382 | > hvigor Finished :mine:default@PackageSharedTgz... after 1 ms 
+ 1383 | > hvigor Finished :mine:assembleHsp... after 1 ms 
+ 1384 | > hvigor UP-TO-DATE ::MakeProjectPackInfo...  
+ 1385 | > hvigor UP-TO-DATE ::ProcessProjectPrivacyProfile...  
+ 1386 | > hvigor UP-TO-DATE ::GeneratePackRes...  
+ 1387 | > hvigor Finished ::PackageApp... after 2 s 888 ms 
+ 1388 | > hvigor Finished ::SignPackagesFromApp... after 9 s 99 ms 
+ 1389 | > hvigor Finished ::SignApp... after 4 s 745 ms 
+ 1390 | > hvigor Finished ::assembleApp... after 1 ms 
+ 1391 | > hvigor BUILD SUCCESSFUL in 1 min 47 s 335 ms 
+ 1392 | 
+ 1393 | 438 tasks in total: 363 executed, 75 up-to-date
+ 1394 | ==> Signed app package
+ 1395 | Path: D:\hdm-mall\mixed-development-h5\build\outputs\default\mixed-development-h5-default-all-signed.app
+ 1396 | Size: 9,656,849 bytes
+ 1397 | Updated: 2026-11-17 15:34:31
+ 1398 | MATCH mine-default.hsp/resources/rawfile/index.html SHA256 A6175E4433B476E466B8309B9F34AEEEAA5ECE81B96B7D630A839D25A2DFABDF
+ 1399 | SCRIPT D:\hdm-mall\scripts\verify-package-web.ps1 RESULT packaged H5 matches source output (1 file)
+ 1400 | Project verification completed.
+ 1401 | 

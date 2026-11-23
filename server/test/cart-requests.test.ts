@@ -14,8 +14,8 @@ async function fixture() {
   context.testData.product({ name: '苹果', skus: [{ id: 'cart-apple', spec: '红', priceCents: 100, stock: 5 },
     { id: 'cart-pear', spec: '绿', priceCents: 200, stock: 5 }] })
   const post = (payload: object, token = buyer.token) => context.app.inject({ method: 'POST', url: '/member/cart',
-    headers: { authorization: `Bearer ${token}` }, payload })
-  const get = (url: string) => context.app.inject({ url, headers: { authorization: `Bearer ${buyer.token}` } })
+    headers: identityHeaders(context.accounts, token), payload })
+  const get = (url: string) => context.app.inject({ url, headers: identityHeaders(context.accounts, buyer.token) })
   return { ...context, buyer, other, address, post, get, advance: (ms: number) => { now += ms } }
 }
 
@@ -57,7 +57,7 @@ test('B-17/B-18: 指定规格预览和立即购买不动购物车', async () => 
     assert.equal(preview.goods[0].count, 1)
     assert.equal(preview.summary.totalPayPrice, 1)
     assert.deepEqual((await f.get('/member/cart')).json().result, before)
-    const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: { authorization: `Bearer ${f.buyer.token}` },
+    const order = await f.app.inject({ method: 'POST', url: '/member/order', headers: identityHeaders(f.accounts, f.buyer.token),
       payload: { requestKey: randomUUID(), source: 'buy-now', addressId: f.address.id, expectedAmountCents: 100,
         goods: [{ skuId: 'cart-apple', count: 1 }] } })
     assert.equal(order.statusCode, 200)
@@ -74,7 +74,7 @@ test('D9: 来源参与下单幂等，购物车来源仍移出商品', async () =
     const request = { requestKey: randomUUID(), source: 'buy-now', addressId: f.address.id, expectedAmountCents: 100,
       goods: [{ skuId: 'cart-apple', count: 1 }] }
     const create = (payload: object) => f.app.inject({ method: 'POST', url: '/member/order',
-      headers: { authorization: `Bearer ${f.buyer.token}` }, payload })
+      headers: identityHeaders(f.accounts, f.buyer.token), payload })
     assert.equal((await create(request)).statusCode, 200)
     assert.equal((await create({ ...request, source: 'cart' })).statusCode, 409)
     assert.equal((await create({ ...request, requestKey: randomUUID(), source: 'cart' })).statusCode, 200)
@@ -113,3 +113,4 @@ test('D9: 指定预览参数成对校验，缺货仍展示，未知规格拒绝'
     assert.equal((await f.get('/member/cart')).json().result.length, 0)
   } finally { await f.app.close() }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

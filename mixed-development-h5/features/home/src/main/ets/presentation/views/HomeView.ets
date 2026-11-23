@@ -1,5 +1,5 @@
 import { BusinessVariable, GlobalVariable, PAGE_PATH } from 'constants'
-import { BreakPointEnum, BreakPointType, CategoryItem, GoodsItems, HDMGoodsItem, ListDataSource } from 'models'
+import { BreakPointEnum, BreakPointType, CategoryItem, GoodsItems, HDMGoodsItem, HDMUser, ListDataSource } from 'models'
 import { HDMEmpty, HDMGoods, HDMLoadingText, HDMProgressLoading } from 'ui_components'
 import { downLoadManager, preloadImages, pushCardManager } from 'utils'
 import {
@@ -27,7 +27,7 @@ import {
 import { Banner, HotResult, SearchRouterParam } from '../../domain/models'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
-import { storeManager } from 'storage'
+import { CurrentIdentityLayout, IDENTITY_LAYOUT_KEY, entryVisible, storeManager } from 'storage'
 import { HomeGoodsDeduplication, HomeGoodsResult } from '../utils/HomeGoodsDeduplication'
 import { LaunchPerf } from 'utils'
 import { HomePrefetch, HomeCoreRequests } from '../../data/api/homePrefetch'
@@ -38,6 +38,8 @@ const RECOMMEND_SECTION_INDEX: number = 1
 
 @Component
 export struct HomeView {
+  @StorageProp(GlobalVariable.USER_INFO_KEY) user: HDMUser = {} as HDMUser
+  @StorageProp(IDENTITY_LAYOUT_KEY) identityLayout: CurrentIdentityLayout = {}
   @StorageProp(GlobalVariable.BREAK_POINT_KEY) @Watch('onBreakPointChange')
   breakPoint: string = ""
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
@@ -388,10 +390,15 @@ export struct HomeView {
   HomeHeader() {
     Column() {
       Stack({ alignContent: Alignment.Top }) {
-        HomeBannerSection({
-          banners: this.banners,
-          onBannerClick: (banner: Banner): void => this.openBannerGoods(banner)
-        })
+        if (entryVisible(this.user, this.identityLayout, 'home-banner')) {
+          Column() {
+            HomeBannerSection({
+              banners: this.banners,
+              onBannerClick: (banner: Banner): void => this.openBannerGoods(banner)
+            })
+          }.width('100%').id('home-banner-entry')
+        }
+        if (entryVisible(this.user, this.identityLayout, 'home-search')) {
         Row() {
           Row({ space: 4 }) {
             Image($r('[ui_components].media.ic_public_search'))
@@ -406,11 +413,14 @@ export struct HomeView {
           .onClick(() => this.openSearch())
         }
         .padding({ left: 16, right: 16, top: this.topHeight })
+        }
       }
       .width('100%')
 
       Column({ space: 10 }) {
-        HomeCategorySection({ categories: this.categories })
+        if (entryVisible(this.user, this.identityLayout, 'home-categories')) {
+          HomeCategorySection({ categories: this.categories })
+        }
         HomeSaleGoodsSection({ saleGoods: this.saleGoods })
         Row({ space: 10 }) {
           HomeDiscountSection({
@@ -488,6 +498,7 @@ export struct HomeView {
         })
       }
 
+      if (entryVisible(this.user, this.identityLayout, 'home-search')) {
       Row() {
         Row({ space: 4 }) {
           Image($r('[ui_components].media.ic_public_search'))
@@ -510,6 +521,7 @@ export struct HomeView {
         top: { anchor: '__container__', align: VerticalAlign.Top },
         left: { anchor: '__container__', align: HorizontalAlign.Start }
       })
+      }
 
       if (this.homeLoadFailed) {
         Column() {

@@ -1,0 +1,625 @@
+{
+  "reportCount": 12,
+  "countsSource": "当前 12 个模块 .test/default/intermediates/test/coverage_data/test_result.txt；逐条 result= 计数。包含模板断言，不把构建任务数当作测试数。",
+  "totals": {
+    "tests": 83,
+    "pass": 83,
+    "fail": 0,
+    "skipped": 0,
+    "other": 0
+  },
+  "modules": [
+    {
+      "module": "mixed-development-h5/commons/constants",
+      "file": {
+        "path": "mixed-development-h5/commons/constants/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:31:59.369Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    },
+    {
+      "module": "mixed-development-h5/commons/device",
+      "file": {
+        "path": "mixed-development-h5/commons/device/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:32:12.891Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    },
+    {
+      "module": "mixed-development-h5/commons/models",
+      "file": {
+        "path": "mixed-development-h5/commons/models/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:32:09.088Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    },
+    {
+      "module": "mixed-development-h5/commons/network",
+      "file": {
+        "path": "mixed-development-h5/commons/network/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 343,
+        "sha256": "00cc1908583cec5126686b06262716aaa0d9385d55b69dad6eb44a3fb568343f"
+      },
+      "mtime": "2026-11-17T07:32:16.247Z",
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": [
+        {
+          "suite": "networkResilience",
+          "name": "retriesTransientStatuses",
+          "result": "Success"
+        },
+        {
+          "suite": "networkResilience",
+          "name": "doesNotRetryClientValidationErrors",
+          "result": "Success"
+        },
+        {
+          "suite": "networkResilience",
+          "name": "carriesHttpStatusOnBusinessErrors",
+          "result": "Success"
+        },
+        {
+          "suite": "networkResilience",
+          "name": "retriesOneTransientTransportFailure",
+          "result": "Success"
+        },
+        {
+          "suite": "networkResilience",
+          "name": "keepsBusinessErrorThroughGetRetry",
+          "result": "Success"
+        }
+      ]
+    },
+    {
+      "module": "mixed-development-h5/commons/storage",
+      "file": {
+        "path": "mixed-development-h5/commons/storage/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:32:17.440Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    },
+    {
+      "module": "mixed-development-h5/commons/ui-components",
+      "file": {
+        "path": "mixed-development-h5/commons/ui-components/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:32:26.089Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    },
+    {
+      "module": "mixed-development-h5/commons/utils",
+      "file": {
+        "path": "mixed-development-h5/commons/utils/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:32:14.011Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    },
+    {
+      "module": "mixed-development-h5/features/cart",
+      "file": {
+        "path": "mixed-development-h5/features/cart/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 2617,
+        "sha256": "de4f7eaa69cb04116fc6dfa2d1346b94c230357a01d877cb6f5cd37569dd2963"
+      },
+      "mtime": "2026-11-17T07:32:34.948Z",
+      "tests": 42,
+      "pass": 42,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": [
+        {
+          "suite": "localUnitTest",
+          "name": "assertContain",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "preservesAddressReturnedByAPI",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsValidCheckoutAddress",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "removesDeletedCartItemsFromVisibleList",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "parsesNamedPaymentResultBeforeOtherQueryValues",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "rejectsMalformedOrNonBooleanPaymentResult",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "mapsOrderStateToSameTextAcrossPages",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsCancelledAndCompletedInAllTabAndFiltersOtherTabs",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "treatsStateTwoToFiveAsPaid",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "formatsOrderCountdownWithPaddedFields",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "advancesStateViaOverlayUntilEvaluationLands",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "mapsScoreToReviewLabel",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "togglesQuickEvaluationTagsWithoutExceedingLimit",
+          "result": "Success"
+        },
+        {
+          "suite": "Invoice",
+          "name": "companyRequiresTaxId",
+          "result": "Success"
+        },
+        {
+          "suite": "Invoice",
+          "name": "normalizesCompanyFields",
+          "result": "Success"
+        },
+        {
+          "suite": "Invoice",
+          "name": "individualDropsOldTaxId",
+          "result": "Success"
+        },
+        {
+          "suite": "Invoice",
+          "name": "rejectsEmptyTitleAndInvalidEmail",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "keepsCancelledOrdersInAllTabWithOtherStates",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "hidesCancelledOrdersFromUnpaidTab",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "keepsRowInAllTabWithLatestCancelledState",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "removesExistingRowFromUnpaidTabWhenLatestResponseIsCancelled",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "movesOrderOutOfTabWhenLatestResponseChangesState",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "keepsCancelledRowInAllTabDuringLoadMoreMerge",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "dropsStaleCancelledRowFromShippingTabDuringLoadMoreMerge",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "mergesAcrossPagesWithoutDuplicateRows",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "keepsSameOrderEveryTimeWhenCreationTimeIsEqual",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "countsCancelledOrdersTowardAllTabScreen",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "continuesShippingTabPaginationPastCancelledOnlyPages",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "continuesUnpaidTabPaginationPastFilteredPages",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "finishesWithEmptyListWhenAllPagesAreCancelled",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "stopsOnceScreenIsFullAndKeepsNextPage",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "propagatesFailureAndRetriesSamePage",
+          "result": "Success"
+        },
+        {
+          "suite": "orderTabLoader",
+          "name": "dropsLateResponseAfterTabOrAccountChange",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationSubmitFlow",
+          "name": "returnsOnlyAfterServerConfirmsSave",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationSubmitFlow",
+          "name": "remoteFailureKeepsPageAndAllowsRetry",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationSubmitFlow",
+          "name": "doesNothingAfterPageHasLeft",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationSubmitFlow",
+          "name": "lateResponseDoesNotPopAnotherPage",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationNavigation",
+          "name": "returnsDirectEvaluationToExistingList",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationNavigation",
+          "name": "skipsDetailWhenEvaluationStartedFromDetail",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationNavigation",
+          "name": "returnsToNearestListWithoutRecreatingIt",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationNavigation",
+          "name": "replacesDirectDetailFlowWithList",
+          "result": "Success"
+        },
+        {
+          "suite": "evaluationNavigation",
+          "name": "opensListWhenEvaluationIsTheOnlyPage",
+          "result": "Success"
+        }
+      ]
+    },
+    {
+      "module": "mixed-development-h5/features/category",
+      "file": {
+        "path": "mixed-development-h5/features/category/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 461,
+        "sha256": "af5c7b9487ca8b8124f700859347f1542fb9265a75b879ec3a4e3f58a812fe57"
+      },
+      "mtime": "2026-11-17T07:32:32.182Z",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": [
+        {
+          "suite": "localUnitTest",
+          "name": "addsStorageBagNextToHandbagCategory",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "findsHomeCategoryByStableIdInsteadOfListPosition",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "doesNotDuplicateBackendStorageBagCategory",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "renamesStrawHatCategoryWithoutChangingItsId",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "usesStorageBagProductPictureForCategoryCover",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "updatesStorageBagCategoryCoverAfterVisibleRequest",
+          "result": "Success"
+        }
+      ]
+    },
+    {
+      "module": "mixed-development-h5/features/home",
+      "file": {
+        "path": "mixed-development-h5/features/home/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 1738,
+        "sha256": "d2fd3fa2c6ae09e7afa815a7493ad2ee7c897e33ed7be0de5d05d28e26e04bf5"
+      },
+      "mtime": "2026-11-17T07:32:28.627Z",
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": [
+        {
+          "suite": "localUnitTest",
+          "name": "assertContain",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "recognizesFallbackSkuIds",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "parsesBannerCategoryRoutes",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "routesWarmWinterBannerToSocksInsteadOfShoes",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsClickedCardIdentityWhenOpeningDetail",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "usesSearchCoverAsTheOnlyDetailPicture",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "removesFailedSlidesAndKeepsAvailablePicture",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "usesRepeatedDetailPictureWhenSearchCoverBelongsToAnotherProduct",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "replacesWrongOneStopCoverWithoutChangingProductIdentity",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsPromotionCardWhenItsDetailRequestFails",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "fillsOneStopPromotionToTheSameCountAsHotPromotion",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsRecommendationsWhosePriceIsNumeric",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "excludesStoragePouchFromHandbagSearch",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsOnlyStoragePouchForStorageBagSearch",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "keepsBackpackAliasForBackpackCategory",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "acceptsSunProtectionHatForSunHatCategory",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "acceptsPrescriptionFrameForOpticalGlassesCategory",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "preservesSelectionOnlyWhenAnonymousUserLogsIn",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "restoresSelectedSpecAndCountUsingFreshStockWhenPriceUnchanged",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "rejectsRestoreWhenPriceChangedDuringLogin",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "clearsRemovedChangedOrSoldOutSelectionAndInvalidQuantity",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "initializesAnUnselectedSkuWithSafeFields",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "acceptsTheEmptyObjectUsedByAnUnselectedSku",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "keepsPartialSelectionPreviewWithoutInventingASkuId",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "preservesTheSelectedSkuAndItsInventory",
+          "result": "Success"
+        },
+        {
+          "suite": "skuSelectionTest",
+          "name": "preservesZeroInventoryForAnOutOfStockSku",
+          "result": "Success"
+        }
+      ]
+    },
+    {
+      "module": "mixed-development-h5/features/mine",
+      "file": {
+        "path": "mixed-development-h5/features/mine/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 274,
+        "sha256": "b7bf6d27724bf4116ec8a221ff5c8d6570fbd1e38eac41170be718aac399b110"
+      },
+      "mtime": "2026-11-17T07:32:39.083Z",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": [
+        {
+          "suite": "localUnitTest",
+          "name": "assertContain",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "mergesProfileOnlyForCurrentSessionAndUser",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "rejectsMissingOrMismatchedSessionToken",
+          "result": "Success"
+        },
+        {
+          "suite": "localUnitTest",
+          "name": "rejectsMismatchedUserId",
+          "result": "Success"
+        }
+      ]
+    },
+    {
+      "module": "mixed-development-h5/products/phone",
+      "file": {
+        "path": "mixed-development-h5/products/phone/.test/default/intermediates/test/coverage_data/test_result.txt",
+        "exists": true,
+        "bytes": 55,
+        "sha256": "90c0e66ff4bc4f7b241a5d51034f4cb63a62e9c7912d94f232965ac75aff6dcc"
+      },
+      "mtime": "2026-11-17T07:32:19.375Z",
+      "tests": 0,
+      "pass": 0,
+      "fail": 0,
+      "skipped": 0,
+      "other": 0,
+      "cases": []
+    }
+  ]
+}

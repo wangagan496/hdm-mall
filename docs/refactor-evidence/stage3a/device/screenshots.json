@@ -1,0 +1,42 @@
+[
+  {
+    "file": "light/01-ratings.jpg",
+    "bytes": 77817,
+    "sha256": "4FEF43183065B88129F9C2739051F68196012ADDA88AF59E0823A3E89CDFC0DF"
+  },
+  {
+    "file": "light/02-goods.jpg",
+    "bytes": 83117,
+    "sha256": "C03A0A03C5B1891E16DBC7CDD643028D64D4FAF636617E1AB85D628D79825637"
+  },
+  {
+    "file": "light/03-edit.jpg",
+    "bytes": 81697,
+    "sha256": "7B0118D281A471C56C5B19AC5192C75EC1702D6BD93E723AF5DDE3C490E0853C"
+  },
+  {
+    "file": "light/04-reply.jpg",
+    "bytes": 48926,
+    "sha256": "74D83F216C44B5589D48586712EE792C735E060E45C030F6A9DF1D5857B7E428"
+  },
+  {
+    "file": "dark/01-ratings.jpg",
+    "bytes": 78286,
+    "sha256": "EB95C124F0CC2D2FEA09033813CB101110E6CC9EC9741ADF66F4A9EC9D341032"
+  },
+  {
+    "file": "dark/02-goods.jpg",
+    "bytes": 83073,
+    "sha256": "D2BECD9DCD3335A4F1673DF055B488E0DEFE8AD07EF98D27E02000C5756D99AA"
+  },
+  {
+    "file": "dark/03-edit.jpg",
+    "bytes": 80850,
+    "sha256": "412A2451FD7752A88B6C8197409219EF079F60798A331AEABE60DE67CB9F876D"
+  },
+  {
+    "file": "dark/04-reply.jpg",
+    "bytes": 48149,
+    "sha256": "84B235FBD4A67BE824B11269432E65A2C6297D3D014823F835DE9FD9734D20AF"
+  }
+]

@@ -10,7 +10,11 @@ import { inspectAudit } from './audit-backup.ts'
 import { inspectReturnPolicy } from './return-policy-backup.ts'
 import { inspectPromotionShipping } from './promotion-shipping-backup.ts'
 import { inspectServices } from './service-backup.ts'
+import { inspectDisputes } from './review-dispute-backup.ts'
 import { inspectReconciliationLogistics } from './reconciliation-logistics-backup.ts'
+import { historicalIdentity, historicalOwnerIdentity, inspectIdentities } from './identity-backup.ts'
+import { inspectPromises, promiseTables } from './promises/backup.ts'
+import { inspectSourceRecords, sourceRecordTables } from './source-verification/backup.ts'
 
 const imageName = avatarFileName
 const tables = ['users', 'sessions', 'relations', 'products', 'skus', 'carts', 'addresses',
@@ -33,7 +37,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14), z.literal(15), z.literal(16), z.literal(17), z.literal(18), z.literal(19)]), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(27), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -81,6 +85,8 @@ async function fingerprint(root: string, path: string) {
 }
 
 function inspectCancellations(db: DatabaseSync, version: number) {
+  const held = historicalIdentity(db, version)
+  const ownerIdentity = version >= 20 ? historicalOwnerIdentity(db) : undefined
   const invalid = new Set<string>()
   for (const row of db.prepare("SELECT order_id FROM order_cancel_requests WHERE state='pending' GROUP BY order_id HAVING COUNT(*)>1").all()) invalid.add(String(row.order_id))
   const requests = db.prepare(`SELECT c.*,o.state AS order_state,o.owner_id,o.amount AS order_amount,o.paid_by,o.paid_at,o.shipped_at,p.order_id AS payment_order,p.payer_id,p.amount AS payment_amount,p.state AS payment_state,p.channel_paid_at,r.payment_id AS refund_payment,r.amount AS refund_amount,r.reason AS refund_reason,EXISTS(SELECT 1 FROM refunds existing WHERE existing.payment_id=c.payment_id ${version>=12?"AND existing.reason IN ('late','duplicate','cancelled')":''}) AS payment_refunded FROM order_cancel_requests c JOIN orders o ON o.id=c.order_id JOIN payments p ON p.id=c.payment_id LEFT JOIN refunds r ON r.id=c.refund_id`).all()
@@ -92,13 +98,16 @@ function inspectCancellations(db: DatabaseSync, version: number) {
     if (request.state === 'rejected-shipped') valid &&= [3, 4, 5].includes(Number(request.order_state)) && request.shipped_at === request.resolved_at && request.payment_refunded === 0
     if (approved) valid &&= request.order_state === 6 && request.shipped_at === null && request.refund_payment === request.payment_id &&
       request.refund_amount === request.payment_amount && request.refund_reason === 'cancelled'
-    const actions = db.prepare('SELECT a.*,u.role FROM order_cancel_actions a LEFT JOIN users u ON u.id=a.actor_id WHERE a.cancel_request_id=?').all(request.id!)
+    const actions = db.prepare('SELECT * FROM order_cancel_actions WHERE cancel_request_id=?').all(request.id!)
     const terminalAction = request.state === 'withdrawn' ? 'withdraw' : request.state === 'approved' ? 'approve' : request.state === 'auto-approved' ? 'auto-approve' : 'reject-and-ship'
     valid &&= actions.length === (request.state === 'pending' ? 1 : 2) && actions.filter(action => action.action === 'request').length === 1
     for (const action of actions) {
       const initial = action.action === 'request'
-      const actorValid = initial || action.action === 'withdraw' ? action.actor_id === request.requested_by :
-        action.action === 'auto-approve' ? action.actor_id === null : action.actor_id === request.resolved_by && action.role === 'merchant'
+      const owner = initial || action.action === 'withdraw'
+      const actorValid = action.action === 'auto-approve' ? action.actor_id === null && (version < 20 || action.acting_identity === null) :
+        (owner ? action.actor_id === request.requested_by : action.actor_id === request.resolved_by && held(action.actor_id, 'merchant', action.created)) &&
+        (version < 20 || (owner ? ownerIdentity!(action.actor_id, action.acting_identity, action.created) : action.acting_identity === 'merchant') &&
+          held(action.actor_id, action.acting_identity, action.created))
       const expectedState = initial ? 'pending' : request.state
       const expectedTime = initial ? request.created : request.resolved_at
       const expectedRefund = !initial && approved ? request.refund_id : null
@@ -121,7 +130,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7 && version !== 8 && version !== 9 && version !== 10 && version !== 11 && version !== 12 && version !== 13 && version !== 14 && version !== 15 && version !== 16 && version !== 17 && version !== 18 && version !== 19) throw new Error('仅支持数据库版本 2 至 19')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 27) throw new Error('仅支持数据库版本 2 至 27')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -132,14 +141,65 @@ function inspectDatabase(path: string) {
       ...(version >= 13 ? ['consents','consent_requests','account_deletions','account_notices','account_file_deletions'] : []),
       ...(version >= 14 ? ['audit_log'] : []), ...(version >= 16 ? ['promotions','promotion_changes'] : []),
       ...(version >= 17 ? ['invoices','review_moderation','service_threads','service_messages','service_images'] : []),
-      ...(version >= 18 ? ['mock_channel_bill','reconciliation_runs','reconciliation_differences','shipments','logistics_events'] : [])]) {
+      ...(version >= 18 ? ['mock_channel_bill','reconciliation_runs','reconciliation_differences','shipments','logistics_events'] : []),
+      ...(version >= 20 ? ['user_identities','identity_layouts'] : []), ...(version >= 21 ? promiseTables : []),
+      ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : []),
+      ...(version >= 25 ? ['evaluation_sizes'] : []),
+      ...(version >= 26 ? ['review_disputes','review_dispute_actions','review_dispute_conclusions'] : []),
+      ...(version >= 27 ? ['evaluation_followups','evaluation_service_records'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
+    if(version>=27) {
+      const held = historicalIdentity(db, version)
+      for (const f of db.prepare(`SELECT f.*, e.created eval_created, o.owner_id FROM evaluation_followups f
+        JOIN evaluations e ON e.order_id=f.order_id JOIN orders o ON o.id=f.order_id`).iterate()) {
+        if (f.actor_id !== f.owner_id || Number(f.created) < Number(f.eval_created) || !held(f.actor_id, 'buyer', f.created) ||
+          !db.prepare(`SELECT 1 FROM after_sales a WHERE a.order_id=? AND a.state IN ('refunded','completed','closed','rejected','refund-rejected')
+            AND (a.resolved_at IS NULL OR a.resolved_at<=?)`).get(f.order_id!, f.created!) ||
+          db.prepare(`SELECT 1 FROM refunds r JOIN payments p ON p.id=r.payment_id LEFT JOIN after_sales a ON a.id=r.after_sale_id
+            WHERE (p.order_id=? OR a.order_id=?) AND r.created<=? AND r.state<>'succeeded'`).get(f.order_id!, f.order_id!, f.created!)) {
+          throw new Error('评价追加记录依据无效')
+        }
+      }
+      if (db.prepare(`SELECT 1 FROM evaluation_service_records r WHERE r.after_sale_id IS NOT NULL
+        AND NOT EXISTS(SELECT 1 FROM after_sales a WHERE a.id=r.after_sale_id AND a.order_id=r.order_id)`).get()) {
+        throw new Error('评价售后处理记录关联无效')
+      }
+    }
+    if(version>=26) inspectDisputes(db)
+    if(version>=25){
+      if(db.prepare(`SELECT 1 FROM evaluation_sizes z LEFT JOIN required_evaluation_sizes a USING(order_id,sku_id)
+        WHERE a.sku_id IS NULL OR z.size_fit NOT IN ('larger','true','smaller') OR
+        (z.size_shift IS NOT NULL AND (z.size_shift NOT IN ('half','full') OR z.size_fit='true'))`).get() ||
+        db.prepare(`SELECT 1 FROM evaluations e LEFT JOIN (SELECT order_id, count(*) n, size_fit,size_shift FROM evaluation_sizes GROUP BY order_id) z USING(order_id)
+          WHERE e.size_fit IS NOT (CASE WHEN z.n=1 THEN z.size_fit END) OR e.size_shift IS NOT (CASE WHEN z.n=1 THEN z.size_shift END)
+          OR (z.n>0 AND z.n<>(SELECT count(*) FROM required_evaluation_sizes a WHERE a.order_id=e.order_id))`).get())
+        throw new Error('尺码评价与冻结规格不一致')
+    }
+    if(version>=24) {
+      if(db.prepare(`SELECT 1 FROM evaluations e WHERE public_id IS NULL OR product_score IS NOT score OR updated IS NULL OR updated<created
+        OR service_score IS NOT NULL AND service_occurred=0 OR revision<>(SELECT count(*)+1 FROM evaluation_revisions r WHERE r.order_id=e.order_id)`).get())
+        throw new Error('评价版本或分项评分无效')
+      if(db.prepare(`SELECT 1 FROM evaluation_items i JOIN order_item_promise_snapshots s USING(order_id,sku_id)
+        WHERE i.receipt_id<>s.receipt_id OR i.template_version<>json_extract(s.snapshot,'$.templateVersion')
+        OR NOT EXISTS(SELECT 1 FROM json_each(s.snapshot,'$.entries') f WHERE f.value->>'fieldId'=i.field_id AND f.value->>'status'='known'
+          AND f.value->>'value' IS i.value AND f.value->>'quote' IS i.quote AND f.value->>'label'=i.label)`).get())
+        throw new Error('逐条评价与冻结快照不一致')
+      if(db.prepare(`SELECT 1 FROM evaluation_revisions r JOIN evaluations e USING(order_id) WHERE r.revision>=e.revision
+        OR r.snapshot->>'revision' IS NOT r.revision OR r.snapshot->>'orderId' IS NOT r.order_id OR r.snapshot->>'content' IS NULL`).get())
+        throw new Error('改评历史无效')
+      if(db.prepare(`SELECT 1 FROM merchant_evaluation_replies r JOIN evaluations e USING(order_id) WHERE r.created<e.created
+        OR NOT EXISTS(SELECT 1 FROM user_identities g WHERE g.user_id=r.actor_id AND g.identity='merchant' AND g.granted_at<=r.created
+          AND (g.revoked_at IS NULL OR g.revoked_at>r.created))`).get()) throw new Error('商家公开回复依据无效')
+    }
+    if(version>=20)inspectIdentities(db)
+    if(version>=21)inspectPromises(db)
+    if(version>=22)inspectSourceRecords(db)
     if(version>=14)inspectAudit(db)
     if(version>=15)inspectReturnPolicy(db)
     if(version>=16)inspectPromotionShipping(db)
-    if(version>=18)inspectReconciliationLogistics(db)
+    if(version>=18)inspectReconciliationLogistics(db,version)
     if(version>=13){
       if(db.prepare("SELECT id FROM users WHERE status='deleted' AND (password<>'' OR profile<>'{}' OR account<>'deleted:'||id OR nickname<>'已注销用户' OR deleted_at IS NULL)").get())throw new Error('已注销账号资料未清理')
       if(db.prepare("SELECT id FROM users WHERE status='deleting' AND (deletion_requested_at IS NULL OR deletion_due_at IS NULL OR deletion_due_at<>deletion_requested_at+1296000000)").get())throw new Error('注销冷静期无效')
@@ -231,10 +291,10 @@ function inspectDatabase(path: string) {
         uploads.add(path.slice(1))
       }
     }
-    const serviceImages = version >= 17 ? inspectServices(db) : []
+    const serviceImages = version >= 17 ? inspectServices(db, version) : []
     for (const image of serviceImages) uploads.add(image.path)
     return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages, serviceImages,
-      issues, schemaVersion: version as Manifest['schemaVersion'] }
+      issues, schemaVersion: version }
   } finally { db.close() }
 }
 

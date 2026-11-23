@@ -1,0 +1,44 @@
+{
+  "startedAt": "2026-11-20T00:27:48.6533747+08:00",
+  "completedAt": "2026-11-20T00:33:42.7228819+08:00",
+  "durationSeconds": 354.07,
+  "target": "127.0.0.1:5555",
+  "mode": "PromisesProbe",
+  "result": "passed",
+  "counts": {
+    "failed": 0,
+    "passed": 1,
+    "skipped": 0
+  },
+  "packageSha256": "1AC5C2ED26B816B17FD8749C422E1B69262DB5568DA4D01E48F7E58C5F3D9418",
+  "orderSnapshotUnchanged": true,
+  "materialVersion2": 2,
+  "syntheticPhoto": {
+    "displayName": "hdm-report-f443a0b954e44042967aac4e04091d8f.jpg",
+    "mediaCountAfterWrite": 2,
+    "sha256": "E19DF8F9FD75FD23C2D8CD6AADDCDE1D38ED510054CE169F920ACD2C8AB19BCA",
+    "mediaCountBeforeWrite": 1,
+    "devicePath": "file://media/Photo/7/IMG_1795105776_006/hdm-report-f443a0b954e44042967aac4e04091d8f.jpg"
+  },
+  "buyerSourcePanelVisible": true,
+  "materialVersion1": 1,
+  "theme": "dark",
+  "buyerOriginalHidden": true,
+  "knownFields": [
+    "return-window",
+    "dispatch-window",
+    "material"
+  ],
+  "receiptId": "4e333fd0-cb60-4ce1-8013-72bdb8e2f6a7",
+  "orderId": "8b93db07-2029-40d4-92e4-768e72fdfb08",
+  "orderSourceRemainedVersion1": true,
+  "syntheticPhotoCleanup": {
+    "deleted": true,
+    "mediaCountAfterDelete": 1,
+    "displayName": "hdm-report-f443a0b954e44042967aac4e04091d8f.jpg",
+    "sha256": "E19DF8F9FD75FD23C2D8CD6AADDCDE1D38ED510054CE169F920ACD2C8AB19BCA",
+    "devicePath": "file://media/Photo/7/IMG_1795105776_006/hdm-report-f443a0b954e44042967aac4e04091d8f.jpg",
+    "mediaCountBeforeDelete": 2,
+    "countRestored": true
+  }
+}

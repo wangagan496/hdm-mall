@@ -5,7 +5,7 @@ const path='mixed-development-h5/features/mine/src/main/ets/presentation/views/A
 function fixture(api={getForSession:async()=>({items:[],page:1,pages:0})}) {
  const calls=[]
  const Page=pageMethods(path,'AfterSaleManageView',{}, {GlobalVariable:{},RequestAxios:api,afterSaleActions:{pending:()=>null,start:async(...args)=>calls.push(args),resume:async(...args)=>calls.push(['resume',...args])},Date,Math,$r:value=>value})
- const page=new Page();page.user={id:'merchant',token:'old',role:'merchant'};page.active=true;page.synchronize()
+ const page=new Page();page.user={id:'merchant',token:'old',identity:'merchant'};page.active=true;page.synchronize()
  return {page,calls,api}
 }
 test('商家验收默认全量，可部分或零入库，越界时不发送请求',async()=>{
@@ -27,7 +27,7 @@ test('商家筛选乱序和退出账号后的迟到响应不覆盖当前数据',
  const a=page.load(1);page.filter='returned';const b=page.load(1)
  second.resolve({items:[{id:'new'}],page:1,pages:1});await b
  first.resolve({items:[{id:'old'}],page:1,pages:1});await a;assert.equal(page.items[0].id,'new')
- page.user={id:'buyer',token:'new',role:'buyer'};page.accountChanged();await tick();assert.equal(page.items.length,0);assert.equal(page.editorOpen,false)
+ page.user={id:'buyer',token:'new',identity:'buyer'};page.accountChanged();await tick();assert.equal(page.items.length,0);assert.equal(page.editorOpen,false)
 })
 test('商家成功提示使用正文色，错误提示保留红色',()=>{
  const {page}=fixture();page.message='处理已完成';page.messageType='success';assert.equal(page.messageColor(),'[ui_components].color.text')

@@ -1,6 +1,6 @@
 import { util } from '@kit.ArkTS'
 import { GlobalVariable } from 'constants'
-import { HDMUser, AfterSale, AfterSaleAddress, AfterSaleBody, AfterSaleLine, AfterSaleRestock, AfterSalePage, AfterSaleCounts, afterSaleStatus, afterSaleKind, formatBeijingTime, returnConditionLabel } from 'models'
+import { HDMUser, AfterSale, AfterSaleAddress, AfterSaleBody, AfterSaleLine, AfterSaleRestock, AfterSalePage, AfterSaleCounts, afterSaleStatus, afterSaleKind, sizeReasonLabel, formatBeijingTime, returnConditionLabel } from 'models'
 import { RequestAxios } from 'network'
 import { afterSaleActions } from 'storage'
 import { HDMNavBar, AfterSalePhotos } from 'ui_components'
@@ -97,7 +97,7 @@ export struct AfterSaleManageView {
     this.receiver='';this.contact='';this.address='';this.reason='';this.message='';this.busy=false;this.pending=false;this.loading=false
   }
   private current(generation:number,token:string):boolean {
-    return this.active && generation===this.generation && !!token && token===this.token && token===this.user.token && this.accountId===this.user.id && this.user.role==='merchant'
+    return this.active && generation===this.generation && !!token && token===this.token && token===this.user.token && this.accountId===this.user.id && this.user.identity==='merchant'
   }
   private accountChanged():void {this.synchronize();if(this.active)void this.load(1)}
   aboutToAppear():void {this.shown()}
@@ -248,6 +248,9 @@ export struct AfterSaleManageView {
       Text(this.amountText(sale)).fontColor($r('[ui_components].color.text'))
       if(shippingCompensationText(sale)){Text(shippingCompensationText(sale)).fontColor($r('[ui_components].color.text'))}
       if(this.countdown(sale)){Text(this.countdown(sale)).fontColor(this.urgent(sale)?$r('[ui_components].color.red'):$r('[ui_components].color.text'))}
+      if (sizeReasonLabel(sale.sizeReason)) {
+        Text('退货原因：' + sizeReasonLabel(sale.sizeReason)).fontColor($r('[ui_components].color.text')).width('100%')
+      }
       if(sale.description){Text('问题说明：'+sale.description).fontColor($r('[ui_components].color.text'))}
       ForEach(sale.items||[],(line:AfterSaleLine)=>{
         Text(line.name+' · '+line.spec+' × '+line.count).fontColor($r('[ui_components].color.text'))

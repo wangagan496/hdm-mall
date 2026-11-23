@@ -5,7 +5,7 @@ const path = 'mixed-development-h5/features/mine/src/main/ets/presentation/views
 function fixture() {
   const Page = pageMethods(path, 'ReconciliationView', {}, { reconciliationDay: () => '2026-11-11', formatBeijingTime: () => '2026-11-11 08:00' })
   const page = new Page(), calls = []
-  page.user = { id: 'seller', role: 'merchant', token: 'session' }; page.active = true
+  page.user = { id: 'seller', identity: 'merchant', token: 'session' }; page.active = true
   page.stackPath = { pushPath: value => calls.push(value) }
   return { page, calls }
 }
@@ -26,7 +26,7 @@ test('E19 商家从当前差异打开对应订单，渠道独有记录不提供�
   assert.equal(calls.length, 1); assert.equal(calls[0].name, 'MerchantOrderView'); assert.equal(calls[0].param, 'order')
   page.openOrder(external); assert.equal(calls.length, 1)
   page.active = false; page.openOrder(item); assert.equal(calls.length, 1)
-  page.active = true; page.user.role = 'buyer'; page.openOrder(item); assert.equal(calls.length, 1)
+  page.active = true; page.user.identity = 'buyer'; page.openOrder(item); assert.equal(calls.length, 1)
   assert.match(sourceOf(path), /if \(item\.orderId\)/)
   assert.match(sourceOf(path), /onClick\(\(\) => this\.openOrder\(item\)\)/)
 })

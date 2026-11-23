@@ -29,7 +29,7 @@ export struct MerchantOrderView {
   private messageColor(): ResourceColor { return this.messageOk ? $r('[ui_components].color.text') : $r('[ui_components].color.red') }
   aboutToDisappear(): void { this.active = false; this.query++; this.order = null; this.loading = false; this.issuing = false }
   private async issueInvoice(): Promise<void> {
-    if (!this.active || this.issuing || this.user.role !== 'merchant' || !this.user.token || !this.order?.invoice || this.order.invoice.status !== 'requested' || ![2, 3, 4, 5].includes(this.order.orderState)) return
+    if (!this.active || this.issuing || this.user.identity !== 'merchant' || !this.user.token || !this.order?.invoice || this.order.invoice.status !== 'requested' || ![2, 3, 4, 5].includes(this.order.orderState)) return
     const token = this.user.token, query = this.query, orderId = this.orderId
     if (!this.issueKey) { this.issueKey = util.generateRandomUUID(true); this.issueNumber = this.invoiceNumber.trim() }
     this.issuing = true; this.message = ''; this.messageOk = false
@@ -46,11 +46,11 @@ export struct MerchantOrderView {
   private async load(): Promise<void> {
     const query = ++this.query, token = this.user.token
     this.order = null; this.message = ''; this.messageOk = false; this.loading = false
-    if (!this.active || this.user.role !== 'merchant' || !token || !this.orderId) { this.message = '请使用商家账号查看订单'; return }
+    if (!this.active || this.user.identity !== 'merchant' || !token || !this.orderId) { this.message = '请使用商家账号查看订单'; return }
     this.loading = true
     try {
       const order = await RequestAxios.getForSession<OrderItem>('/merchant/orders/' + encodeURIComponent(this.orderId), token)
-      if (this.active && query === this.query && token === this.user.token && this.user.role === 'merchant') this.order = order
+      if (this.active && query === this.query && token === this.user.token && this.user.identity === 'merchant') this.order = order
     } catch { if (this.active && query === this.query && token === this.user.token) this.message = '订单读取失败，请重试' }
     finally { if (query === this.query) this.loading = false }
   }

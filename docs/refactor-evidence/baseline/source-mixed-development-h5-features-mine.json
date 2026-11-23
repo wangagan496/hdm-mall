@@ -1,0 +1,401 @@
+{
+  "directory": "mixed-development-h5/features/mine",
+  "files": [
+    {
+      "path": "mixed-development-h5/features/mine/.gitignore",
+      "exists": true,
+      "bytes": 60,
+      "sha256": "8952629c0d3ba41b6cb5db4afbfa2e672fbeb4677b8579c84f97e853d2064312"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/Index.ets",
+      "exists": true,
+      "bytes": 163,
+      "sha256": "0dddabc92641d29d17a9eed85321cb6c16ca2f050a3b6e12a1861ce86b0be73b"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/obfuscation-rules.txt",
+      "exists": true,
+      "bytes": 1030,
+      "sha256": "9dc6d7012424bc68f30e58946d25719ee5073246ea59a9ce64617736610ecf36"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 3558,
+      "sha256": "29b3f395bb9bd1ff11738c930de6e4c78cbc3141287d6cceaf97b6dcc71f207e"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/oh-package.json5",
+      "exists": true,
+      "bytes": 458,
+      "sha256": "60e618c33d2e794129b389a4efb92c3a4f39b59d4ea5c4d61f960febc0f9276b"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/address.ets",
+      "exists": true,
+      "bytes": 2879,
+      "sha256": "8c8a79a9ed0c1ca89800a8a58637dedfd2ec28a8e08298c9bc526a289392b36c"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/audit.ets",
+      "exists": true,
+      "bytes": 846,
+      "sha256": "781eaff6cb5a50e826c6b6dc3decd296262aa595269c83d2ed2929c4e1943c97"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/family.ets",
+      "exists": true,
+      "bytes": 3502,
+      "sha256": "aee5ebd6cd9f7534416857b8c5d7d3552fa9878facd2f00244bcee93606c0ebb"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/guess.ets",
+      "exists": true,
+      "bytes": 369,
+      "sha256": "2886df5c21aba8d46324fa6d71094d11bf3ddfcea2255d8df77086d6d02cb9b8"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/index.ets",
+      "exists": true,
+      "bytes": 102,
+      "sha256": "cfb1fe2dab92b140bcf6e57393020acae426c5f015f74f1c38a43e2cbf50a92f"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/inventory.ets",
+      "exists": true,
+      "bytes": 944,
+      "sha256": "d118d7a65670de8125faa5faa67f88c5c0adf069c4d237497cd7e7c3da87e8ec"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/products.ets",
+      "exists": true,
+      "bytes": 1857,
+      "sha256": "b4cc8fbe782d58e821691a0aa0b0ca591107704d3d10121705265988dbe7d5c6"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/user.ets",
+      "exists": true,
+      "bytes": 1321,
+      "sha256": "fa9bb47054a98e7c492fa97c8d9dc9b3ac8869fd3e8e11ca106d771232b5ff1d"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/domain/models/index.ets",
+      "exists": true,
+      "bytes": 22,
+      "sha256": "b5449841d1166ccad3f3702e54957c215e58727838020127b7a3552469a79f40"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/domain/models/user.ets",
+      "exists": true,
+      "bytes": 72,
+      "sha256": "87de12b60a967f46d3719143346596172a184dc4094dc64d98409bf06de1d7ef"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 283,
+      "sha256": "a4a083d6ad5ce91cb0b462f37183bbef33b1ae2e48cca3ddd3f6d1f131fe24fe"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/components/LocalGoodsRow.ets",
+      "exists": true,
+      "bytes": 2653,
+      "sha256": "4d87391a4e967fb3e7d064aad734ceab199e251540801e29720aa83c409eeb89"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/utils/AuditPresentation.ets",
+      "exists": true,
+      "bytes": 5505,
+      "sha256": "1cca36f35fc285ddb0a58b4d65bbf40d971225d1c200b572b392a15500807b27"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets",
+      "exists": true,
+      "bytes": 6528,
+      "sha256": "dead5ac9c23ccc69b54e10c90bc7f0297f04236273d60d65e996bc9e22fd737a"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets",
+      "exists": true,
+      "bytes": 6105,
+      "sha256": "533c617e06514d67bdd70b2c145ed3d5f7f6485f0b756c05bb59729d39ec4913"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/utils/ReconciliationDate.ets",
+      "exists": true,
+      "bytes": 362,
+      "sha256": "f0a19013ecc0f6a1bdc214a8495689a4a5a9d6e5d8cf2534ad1bd6931c756cb4"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets",
+      "exists": true,
+      "bytes": 10447,
+      "sha256": "b9d2ef7e2351f8b50dd73b8de0ed654178ddb42c16120365c3669fd71c6927a5"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AddressView.ets",
+      "exists": true,
+      "bytes": 36187,
+      "sha256": "8c6386c44fda5e8aa7a33da9cdbc7376020af4a10be0ddd7420f6465b2c76c4c"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AfterSaleManageView.ets",
+      "exists": true,
+      "bytes": 26740,
+      "sha256": "9b5782bf64c9f6ed0c484836ef7702a94c304d428566738fb5a3d7f72c7e3bd9"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/AuditLogView.ets",
+      "exists": true,
+      "bytes": 7097,
+      "sha256": "7ab2b66c78ba121421a4da9c631f4aaa2aedc6e4970798e64aabc824fe6f35d6"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/CustomerServiceView.ets",
+      "exists": true,
+      "bytes": 13723,
+      "sha256": "6050d522be7b0ac2f4e40f63b561ea7916ea04fce32c4bb7db293afa7191365d"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FamilyView.ets",
+      "exists": true,
+      "bytes": 55197,
+      "sha256": "a489ae63b8ff8180952a322c0752dbfb42e7dfb8db7d4c41320777ea595174db"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/FavoritesView.ets",
+      "exists": true,
+      "bytes": 6454,
+      "sha256": "f25a407484e1a8c53f3a50b8642b5896c83a7e730f857ae793f7caf368fa2a65"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/HistoryView.ets",
+      "exists": true,
+      "bytes": 9413,
+      "sha256": "6780b52e6aec6a2308c52ca851ca289c4930ca41d801d3a0b69911a0da55cb87"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/InventoryView.ets",
+      "exists": true,
+      "bytes": 18303,
+      "sha256": "60dbd42bca07e44b6bb31ec7a08cbd9bb54195db1ab96da352d2f9ced1f410cd"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/LoginView.ets",
+      "exists": true,
+      "bytes": 14978,
+      "sha256": "74abb9ab6fd78bb758fd3f74a5338df30c7cdbe8ecd054a25058a80426034c6a"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MerchantOrderView.ets",
+      "exists": true,
+      "bytes": 7992,
+      "sha256": "7e75067a8082106ebb07c6b2cf967642993ad69bcbd5636ee72e5fb693cce1d9"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MerchantServiceView.ets",
+      "exists": true,
+      "bytes": 5906,
+      "sha256": "906c5173127b35f0004bad1e373e28c46ffe0377e2563f1750c6fcf30ab253b9"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "exists": true,
+      "bytes": 14881,
+      "sha256": "337e9707504af004e0f40af5a181c0ce51e432f779e24da247356a4b229b4119"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductEditView.ets",
+      "exists": true,
+      "bytes": 31387,
+      "sha256": "8c0d801ae8919e22ea6d101530c8df691f6d6a9f7eb1a8f1f44fe4842ab03d56"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductManageView.ets",
+      "exists": true,
+      "bytes": 9792,
+      "sha256": "1408707c5bd9a6a8fc40b847aeb9644f91cfe09382f112ccb17a9ed2700ff318"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets",
+      "exists": true,
+      "bytes": 8525,
+      "sha256": "8216e98861174c9e65ca9baf294af5c11fa1da5346099a1f4c04e44e5d8d8c85"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReconciliationView.ets",
+      "exists": true,
+      "bytes": 10847,
+      "sha256": "a057ec36fc33875ef1f6197dc8d2f321385295b2176d0c08deafdf33516e9d66"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/ReviewManageView.ets",
+      "exists": true,
+      "bytes": 8683,
+      "sha256": "636c525b9b89cd7954ef0b536978cb28e6a53ad7c4a75fa485b873eea53b8bcd"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets",
+      "exists": true,
+      "bytes": 5874,
+      "sha256": "fffb282acf6e3300e85f3ca92fae5f53fd14387aedf9d247ac8684915df3f773"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/WebView.ets",
+      "exists": true,
+      "bytes": 12417,
+      "sha256": "f14e230c81915823915db492465ed05340f79aa50110cc756283f547f5e0820e"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/index.ets",
+      "exists": true,
+      "bytes": 565,
+      "sha256": "9a3b3b7d5dcd9c8d30990805e87a0db9590007b5ed92fb0142de23f92eb3d8d0"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/userBridgePresentation.ets",
+      "exists": true,
+      "bytes": 550,
+      "sha256": "aba4ebdbf37b2b3d76060ca305adb2cff0375fd718bc0d815361029c8caad31b"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/module.json5",
+      "exists": true,
+      "bytes": 299,
+      "sha256": "791e985e64c1600582cbed909d6c619de4ed5369c33a3bdc3deef390664bd59f"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 182,
+      "sha256": "ef8f499c01dc0359f4090afcbf0ba257a82bacff86229d0cb32359eadc8ebd4c"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_avatar.svg",
+      "exists": true,
+      "bytes": 7687,
+      "sha256": "8f06f3cb935d56de5201ec0e3e5b1dc442aef84b25b2c4196f8109f398f7159c"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_collect.png",
+      "exists": true,
+      "bytes": 4015,
+      "sha256": "49b9d76569bb32b235fe33bee0fe2f3a8986aaf0595abd01eb041bd1b3b09d58"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_history.png",
+      "exists": true,
+      "bytes": 5039,
+      "sha256": "06faa88090c38a179d00a53195f04d24769b932235a67552f1d302aa7eb7dba1"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_huawei.png",
+      "exists": true,
+      "bytes": 3022,
+      "sha256": "c6958b5dd266ec5b9172b8279e68d949a2393cdf4839abebddd115d5f7d8d6a8"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_obligation.png",
+      "exists": true,
+      "bytes": 3355,
+      "sha256": "c12517e02de8a28b10b09c682eeb42e784c212a060b06e5f1be944def3861f4b"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_order.png",
+      "exists": true,
+      "bytes": 3267,
+      "sha256": "5c540ff9fd4a9d6b3bfb4b9ce1330914bbec7c21b8269725d698541169888904"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_service.png",
+      "exists": true,
+      "bytes": 4584,
+      "sha256": "03ac9078d476faa1f4b940f5fb7d57ae2b32eb33f27cfba72d88f26f09f5a118"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_settings.png",
+      "exists": true,
+      "bytes": 747,
+      "sha256": "f892bfb0d66637c0b2632e270e3d434643435c339e23651f3f5da689b0ed35ac"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_unevaluated.png",
+      "exists": true,
+      "bytes": 3334,
+      "sha256": "15d9c79ccfab763d5be21e751ba11344accae8e410001a18cbf0e3b9d6a59fb3"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_unreceived.png",
+      "exists": true,
+      "bytes": 3435,
+      "sha256": "41ce6d58ad8594956f1e684470c041b7aff619b6c1a6b9c4fc11260b592ccb6d"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_unshipped.png",
+      "exists": true,
+      "bytes": 3253,
+      "sha256": "42b619bfd3567a2e903bec92a9b107e7c2e38b9b11a854a6776cc77ce78e3505"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/media/ic_user_vip.svg",
+      "exists": true,
+      "bytes": 3379,
+      "sha256": "dca277b4e73328d8eda9abacb40894423182ca3b4043c4ef0047f0c46f852f53"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 42,
+      "sha256": "b7248e3d58d4006a4bb01d9991e34b1292c03f3d212b5945470ec5bdcf9f1cbd"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/resources/base/profile/router_map.json",
+      "exists": true,
+      "bytes": 2281,
+      "sha256": "b66347bf498f1b545f7abd5ad0fa780d3110659cc2521e65852a0509938b0660"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/ohosTest/ets/test/Ability.test.ets",
+      "exists": true,
+      "bytes": 1768,
+      "sha256": "30c15dc50846bc079d4d5b787db3f3480e1c8b7b021454346bc63bc13ba42720"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/ohosTest/ets/test/List.test.ets",
+      "exists": true,
+      "bytes": 103,
+      "sha256": "58c6babaf2babd4a7c3e36c5e160f37e1a9a739401ca7f7981073e1b3ab5accc"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/ohosTest/module.json5",
+      "exists": true,
+      "bytes": 216,
+      "sha256": "b5a6fefc824727a0d9861568831beef02028fae2bb8e526b9f10c95ea667922f"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 109,
+      "sha256": "741baf724fe8512a593d67acedfedd74ea1f93512e50b3e17ebc9c502f731940"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/test/LocalUnit.test.ets",
+      "exists": true,
+      "bytes": 3750,
+      "sha256": "41f9522eed3b28876bc78e42a2d26fec56069d6c17be384947715963d9ac1468"
+    }
+  ]
+}

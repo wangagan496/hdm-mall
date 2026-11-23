@@ -19,8 +19,10 @@ function isFullscreenActionPage(source) {
 }
 function hasBottomProtection(source) {
   const binding = source.match(/@Storage(?:Prop|Link)\s*\(GlobalVariable\.SAFE_AREA_BOTTOM\)\s*(\w+)\s*:/)
-  if (!binding) return false
-  return new RegExp('(?:bottom\\s*:[^,}]*this\\.' + binding[1] + '\\b|\\.padding\\(\\s*this\\.' + binding[1] + '\\s*\\))').test(source)
+  const v2Binding = source.match(/@Local\s+(\w+)\s*:\s*number\s*=\s*AppStorage\.get<number>\(GlobalVariable\.SAFE_AREA_BOTTOM\)/)
+  const safeBottom = binding?.[1] ?? v2Binding?.[1]
+  if (!safeBottom) return false
+  return new RegExp('(?:bottom\\s*:[^,}]*this\\.' + safeBottom + '\\b|\\.padding\\(\\s*this\\.' + safeBottom + '\\s*\\))').test(source)
 }
 const pages = collect(fileURLToPath(root)).map(file => ({ file, source: readFileSync(file, 'utf8') }))
   .filter(({ source }) => isFullscreenActionPage(source))

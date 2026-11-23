@@ -38,6 +38,7 @@ export struct InventoryView {
   private sessionToken: string = ''
   private sessionUserId: string = ''
   private sessionRole: string = ''
+  private sessionIdentityRevision: number = -1
   private scroller: Scroller = new Scroller()
   private recoveryTimer: number = -1
   private recoveryAttempts: number = 0
@@ -68,9 +69,12 @@ export struct InventoryView {
   }
 
   private synchronizeSession(): boolean {
-    const token: string = this.user.token || '', userId: string = this.user.id || '', role: string = this.user.role || ''
-    if (token === this.sessionToken && userId === this.sessionUserId && role === this.sessionRole) return false
+    const token: string = this.user.token || '', userId: string = this.user.id || '', role: string = this.user.identity || ''
+    const identityRevision = this.user.identityRevision ?? -1
+    if (token === this.sessionToken && userId === this.sessionUserId && role === this.sessionRole &&
+      identityRevision === this.sessionIdentityRevision) return false
     this.sessionToken = token; this.sessionUserId = userId; this.sessionRole = role
+    this.sessionIdentityRevision = identityRevision
     this.stopRecovery()
     this.queryId++; this.generation++; this.dialogSequence++
     this.items = []; this.selected = null; this.quantity = ''; this.reason = ''; this.pending = null
@@ -83,7 +87,8 @@ export struct InventoryView {
   private isCurrent(generation: number, token: string): boolean {
     return this.active && generation === this.generation && !!token && token === this.sessionToken &&
       token === this.user.token && !!this.sessionUserId && this.sessionUserId === this.user.id &&
-      this.sessionRole === 'merchant' && this.user.role === 'merchant'
+      this.sessionRole === 'merchant' && this.user.identity === 'merchant' &&
+      this.sessionIdentityRevision === (this.user.identityRevision ?? -1)
   }
 
   private canAdjust(): boolean {
@@ -268,7 +273,7 @@ export struct InventoryView {
             if (this.message) { Text(this.message).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%') }
             if (this.loadError) { Text(this.loadError).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%') }
             if (this.pendingError) { Text(this.pendingError).fontSize(14).fontColor($r('[ui_components].color.red')).width('100%') }
-            if (this.user.role === 'merchant') {
+            if (this.user.identity === 'merchant') {
               Button(this.loading ? '读取中…' : '刷新库存').enabled(!this.loading && !this.submitting).onClick(() => this.load(this.page))
               if (this.pending) {
                 Text('正在确认库存调整结果').fontSize(18).fontColor($r('[ui_components].color.text'))

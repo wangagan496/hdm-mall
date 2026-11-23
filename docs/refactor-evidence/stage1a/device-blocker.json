@@ -1,0 +1,21 @@
+{
+  "target": "127.0.0.1:5555",
+  "status": "blocked",
+  "listener5555Count": 0,
+  "port3103Free": true,
+  "deviceActions": 0,
+  "powershellParse": "passed",
+  "orderSubmissions": 0,
+  "paymentActions": 0,
+  "fixtureCheck": "passed: quote evidence sanitized, no order",
+  "observedAt": "2026-11-17T22:43:05.0066858+08:00",
+  "mappingChanged": false,
+  "reason": "Allocated existing Pura 90 API24 is not running; no new launch authorization, no installation or device UI actions performed",
+  "fixtureExited": true,
+  "targets": [
+    "[Empty]",
+    ""
+  ],
+  "nodeCheckLimitation": "node --experimental-strip-types --check rejects TS syntax in this mode; direct node execution and live quote request succeeded",
+  "uploadsRemoved": true
+}

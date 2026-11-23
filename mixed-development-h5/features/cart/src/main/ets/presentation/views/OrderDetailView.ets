@@ -19,11 +19,14 @@ import { AfterSale } from 'models'
 import { InvoiceInput, InvoiceDetail, normalizedInvoice, invoiceInputError } from 'models'
 import { RequestAxios } from 'network'
 import { InvoiceForm } from '../components/InvoiceForm'
+import { OrderPromisesCard } from '../components/OrderPromisesCard'
+import { OrderPromiseCheck, PromiseAfterSaleRoute, frozenOrderPromise } from 'models'
 
 interface OrderServiceRoute { orderId: string; orderName: string; orderCreatedAt: number }
 interface LogisticsErrorBody { reason?: string }
 interface LogisticsErrorResponse { data?: LogisticsErrorBody }
 interface LogisticsRequestError extends Error { response?: LogisticsErrorResponse }
+interface PromiseCheckBody { skuId: string; fieldId: string; result: string }
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -65,6 +68,11 @@ export struct OrderDetailView {
   @State pageActive: boolean = true
   @State detailToken: string = ''
   @State detailOrderId: string = ''
+  private detailAccountId: string | undefined = undefined
+  private detailIdentity: string | undefined = undefined
+  private detailIdentityRevision: number | undefined = undefined
+  @State promiseCheckSaving: boolean = false
+  @State promiseCheckMessage: string = ''
   private cancellationDialogSequence: number = 0
   @State receiptPending: boolean = false
   @State checkingPending: boolean = false
@@ -137,6 +145,8 @@ export struct OrderDetailView {
     this.loading = false
     this.invoiceSaving = false
     this.logisticsLoading = false
+    this.promiseCheckSaving = false
+    this.promiseCheckMessage = ''
   }
 
   private showOrderDetail(): void {
@@ -147,17 +157,27 @@ export struct OrderDetailView {
   }
 
   private reloadForCurrentAccount(): void {
-    if ((this.user.token || '') !== this.detailToken) {
+    if (!this.sameDetailIdentity()) {
       this.loadOrderDetail()
     }
   }
 
+  private sameDetailIdentity(): boolean {
+    return (this.user.token || '') === this.detailToken && this.user.id === this.detailAccountId &&
+      this.user.identity === this.detailIdentity && this.user.identityRevision === this.detailIdentityRevision
+  }
+
   private synchronizeDetailContext(): void {
     const token: string = this.user.token || ''
-    if (token === this.detailToken && this.orderId === this.detailOrderId) {
+    if (this.sameDetailIdentity() && this.orderId === this.detailOrderId) {
       return
     }
     this.detailToken = token
+    this.detailAccountId = this.user.id
+    this.detailIdentity = this.user.identity
+    this.detailIdentityRevision = this.user.identityRevision
+    this.promiseCheckSaving = false
+    this.promiseCheckMessage = ''
     this.logisticsLoading = false
     this.invoiceDraft = { titleType: 'individual', title: '', email: '' }
     this.invoiceEditing = false; this.invoiceSaving = false; this.invoiceMessage = ''
@@ -178,13 +198,50 @@ export struct OrderDetailView {
 
   private isCurrentDetail(generation: number, token: string, orderId: string): boolean {
     return this.pageActive && generation === this.pageGeneration && token.length > 0 &&
-      token === this.detailToken && token === (this.user.token || '') &&
+      token === this.detailToken && this.sameDetailIdentity() &&
       orderId.length > 0 && orderId === this.orderId && orderId === this.detailOrderId
   }
 
   private canOperateOrder(): boolean {
     return this.isCurrentDetail(this.pageGeneration, this.detailToken, this.orderId) &&
       !this.loading && !this.loadFailed && this.order !== null && this.order.id === this.orderId
+  }
+
+  private canCheckOrderPromises(): boolean {
+    return this.canOperateOrder() && this.user.identity === 'buyer' && this.order?.canCheckPromises === true
+  }
+
+  private promiseCardKey(sku: OrderSku): string {
+    const checks = sku.promiseChecks?.map(check => check.fieldId + '=' + check.result).join(',') || ''
+    return sku.id + ':' + (sku.promiseSnapshot?.receiptId || '') + ':' + checks
+  }
+
+  private async checkPromise(skuId: string, fieldId: string, result: string): Promise<void> {
+    if (this.promiseCheckSaving || this.busy || !this.canCheckOrderPromises() ||
+      (result !== 'matches' && result !== 'mismatch')) return
+    const sku = this.order?.skus.find(item => item.id === skuId)
+    if (!frozenOrderPromise(sku?.promiseSnapshot, fieldId)) return
+    const generation = this.pageGeneration, token = this.detailToken, orderId = this.orderId
+    const body: PromiseCheckBody = { skuId, fieldId, result }
+    this.promiseCheckSaving = true
+    this.promiseCheckMessage = ''
+    try {
+      const checked = await RequestAxios.putForSession<OrderPromiseCheck>('/member/order/' + encodeURIComponent(orderId) + '/promise-check', body, token)
+      if (!this.isCurrentDetail(generation, token, orderId)) return
+      if (checked.fieldId !== fieldId || checked.result !== result) throw new Error('核对结果暂未确认')
+      await this.loadOrderDetail()
+      if (!this.isCurrentDetail(generation, token, orderId)) return
+      if (result === 'mismatch' && this.order?.canApplyAfterSale && (sku?.afterSaleRemaining || 0) > 0) {
+        const route: PromiseAfterSaleRoute = { orderId, promiseMismatch: { skuId, fieldId } }
+        this.stackPath.pushPath({ name: PAGE_PATH.AFTER_SALE_APPLY_PAGE, param: route })
+      } else {
+        this.promiseCheckMessage = result === 'mismatch' ? '已记为不符，当前商品暂不能申请售后' : '已记为符合'
+      }
+    } catch {
+      if (this.isCurrentDetail(generation, token, orderId)) this.promiseCheckMessage = '核对结果暂未确认，请刷新订单或重试'
+    } finally {
+      if (this.isCurrentDetail(generation, token, orderId)) this.promiseCheckSaving = false
+    }
   }
   @StorageProp(GlobalVariable.SAFE_AREA_TOP)
   topHeight: number = 0
@@ -536,7 +593,7 @@ export struct OrderDetailView {
               .onClick(() => this.run('receipt', (): Promise<void> => this.runReceipt(), '已确认收货'))
           }
           .width('100%')
-        } else if (this.displayedOrderState === OrderState.AWAITING_REVIEW) { // 待评价：去评价。
+        } else if ((this.displayedOrderState === OrderState.AWAITING_REVIEW || this.order?.canEvaluate) && !this.evaluation) { // 待评价：去评价。
           Row() {
             Blank()
             Button('去评价')
@@ -742,6 +799,21 @@ export struct OrderDetailView {
               .backgroundColor($r('[ui_components].color.white'))
               .borderRadius(8)
               }
+              Column({ space: 8 }) {
+                Text('下单时的商品承诺').id('order-promises-title').fontSize(16).fontColor($r('[ui_components].color.text'))
+                if (this.promiseCheckMessage) {
+                  Text(this.promiseCheckMessage).id('order-promises-message').fontSize(14).fontColor($r('[ui_components].color.text'))
+                }
+                ForEach(this.order.skus, (sku: OrderSku) => {
+                  OrderPromisesCard({
+                    sku,
+                    canCheck: this.canCheckOrderPromises(),
+                    busy: this.promiseCheckSaving || !!this.busy,
+                    onCheck: (skuId: string, fieldId: string, result: string) => { void this.checkPromise(skuId, fieldId, result) }
+                  })
+                }, (sku: OrderSku) => this.promiseCardKey(sku))
+              }.width('100%').padding(12).backgroundColor($r('[ui_components].color.white'))
+                .borderRadius(8).alignItems(HorizontalAlign.Start)
               if (this.hasEvaluation()) {
                 Column({ space: 10 }) {
                   Row() {
@@ -767,9 +839,48 @@ export struct OrderDetailView {
                     .lineHeight(22)
                     .fontColor($r('[ui_components].color.text'))
                     .width('100%')
+                  if (this.evaluation?.followup) {
+                    Column({ space: 4 }) {
+                      Text('买家追加 · ' + formatBeijingTime(this.evaluation.followup.createdAt))
+                        .fontSize(12)
+                        .fontWeight(500)
+                        .fontColor($r('[ui_components].color.red'))
+                      Text(this.evaluation.followup.content)
+                        .fontSize(13)
+                        .lineHeight(20)
+                        .fontColor($r('[ui_components].color.text'))
+                    }
+                    .width('100%')
+                    .padding(8)
+                    .backgroundColor($r('[ui_components].color.under'))
+                    .borderRadius(6)
+                    .alignItems(HorizontalAlign.Start)
+                  }
+                  if (this.evaluation?.canFollowup && !this.evaluation?.followup) {
+                    Button('追加处理后感受')
+                      .id('review-followup')
+                      .backgroundColor($r('[ui_components].color.red'))
+                      .fontColor($r('[ui_components].color.on_primary'))
+                      .onClick(() => this.runComment())
+                  }
+                  if(this.evaluation?.dispute?.conclusion){
+                    Button('查看平台复核').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                      .onClick(()=>this.runComment())
+                  }
+                  if(this.order.canEvaluate && !this.evaluation?.hiddenReason && !this.evaluation?.followup){
+                    Button('修改评价').id('review-edit').onClick(()=>this.runComment())
+                  }
+                  if (this.evaluation?.followup && !this.evaluation?.dispute?.conclusion) {
+                    Button('查看评价')
+                      .id('review-view')
+                      .backgroundColor($r('[ui_components].color.white'))
+                      .fontColor($r('[ui_components].color.text'))
+                      .border({ width: 0.5, color: $r('[ui_components].color.border') })
+                      .onClick(() => this.runComment())
+                  }
                   if (this.evaluation?.hiddenReason) {
-                    Text('已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
-                    if (this.order.canEvaluate) {
+                    Text(this.evaluation.hiddenSource==='platform'?'已被平台复核隐藏':'已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))
+                    if (this.order.canEvaluate && this.evaluation.hiddenSource!=='platform') {
                       Button('修改后重新发布').id('review-republish').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).onClick(() => this.runComment())
                     }
                   }

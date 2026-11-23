@@ -1,0 +1,10 @@
+完整日志SHA256：21b8f19133b0a0835e48d3936905957b486dbaa49d5852ecccbbd8c1bea0caf5
+完整日志字节：5568662
+原日志编码：utf-16（按BOM识别后提取）
+节选规则：Node.js安装结论、退出码、ProductVersion和INSTALLDIR，保留原始行号。
+
+12791: Property(S): INSTALLDIR = C:\xunlei\node-v24.16.0-win-x64\node-v24.16.0-win-x64\
+12800: Property(S): ProductVersion = 24.22.3
+13374: MSI (s) (28:F0) [20:39:59:760]: Product: Node.js -- Installation completed successfully.
+13379: MSI (s) (28:F0) [20:39:59:777]: MainEngineThread is returning 0
+13394: MSI (c) (08:D8) [20:39:59:914]: MainEngineThread is returning 0

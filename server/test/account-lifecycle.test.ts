@@ -24,7 +24,7 @@ async function fixture(databasePath=':memory:',uploadsPath='./unused') {
  const sku=ctx.testData.product({name:'Lifecycle',skus:[{spec:'one',priceCents:100,stock:30}]}).skus[0]!
  const call=async(method:string,url:string,payload?:object,token=buyer.token)=>{
   payload=withReturnShipping(ctx,uploadsPath,url,payload,token)
-  const r=await ctx.app.inject({method:method as never,url,headers:{authorization:'Bearer '+token},payload})
+  const r=await ctx.app.inject({method:method as never,url,headers:identityHeaders(ctx.accounts, token),payload})
   return {status:r.statusCode,body:r.json()}
  }
  const create=async(paid=false)=>{
@@ -138,7 +138,7 @@ test('CD13 注销中真实multipart上传及新售后、已付取消可用，其
   // A decodable 2x2 JPEG, sent through Fastify's actual multipart parser and file storage.
   const photo=Buffer.from('/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD1Dw54R8NXPhfSZ5/D2kyzS2ULySSWUbM7FASSSuSSe9FFFfZ4f+DD0X5GFT42f//Z','base64')
   const payload=Buffer.concat([...parts,Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="proof.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`),photo,Buffer.from(`\r\n--${boundary}--\r\n`)])
-  const uploaded=await f.ctx.app.inject({method:'POST',url:'/member/after-sales/images',headers:{authorization:'Bearer '+token,'content-type':'multipart/form-data; boundary='+boundary},payload})
+  const uploaded=await f.ctx.app.inject({method:'POST',url:'/member/after-sales/images',headers:{...identityHeaders(f.ctx.accounts, token),'content-type':'multipart/form-data; boundary='+boundary},payload})
   assert.equal(uploaded.statusCode,200,uploaded.body)
   const sale=await f.call('POST',`/member/order/${shipped}/after-sales`,{requestKey:applicationKey,kind:'return-quality',description:'收到的商品存在质量问题',items:[{skuId:f.sku.id,count:1}],imageIds:[uploaded.json().result.imageId]},token)
   assert.equal(sale.status,200,JSON.stringify(sale.body))
@@ -299,7 +299,7 @@ test('CD08 三年到期清除地址和售后照片，头像立即删除，备份
   const address=JSON.parse(f.ctx.db.one<{address:string}>('SELECT address FROM orders WHERE id=?',order)!.address)
   assert.equal(address.receiver,'');assert.equal(address.contact,'');assert.equal(address.address,'')
   const backup=await createBackup({databasePath:path,uploadsPath:uploads,destination:join(root,'backup')})
-  assert.equal(backup.manifest.schemaVersion, 19);assert.deepEqual(backup.manifest.issues,[])
+  assert.equal(backup.manifest.schemaVersion, 27);assert.deepEqual(backup.manifest.issues,[])
  }finally{await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
 test('CD09 012升级013保留账号订单，重启扫描执行到期注销',async()=>{
@@ -312,7 +312,7 @@ test('CD09 012升级013保留账号订单，重启扫描执行到期注销',asyn
   try{removeLifecycleSchema(old)}finally{old.close()}
   const migrated=new Database(path)
   try{
-   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version, 19)
+   assert.equal(migrated.one<{user_version:number}>('PRAGMA user_version')!.user_version, 27)
    assert.equal(migrated.one<{account:string}>('SELECT account FROM users WHERE id=?',f.buyer.id)!.account,f.buyer.account)
    assert.ok(migrated.one('SELECT id FROM orders WHERE id=?',order))
    migrated.run("UPDATE users SET status='deleting',deletion_requested_at=?,deletion_due_at=? WHERE id=?",f.now(),f.now()+15*DAY,f.buyer.id)
@@ -322,3 +322,4 @@ test('CD09 012升级013保留账号订单，重启扫描执行到期注销',asyn
   assert.equal(next.db.one<{status:string}>('SELECT status FROM users WHERE id=?',f.buyer.id)!.status,'deleted')
  }finally{if(next)await next.app.close();await f.ctx.app.close();await rm(root,{recursive:true,force:true})}
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

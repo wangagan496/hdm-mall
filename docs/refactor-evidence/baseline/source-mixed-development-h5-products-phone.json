@@ -1,0 +1,269 @@
+{
+  "directory": "mixed-development-h5/products/phone",
+  "files": [
+    {
+      "path": "mixed-development-h5/products/phone/.gitignore",
+      "exists": true,
+      "bytes": 60,
+      "sha256": "8952629c0d3ba41b6cb5db4afbfa2e672fbeb4677b8579c84f97e853d2064312"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/build-profile.json5",
+      "exists": true,
+      "bytes": 540,
+      "sha256": "165c5e02e368cfae38401dbfc371a106ab3f5a8a1ed05078625c0f1c573476dc"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/hvigorfile.ts",
+      "exists": true,
+      "bytes": 232,
+      "sha256": "e447ac68aee7bb0042621eee1183984a888ed611f031009ed4b19b721645fecc"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/obfuscation-rules.txt",
+      "exists": true,
+      "bytes": 1024,
+      "sha256": "c7f48577fcd27a346883a1a527653eff132cab29666133a49e1ec4d372ec5a93"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 7035,
+      "sha256": "3ac74e70824b148abea8c6b057c250de747f8903ede02f34819b2c39897f71ad"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/oh-package.json5",
+      "exists": true,
+      "bytes": 493,
+      "sha256": "2879fc34d08c0c09f13f75a0f23d2305b620d97db0ead48eb7987e4c9835a6e0"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/ets/constants/TabConstants.ets",
+      "exists": true,
+      "bytes": 677,
+      "sha256": "58d5a3531dcf56434c4d56937ff0e8fa7b05577e69778c8935713d4df0b9bf3a"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 8973,
+      "sha256": "fb4e91372f7d8060a0f57bdf65899b179c25f294863866b52029897ecb4b8e48"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/ets/phoneability/PhoneAbility.ets",
+      "exists": true,
+      "bytes": 5303,
+      "sha256": "b4135ec8d09c33a271b06b1da4e9218789f2405021956173178cb31e8f6e8306"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/ets/phonebackupability/PhoneBackupAbility.ets",
+      "exists": true,
+      "bytes": 522,
+      "sha256": "b256effaa086e389c3892a20979e4a6e819f41b0f5849895c9f0e27c48b47494"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/module.json5",
+      "exists": true,
+      "bytes": 2068,
+      "sha256": "2f6549ca0046e45d595465a7215e7c959ba4f9c40484bbff1d6a011af8794bac"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/element/color.json",
+      "exists": true,
+      "bytes": 182,
+      "sha256": "ac8d642d36abca8747fe47d22d4ec3ea737b484bf0ffde5201bad98d7d5860a0"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/element/float.json",
+      "exists": true,
+      "bytes": 88,
+      "sha256": "41a6bc52269c20e15a4bae3be29fc311d996ed03fa7f9c59fa1641018cdb235c"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 781,
+      "sha256": "b084410da1f18250492000ac4f450cae8f3636fde010dbe5c11193d94345503f"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/background.png",
+      "exists": true,
+      "bytes": 6069,
+      "sha256": "327da4f81d118f392890028eb458ac355157c5e9c0c59dc43670d89b13e16395"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/foreground.png",
+      "exists": true,
+      "bytes": 17579,
+      "sha256": "0a5fce3a63d6baa7e63af3339368841b076a8209959949bd89e31f8e98626606"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/hdm_home_active.svg",
+      "exists": true,
+      "bytes": 286,
+      "sha256": "72dac7915fe3a34b7fd78e7f17bbf83f184712b84fa4200c78638aba3410987b"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/hdm_home_normal.svg",
+      "exists": true,
+      "bytes": 239,
+      "sha256": "b0ad0fb8d1c783cd05984e3f0edc79c59688159e0773239f916f1f592a5539ae"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/hdm_icon_background.svg",
+      "exists": true,
+      "bytes": 151,
+      "sha256": "62ca51791a804ee547d1cca14c4b9aaeb93f9242a782c50ba5588bd057cce6e3"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/hdm_icon_foreground.svg",
+      "exists": true,
+      "bytes": 418,
+      "sha256": "eb16f7998e7cc77de7dbd25656c532ab27357d3dd8921274f8be03367ae37baf"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/hdm_start_icon.svg",
+      "exists": true,
+      "bytes": 454,
+      "sha256": "470a649fcf452b04d9548d57841663d5cba885cbfe7a36c28f13815bb1da5209"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_cart_active.png",
+      "exists": true,
+      "bytes": 2603,
+      "sha256": "1d111148901874eededeadab737c6cb3e99f7b68b5296d729bfc4076d9c959bb"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_cart_normal.png",
+      "exists": true,
+      "bytes": 1566,
+      "sha256": "22ffece692b34b311de41e33575deed603cf795e0097f5826ed1d29be5813881"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_home_active.png",
+      "exists": true,
+      "bytes": 4386,
+      "sha256": "9a9b8a5ffe618b1da68abe64cd74a377f8b968564cfb54547756a27aa75d7210"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_home_normal.png",
+      "exists": true,
+      "bytes": 2753,
+      "sha256": "97d9502a2ebf9babff1bc379d0e942f2832eebff88c7a950a0c88c7d9354bb70"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_my_active.png",
+      "exists": true,
+      "bytes": 2448,
+      "sha256": "f08497d87b23090dbb41c7fed67e73625f7d3ae4f0ab6fb1ac2ea7f194b2f096"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_my_normal.png",
+      "exists": true,
+      "bytes": 2029,
+      "sha256": "c40b0f2c07ed41e9993123f5e90b3f36b33eaaad5b30f99066a782775ac11ad0"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_pro_active.png",
+      "exists": true,
+      "bytes": 1713,
+      "sha256": "d220fefc4d01f5ae9808104958637ad8bf3bff51631fae91394558cd24ce9576"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_pro_normal.png",
+      "exists": true,
+      "bytes": 814,
+      "sha256": "6f7c209a43923e6c2162c62353da1d9fdb6a94cfc9e68730e7d8ef64bd98d3a7"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_refresh.svg",
+      "exists": true,
+      "bytes": 728,
+      "sha256": "df68fbd80b18c536d9deb3d279839d55ff5974fa1668157d6202dfe415dfb978"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/ic_public_search.svg",
+      "exists": true,
+      "bytes": 1906,
+      "sha256": "607553a053ac69350dc86553d4765e21e8945188354ffb7ea57cf918a5da212c"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/layered_image.json",
+      "exists": true,
+      "bytes": 132,
+      "sha256": "f5520397372642874b54a89cd9712edc9285e84302acae7c7bd66025e9cbf947"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/media/startIcon.png",
+      "exists": true,
+      "bytes": 32603,
+      "sha256": "e0ce9906f16ab7ca0dbb8a59775d3a9d86c7ce4cda8c57b0e0ab922ae9966338"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/profile/backup_config.json",
+      "exists": true,
+      "bytes": 36,
+      "sha256": "9447811de67729d65b6c0d76720ce53dad97f70a4b0bbe1946a8dc1c7de717f5"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/profile/form_config.json",
+      "exists": true,
+      "bytes": 596,
+      "sha256": "d0186173be8611d82f470b8d227fb9091c9e4c0919e7d47f688ed992c9a061a2"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 42,
+      "sha256": "b7248e3d58d4006a4bb01d9991e34b1292c03f3d212b5945470ec5bdcf9f1cbd"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/dark/element/color.json",
+      "exists": true,
+      "bytes": 182,
+      "sha256": "3f13692e669a4a60c4a78b2a4216df6662222c91c77c73137ea71bf9ebcd6429"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/en_US/element/string.json",
+      "exists": true,
+      "bytes": 651,
+      "sha256": "c2b7d0a5cb740644ba5b5302e1fd6c020a8bc8997d2ff2d95a13f60a5fe2bc85"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/resources/zh_CN/element/string.json",
+      "exists": true,
+      "bytes": 655,
+      "sha256": "13a6acd6e3c9fe5233f66725a153d9870bf53ab43ce4bb639e760364c134589c"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/mock/mock-config.json5",
+      "exists": true,
+      "bytes": 4,
+      "sha256": "bac6a76645c48064f198e711301492ace386110831d381f33ba68a3db6847bd4"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/ohosTest/ets/test/Ability.test.ets",
+      "exists": true,
+      "bytes": 1768,
+      "sha256": "30c15dc50846bc079d4d5b787db3f3480e1c8b7b021454346bc63bc13ba42720"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/ohosTest/ets/test/List.test.ets",
+      "exists": true,
+      "bytes": 103,
+      "sha256": "58c6babaf2babd4a7c3e36c5e160f37e1a9a739401ca7f7981073e1b3ab5accc"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/ohosTest/module.json5",
+      "exists": true,
+      "bytes": 219,
+      "sha256": "19076c35699816ca3edec23737919fbcd082b8ccce540d426cbf681330ae3f90"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 272,
+      "sha256": "38526d0fc7b9f874a1be5c867d51bcefaad36a7c7a2f7ace00fd7cb13bf0fe1e"
+    }
+  ]
+}

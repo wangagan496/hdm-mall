@@ -1,0 +1,9 @@
+{
+  "name": "hvigor-test",
+  "cwd": "D:/hdm-mall/mixed-development-h5",
+  "command": "C:/Program Files/Huawei/DevEco Studio/tools/hvigor/bin/hvigorw.bat test --mode module",
+  "exitCode": 0,
+  "durationSeconds": 119.972,
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-stage1a-hvigor-test-222044.log",
+  "observedAt": "2026-11-17T22:22:45.0199177+08:00"
+}

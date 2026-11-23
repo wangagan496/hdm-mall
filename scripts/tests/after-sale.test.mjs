@@ -4,6 +4,31 @@ import { execute, sourceOf, pageMethods, deferred } from './native-harness.mjs'
 
 const modelPath='mixed-development-h5/commons/models/src/main/ets/AfterSaleModels.ets'
 const flowPath='mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets'
+test('个人穿着原因随已选商品和类型变化，提交时再次校验',async()=>{
+ const path='mixed-development-h5/features/cart/src/main/ets/presentation/views/AfterSaleApplyView.ets'
+ const submitted=[], kinds=['return-no-reason','return-quality','refund-missing']
+ const order={canApplyAfterSale:true,afterSaleKinds:kinds,skus:[true,false].map((sizeApplicable,i)=>({
+  id:String(i),realPay:1,quantity:1,afterSaleRemaining:1,afterSaleKinds:kinds,sizeApplicable
+ }))}
+ const Page=pageMethods(path,'AfterSaleApplyView',{}, {GlobalVariable:{},getAfterSaleOrderAPI:async()=>order,
+  afterSaleActions:{pending:()=>null,start:async(_id,_url,body)=>submitted.push(body)},returnPolicyAllowsNoReason:()=>true,
+  afterSaleInputError:()=>'',returnConditionRequired:()=>false,orderWriteFailure:()=>({})})
+ const page=new Page();page.orderId='sample';page.user={id:'buyer',token:'token'};page.stackPath={pop:()=>{}}
+ await page.load()
+ assert.equal(page.canChoosePersonalFit(),false)
+ page.stepCount(1,-1);assert.equal(page.canChoosePersonalFit(),true)
+ page.personalFit=true;page.selectKind(kinds[1]);assert.equal(page.canChoosePersonalFit(),false);assert.equal(page.personalFit,false)
+ for (const kind of kinds.slice(1)) {
+  page.selectKind(kind);page.personalFit=true;page.description='需要售后处理'
+  await page.submit();assert.equal(Object.hasOwn(submitted.at(-1),'sizeReason'),false)
+ }
+ page.selectKind(kinds[0]);page.personalFit=true;page.stepCount(1,1);assert.equal(page.personalFit,false)
+ page.personalFit=true;await page.submit();assert.equal(Object.hasOwn(submitted.at(-1),'sizeReason'),false)
+ page.stepCount(1,-1);page.personalFit=true;await page.submit();assert.equal(submitted.at(-1).sizeReason,'personal-fit')
+ page.stepCount(0,-1);assert.equal(page.canChoosePersonalFit(),false);assert.equal(page.personalFit,false)
+ page.stepCount(0,1);page.mismatch={skuId:'0',fieldId:'fit'};assert.equal(page.canChoosePersonalFit(),false)
+ assert.match(sourceOf(path),/if \(this\.canChoosePersonalFit\(\)\) \{\s*Text\('退货原因/)
+})
 test('售后申请按下单整数分计算部分数量，非法数量不能提交',()=>{
  const {afterSaleAmount,afterSaleInputError}=execute(sourceOf(modelPath))
  const items=[{skuId:'s',name:'商品',spec:'标准',priceCents:10,count:3,remaining:3}]

@@ -1,13 +1,16 @@
 import Fastify, { LogController } from 'fastify'
-import type { FastifyRequest, HTTPMethods } from 'fastify'
+import type { FastifyReply, FastifyRequest, HTTPMethods } from 'fastify'
 import multipart from '@fastify/multipart'
 import rateLimit from '@fastify/rate-limit'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Database } from './database.ts'
-import { Accounts, type User } from './accounts.ts'
+import { Accounts, requireBuyer, type User } from './accounts.ts'
+import { IdentityLayouts } from './identity-layouts.ts'
+import { parseIdentitySwitch } from './identity-context/generated.ts'
 import { Catalog } from './catalog.ts'
 import { Products, productCreateSchema, productEditSchema } from './products.ts'
 import { Orders } from './orders.ts'
@@ -19,8 +22,12 @@ import { AccountLifecycle } from './account-lifecycle.ts'
 import { auditPage, deniedAudit } from './audit.ts'
 import { AfterSales, afterSaleRequestSchema, afterSaleActionSchema, returnAddressSchema } from './after-sales.ts'
 import { currentPromotion, editPromotion } from './promotions.ts'
+import { QuotePreview } from './quote-preview/index.ts'
 import { invoiceSchema, issueInvoice, registerCompletedInvoice } from './invoices.ts'
-import { hideReview, merchantReviews, resetAvatar } from './moderation.ts'
+import { replyToReview, merchantReviews, resetAvatar } from './moderation.ts'
+import { registerDispute, reviewerQueue, reviewer, decide, requestCorrection } from './review-disputes.ts'
+import { evaluationPage } from './evaluation-page.ts'
+import { evaluationSchema } from './evaluations.ts'
 import { ServiceMessages } from './service-messages.ts'
 import { BackupScheduler, type BackupOptions } from './backup-scheduler.ts'
 import { MockPaymentChannel } from './payment-channel.ts'
@@ -29,8 +36,13 @@ import { TestFixtures, registerFixtureRoutes } from './test-fixtures.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { validateRuntimeOptions, type RuntimeOptions } from './config.ts'
 import { inventoryPage, stockMovements, adjustStock, adjustmentReceipt } from './inventory.ts'
+import { PromiseExtractor, type PromiseDriver } from './promises/extract.ts'
+import { PromisePublications, confirmPromisesSchema, publishPromisesSchema } from './promises/publication.ts'
+import { checkOrderPromise, promiseCheckSchema } from './promises/order-promises.ts'
+import { materialBatchSchema, materialLimit, materialUploadSchema, SourceMaterials } from './source-verification/materials.ts'
 
-export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel }
+export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
+  promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
 const idSchema = z.string().min(1).max(100)
 const credentials = z.object({ account: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/), password: z.string().min(8).max(128) })
 const pageSchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(10), orderState: z.coerce.number().int().min(0).max(6).default(0) })
@@ -39,14 +51,33 @@ const addressSaveFields = { requestKey: z.string().uuid().optional(), revision: 
 const createAddressFields = addressFields.extend({ isDefault: addressFields.shape.isDefault.default(1), ...addressSaveFields })
 const updateAddressFields = addressFields.partial().extend(addressSaveFields)
 const key = (req: FastifyRequest) => z.object({ id: idSchema }).parse(req.params).id
-function maskNickname(nickname: string): string { const chars = Array.from(nickname); return `${chars[0] ?? ''}***${chars.length > 2 ? chars[chars.length - 1] : ''}` }
+
+async function readProductJpeg(req: FastifyRequest, field: string, fieldSize: number) {
+  let bytes: Buffer | undefined, value: string | undefined
+  for await (const part of req.parts({ limits: { fileSize: materialLimit, files: 1, fields: 1, parts: 2, fieldSize } })) {
+    if (part.type === 'file') {
+      ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg', 400, '请选择 JPEG 图片')
+      bytes = await part.toBuffer()
+      ensure(!part.file.truncated, 413, '图片过大，请换一张')
+    } else {
+      ensure(part.fieldname === field && !part.valueTruncated && typeof part.value === 'string', 400, '上传参数不正确')
+      value = part.value
+    }
+  }
+  ensure(bytes && value, 400, '请选择图片并填写上传资料')
+  return { bytes, value }
+}
 
 export async function buildApp(options: AppOptions) {
   validateRuntimeOptions(options)
-  const db = new Database(options.databasePath)
   const clock = options.clock ?? systemClock
+  const db = new Database(options.databasePath, clock)
   const accounts = new Accounts(db, options.publicUrl, clock), catalog = new Catalog(db, options.publicUrl, clock)
+  const layouts = new IdentityLayouts(db, clock)
   const products = new Products(db, options.publicUrl, clock)
+  const sourceMaterials = new SourceMaterials(db, accounts, clock)
+  const promisePublications = new PromisePublications(db, accounts, clock,
+    new PromiseExtractor(db, clock, options.promiseDriver, options.promiseBudgetTokens ?? 50_000, options.promiseTimeoutMs))
   const paymentCallbackSecret = options.paymentCallbackSecret ?? 'development-payment-callback-secret-32-bytes'
   const paymentChannel = options.paymentChannel !== undefined ? options.paymentChannel ?? undefined :
     (options.mockPayments || options.testMode ? new MockPaymentChannel(paymentCallbackSecret, db, clock) : undefined)
@@ -58,6 +89,7 @@ export async function buildApp(options: AppOptions) {
   const lifecycle = new AccountLifecycle(db, accounts, clock, options.uploadsPath)
   const service = new ServiceMessages(db, clock)
   const orders = new Orders(db, accounts, catalog, options.mockPayments, clock)
+  const quotes = new QuotePreview(db, options.quotePreviewSecret)
   orders.attachPayments(payments)
   const afterSales = new AfterSales(db, payments, clock)
   orders.attachAfterSales(afterSales)
@@ -73,7 +105,7 @@ export async function buildApp(options: AppOptions) {
     const origin = req.headers.origin
     if (origin && options.corsOrigins?.includes(origin)) {
       reply.header('Access-Control-Allow-Origin', origin).header('Vary', 'Origin')
-      reply.header('Access-Control-Allow-Headers', 'Authorization,Content-Type').header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+      reply.header('Access-Control-Allow-Headers', 'Authorization,Content-Type,X-HDM-Identity,X-HDM-Identity-Revision').header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
     } else if (origin) throw new AppError(403, '页面来源不受信任')
   })
   app.addHook('onResponse', async (req, reply) => {
@@ -82,21 +114,30 @@ export async function buildApp(options: AppOptions) {
   app.setErrorHandler((error, req, reply) => {
     const status = error instanceof z.ZodError ? 400 : error instanceof AppError ? error.statusCode : (error as { statusCode?: number }).statusCode ?? 500
     const msg = error instanceof z.ZodError ? '参数不正确，请检查输入' : error instanceof AppError ? error.message : status === 429 ? '操作太频繁，请稍后重试' : status === 413 ? '文件或请求过大' : '服务暂时不可用'
-    if(status===403&&req.routeOptions.url?.startsWith('/merchant/')){
-      let user:User|undefined
-      try{user=accounts.authenticate(req.headers.authorization)}catch{ /* Anonymous requests have no verified actor. */ }
-      if(user&&user.role!=='merchant')deniedAudit(db,user,req.method+' '+req.routeOptions.url,clock.now())
-    }
     if (status >= 500) app.log.error({ requestId: req.id, error: error instanceof Error ? error.message : 'unknown' }, 'request failed')
     reply.code(status).send({ code: '0', msg, requestId: req.id,
       ...(error instanceof AppError && error.reason ? { reason: error.reason, result: error.data } : {}) })
   })
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ code: '0', msg: '接口不存在' }))
   const ok = (result: unknown) => ({ code: '1', result })
-  const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User) => unknown) => {
-    app.route({ method, url, handler: async req => {
-      const user=accounts.authenticate(req.headers.authorization)
-      if(url.startsWith('/merchant/')&&user.role!=='merchant')throw new AppError(403,'需要商家权限','MERCHANT_REQUIRED')
+  const authenticate = (req: FastifyRequest) => accounts.authenticateRequest(req.headers.authorization,
+    req.headers['x-hdm-identity'], req.headers['x-hdm-identity-revision'])
+  app.addHook('onRequest', async req => {
+    if (req.headers.authorization?.startsWith('Bearer ')) authenticate(req)
+  })
+  const sharedMemberRoutes = new Set([
+    '/member/profile', '/member/profile/avatar', '/member/address', '/member/address/:id',
+    '/member/consents', '/member/consents/withdraw', '/member/account-deletion', '/member/account-deletion/cancel',
+    '/member/account-notices', '/member/identity/switch', '/member/identity-layout', '/member/order/:id/logistics'
+  ])
+  const protectedRoute = (method: HTTPMethods, url: string, handler: (req: FastifyRequest, user: User, reply: FastifyReply) => unknown) => {
+    app.route({ method, url, handler: async (req, reply) => {
+      const user = authenticate(req)
+      if (url.startsWith('/merchant/') && user.identity !== 'merchant') {
+        deniedAudit(db, user, req.method + ' ' + url, clock.now())
+        throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
+      }
+      if (url.startsWith('/member/') && !sharedMemberRoutes.has(url)) requireBuyer(user)
       const followUp = [
         '/logout','/member/consents','/member/consents/withdraw','/member/account-deletion','/member/account-deletion/cancel',
         '/member/order/:id/receipt','/member/order/:id/payments/refresh',
@@ -106,13 +147,14 @@ export async function buildApp(options: AppOptions) {
         '/member/service/messages','/member/service/images','/member/service/read'
       ]
       ensure(user.status!=='deleting'||method==='GET'||followUp.includes(url),403,'账号正在注销中')
-      return ok(await handler(req,user))
+      const result = await handler(req, user, reply)
+      if (!reply.sent) return ok(result)
     } })
   }
 
   protectedRoute('GET','/merchant/audit-log',(req,user)=>auditPage(db,user,req.query))
-  protectedRoute('POST', '/merchant/reconciliation/run', (req,user) => reconciliation.run(user,z.object({ date: billDateSchema }).parse(req.body).date))
-  protectedRoute('GET', '/merchant/reconciliation/bill', (req,user) => reconciliation.bill(user,z.object({ date: billDateSchema }).parse(req.query).date))
+  protectedRoute('POST', '/merchant/reconciliation/run', (req,user) => reconciliation.run(user,z.object({ date: billDateSchema }).parse(req.body).date, () => accounts.assertCurrent(user)))
+  protectedRoute('GET', '/merchant/reconciliation/bill', (req,user) => reconciliation.bill(user,z.object({ date: billDateSchema }).parse(req.query).date, () => accounts.assertCurrent(user)))
   protectedRoute('GET', '/merchant/reconciliation', (req,user) => reconciliation.report(user,z.object({ date: billDateSchema }).parse(req.query).date))
   protectedRoute('POST', '/merchant/reconciliation/differences/:id/resolve', (req,user) => reconciliation.resolve(user,key(req),req.body))
   protectedRoute('GET', '/member/service/messages', (req, user) => service.history(user, user.id, req.query))
@@ -136,10 +178,20 @@ export async function buildApp(options: AppOptions) {
       }
     }
     ensure(image && requestKey, 400, '请选择照片')
+    accounts.assertCurrent(user)
     return service.upload(user, user.id, requestKey, image, options.uploadsPath)
   })
   protectedRoute('GET', '/merchant/goods/:id/reviews', (req, user) => merchantReviews(db, user, key(req), req.query))
-  protectedRoute('POST', '/merchant/reviews/:id/hide', (req, user) => hideReview(db, user, key(req), req.body, clock.now()))
+  protectedRoute('POST','/merchant/reviews/:id/dispute',(req,user)=>registerDispute(db,user,key(req),req.body,clock.now()))
+  protectedRoute('GET','/reviews/capability',(_req,user)=>({reviewer:reviewer(user)}))
+  protectedRoute('GET','/merchant/review-evidence',(_req,user)=>db.all<{path:string}>(
+    'SELECT path FROM product_images WHERE actor_id=? ORDER BY created DESC,image_id',user.id).map(row=>row.path))
+  protectedRoute('GET','/platform/reviews',(_req,user)=>reviewerQueue(db,user))
+  protectedRoute('POST','/platform/reviews/:id/accept',(req,user)=>decide(db,user,key(req),'accept',req.body,clock.now()))
+  protectedRoute('POST','/platform/reviews/:id/conclude',(req,user)=>decide(db,user,key(req),'conclude',req.body,clock.now()))
+  protectedRoute('POST','/reviews/:id/correction',(req,user)=>requestCorrection(db,user,key(req),req.body,clock.now()))
+  protectedRoute('POST', '/merchant/reviews/:id/hide', () => { throw new AppError(403,'商家只能公开回复评价') })
+  protectedRoute('POST', '/merchant/reviews/:id/reply', (req,user) => replyToReview(db,user,key(req),req.body,clock.now()))
   protectedRoute('POST', '/merchant/members/:id/avatar/reset', (req, user) => resetAvatar(db, user, key(req), req.body, clock.now()))
   protectedRoute('POST','/member/consents',(req,user)=>lifecycle.consent(user,req.body))
   protectedRoute('POST','/member/consents/withdraw',(req,user)=>lifecycle.withdrawConsent(user,req.body))
@@ -152,12 +204,12 @@ export async function buildApp(options: AppOptions) {
   for (const action of ['withdraw','ship-back']) protectedRoute('POST', `/member/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
   for (const action of ['approve','reject','inspect','refund-reject']) protectedRoute('POST', `/merchant/after-sales/:id/${action}`, (req,user) => afterSales.act(user,key(req),action,afterSaleActionSchema.parse(req.body)))
   protectedRoute('GET', '/merchant/after-sales', (req,user) => {
-    const query = pageSchema.pick({page:true,pageSize:true}).extend({state:z.enum(['pending','returned','all']).default('all')}).parse(req.query)
-    return afterSales.list(user,query.state,query.page,query.pageSize)
+    const query = pageSchema.pick({page:true,pageSize:true}).extend({state:z.enum(['pending','returned','all']).default('all'), sizeReason:z.enum(['personal-fit','size-promise-mismatch']).optional()}).parse(req.query)
+    return afterSales.list(user,query.state,query.page,query.pageSize,query.sizeReason)
   })
   protectedRoute('GET', '/merchant/settings/return-address', (_req,user) => afterSales.getAddress(user))
   protectedRoute('GET', '/merchant/settings/promotion', (_req,user) => {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     return currentPromotion(db)
   })
   protectedRoute('PUT', '/merchant/settings/promotion', (req,user) => editPromotion(db,user,req.body,clock.now()))
@@ -176,6 +228,7 @@ export async function buildApp(options: AppOptions) {
     }
     const data = z.object({orderId:idSchema,applicationKey:z.string().uuid(),requestKey:z.string().uuid()}).parse(fields)
     ensure(image,400,'请选择照片')
+    accounts.assertCurrent(user)
     return afterSales.uploadImage(user,data.orderId,data.applicationKey,data.requestKey,image,options.uploadsPath)
   })
   protectedRoute('GET', '/merchant/products/categories', (_req, user) => products.categories(user))
@@ -184,23 +237,38 @@ export async function buildApp(options: AppOptions) {
     return products.list(user, query.page, query.pageSize, query.status)
   })
   protectedRoute('GET', '/merchant/products/changes/:id', (req, user) => products.receipt(user, key(req)))
+  protectedRoute('GET', '/merchant/products/:id/source-materials', (req, user) => sourceMaterials.list(user, key(req)))
+  protectedRoute('PUT', '/merchant/products/:id/source-batch', (req, user) =>
+    sourceMaterials.setBatch(user, key(req), materialBatchSchema.parse(req.body).batch))
+  protectedRoute('POST', '/merchant/products/:id/source-materials', async (req, user) => {
+    const productId = key(req)
+    sourceMaterials.requireOwner(user, productId)
+    const { bytes, value } = await readProductJpeg(req, 'metadata', 4096)
+    let data: unknown
+    try { data = JSON.parse(value) } catch { throw new AppError(400, '材料资料格式不正确') }
+    return sourceMaterials.upload(user, productId, materialUploadSchema.parse(data), bytes)
+  })
+  protectedRoute('DELETE', '/merchant/products/:id/source-materials/:materialId', (req, user) =>
+    sourceMaterials.withdraw(user, key(req), z.object({ materialId: z.string().uuid() }).parse(req.params).materialId))
+  protectedRoute('GET', '/merchant/products/:id/source-materials/:materialId/original', (req, user, reply) => {
+    const { materialId } = z.object({ materialId: z.string().uuid() }).parse(req.params)
+    reply.type('image/jpeg').send(sourceMaterials.attachment(user, key(req), materialId))
+  })
+  protectedRoute('GET', '/merchant/products/:id/promises', (req, user) => promisePublications.state(user, key(req)))
+  protectedRoute('POST', '/merchant/products/:id/promises/extract', (req, user) => {
+    z.strictObject({}).parse(req.body ?? {})
+    return promisePublications.extract(user, key(req))
+  })
+  protectedRoute('POST', '/merchant/products/:id/promises/confirmations', (req, user) => promisePublications.confirm(user, key(req), confirmPromisesSchema.parse(req.body)))
+  protectedRoute('POST', '/merchant/products/:id/promises/publish', (req, user) => promisePublications.publish(user, key(req), publishPromisesSchema.parse(req.body)))
+  protectedRoute('GET', '/merchant/products/:id/promises/receipts/:requestKey', (req, user) => promisePublications.receipt(user, key(req),
+    z.object({ requestKey: z.string().uuid() }).parse(req.params).requestKey))
   protectedRoute('GET', '/merchant/products/:id', (req, user) => products.detail(user, key(req)))
   protectedRoute('POST', '/merchant/products', (req, user) => products.create(user, productCreateSchema.parse(req.body)))
   protectedRoute('POST', '/merchant/products/images', async (req, user) => {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
-    let image: Buffer | undefined, requestKey: string | undefined
-    for await (const part of req.parts({ limits: { fileSize: 512 * 1024, files: 1, fields: 1, parts: 2, fieldSize: 100 } })) {
-      if (part.type === 'file') {
-        ensure(part.fieldname === 'file' && part.mimetype === 'image/jpeg', 400, '请选择JPEG商品图片')
-        image = await part.toBuffer()
-        ensure(!part.file.truncated, 413, '图片过大，请换一张')
-      } else {
-        ensure(part.fieldname === 'requestKey', 400, '上传参数不正确')
-        requestKey = z.string().uuid().parse(part.value)
-      }
-    }
-    ensure(image && requestKey, 400, '请选择图片并提供上传编号')
-    return products.uploadImage(user, requestKey, image, options.uploadsPath)
+    const { bytes, value } = await readProductJpeg(req, 'requestKey', 100)
+    accounts.assertCurrent(user)
+    return products.uploadImage(user, z.string().uuid().parse(value), bytes, options.uploadsPath)
   })
   protectedRoute('PUT', '/merchant/products/:id', (req, user) => products.edit(user, key(req), productEditSchema.parse(req.body)))
   app.options('/*', async (_req, reply) => reply.code(204).send())
@@ -214,6 +282,13 @@ export async function buildApp(options: AppOptions) {
     const data = credentials.parse(req.body); return ok(accounts.login(data.account, data.password))
   })
   protectedRoute('POST', '/logout', req => { accounts.logout(req.headers.authorization!); return null })
+  protectedRoute('POST', '/member/identity/switch', (req, user) => {
+    const request = parseIdentitySwitch(JSON.stringify(req.body) ?? '')
+    ensure(request, 400, '请选择正确的身份')
+    return accounts.switchIdentity(user, request.identity)
+  })
+  protectedRoute('GET', '/member/identity-layout', (_req, user) => layouts.get(user))
+  protectedRoute('PUT', '/member/identity-layout', (req, user) => layouts.save(user, req.body))
   protectedRoute('GET', '/member/profile', (req, user) => ({ ...accounts.profile(user), token: req.headers.authorization!.slice(7) }))
   protectedRoute('PUT', '/member/profile', (req, user) => {
     const data = z.object({ nickname: z.string().trim().min(1).max(50), gender: z.enum(['男','女','未知']), birthday: z.string().max(20), profession: z.string().max(100), provinceCode: z.string().max(20), cityCode: z.string().max(20), countyCode: z.string().max(20), fullLocation: z.string().max(100).optional() }).parse(req.body)
@@ -225,16 +300,19 @@ export async function buildApp(options: AppOptions) {
     const jpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
     ensure(jpeg && file.mimetype === 'image/jpeg', 400, '仅支持 JPEG 头像')
     const name = `${randomUUID()}.jpg`
-    await mkdir(options.uploadsPath, { recursive: true })
-    await writeFile(join(options.uploadsPath, name), buffer)
+    accounts.assertCurrent(user)
+    mkdirSync(options.uploadsPath, { recursive: true })
+    writeFileSync(join(options.uploadsPath, name), buffer)
     const profile = accounts.updateProfile(user, { avatar: `/uploads/${name}` })
     return { avatar: profile.avatar }
   })
   app.get('/uploads/:name', async (req, reply) => {
     const { name } = z.object({ name: z.string().uuid().transform(v => v) }).parse({ name: (req.params as { name: string }).name.replace(/\.jpg$/, '') })
     ensure(!db.one('SELECT path FROM account_file_deletions WHERE path=?', '/uploads/' + name + '.jpg'), 404, '图片不存在')
-    if (db.one('SELECT image_id FROM after_sale_images WHERE image_id=?', name)) afterSales.canReadImage(accounts.authenticate(req.headers.authorization),name)
-    if (db.one('SELECT image_id FROM service_images WHERE image_id=?', name)) service.canReadImage(accounts.authenticate(req.headers.authorization), name)
+    const saleImage = db.one('SELECT image_id FROM after_sale_images WHERE image_id=?', name)
+    const serviceImage = db.one('SELECT image_id FROM service_images WHERE image_id=?', name)
+    if (saleImage) afterSales.canReadImage(authenticate(req), name)
+    if (serviceImage) service.canReadImage(authenticate(req), name)
     try { return reply.type('image/jpeg').send(await readFile(join(options.uploadsPath, name + '.jpg'))) }
     catch { throw new AppError(404, '图片不存在') }
   })
@@ -266,18 +344,8 @@ export async function buildApp(options: AppOptions) {
     return ok({ pageData: catalog.listPage(query.page, query.pageSize, data.keyword, data.categoryId, data.sortField, data.sortMethod) })
   })
   app.get('/goods/:id/evaluate/page', async req => {
-    const productId = key(req), query = pageSchema.parse(req.query)
-    // 先校验，再以同一商品条件计数和取页；EXISTS 避免同单多个规格重复展示评价。
-    const from = `FROM evaluations e JOIN orders o ON o.id=e.order_id JOIN users u ON u.id=o.owner_id
-      WHERE NOT EXISTS(SELECT 1 FROM review_moderation m WHERE m.order_id=e.order_id)
-      AND EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=e.order_id AND i.product_id=?)`
-    const counts = db.one<{ count: number }>(`SELECT COUNT(*) AS count ${from}`, productId)!.count
-    const offset = (query.page - 1) * query.pageSize
-    // 超出总数时直接返回空页，也避免极大页码的偏移量溢出 SQLite 整数范围。
-    const rows = offset >= counts ? [] : db.all<{ order_id: string; content: string; score: number; created: number; nickname: string; status:string }>(
-      `SELECT e.*,u.nickname,u.status ${from} ORDER BY e.created DESC,e.order_id ASC LIMIT ? OFFSET ?`, productId, query.pageSize, offset)
-    const items = rows.map(r => ({ id: r.order_id, content: r.content, score: r.score, createTime: new Date(r.created).toISOString(), pictures: [], member: { nickname: r.status==='deleted'?'已注销用户':maskNickname(r.nickname) } }))
-    return ok({ items, counts, pages: Math.ceil(counts / query.pageSize), page: query.page, pageSize: query.pageSize })
+    const query = pageSchema.extend({skuId:idSchema.optional(),templateVersion:z.string().max(100).optional()}).parse(req.query)
+    return ok(evaluationPage(db,key(req),query))
   })
   protectedRoute('GET', '/member/address', (_req, user) => accounts.addresses(user))
   protectedRoute('GET', '/member/address/:id', (req, user) => { const address = accounts.addresses(user).find(a => a.id === key(req)); ensure(address, 404, '地址不存在'); return address })
@@ -290,6 +358,7 @@ export async function buildApp(options: AppOptions) {
     return accounts.saveAddress(user, address, key(req), requestKey, revision)
   })
   protectedRoute('DELETE', '/member/address/:id', (req, user) => accounts.deleteAddress(user, key(req)))
+  protectedRoute('POST', '/member/quote-preview', (req, user) => quotes.preview(user, req.body, clock.now()))
   protectedRoute('GET', '/member/cart', (_req, user) => { orders.expireIfDue(); return catalog.cart(user) })
   protectedRoute('GET', '/member/cart/count', (_req, user) => ({ count: catalog.cartCount(user) }))
   protectedRoute('POST', '/member/cart', (req, user) => {
@@ -374,10 +443,13 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/cancel', (req, user) => orders.cancel(user, key(req)))
   protectedRoute('POST', '/member/order/:id/reminder', (req, user) => orders.remind(user, key(req)))
   protectedRoute('PUT', '/member/order/:id/receipt', (req, user) => orders.receive(user, key(req)))
-  protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req)))
+  protectedRoute('PUT', '/member/order/:id/promise-check', (req, user) => checkOrderPromise(db, user, key(req), promiseCheckSchema.parse(req.body), clock.now()))
+  protectedRoute('GET', '/member/order/:id/logistics', (req,user) => logistics.read(user,key(req), () => accounts.assertCurrent(user)))
   protectedRoute('PUT', '/member/order/:id/evaluation', (req, user) => {
-    const data = z.object({ score: z.number().int().min(1).max(5), content: z.string().trim().min(5).max(500) }).parse(req.body)
-    return orders.evaluate(user, key(req), data.score, data.content)
+    return orders.evaluate(user, key(req), evaluationSchema.parse(req.body))
+  })
+  protectedRoute('POST', '/member/order/:id/evaluation/followup', (req, user) => {
+    return orders.appendEvaluationFollowup(user, key(req), req.body)
   })
   protectedRoute('GET', '/merchant/orders', (_req, user) => orders.merchantList(user))
   protectedRoute('GET', '/merchant/orders/:id', (req,user) => orders.merchantDetail(user,key(req)))

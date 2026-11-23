@@ -1,0 +1,15 @@
+{
+  "name": "server-test",
+  "cwd": "D:/hdm-mall/server",
+  "command": "npm.cmd test",
+  "exitCode": 0,
+  "durationSeconds": 36.299,
+  "rawLog": "C:\\Users\\23203\\AppData\\Local\\Temp\\hdm-stage1a-server-test-220530.log",
+  "observedAt": "2026-11-17T22:06:07.2331776+08:00",
+  "tests": 400,
+  "pass": 400,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0
+}

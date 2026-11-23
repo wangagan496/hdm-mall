@@ -1,7 +1,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import type { FastifyInstance } from 'fastify'
-import { Accounts, type User } from './accounts.ts'
+import { Accounts } from './accounts.ts'
 import { ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
 import { MockPaymentChannel, type PaymentPreset } from './payment-channel.ts'
@@ -42,7 +42,7 @@ export class TestFixtures {
     ensure(actual.length === expected.length && timingSafeEqual(actual, expected), 403, '测试凭证无效')
   }
   private user(id: string) {
-    const user = this.accounts.db.one<User>('SELECT * FROM users WHERE id=?', id)
+    const user = this.accounts.defaultUser(id)
     ensure(user, 404, '夹具账号不存在')
     return user
   }
@@ -62,8 +62,9 @@ export class TestFixtures {
     const data = z.object({ ownerId: identifier, friendId: identifier,
       accepted: z.boolean().default(true) }).parse(input)
     const owner = this.user(data.ownerId), friend = this.user(data.friendId)
-    const relation = this.accounts.invite(owner, friend.account)
-    if (data.accepted) this.accounts.updateRelation(friend, relation.id, 'accept')
+    ensure(owner.identities.includes('buyer') && friend.identities.includes('buyer'), 400, '绑定双方需持有买家身份')
+    const relation = this.accounts.invite({ ...owner, identity: 'buyer' }, friend.account)
+    if (data.accepted) this.accounts.updateRelation({ ...friend, identity: 'buyer' }, relation.id, 'accept')
     return relation
   }
   createProduct(credential: unknown, input: unknown) {
@@ -103,7 +104,7 @@ export class TestFixtures {
       ensure(sku, 404, '商品规格不存在')
       if (data.priceCents !== undefined) db.run('UPDATE skus SET price=? WHERE id=?', data.priceCents, data.skuId)
       if (data.stock !== undefined && data.stock !== sku.stock) {
-        ensure(data.actorId && this.user(data.actorId).role === 'merchant', 400, '调库存需指定夹具商家')
+        ensure(data.actorId && this.user(data.actorId).identity === 'merchant', 400, '调库存需指定夹具商家')
         db.run('UPDATE skus SET stock=? WHERE id=?', data.stock, data.skuId)
         db.run("INSERT INTO inventory_movements(sku_id,actor_id,kind,delta,balance,business_key,created,reason) VALUES(?,?,'adjust',?,?,?,?,?)",
           data.skuId, data.actorId, data.stock - sku.stock, data.stock, 'fixture:' + randomUUID(), this.accounts.clock.now(), '测试夹具调库存')

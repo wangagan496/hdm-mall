@@ -3,7 +3,7 @@ import type { User } from '../accounts.ts'
 import { appendAudit, productAudit, type AuditAction, type AuditSummary, type ProductAuditSnapshot } from '../audit.ts'
 
 export function backfillAudit(db:Database){
-  const actor=(id:string|null)=>id?db.one<Pick<User,'id'|'role'>>('SELECT id,role FROM users WHERE id=?',id):undefined
+  const actor=(id:string|null)=>id?db.one<Pick<User,'id'|'identity'>>('SELECT id,role AS identity FROM users WHERE id=?',id):undefined
   const previous=new Map<string,ProductAuditSnapshot>()
   for(const row of db.all<{actor_id:string;request_key:string;action:string;product_id:string;result:string;created:number}>('SELECT * FROM product_changes ORDER BY created,rowid')){
     const next=JSON.parse(row.result) as ProductAuditSnapshot,old=previous.get(row.product_id),user=actor(row.actor_id)!

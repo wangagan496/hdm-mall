@@ -33,14 +33,14 @@ for (const scenario of [
       const sku = product.skus[0]!
       assert.equal(ctx.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', sku.id)!.stock, 7)
       const created = await ctx.app.inject({ method: 'POST', url: '/member/order',
-        headers: { authorization: `Bearer ${buyer.token}` },
+        headers: identityHeaders(ctx.accounts, buyer.token),
         payload: { addressId: address.id, requestKey: randomUUID(), expectedAmountCents: amountCents,
           goods: [{ skuId: sku.id, count: 1 }] } })
       assert.equal(created.statusCode, 200)
       const orderId = created.json().result.id as string
       channel.setPreset('next', { outcome: 'unknown' })
       const started = await ctx.app.inject({ method: 'POST', url: `/member/order/${orderId}/payments`,
-        headers: { authorization: `Bearer ${buyer.token}` }, payload: { amountCents } })
+        headers: identityHeaders(ctx.accounts, buyer.token), payload: { amountCents } })
       assert.equal(started.statusCode, 200)
       assert.equal(started.json().result.state, 'pending')
       const paymentId = started.json().result.paymentId as string
@@ -90,3 +90,4 @@ for (const scenario of [
     }
   })
 }
+import { identityHeaders } from './helpers/identity-headers.ts'

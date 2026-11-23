@@ -1,0 +1,9 @@
+{
+  "name": "server-check",
+  "cwd": "D:\\hdm-mall\\server",
+  "command": "npm.cmd run check",
+  "exitCode": 0,
+  "durationSeconds": 6.767,
+  "observedAt": "2026-11-18T00:27:07.2336605+08:00",
+  "log": "D:\\hdm-mall\\docs\\refactor-evidence\\stage1a\\repair-03\\server-check.log"
+}

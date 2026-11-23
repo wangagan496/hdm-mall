@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
+import { confirmationSubject, type User } from './accounts.ts'
 
 export const policyFields={
   returnPolicy:z.enum(['standard','law-excluded','confirm-required']),
@@ -16,8 +17,9 @@ export interface PolicyRow {return_policy:ReturnPolicy['returnPolicy'];return_po
 export function presentPolicy(row:PolicyRow):ReturnPolicy {
  return {returnPolicy:row.return_policy,returnPolicyReason:row.return_policy_reason,returnPolicyNote:row.return_policy_note}
 }
-export function policyToken(items:({skuId:string}&ReturnPolicy)[]) {
- return createHash('sha256').update(JSON.stringify([...items].sort((a,b)=>a.skuId.localeCompare(b.skuId)).map(i=>[i.skuId,i.returnPolicy,i.returnPolicyReason,i.returnPolicyNote]))).digest('hex')
+export function policyToken(items:({skuId:string}&ReturnPolicy)[], user: User) {
+ const policies = [...items].sort((a,b)=>a.skuId.localeCompare(b.skuId)).map(i=>[i.skuId,i.returnPolicy,i.returnPolicyReason,i.returnPolicyNote])
+ return createHash('sha256').update(JSON.stringify([confirmationSubject(user, 'return-policy'), policies])).digest('hex')
 }
 export function canReturnNoReason(item:PolicyRow) {
  return item.return_policy==='standard'||item.return_policy==='confirm-required'&&(!item.return_policy_confirmed||['unsealed','activated'].includes(item.return_policy_reason))

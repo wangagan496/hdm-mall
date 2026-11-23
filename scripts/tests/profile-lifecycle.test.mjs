@@ -6,7 +6,7 @@ const requireH5 = createRequire(new URL('../../shoph5-vue3/package.json', import
 const vue = requireH5('vue')
 
 test('H5 仅当前请求的401清会话，断网及服务器错误保留登录，提示只由页面负责', async () => {
-  let user = { token: 'current' }, requestHandler, responseError, expired = 0, events = 0
+  let user = { token: 'current', identity: 'buyer', identityRevision: 3 }, requestHandler, responseError, expired = 0, events = 0
   const instance = { interceptors: { request: { use: callback => { requestHandler = callback } }, response: { use: (_ok, callback) => { responseError = callback } } } }
   const { requestErrorMessage } = execute(sourceOf('shoph5-vue3/src/api/index.ts').replaceAll('import.meta.env', '({})'), {
     axios: { __esModule: true, default: { create: () => instance, isAxiosError: error => error.isAxiosError } },
@@ -14,13 +14,18 @@ test('H5 仅当前请求的401清会话，断网及服务器错误保留登录�
     assert.equal(token, user.token); expired++; user = { token: '' }; return true
   } }, dispatchEvent: () => events++ }, Event: class { constructor(type) { this.type = type } } })
   assert.equal(requestHandler({ headers: { Authorization: 'Bearer old' } }).headers.Authorization, 'Bearer old')
+  const headers = requestHandler({ headers: {} }).headers
+  assert.equal(headers['X-HDM-Identity'], 'buyer')
+  assert.equal(headers['X-HDM-Identity-Revision'], '3')
   for (const status of [undefined, 500]) {
     await assert.rejects(responseError({ response: status ? { status } : undefined, config: { headers: { Authorization: 'Bearer current' } } }))
     assert.equal(user.token, 'current')
   }
   await assert.rejects(responseError({ response: { status: 401 }, config: { headers: { Authorization: 'Bearer old' } } }))
   assert.equal(expired, 0)
-  const currentFailure = { isAxiosError: true, response: { status: 401 }, config: { headers: { Authorization: 'Bearer current' } } }
+  const currentFailure = { isAxiosError: true, response: { status: 401 }, config: { headers } }
+  await assert.rejects(responseError({ ...currentFailure, config: { headers: { ...headers, 'X-HDM-Identity-Revision': '1' } } }))
+  assert.equal(expired, 0)
   await Promise.allSettled([responseError(currentFailure), responseError(currentFailure)])
   assert.equal(expired, 1); assert.equal(events, 1); assert.equal(user.token, '')
   assert.match(requestErrorMessage(currentFailure), /重新登录/)

@@ -6,6 +6,7 @@ import {
   fillPromotionGoods,
   getDistinctGoods,
   normalizeGoodsPresentation,
+  missingSizeChartText,
   normalizeGoodsSummaryPicture
 } from '../main/ets/data/api/goodsPresentation';
 import {
@@ -13,12 +14,17 @@ import {
   getBannerSearchParam,
   normalizeGoodsSummaryPictures
 } from '../main/ets/data/api/home';
-import { HDMGoodsItem } from 'models';
+import { HDMGoodsItem, PromiseEntry } from 'models';
 import { Banner, Goods, SearchRouterParam } from '../main/ets/domain/models';
 import { filterSearchGoods } from '../main/ets/data/api/searchPresentation';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
+    it('showsMissingChartUntilMerchantProvidesOne', 0, () => {
+      expect(missingSizeChartText([])).assertEqual('商家未说明尺码表');
+      expect(missingSizeChartText([{ fieldId: 'size-chart', status: 'unknown' } as PromiseEntry])).assertEqual('商家未说明尺码表');
+      expect(missingSizeChartText([{ fieldId: 'size-chart', status: 'known' } as PromiseEntry])).assertEqual('');
+    });
     // Defines a test suite. Two parameters are supported: test suite name and test suite function.
     beforeAll(() => {
       // Presets an action, which is performed only once before all test cases of the test suite start.
@@ -82,6 +88,10 @@ export default function localUnitTest() {
         name: source.name,
         desc: source.desc,
         price: '2130.08',
+        categoryName: '服饰',
+        promiseSnapshot: { receiptId: 'receipt', templateVersion: 'promises-20261120-3', productRevision: 1,
+          publishedAt: 1, entries: [] },
+        promiseSources: [],
         picture: source.picture,
         orderNum: source.orderNum,
         inventory: 10,
@@ -94,6 +104,9 @@ export default function localUnitTest() {
       const normalized: Goods = normalizeGoodsPresentation(source, detail);
 
       expect(normalized.id).assertEqual(source.id);
+      expect(normalized.categoryName).assertEqual('服饰');
+      expect(normalized.promiseSnapshot?.receiptId).assertEqual('receipt');
+      expect(normalized.promiseSources?.length).assertEqual(0);
       expect(normalized.name).assertEqual(source.name);
       expect(normalized.desc).assertEqual(source.desc);
       expect(normalized.price).assertEqual(source.price);

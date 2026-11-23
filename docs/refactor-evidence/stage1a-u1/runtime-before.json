@@ -1,0 +1,29 @@
+{
+  "observedAt": "2026-11-17T20:37:17.5300936+08:00",
+  "branch": "mall-crazy-design-20261116",
+  "head": "6bb5e75e83b77f81b71aa8991408f11600ec3007",
+  "clean": true,
+  "node": "v24.16.0",
+  "npm": "11.13.0",
+  "pnpm": "11.9.0",
+  "nodePaths": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\node.exe",
+    "C:\\Users\\23203\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe"
+  ],
+  "npmPaths": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\npm",
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\npm.cmd"
+  ],
+  "pnpmPaths": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\pnpm",
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64\\pnpm.cmd",
+    "C:\\Users\\23203\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback\\pnpm.cmd"
+  ],
+  "machineNodePathEntries": [
+    "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64"
+  ],
+  "userNodePathEntries": [],
+  "devecoNode": "C:\\Program Files\\Huawei\\DevEco Studio\\tools\\node\\node.exe",
+  "devecoVersion": "v24.14.1",
+  "devecoSha256": "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f"
+}

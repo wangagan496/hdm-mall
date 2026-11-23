@@ -1,7 +1,8 @@
 // Execute actual ArkTS logic with platform boundaries replaced; UI/SDK behavior still needs device validation.
 import { readFileSync } from 'node:fs'
+import * as path from 'node:path'
 import vm from 'node:vm'
-import ts from '../../shoph5-vue3/node_modules/typescript/lib/typescript.js'
+import ts from '../../server/node_modules/typescript/lib/typescript.js'
 
 export const sourceOf = path => readFileSync(new URL('../../' + path, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
 export const deferred = () => {
@@ -15,6 +16,7 @@ export function execute(source, dependencies = {}, globals = {}) {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,
   } }).outputText
   const context = vm.createContext({ exports: {}, require: name => {
+    if (name === 'path' || name === 'node:path') return path
     if (name === './ReturnPolicy' || name === 'models') {
       return { ...execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/ReturnPolicy.ets')), ...dependencies[name] }
     }
@@ -38,6 +40,10 @@ export function pageMethods(path, className, dependencies = {}, globals = {}) {
   })
   const policy = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/ReturnPolicy.ets'))
   const afterSales = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/AfterSaleModels.ets'))
-  return execute(source, dependencies, { ...recovery, ...policy, ...afterSales,
+  const quoteModels = execute(sourceOf('mixed-development-h5/commons/models/src/main/ets/QuotePreview.ets'))
+  const quotes = execute(sourceOf('mixed-development-h5/features/cart/src/main/ets/presentation/utils/QuotePreview.ets'), {
+    models: quoteModels, network: { RequestAxios: { postWithSession: async () => { throw new Error('quote transport not bound in this isolated page test') } } },
+  })
+  return execute(source, dependencies, { ...recovery, ...policy, ...afterSales, ...quotes,
     Scroller: class { scrollToIndex() {} }, ScrollAlign: { END: 'end' }, ...globals })[className]
 }

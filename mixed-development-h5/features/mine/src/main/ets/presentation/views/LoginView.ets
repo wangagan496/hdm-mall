@@ -90,7 +90,7 @@ export struct LoginView {
   }
 
   private async saveLoginAndRefreshCart(user: HDMUser): Promise<void> {
-    await consentManager.report(user.token, user.id || '')
+    await consentManager.report(user.token, user.id || '', user)
     // 先保存供下次启动恢复的资料，再更新当前页面使用的登录状态。
     await storeManager.saveUserInfo(user)
     if (storeManager.getUserInfo()?.token !== user.token) {

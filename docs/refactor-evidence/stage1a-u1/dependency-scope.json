@@ -1,0 +1,48 @@
+{
+  "observedAt": "2026-11-17T12:47:54.021Z",
+  "passed": true,
+  "changes": [
+    {
+      "name": "@types/node",
+      "before": {
+        "declaration": "^24.12.2",
+        "locked": "24.12.4"
+      },
+      "after": {
+        "declaration": "^24.19.2",
+        "locked": "24.19.2"
+      }
+    },
+    {
+      "name": "@tsconfig/node24",
+      "before": {
+        "declaration": "^24.0.4",
+        "locked": "24.0.4"
+      },
+      "after": {
+        "declaration": "^24.0.6",
+        "locked": "24.0.6"
+      }
+    }
+  ],
+  "transitive": {
+    "name": "undici-types",
+    "before": "7.16.0",
+    "after": "7.24.6",
+    "requiredBy": "@types/node",
+    "declaredRange": ">=7.24.0 <7.24.7"
+  },
+  "installedVersionsMatchLock": true,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "unrelatedManifestUnchanged": true,
+  "unrelatedLockfileUnchangedAfterPeerReferenceNormalization": true,
+  "server": {
+    "declaration": "^24.0.0",
+    "locked": "24.19.2",
+    "filesUnchanged": true
+  },
+  "packageCountBefore": 409,
+  "packageCountAfter": 409
+}

@@ -1,0 +1,12 @@
+{
+  "instance": "Pura 90 API24",
+  "api": "24",
+  "instanceModel": "Pura 90",
+  "instancePath": "C:/Users/23203/AppData/Local/Huawei/Emulator/deployed/Pura 90 API24",
+  "hdcTarget": "127.0.0.1:5555",
+  "hdcModel": "emulator",
+  "hdcApi": "24",
+  "package": "D:\\hdm-mall\\mixed-development-h5\\build\\outputs\\default\\mixed-development-h5-default-all-signed.app",
+  "packageLength": 10128838,
+  "packageSha256": "3416BC40053FAB06F51E6ED4C4F94573C35443556D91B29A079CA774F7B63D1B"
+}

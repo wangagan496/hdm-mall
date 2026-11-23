@@ -1,4 +1,4 @@
-import { HDMGoodsItem } from 'models'
+import { HDMGoodsItem, ReviewField, PromiseMaterialSource, PromiseSnapshot, PublicEvaluationFollowup, EvaluationServiceRecordSlot } from 'models'
 import { HDMSkuType, HDMSpec } from 'ui_components'
 
 // 其他略
@@ -18,6 +18,16 @@ export interface GoodsEvaluationMember {
 }
 
 export interface GoodsEvaluation {
+  spec?:string
+  logisticsScore?: number
+  serviceScore?: number
+  serviceOccurred?: boolean
+  items?: ReviewField[]
+  badges?: string[]
+  receiptBasis?: string
+  reply?: string
+  followup?: PublicEvaluationFollowup | null
+  serviceRecord?: EvaluationServiceRecordSlot
   content: string
   createTime: string
   id: string
@@ -26,7 +36,11 @@ export interface GoodsEvaluation {
   score: number
 }
 
+export interface GoodsReviewSummary { sampleSufficient:boolean; product?:number; logistics?:number; service?:number; neutral?:number; negative?:number }
+export interface GoodsSizeSummary { counts:number; conclusion:string; sampleSufficient:boolean }
 export interface GoodsEvaluationPage {
+  sizeSummary?:GoodsSizeSummary
+  summary?: GoodsReviewSummary
   counts: number
   items: GoodsEvaluation[]
   page: number
@@ -36,6 +50,9 @@ export interface GoodsEvaluationPage {
 
 // 7个属性 extend继承这7个属性 再增加5个属性
 export interface Goods extends HDMGoodsItem {
+  categoryName?: string
+  promiseSnapshot?: PromiseSnapshot
+  promiseSources?: PromiseMaterialSource[]
   status?: string
   available?: boolean
   inventory: number

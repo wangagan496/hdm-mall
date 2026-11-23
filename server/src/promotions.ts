@@ -18,6 +18,11 @@ export function currentPromotion(db: Database): Promotion {
 
 export function promotionQuote(db: Database, subtotal: number) {
   const rule = currentPromotion(db)
+  return quotePromotion(rule, subtotal)
+}
+
+// 报价与下单共用纯函数；保留原来的门槛、减额及 remainingCents 口径。
+export function quotePromotion(rule: Promotion, subtotal: number) {
   const discountCents = rule.enabled && subtotal >= rule.thresholdCents ? rule.discountCents : 0
   return { rule, discountCents, amountCents: subtotal - discountCents,
     remainingCents: rule.enabled ? Math.max(0, rule.thresholdCents - subtotal) : 0 }
@@ -61,7 +66,7 @@ const editSchema = z.object({ requestKey: z.string().uuid(), expectedRevision: z
 }).strict().refine(value => value.discountCents < value.thresholdCents)
 
 export function editPromotion(db: Database, user: User, input: unknown, now: number): Promotion {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const data = editSchema.parse(input)
   const body = JSON.stringify(data)
   return db.transaction(() => {

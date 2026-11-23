@@ -1,0 +1,13 @@
+{
+  "message_id": "result-stage3a-20261120-01",
+  "target": "91d4181b-f199-41e1-ae0b-d7d8f36836b2",
+  "status": "submitted",
+  "receipt": {
+    "status": "written",
+    "messageId": "24f3a1d7-dbfe-4895-9d89-acf7c63887a2",
+    "acknowledged": false
+  },
+  "updatedAt": 1795157046861,
+  "attempts": 1,
+  "final": true
+}

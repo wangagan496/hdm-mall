@@ -35,7 +35,7 @@ async function fixture(logisticsChannel?: LogisticsChannel, contact='13800000000
   const address=ctx.testData.address({userId:buyer.id,receiver:'买家',contact,address:'测试地址'})
   const product=ctx.testData.product({name:'沙箱测试商品',category:'测试',skus:[{spec:'标准',priceCents:2475,stock:10}]})
   const call=async(method:string,url:string,token=buyer.token,payload?:object) => {
-    const response=await ctx.app.inject({method:method as never,url,headers:token?{authorization:`Bearer ${token}`}:{},payload})
+    const response=await ctx.app.inject({method:method as never,url,headers:token?identityHeaders(ctx.accounts, token):{},payload})
     return {status:response.statusCode,body:response.json()}
   }
   const order = await call('POST','/member/order',buyer.token,{addressId:address.id,requestKey:randomUUID(),expectedAmountCents:2475,goods:[{skuId:product.skus[0]!.id,count:1}]})
@@ -163,3 +163,4 @@ test('G 地址快照电话缺失、非纯数字或不足四位时，明确拒绝
     } finally {await f.ctx.app.close()}
   }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

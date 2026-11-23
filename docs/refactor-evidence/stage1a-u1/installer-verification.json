@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-17T20:38:12.9394992+08:00",
+  "source": "https://nodejs.org/dist/v24.22.3/node-v24.22.3-x64.msi",
+  "sumsSource": "https://nodejs.org/dist/v24.22.3/SHASUMS256.txt",
+  "sumsLine": "4a1ab5bdec5434bae58efae6c3e5077a011f6f1e76d2b47b7b10af043f7db545  node-v24.22.3-x64.msi",
+  "path": "C:\\Users\\23203\\AppData\\Local\\Temp\\node-v24.22.3-x64.msi",
+  "bytes": 33357824,
+  "expectedSha256": "4a1ab5bdec5434bae58efae6c3e5077a011f6f1e76d2b47b7b10af043f7db545",
+  "actualSha256": "4a1ab5bdec5434bae58efae6c3e5077a011f6f1e76d2b47b7b10af043f7db545",
+  "matches": true,
+  "authenticodeStatus": "Valid",
+  "signer": "CN=OpenJS Foundation, O=OpenJS Foundation, L=San Francisco, S=California, C=US",
+  "installDirectory": "C:\\xunlei\\node-v24.16.0-win-x64\\node-v24.16.0-win-x64"
+}

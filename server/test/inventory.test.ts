@@ -141,10 +141,10 @@ test('商家按规格分页核对流水，买家和匿名请求不能访问，�
   const f = await fixture()
   try {
     const id = f.create(); f.orders.cancel(f.user, id)
-    const auth = { authorization: `Bearer ${f.merchant.token}` }
+    const auth = identityHeaders(f.accounts, f.merchant.token)
     for (const url of ['/merchant/inventory', '/merchant/inventory/inventory-product-a/movements']) {
       assert.equal((await f.app.inject({ url })).statusCode, 401)
-      assert.equal((await f.app.inject({ url, headers: { authorization: `Bearer ${f.buyer.token}` } })).statusCode, 403)
+      assert.equal((await f.app.inject({ url, headers: identityHeaders(f.accounts, f.buyer.token) })).statusCode, 403)
     }
     const page = await f.app.inject({ url: '/merchant/inventory/inventory-product-a/movements?pageSize=2', headers: auth })
     assert.equal(page.statusCode, 200)
@@ -169,7 +169,7 @@ test('重复请求幂等：最后一件连续下单只记成功订单，流水�
   try {
     f.create(initialStock - 1)
     const results = await Promise.all([1, 2].map(() => f.app.inject({ method: 'POST', url: '/member/order',
-      headers: { authorization: `Bearer ${f.buyer.token}` }, payload: { addressId: f.address.id, requestKey: randomUUID(),
+      headers: identityHeaders(f.accounts, f.buyer.token), payload: { addressId: f.address.id, requestKey: randomUUID(),
         expectedAmountCents: priceCents, goods: [{ skuId: 'inventory-product-a', count: 1 }] } })))
     assert.deepEqual(results.map(result => result.statusCode).sort(), [200, 409])
     assert.equal(f.db.all("SELECT id FROM inventory_movements WHERE kind='reserve'").length, 2)
@@ -208,16 +208,16 @@ test('v2 备份仍可恢复并升级，历史待付款取消只记录真实归�
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const options = { databasePath: join(restored.root, 'mall.sqlite'), uploadsPath: join(restored.root, 'uploads'), publicUrl: 'http://127.0.0.1:3000', mockPayments: true }
     ctx = await buildTestApp(options)
-    assert.equal(ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 19)
+    assert.equal(ctx.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 27)
     assert.equal(ctx.db.all('SELECT * FROM inventory_movements').length, productInput.skus.length)
     assert.equal(ctx.db.one<{ delta: number }>('SELECT delta FROM inventory_movements WHERE sku_id=?', 'inventory-product-a')!.delta, initialStock - 2)
     const user = ctx.accounts.login('stock_buyer', 'test-password-123')
-    const response = await ctx.app.inject({ method: 'PUT', url: `/member/order/${id}/cancel`, headers: { authorization: `Bearer ${user.token}` } })
+    const response = await ctx.app.inject({ method: 'PUT', url: `/member/order/${id}/cancel`, headers: identityHeaders(ctx.accounts, user.token) })
     assert.equal(response.statusCode, 200)
     assert.equal(ctx.db.all('SELECT * FROM inventory_movements WHERE order_id=?', id).length, 1)
     assert.equal(ctx.db.one<{ stock: number }>('SELECT stock FROM skus WHERE id=?', 'inventory-product-a')!.stock, initialStock)
     const nextBackup = await createBackup({ databasePath: options.databasePath, uploadsPath: options.uploadsPath, destination: join(root, 'v3-backup') })
-    assert.equal(nextBackup.manifest.schemaVersion, 19)
+    assert.equal(nextBackup.manifest.schemaVersion, 27)
     assert.equal(nextBackup.counts.inventory_movements, productInput.skus.length + 1)
     await ctx.app.close(); ctx = undefined
     ctx = await buildTestApp(options)
@@ -266,3 +266,4 @@ test('库存流水不一致写入快照，未登记的不一致即使重填哈�
     await assert.rejects(restoreBackup({ backupPath: backup.root, destination: join(root, 'restore') }), /库存与流水/)
   } finally { await f.app.close(); await rm(root, { recursive: true, force: true }) }
 })
+import { identityHeaders } from './helpers/identity-headers.ts'

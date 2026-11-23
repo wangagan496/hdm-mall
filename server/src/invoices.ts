@@ -26,8 +26,13 @@ export function requestInvoice(db: Database, user: User, orderId: string, input:
 }
 
 export function issueInvoice(db: Database, user: User, orderId: string, input: unknown, now: number) {
-  ensure(user.role === 'merchant', 403, '需要商家权限')
+  ensure(user.identity === 'merchant', 403, '需要商家权限')
   const data = issueInvoiceSchema.parse(input)
+  const receipt = () => {
+    const detail = invoiceDetail(db,orderId)!
+    if (!db.one('SELECT 1 FROM evaluations WHERE order_id=?',orderId)) return detail
+    return { status:detail.status, number:detail.number, issuedAt:detail.issuedAt }
+  }
   return db.transaction(() => {
     const order = db.one<{ state: number }>('SELECT state FROM orders WHERE id=?', orderId)
     ensure(order, 404, '订单不存在')
@@ -35,13 +40,13 @@ export function issueInvoice(db: Database, user: User, orderId: string, input: u
     ensure(invoice, 409, '买家尚未登记开票信息')
     if (invoice.status === 'issued') {
       ensure(invoice.issue_key === data.requestKey && invoice.number === data.number, 409, '这笔订单已经标记已开票')
-      return invoiceDetail(db, orderId)
+      return receipt()
     }
     ensure([2, 3, 4, 5].includes(order.state), 409, '订单尚未付款或已取消')
     db.run("UPDATE invoices SET status='issued',number=?,issued_at=?,issued_by=?,issue_key=? WHERE order_id=?", data.number, now, user.id, data.requestKey, orderId)
     appendAudit(db, { created: now, actor: user, action: 'invoice.issued', targetType: 'order', targetId: orderId, orderId,
       requestKey: data.requestKey, summary: { after: 'issued' } })
-    return invoiceDetail(db, orderId)
+    return receipt()
   })
 }
 

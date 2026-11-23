@@ -40,7 +40,7 @@ function merchantFixture() {
   }
   const Page = pageMethods(familyPath, 'FamilyView', {}, { cancelActions: actions, RecoveryQuery })
   const page = new Page()
-  page.user = { id: 'merchant', token: 'token', role: 'merchant' }
+  page.user = { id: 'merchant', token: 'token', identity: 'merchant' }
   page.sessionToken = 'token'
   page.sessionRole = 'merchant'
   page.loadedToken = 'token'
@@ -164,7 +164,7 @@ test('B-85 late receipt after leaving or changing account cannot update visible 
     fixture.page.loadFamilyCenter = async () => { refreshes++ }
     const task = fixture.page.checkCancelAction('order')
     if (leave) fixture.page.aboutToDisappear()
-    else { fixture.page.user = { id: 'other', token: 'other-token', role: 'merchant' }; fixture.page.synchronizeFamilySession() }
+    else { fixture.page.user = { id: 'other', token: 'other-token', identity: 'merchant' }; fixture.page.synchronizeFamilySession() }
     gate.resolve()
     await task
     assert.equal(refreshes, 0)

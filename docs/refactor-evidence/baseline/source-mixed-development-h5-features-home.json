@@ -1,0 +1,341 @@
+{
+  "directory": "mixed-development-h5/features/home",
+  "files": [
+    {
+      "path": "mixed-development-h5/features/home/.gitignore",
+      "exists": true,
+      "bytes": 60,
+      "sha256": "8952629c0d3ba41b6cb5db4afbfa2e672fbeb4677b8579c84f97e853d2064312"
+    },
+    {
+      "path": "mixed-development-h5/features/home/Index.ets",
+      "exists": true,
+      "bytes": 49,
+      "sha256": "b2129d8fdf251f4c5dc6c5691e1d73e6fb034c8768d46e6a0b77bc4b890fd222"
+    },
+    {
+      "path": "mixed-development-h5/features/home/build-profile.json5",
+      "exists": true,
+      "bytes": 449,
+      "sha256": "252efd2e677795bd8c80328bb9c339394e687c12e873876efbb4a74a30f51c88"
+    },
+    {
+      "path": "mixed-development-h5/features/home/hvigorfile.ts",
+      "exists": true,
+      "bytes": 240,
+      "sha256": "f632c04dfb37104182f1a558b5072eb0aa055cafe3b6502712dc8de4e040466a"
+    },
+    {
+      "path": "mixed-development-h5/features/home/obfuscation-rules.txt",
+      "exists": true,
+      "bytes": 1030,
+      "sha256": "9dc6d7012424bc68f30e58946d25719ee5073246ea59a9ce64617736610ecf36"
+    },
+    {
+      "path": "mixed-development-h5/features/home/oh-package-lock.json5",
+      "exists": true,
+      "bytes": 4015,
+      "sha256": "553cf5379bfbac89dc6bedbade83ac5f1d43c85120e5e95727bad0780f31554d"
+    },
+    {
+      "path": "mixed-development-h5/features/home/oh-package.json5",
+      "exists": true,
+      "bytes": 489,
+      "sha256": "9cce4f66ab8f9563cdf26347f65b306095df345cbf4323afd5b41a41c0b59d16"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/goodsPresentation.ets",
+      "exists": true,
+      "bytes": 7752,
+      "sha256": "f518723e359016ff2c40c87cb35b5d2239604f3bef5f7dbc507cb866f803ee38"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/home.ets",
+      "exists": true,
+      "bytes": 6642,
+      "sha256": "bd59eec1afe20d995948e21b581ef8a71e1f48ae1c89a95b8aa92298f330c571"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/homePrefetch.ets",
+      "exists": true,
+      "bytes": 2839,
+      "sha256": "f3496610ad2e0e62f49af1ce2a27af5dfa4a30dc6c7011eb2fc816387dd80c84"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/index.ets",
+      "exists": true,
+      "bytes": 93,
+      "sha256": "06011ec56b69123e28dbf4ae0be052da1c8a1e148a197a86998658557ed3653b"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/loginSkuSelection.ets",
+      "exists": true,
+      "bytes": 2525,
+      "sha256": "3793a8b63252adda77e84a0fab55b35c6266c64f0e0fddeaeca354a036296955"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/mockData.ets",
+      "exists": true,
+      "bytes": 5345,
+      "sha256": "80549da0be8f79b50b97ed0ac79eec82787f26a810b28dc233f1330bb7fbe979"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/data/api/searchPresentation.ets",
+      "exists": true,
+      "bytes": 3259,
+      "sha256": "201e3d40203b06187f1de31a209eb7f52d4c4867a661b1f70cf860f145e4bd02"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/domain/models/goods.ets",
+      "exists": true,
+      "bytes": 1088,
+      "sha256": "b4f96b68b9991df80e61899def04ec6aa67616ab6bdb9a0d7680c2401acd1ab9"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/domain/models/home.ets",
+      "exists": true,
+      "bytes": 653,
+      "sha256": "92effa54d55062df6860509d8f28832130ab443909654cc35d8f185ef204593e"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/domain/models/index.ets",
+      "exists": true,
+      "bytes": 84,
+      "sha256": "9b4d74724b323f9fe85856870e41fde7927178360328cd904da926fa4951373f"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/domain/models/search_result.ets",
+      "exists": true,
+      "bytes": 696,
+      "sha256": "d118653ed490c3f76272ada933e661ff3d834ebe92f0d9771cdab06dd4919a18"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/pages/Index.ets",
+      "exists": true,
+      "bytes": 283,
+      "sha256": "a4a083d6ad5ce91cb0b462f37183bbef33b1ae2e48cca3ddd3f6d1f131fe24fe"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/GoodsComment.ets",
+      "exists": true,
+      "bytes": 3308,
+      "sha256": "5ef9052809f427183d87e1bf4991f519a1422ec8b7b32ca7f5c0f30346cd354d"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/GoodsDetail.ets",
+      "exists": true,
+      "bytes": 796,
+      "sha256": "012ee74de70096b3cf16fa36a473af6b52ae40f5adcc84e0be6e1944134a3fd1"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/GoodsInfo.ets",
+      "exists": true,
+      "bytes": 5413,
+      "sha256": "5300c1df53398cb5c396568d43837ca327903861c5afe32d4285220305949046"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets",
+      "exists": true,
+      "bytes": 9118,
+      "sha256": "c641fe72c6d138004288b32ee881ae1aa97e5695f9dbaa9fe369dab2427ad680"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HDMDiscountGoods.ets",
+      "exists": true,
+      "bytes": 3023,
+      "sha256": "ed17cf26e3a0f046ed156e26425f94875ffadab91e91865a716a84ffb6b090a4"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeBannerSection.ets",
+      "exists": true,
+      "bytes": 2061,
+      "sha256": "3b06ab05e8502e3a145ac7937d494d53c6e20003939c3dbe1e47eb7abe6d8fbb"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeCategorySection.ets",
+      "exists": true,
+      "bytes": 1324,
+      "sha256": "2813c5ae329b588ba8f36860a28dadaf1320c12723c526be9dcaca1d91d1fd53"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeDiscountSection.ets",
+      "exists": true,
+      "bytes": 1501,
+      "sha256": "302907ae03bdfda8840e9a1dd9eb874758da123be8ed47486f0771ae58c2b435"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeNewGoodsSection.ets",
+      "exists": true,
+      "bytes": 1184,
+      "sha256": "0d86021c6b5bc026d573e7bf29040be1d84984b201aeb563e69879bcdf9e6bb3"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/HomeSaleGoodsSection.ets",
+      "exists": true,
+      "bytes": 1477,
+      "sha256": "897088715d9109311a9c305b678c26ab3789174f73b6ca212df6d1ec3431fb4c"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/components/index.ets",
+      "exists": true,
+      "bytes": 405,
+      "sha256": "3cc412998f767d0079d348b79058ba5b34ab207b4bad912513e947c5686ea850"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/utils/HomeGoodsDeduplication.ets",
+      "exists": true,
+      "bytes": 2204,
+      "sha256": "480edce4a7d21cef80bd88cf645107ebe9b0fa05f092f2d56ce2089553d501bd"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/views/GoodsView.ets",
+      "exists": true,
+      "bytes": 33255,
+      "sha256": "c17b5aab02f9149f378a9088c82d2e1a01249a34a43dc90dab9d691964c1cd6e"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/views/HomeView.ets",
+      "exists": true,
+      "bytes": 20995,
+      "sha256": "c319a2fbb9334934ce72184ab6958cdec164833015713d579219c2852c840cb8"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/views/SearchResultView.ets",
+      "exists": true,
+      "bytes": 13122,
+      "sha256": "e0e91b2e361232cbeff04688b2edcc96d1b7237c618ae727f2a5a8d72cfd8cef"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/views/SearchSortItem.ets",
+      "exists": true,
+      "bytes": 1537,
+      "sha256": "20c9b16a98595720f60215022df541a1f0915f16cb77a6d87e664787bf722cff"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/views/SearchView.ets",
+      "exists": true,
+      "bytes": 2643,
+      "sha256": "deebcb2eb0ad78324a04a7174a8ddf317640a7395f01c2b43fdbf109eb3bff62"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/ets/presentation/views/index.ets",
+      "exists": true,
+      "bytes": 103,
+      "sha256": "fe7d01c30dd61e690487f3159789719f35818c3f33ca92c71720b9e33930a34c"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/module.json5",
+      "exists": true,
+      "bytes": 462,
+      "sha256": "fc695cbcbcfc56b33787686a6b1781aea3884b8a82cc6a4c90e11325440bcd77"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/element/string.json",
+      "exists": true,
+      "bytes": 98,
+      "sha256": "f8aeba389af9ebaf5c16b4fa1d28c7ec465498df0eeecf1d47495397a3fbf6eb"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/goods_avatar.png",
+      "exists": true,
+      "bytes": 8901,
+      "sha256": "6f4872ad567efbe0ce4c08617003aceae1d32363678e18b211c6be063244189c"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/home_cmd_inner.png",
+      "exists": true,
+      "bytes": 119966,
+      "sha256": "ca66855420e4d30e5a45cd00694214c1ed2c8cf4bac8f9ba4918fbd469b42043"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/home_cmd_sm.png",
+      "exists": true,
+      "bytes": 173597,
+      "sha256": "927ead796bebc395327d4b5d73b7fa7ef33b8a8b550cb0f0a40dd150d89b1a03"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/home_cmd_title.png",
+      "exists": true,
+      "bytes": 5186,
+      "sha256": "58f038225877543dbf8b34d761ccc748b8a8cb53511bef6d1faa0e86fd6b02ad"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/home_goods_discount.png",
+      "exists": true,
+      "bytes": 8456,
+      "sha256": "d8f045e77eff7a4b132a0c57fe4b701cdaef630ef93685c74e2129c65b220d94"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/home_new.png",
+      "exists": true,
+      "bytes": 13153,
+      "sha256": "4e2daf8fe48409a181557a860c469286e1b9d093b4c960420a3bc36637d01061"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/home_top.svg",
+      "exists": true,
+      "bytes": 2657,
+      "sha256": "45d56379486206f97b415b2df954087e57bf5d923c1f4ec50b2b34fc61744b61"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/ic_sku_img.svg",
+      "exists": true,
+      "bytes": 1489,
+      "sha256": "97789380acdc0163d26696bf7c4a29424577c65e2a28087bdc871d488275f43b"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/media/search_bg.png",
+      "exists": true,
+      "bytes": 922379,
+      "sha256": "d39cc7c32a2aaa3a3a4133b42ed5bead210b6b035888a1758a0ddafd7a4ddd42"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/profile/main_pages.json",
+      "exists": true,
+      "bytes": 42,
+      "sha256": "b7248e3d58d4006a4bb01d9991e34b1292c03f3d212b5945470ec5bdcf9f1cbd"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/main/resources/base/profile/router_map.json",
+      "exists": true,
+      "bytes": 532,
+      "sha256": "2c3fffd165a537312e39c4ad4ac0784724661b2ba584a6d9b288ee8510ade698"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/ohosTest/ets/test/Ability.test.ets",
+      "exists": true,
+      "bytes": 1768,
+      "sha256": "30c15dc50846bc079d4d5b787db3f3480e1c8b7b021454346bc63bc13ba42720"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/ohosTest/ets/test/List.test.ets",
+      "exists": true,
+      "bytes": 103,
+      "sha256": "58c6babaf2babd4a7c3e36c5e160f37e1a9a739401ca7f7981073e1b3ab5accc"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/ohosTest/module.json5",
+      "exists": true,
+      "bytes": 216,
+      "sha256": "98c31ba3a6335fdb2af68cbf8041d10c76b54642fe7bb1f2ef9275582dbcf97c"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/test/List.test.ets",
+      "exists": true,
+      "bytes": 185,
+      "sha256": "09af1162104dc1fd1d7e0d49668e2cee2ddd3a8c149ba158bda9d1feebf6ec52"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/test/LocalUnit.test.ets",
+      "exists": true,
+      "bytes": 13513,
+      "sha256": "9e689092fbea11210148dcc0e3cdc7c17fbaa7ecbdb19c4bed9f62eadadc45f7"
+    },
+    {
+      "path": "mixed-development-h5/features/home/src/test/SkuSelection.test.ets",
+      "exists": true,
+      "bytes": 6532,
+      "sha256": "52a137dd0763c020c196b9cc937f3a777db3093750ab879f68fc2df4016f3dcb"
+    }
+  ]
+}

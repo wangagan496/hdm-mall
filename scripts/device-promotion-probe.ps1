@@ -59,10 +59,10 @@ function Invoke-PromotionProbe {
   Tap-Text '去结算'
   Wait-Text '结算'
   $Gap=(9900-$AmountCents)/100
-  Wait-Text ('再买 ¥'+$Gap.ToString('F2',[Globalization.CultureInfo]::InvariantCulture)+' 可减 ¥10.00，回首页继续选购')
+  Wait-Text ('还差 '+$Gap.ToString('F2',[Globalization.CultureInfo]::InvariantCulture)+' 元可满减')
   Capture '02-promotion-gap'
-  Product-Control 'checkout-promotion'
-  Wait-Text '首页'
+  Back
+  Wait-Text '购物袋'
   $null=Api 'device_buyer' ('/member/cart/'+$SkuId) 'Put' @{count=5;selected=$true}
   Tap-Text '购物袋'
   Tap-Text '去结算'
@@ -127,4 +127,90 @@ function Invoke-PromotionProbe {
   if($Detail.skus[0].afterSaleRemaining -ne 3 -or $Detail.discountCents -ne 1000){throw 'Remaining goods lost discount or after-sale quantities'}
   Save-Result @{orderId=$Order;order=$Snapshot;afterSale=$Refunded;proof=$Proof;remainingOrder=$Detail;nativeActions=@('promotion-settings','gap-home','discount-checkout','partial-return','shipping-proof','shipping-inspection','two-refunds')}
   Write-Output ('SCRIPT '+$PSCommandPath+' RESULT PromotionProbe passed')
+}
+
+function Invoke-QuotePreviewProbe {
+  function Wait-QuoteNode([string]$Id, [string]$Pattern) {
+    for ($Try = 0; $Try -lt 15; $Try++) {
+      $script:Nodes = Read-Nodes
+      $Node = $script:Nodes | Where-Object { $_.id -eq $Id -and $_.visible -ne 'false' } | Select-Object -First 1
+      if ($Node -and (!$Pattern -or $Node.text -match $Pattern)) { return $Node }
+      Start-Sleep -Milliseconds 300
+    }
+    throw "Expected quote node not found: $Id / $Pattern"
+  }
+  Login 'device_merchant'
+  $AppProcess = ((Invoke-Hdc @('shell','pidof','com.hdm.mall')) -join '').Trim()
+  Scroll-Text '满减设置'
+  Tap-Text '满减设置'
+  Product-Control 'promotion-threshold' '20.00'
+  Product-Control 'promotion-discount' '5.00'
+  Product-Control 'promotion-save'
+  Wait-Text '满减规则已保存'
+  Capture '01-quote-promotion-rule'
+
+  Login 'device_buyer' -KeepProcess
+  Product-Search '设备独立测试商品' -KeepProcess
+  Product-Select '加入购物袋'
+  Wait-Text '已加入购物车'
+  Capture '02-quote-product-added'
+  Tap-Text '去购物车'
+  Wait-Text '去结算'
+  $null = Wait-QuoteNode 'quote-comparison' '报价 [A-F0-9]{12}'
+  $null = Wait-QuoteNode ('cart-price-' + $SkuId) '^¥\d+\.\d{2}$'
+  $null = Wait-QuoteNode ('cart-quantity-' + $SkuId) ''
+  Capture '03-cart-quote-expanded'
+  Product-Control 'quote-total'
+  $null = Wait-QuoteNode 'quote-promotion-rule' '满减（规则第 \d+ 版）'
+  $null = Wait-QuoteNode ('quote-line-' + $SkuId) '设备独立测试商品'
+  Capture '04-cart-quote-details'
+  if (@($script:Nodes | Where-Object { $_.id -eq ('quote-removal-' + $SkuId) -and $_.visible -ne 'false' }).Count -gt 0) { throw 'Single-unit cart must not show quote reverse-calculation text.' }
+  $null = Wait-QuoteNode ('cart-price-' + $SkuId) '^¥\d+\.\d{2}$'
+  $null = Wait-QuoteNode ('cart-quantity-' + $SkuId) ''
+  Tap-Text '去结算'
+  Wait-Text '结算'
+  $null = Wait-QuoteNode 'quote-comparison' '^与报价 [A-F0-9]{12} 一致$'
+  Wait-Text '满 ¥20.00 减 ¥5.00 −¥5.00'
+  if (@($script:Nodes | Where-Object { $_.id -eq ('quote-removal-' + $SkuId) -and $_.visible -ne 'false' }).Count -gt 0) { throw 'Single-unit checkout must not show quote reverse-calculation text.' }
+  Capture '05-checkout-quote'
+
+  Login 'device_merchant' -KeepProcess
+  Scroll-Text '满减设置'
+  Tap-Text '满减设置'
+  Product-Control 'promotion-threshold' '30.00'
+  Product-Control 'promotion-discount' '6.00'
+  Product-Control 'promotion-save'
+  Wait-Text '满减规则已保存'
+  Capture '06-quote-rule-changed'
+
+  Login 'device_buyer' -KeepProcess
+  Tap-Text '购物袋'
+  Tap-Text '去结算'
+  Wait-Text '结算'
+  $null = Wait-QuoteNode 'quote-comparison' '和刚才相比实付多了 ¥5\.00（报价 [A-F0-9]{12} → [A-F0-9]{12}）'
+  $null = Wait-QuoteNode 'quote-reason-promotion' '满减规则已修改：满 ¥20\.00 减 ¥5\.00 → 满 ¥30\.00 减 ¥6\.00'
+  $null = Wait-QuoteNode 'quote-remaining' '还差 6.29 元可满减'
+  Capture '07-checkout-quote-changed'
+
+  Mine -KeepProcess
+  Tap-Text '拆开看看 · 应用的真实结构'
+  Wait-Text '拆开看看'
+  $null = Wait-QuoteNode 'module-structure-summary' '^1 个壳 · 4 个功能包 · 7 个基础包$'
+  Wait-Text '钱、库存、订单核心不可拆，始终由同一事务保护。'
+  Wait-Text '应用入口（phone）'
+  Wait-Text '首页与搜索（home）'
+  Wait-Text '商品分类（category）'
+  Wait-Text '购物车与结算（cart）'
+  Capture '08-module-structure'
+  Scroll-Text '我的与服务（mine）' -ViewOnly
+  Capture '09-module-structure-bottom'
+
+  $Requests = @(Invoke-RestMethod "$Base/device-fixture/trade-requests" | ForEach-Object { $_ })
+  $QuoteRequests = @(Invoke-RestMethod "$Base/device-fixture/quote-requests" | ForEach-Object { $_ })
+  if ($QuoteRequests.Count -lt 3) { throw 'Native UI did not request successive server quotes.' }
+  if (@($QuoteRequests | Where-Object { $_.comparisonReasons -contains 'promotion' }).Count -eq 0) { throw 'Server evidence has no genuine changed promotion comparison.' }
+  if (((Invoke-Hdc @('shell','pidof','com.hdm.mall')) -join '').Trim() -ne $AppProcess) { throw 'Account switching restarted the application process and lost in-memory quote continuity.' }
+  if (@($Requests | Where-Object { $_.route -eq '/member/order' -and $_.method -eq 'POST' }).Count -gt 0) { throw 'Quote preview probe must not create or pay an order.' }
+  Save-Result @{ task_id='stage1a-20261117-03'; quoteRequests=$QuoteRequests; tradeRequests=$Requests; screenshots=@('03-cart-quote-expanded','04-cart-quote-details','05-checkout-quote','07-checkout-quote-changed','08-module-structure','09-module-structure-bottom'); paymentActions=0; moduleSummary='1 个壳 · 4 个功能包 · 7 个基础包'; checks=@('quote-product-line-visible','cart-price-visible','cart-quantity-visible','single-unit-removal-hidden','module-order-and-titles-visible') }
+  Write-Output "SCRIPT $PSCommandPath RESULT QuotePreviewProbe passed without order submission"
 }

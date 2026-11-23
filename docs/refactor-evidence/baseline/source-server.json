@@ -1,0 +1,755 @@
+{
+  "directory": "server",
+  "files": [
+    {
+      "path": "server/.env.example",
+      "exists": true,
+      "bytes": 776,
+      "sha256": "0b1f8e7d725162a079994bfb12d8ab72601a01f2c9d8ea1f99e9657c9b438f37"
+    },
+    {
+      "path": "server/.env.sandbox.example",
+      "exists": true,
+      "bytes": 1648,
+      "sha256": "61b3124c6d4b6b2f01ed11fb6bcf3a34548742067a7d6b7fb586ddacfbf9b53c"
+    },
+    {
+      "path": "server/README.md",
+      "exists": true,
+      "bytes": 12598,
+      "sha256": "d4ec6c173386206b1c77e0014c455612cd82b2ce058d5b5dbdce9630f9ebc6c4"
+    },
+    {
+      "path": "server/package-lock.json",
+      "exists": true,
+      "bytes": 27615,
+      "sha256": "18d9c02aaa0d9aaec3142b178a95ac672b59e8d231c1eaa3ae99ddba29989216"
+    },
+    {
+      "path": "server/package.json",
+      "exists": true,
+      "bytes": 666,
+      "sha256": "b808a0606399e7ed3c5369d1f4dc296f877e84433777a71912179e40bb07cbc8"
+    },
+    {
+      "path": "server/src/account-lifecycle.ts",
+      "exists": true,
+      "bytes": 14212,
+      "sha256": "2ecc192bae6d0851efdcbd405f0d0e8237b25570b19859cc92d533f1a0923cb4"
+    },
+    {
+      "path": "server/src/accounts.ts",
+      "exists": true,
+      "bytes": 9799,
+      "sha256": "6d692c4c70ea0d622a8db6b50f34661b169389a1ab29599546880e298820fbd7"
+    },
+    {
+      "path": "server/src/after-sale-backup.ts",
+      "exists": true,
+      "bytes": 7980,
+      "sha256": "202cc53fbbfad9130d88172b25a8142cf4e4df67546cf003e8129770ccb4b2ce"
+    },
+    {
+      "path": "server/src/after-sales.ts",
+      "exists": true,
+      "bytes": 30378,
+      "sha256": "59dc7a0a6f58061afadba51538dbbf852888927a1d10bd2184faaf637839d4cc"
+    },
+    {
+      "path": "server/src/alipay-channel.ts",
+      "exists": true,
+      "bytes": 9958,
+      "sha256": "ae6556f38f868f31456f7de98fc359f73ddbbbba9fbe81c9376c416ea4637d20"
+    },
+    {
+      "path": "server/src/app.ts",
+      "exists": true,
+      "bytes": 37172,
+      "sha256": "08d29952357c4035cf163a65497610adc852e702be01fdfed0707285f6315274"
+    },
+    {
+      "path": "server/src/audit-backup.ts",
+      "exists": true,
+      "bytes": 3413,
+      "sha256": "7a504366521f78986aa7c0039c4569eb0b9beaba7921e535868e3b7b1e2071a6"
+    },
+    {
+      "path": "server/src/audit.ts",
+      "exists": true,
+      "bytes": 9407,
+      "sha256": "98652e84726be9378ee30c061d09c785ed075d51d3dc27a3b9219459fd045b06"
+    },
+    {
+      "path": "server/src/avatar.ts",
+      "exists": true,
+      "bytes": 833,
+      "sha256": "78b7b7dba672464bc42334e21863f17dbb9f1321f4d15c82cecfbf6c484874f4"
+    },
+    {
+      "path": "server/src/backup-cli.ts",
+      "exists": true,
+      "bytes": 4161,
+      "sha256": "b1a6b7340a1679be00505cce31730599b02c06b13f67a7b92d3e3c60e4437f04"
+    },
+    {
+      "path": "server/src/backup-scheduler.ts",
+      "exists": true,
+      "bytes": 5709,
+      "sha256": "9d4d3168a8640f2d614305af88b3fe6290fa20cae2676df846ae91c796f3e9ad"
+    },
+    {
+      "path": "server/src/backup-store.ts",
+      "exists": true,
+      "bytes": 13457,
+      "sha256": "192d0c3106555602a5c8c9969630bcb0a22ec43edce2263d5a911ab491a2802f"
+    },
+    {
+      "path": "server/src/backup.ts",
+      "exists": true,
+      "bytes": 26659,
+      "sha256": "e7e68c1d8af3762f61215a62812c02dd7f90ad7990e1fbfe1b775b355e072396"
+    },
+    {
+      "path": "server/src/catalog.ts",
+      "exists": true,
+      "bytes": 14301,
+      "sha256": "19f30b4008934ba1559c7d9ee6a5c149d846df58b066511c5af7773da62de9ba"
+    },
+    {
+      "path": "server/src/channel-bill.ts",
+      "exists": true,
+      "bytes": 931,
+      "sha256": "2d0cf600baebebaba494b6eecb87ee796e67ace22ba46d766fcdc518692d3157"
+    },
+    {
+      "path": "server/src/channel-http.ts",
+      "exists": true,
+      "bytes": 2165,
+      "sha256": "dcb4d97f081a86c05546731311fd6603bbf273907846adebe0e102ffdca6061c"
+    },
+    {
+      "path": "server/src/clock.ts",
+      "exists": true,
+      "bytes": 171,
+      "sha256": "671eb4f2a2b6dca2955f7e1f39ef094b71775de7a54358edc75fd06ed649cc77"
+    },
+    {
+      "path": "server/src/config.ts",
+      "exists": true,
+      "bytes": 8134,
+      "sha256": "64ff6f561dd6c7615584042135010876fb6d5eea9dddecc2d3fda75a6e9c82e2"
+    },
+    {
+      "path": "server/src/content-filter.ts",
+      "exists": true,
+      "bytes": 560,
+      "sha256": "4e76742a84b93154af771fed6a06bbb06ab77f7869ea1bf57c07320eea4512f0"
+    },
+    {
+      "path": "server/src/database.ts",
+      "exists": true,
+      "bytes": 5968,
+      "sha256": "9fc1cd2025b80e7868d5e5c292f2cb2acd1a15245e03b0378facb629463ac540"
+    },
+    {
+      "path": "server/src/errors.ts",
+      "exists": true,
+      "bytes": 420,
+      "sha256": "532e26d1a9dbe8306fe844e025e609673b248c7de1484029fd6ce8a2363e5133"
+    },
+    {
+      "path": "server/src/inventory.ts",
+      "exists": true,
+      "bytes": 9401,
+      "sha256": "576ed48a9fd709efac7b93316ca4168c6213f1deb2571de5034a3a1f2eec95cc"
+    },
+    {
+      "path": "server/src/invoices.ts",
+      "exists": true,
+      "bytes": 4029,
+      "sha256": "9c5062ef40d5db6669f5decf4a75d9d59811c88eb476f7b6d7ddbab9b5591be3"
+    },
+    {
+      "path": "server/src/kdniao-channel.ts",
+      "exists": true,
+      "bytes": 4592,
+      "sha256": "68e09aef4067a3cc4f8b31ad9a1f5395c10f1d463ce4675be9956fffb8e574b9"
+    },
+    {
+      "path": "server/src/logistics.ts",
+      "exists": true,
+      "bytes": 6621,
+      "sha256": "68032fd9bd38f309099e44de7a49acf385e81f800821a897733e958124796c58"
+    },
+    {
+      "path": "server/src/main.ts",
+      "exists": true,
+      "bytes": 853,
+      "sha256": "4f6317a30e42997177f519bcc1937e1bf3fb1b89506ef4461457297897cb084f"
+    },
+    {
+      "path": "server/src/migrations/003-inventory.sql",
+      "exists": true,
+      "bytes": 1758,
+      "sha256": "e1b19b93a5ed1d12e8f139f33b2e127ede87e3bbca11516a8a02d8041f6ab530"
+    },
+    {
+      "path": "server/src/migrations/004-stock-adjustment.sql",
+      "exists": true,
+      "bytes": 2041,
+      "sha256": "157747d3753f410c736ca4648224ae572f67635cfb2c40ed7ae5bd4509e00cc5"
+    },
+    {
+      "path": "server/src/migrations/005-avatar-path.ts",
+      "exists": true,
+      "bytes": 841,
+      "sha256": "090c050febfeff25271ac06244e0547ad46d0b5d9c55bc0e73eaa7575714e3c5"
+    },
+    {
+      "path": "server/src/migrations/006-address-autosave.sql",
+      "exists": true,
+      "bytes": 382,
+      "sha256": "19054abfbaca8785e55df8edb7e7e9901a97570c3485a12ae409f919edbb8020"
+    },
+    {
+      "path": "server/src/migrations/007-payments.sql",
+      "exists": true,
+      "bytes": 3037,
+      "sha256": "11f04ee7d1269b4786d65a14b0bba6110c5be342f2fb0e22cd1cd9d9456e9172"
+    },
+    {
+      "path": "server/src/migrations/008-order-cancellation.sql",
+      "exists": true,
+      "bytes": 2332,
+      "sha256": "9ac66c6a38e88997d5a9f76e905587238781d2678464986870e29356275299b7"
+    },
+    {
+      "path": "server/src/migrations/009-cart-requests.sql",
+      "exists": true,
+      "bytes": 299,
+      "sha256": "8c297080e691f236c07e9a474852b028de87002745a78c080b7b1d5b39d36275"
+    },
+    {
+      "path": "server/src/migrations/010-product-management.sql",
+      "exists": true,
+      "bytes": 1819,
+      "sha256": "278d587700ae54ec389ed350e5740dbf6cc32fa5cc91d1c4b82ac2c882ba7c6e"
+    },
+    {
+      "path": "server/src/migrations/011-product-stock-revision.sql",
+      "exists": true,
+      "bytes": 430,
+      "sha256": "0c1e5f79b98c7e4a034bc69e6dd4bb4db487e9bfb640ae000edf2755b42d6603"
+    },
+    {
+      "path": "server/src/migrations/012-after-sales.sql",
+      "exists": true,
+      "bytes": 8358,
+      "sha256": "d9cc10c2e37cf82774692e491b915fbd4637af39f32ad35450af53fce11318a3"
+    },
+    {
+      "path": "server/src/migrations/013-account-lifecycle.sql",
+      "exists": true,
+      "bytes": 1752,
+      "sha256": "29ca452bf2d775e4e0de0ca21554b09bc5330b48f08acebe245db000b1a42f06"
+    },
+    {
+      "path": "server/src/migrations/014-audit-backfill.ts",
+      "exists": true,
+      "bytes": 4895,
+      "sha256": "b7ba373b6990409add2302beff3fd001705a5133bb95da858800e5550b659f55"
+    },
+    {
+      "path": "server/src/migrations/014-audit-log.sql",
+      "exists": true,
+      "bytes": 1306,
+      "sha256": "45fdd007f640b88cc75d02d6c1c93c7a34251c9e319427ad0ce3f8c86a2f5959"
+    },
+    {
+      "path": "server/src/migrations/015-return-policy.sql",
+      "exists": true,
+      "bytes": 2511,
+      "sha256": "bd3841524c6e02172baa51a2c36f8b999c96a797ad137a3280ff5c3d4c38bf94"
+    },
+    {
+      "path": "server/src/migrations/016-promotion-shipping.sql",
+      "exists": true,
+      "bytes": 8334,
+      "sha256": "3ceb5d937a5a98f0ef7560b3395b58c15352cf1632e5a2b97b5f0bd51d9f6877"
+    },
+    {
+      "path": "server/src/migrations/017-service.sql",
+      "exists": true,
+      "bytes": 2458,
+      "sha256": "b9cd0c632dd859bca1a243f005f5908c535c7339436f63df6d154670f8deafba"
+    },
+    {
+      "path": "server/src/migrations/018-reconciliation-logistics.sql",
+      "exists": true,
+      "bytes": 3168,
+      "sha256": "4aba17869a7a4379d060a26e8eaddb5e8f5de281aa10d6afb4342ebbe1557b4c"
+    },
+    {
+      "path": "server/src/migrations/019-category-summary-indexes.sql",
+      "exists": true,
+      "bytes": 192,
+      "sha256": "74ff6d9c627dc3906d20555cd8b3f10a5bbf812bdd544261856ecd3d674df546"
+    },
+    {
+      "path": "server/src/moderation-words.json",
+      "exists": true,
+      "bytes": 59,
+      "sha256": "9fa64de2f755d428e161c33e540606a8eac27103a2213b1daa1c32fb31c9daa6"
+    },
+    {
+      "path": "server/src/moderation.ts",
+      "exists": true,
+      "bytes": 3670,
+      "sha256": "a39c17dbaf67455b018ba1fb36782bd603d0dfb383c5728d8ce16a7c44d9cdde"
+    },
+    {
+      "path": "server/src/orders.ts",
+      "exists": true,
+      "bytes": 47883,
+      "sha256": "a19ca3f00bbebe8fc3e6cdcc1affeb81d26d6027dea5e89c24647013e1b9b6c5"
+    },
+    {
+      "path": "server/src/payment-channel.ts",
+      "exists": true,
+      "bytes": 11304,
+      "sha256": "76d2e58b0c85025982642a0085044cd43a0eea4c7c0f9eca7c470cc6d762202c"
+    },
+    {
+      "path": "server/src/payments.ts",
+      "exists": true,
+      "bytes": 39122,
+      "sha256": "d6f363873ecfc6d694315f24e5a139334d08a8177ff956498d3912940ecb5a28"
+    },
+    {
+      "path": "server/src/products.ts",
+      "exists": true,
+      "bytes": 15406,
+      "sha256": "2ff8d8a1d4dc0a064d6ed5d02ba68450e0744322431d8bc38ddcc8098c43fbb2"
+    },
+    {
+      "path": "server/src/promotion-shipping-backup.ts",
+      "exists": true,
+      "bytes": 4295,
+      "sha256": "0273ec362f0adc288eb7b736b5f2e358343cf85bfcd828e5b40c5e9be9ecd600"
+    },
+    {
+      "path": "server/src/promotions.ts",
+      "exists": true,
+      "bytes": 4078,
+      "sha256": "fb2883a827d2503d449773f7f9c07eba6659080550d17a9c5505995ee9e172c6"
+    },
+    {
+      "path": "server/src/reconciliation-logistics-backup.ts",
+      "exists": true,
+      "bytes": 5056,
+      "sha256": "448dc17d2b7a731541fe4f9634c77f61a04a1f2982aa3b7a4d60852429fefac3"
+    },
+    {
+      "path": "server/src/reconciliation.ts",
+      "exists": true,
+      "bytes": 11688,
+      "sha256": "5c2767c18984ae58cb9fc9dac198cc41c63e36ab8c466a18a3f487dd3d4c08e2"
+    },
+    {
+      "path": "server/src/return-policy-backup.ts",
+      "exists": true,
+      "bytes": 1229,
+      "sha256": "670c288c59fb707339b12e0ee1fb3ad16200ab75e01d78cf387b967dbc953571"
+    },
+    {
+      "path": "server/src/return-policy.ts",
+      "exists": true,
+      "bytes": 2015,
+      "sha256": "fa2981f526d9793d92f76d360da716c2ea99270d0e777837b96e0ba3dd62d31d"
+    },
+    {
+      "path": "server/src/schema.sql",
+      "exists": true,
+      "bytes": 2529,
+      "sha256": "dda99b12b1718b80d282b586ca99e1696e2bc6a4101d4706e9a1684e019dde73"
+    },
+    {
+      "path": "server/src/service-backup.ts",
+      "exists": true,
+      "bytes": 2925,
+      "sha256": "4e44a83e1f7a24a7fdb019e3f14434be554fd65a4c7aac118f36bb53754ebe8f"
+    },
+    {
+      "path": "server/src/service-messages.ts",
+      "exists": true,
+      "bytes": 9190,
+      "sha256": "c218b5f3816d5b35718ce95eba9d0f577ec2f7826f41e17539af467667f7aad8"
+    },
+    {
+      "path": "server/src/test-fixtures.ts",
+      "exists": true,
+      "bytes": 8734,
+      "sha256": "04b3e72ff662318bad8a9c191c8859c89ad1b1e191b1ba9dea85c8b29fdc4472"
+    },
+    {
+      "path": "server/test/account-lifecycle.test.ts",
+      "exists": true,
+      "bytes": 24390,
+      "sha256": "b03ed2d4cdae32f4a7b650125d697fcfd23f8d64bb11076f2fec6023374079a2"
+    },
+    {
+      "path": "server/test/address-autosave.test.ts",
+      "exists": true,
+      "bytes": 6907,
+      "sha256": "5d02efcec80be4445d40a230806ba72a66694ebf65eaa17636f44e212db4e86e"
+    },
+    {
+      "path": "server/test/after-sales.test.ts",
+      "exists": true,
+      "bytes": 34396,
+      "sha256": "3223af14b7e2d30d5fd18cfe0401fcc2cc21626fc31b8706c77a0d6a91b50410"
+    },
+    {
+      "path": "server/test/audit-log.test.ts",
+      "exists": true,
+      "bytes": 18095,
+      "sha256": "df5e7fff6859b448f69584a9868ecafd75f15967e1f52ec86873a6199e9e7ea2"
+    },
+    {
+      "path": "server/test/avatar-portability.test.ts",
+      "exists": true,
+      "bytes": 10730,
+      "sha256": "16fa966e765001588e90cb781d30a704b9b4d43f989c25bb2babad6316641ba7"
+    },
+    {
+      "path": "server/test/backup-store.test.ts",
+      "exists": true,
+      "bytes": 5988,
+      "sha256": "d44ae6ab9b4f5787dd10e005bef40b0489b1a4074f1c10f63d57428c72678c4a"
+    },
+    {
+      "path": "server/test/backup.test.ts",
+      "exists": true,
+      "bytes": 16755,
+      "sha256": "d706f55a2dbf76152eb32fe1ac9a8d085373b38c5af2a9d432485c9848be91b0"
+    },
+    {
+      "path": "server/test/browse-relations.test.ts",
+      "exists": true,
+      "bytes": 7296,
+      "sha256": "c6b7817adae53d25785bb529e89a6c3b432b88e4cdb466d34021a52e9f82f8c2"
+    },
+    {
+      "path": "server/test/cart-migration.test.ts",
+      "exists": true,
+      "bytes": 9877,
+      "sha256": "06589da17c78838fdad2bb4032928e291fbe2745a9b9c241ce66d1b1c7a4dd44"
+    },
+    {
+      "path": "server/test/cart-requests.test.ts",
+      "exists": true,
+      "bytes": 6600,
+      "sha256": "81ee9ebbc00dcc107ef9900220d9180d039e55ded09c603d558747feb81e8890"
+    },
+    {
+      "path": "server/test/catalog-pagination.test.ts",
+      "exists": true,
+      "bytes": 6996,
+      "sha256": "5f63f3d720c62ed19aa75bee1ed5f643e4adfd03a7b06f7eaa851c1068c82cc3"
+    },
+    {
+      "path": "server/test/category-index-migration.test.ts",
+      "exists": true,
+      "bytes": 3545,
+      "sha256": "f4d7979431e8cbc9b9d51bfa5255becc2cd16a871885b6161ee9bfcd22f32777"
+    },
+    {
+      "path": "server/test/channel-reference.test.ts",
+      "exists": true,
+      "bytes": 1327,
+      "sha256": "dcba7f7338a899aa0902d359a218143bfd3d7181c2cb2aea80fce58d1d040e53"
+    },
+    {
+      "path": "server/test/checkout.test.ts",
+      "exists": true,
+      "bytes": 7750,
+      "sha256": "512029130b22c11b95e37891af54af0bf7fb1fd9182bd831365e6158a897c847"
+    },
+    {
+      "path": "server/test/clock.test.ts",
+      "exists": true,
+      "bytes": 7286,
+      "sha256": "a6a16f8014848e6858146f15bf67cd725c46c6d36f8d23c7799fa4a45e101b06"
+    },
+    {
+      "path": "server/test/device-trade-network-server.ts",
+      "exists": true,
+      "bytes": 260,
+      "sha256": "320ffcb744bee8d77565a0b2b498679d05719e9ff9b8cd4d55d6fe1194446a27"
+    },
+    {
+      "path": "server/test/evaluation-pagination.test.ts",
+      "exists": true,
+      "bytes": 6387,
+      "sha256": "ab4466243d6d0e36df6530602794830ede2588d00c6e80532025c6f727df5d68"
+    },
+    {
+      "path": "server/test/fixtures.test.ts",
+      "exists": true,
+      "bytes": 4924,
+      "sha256": "f10e6a5a63909b2ec571b9804de74428d648ea95d37b4d1301227036cd15f41a"
+    },
+    {
+      "path": "server/test/helpers/fixtures.ts",
+      "exists": true,
+      "bytes": 1181,
+      "sha256": "bd2ce6fb37224ccc5147c47c05da0cc617618f0851bb411872e6c8b05813e6ba"
+    },
+    {
+      "path": "server/test/helpers/legacy-v11.ts",
+      "exists": true,
+      "bytes": 1444,
+      "sha256": "887e32c8efc848df28ce27b20aa750faa0307dc9bc10f54e2a53a1f39a915465"
+    },
+    {
+      "path": "server/test/helpers/legacy-v12.ts",
+      "exists": true,
+      "bytes": 850,
+      "sha256": "1f0bc10588143b4525070b3f70730e0793bceab2bc8fc84bc7703103ee7f5f60"
+    },
+    {
+      "path": "server/test/helpers/legacy-v13.ts",
+      "exists": true,
+      "bytes": 355,
+      "sha256": "cbf9869a83a5a6382be3d2df6f3f71afb02b0a73557a193e6acdda070f7417f6"
+    },
+    {
+      "path": "server/test/helpers/legacy-v14.ts",
+      "exists": true,
+      "bytes": 742,
+      "sha256": "36f0bc591fc796ad5f2000eb6dbaf410f442d6dbc417d94cf876c07974096020"
+    },
+    {
+      "path": "server/test/helpers/legacy-v15.ts",
+      "exists": true,
+      "bytes": 3312,
+      "sha256": "79f65acd38c915fde6bed64a4b119ecd92e440bbc6d9d54a8f119b2e45f36759"
+    },
+    {
+      "path": "server/test/helpers/legacy-v16.ts",
+      "exists": true,
+      "bytes": 424,
+      "sha256": "a88821b897ccf4afc9518927ccfaf6abba50f0188e16e875a66da7dfe9c18e49"
+    },
+    {
+      "path": "server/test/helpers/legacy-v17.ts",
+      "exists": true,
+      "bytes": 835,
+      "sha256": "5e71a54c005a861225c7f54cd7c1b6f446e70464bb328882a068d34ed9c491e1"
+    },
+    {
+      "path": "server/test/helpers/return-shipping.ts",
+      "exists": true,
+      "bytes": 1481,
+      "sha256": "084aaa1620211964fbd3de333e0a4769660ce4e9bcd69fb25f28b84cba0d95cf"
+    },
+    {
+      "path": "server/test/helpers/service-fixture.ts",
+      "exists": true,
+      "bytes": 3689,
+      "sha256": "c95f51e41a32af9da502dfae6a50ee141412467d3b00e6ffc4f26161a4966274"
+    },
+    {
+      "path": "server/test/helpers/trade-network-fixture.ts",
+      "exists": true,
+      "bytes": 7286,
+      "sha256": "ce9be20bac43a18d19ad3b24c528ff7238391f78e85ee80ee19d5133b8a32b96"
+    },
+    {
+      "path": "server/test/inventory-acceptance.test.ts",
+      "exists": true,
+      "bytes": 30818,
+      "sha256": "43463e5a447eb08aef4945f0e5f450db3b2d972ddac86bd4e644b1eb237a16f9"
+    },
+    {
+      "path": "server/test/inventory.test.ts",
+      "exists": true,
+      "bytes": 17169,
+      "sha256": "102e8d66396e0811dbe91445578c515cad031639e24c6c6b9745175876b32149"
+    },
+    {
+      "path": "server/test/invoice.test.ts",
+      "exists": true,
+      "bytes": 3674,
+      "sha256": "6d6de9a3150c00cef3fef323a33f0e520471a2d164e680d1a0dad49abb8f8249"
+    },
+    {
+      "path": "server/test/logistics.test.ts",
+      "exists": true,
+      "bytes": 8672,
+      "sha256": "524a017dbed3a3030543b21ef23dbbc5d0337805a18f2e5549c80051d82d89e4"
+    },
+    {
+      "path": "server/test/moderation.test.ts",
+      "exists": true,
+      "bytes": 4994,
+      "sha256": "df7e144e902887770daa459ffeefd0df3e70e75434e981822947ace524a4b298"
+    },
+    {
+      "path": "server/test/optimization.test.ts",
+      "exists": true,
+      "bytes": 18890,
+      "sha256": "3a98956ee97f2674fb98ca44bbf78de396d4763320ec413cfebaf74566edc5e1"
+    },
+    {
+      "path": "server/test/order-cancellation.test.ts",
+      "exists": true,
+      "bytes": 53369,
+      "sha256": "04b86fbf36316562c494e8b5a00bfd964929dcd71c49aad4020fbe3927111a44"
+    },
+    {
+      "path": "server/test/order-center-pagination.test.ts",
+      "exists": true,
+      "bytes": 13585,
+      "sha256": "dd34c445d6e736545de0c489745f055e4c29ba6e231f9d31900b89ed7607643d"
+    },
+    {
+      "path": "server/test/payment-restart.test.ts",
+      "exists": true,
+      "bytes": 5764,
+      "sha256": "8fbc89e7618fe97416618c17a286a4da67614a6ea9e8f91a8efd69c6b1fc47d3"
+    },
+    {
+      "path": "server/test/payments.test.ts",
+      "exists": true,
+      "bytes": 82108,
+      "sha256": "8bba9dd3fe7440fdde2761b609ce8e9f9d32993df5c5cdeb47db31b9b0a1ee60"
+    },
+    {
+      "path": "server/test/product-backup.test.ts",
+      "exists": true,
+      "bytes": 4016,
+      "sha256": "2e4e439b06374066bd661cdd26afbcf19699cd70b5067f18d61ab3403a82fb28"
+    },
+    {
+      "path": "server/test/product-images.test.ts",
+      "exists": true,
+      "bytes": 2443,
+      "sha256": "3d9e88d8bffb4c6c903bb8caf9113e7f02a58dd6000a4c98fde0c46df1886735"
+    },
+    {
+      "path": "server/test/product-management.test.ts",
+      "exists": true,
+      "bytes": 13281,
+      "sha256": "83b8fc5059d3608a53ba0f6ec305a71996271d261a4c8851dc18f9a67b4c469a"
+    },
+    {
+      "path": "server/test/product-revision-migration.test.ts",
+      "exists": true,
+      "bytes": 2589,
+      "sha256": "b2bfb1bcd61fa0dcc2aba5bb3c3964f642caef060f5714f10e22f7574a38d321"
+    },
+    {
+      "path": "server/test/production-config.test.ts",
+      "exists": true,
+      "bytes": 4440,
+      "sha256": "8cf20d1f6282161ca2ef2b39deb568d848fb11c909f257392e1b6e1522e05334"
+    },
+    {
+      "path": "server/test/promotion.test.ts",
+      "exists": true,
+      "bytes": 12211,
+      "sha256": "9393b648bcdca129cf4480bb3daa4b38f0d7f0304ffb0d825a8cc283795cf3ed"
+    },
+    {
+      "path": "server/test/reconciliation-backup.test.ts",
+      "exists": true,
+      "bytes": 5564,
+      "sha256": "473f35c985ada17564b620c9df2c11cd84355d8c910f4a418df40961f45bba2c"
+    },
+    {
+      "path": "server/test/reconciliation-display.test.ts",
+      "exists": true,
+      "bytes": 3548,
+      "sha256": "8a8e37631e86653ce14c54166a0c15ca57ed05d82fd6e5a29e889021067f6237"
+    },
+    {
+      "path": "server/test/reconciliation.test.ts",
+      "exists": true,
+      "bytes": 8145,
+      "sha256": "817781a40094bceac52a49a2cf21366dc8dc2c87f11275f82727fd06b31253cb"
+    },
+    {
+      "path": "server/test/return-policy.test.ts",
+      "exists": true,
+      "bytes": 14355,
+      "sha256": "541fd4eb7d4cd9d6e7065975a64fac506dcce3a50752a4c1e1f312aa46b20e57"
+    },
+    {
+      "path": "server/test/sandbox-channel.test.ts",
+      "exists": true,
+      "bytes": 11291,
+      "sha256": "0f4a29c0935fa9a96f552c0da2951e28f4ec1a1a9c67d6e7df0f12fcc811e800"
+    },
+    {
+      "path": "server/test/sandbox-flow.test.ts",
+      "exists": true,
+      "bytes": 12152,
+      "sha256": "133913a2a5e980c3bbadcd27d80935e7421bac4f2d1ea2fb22016bfc67a10bee"
+    },
+    {
+      "path": "server/test/scheduled-backup.test.ts",
+      "exists": true,
+      "bytes": 4604,
+      "sha256": "00c7bea19aecdcbe23edb9f2d874cb7eb48086311a79313daf59b1c05f70b81d"
+    },
+    {
+      "path": "server/test/service-backup.test.ts",
+      "exists": true,
+      "bytes": 5200,
+      "sha256": "a4d7d07673bb4050f4c641bd205cf0976d97d81cbbf9885efcd5d0b7ab9f8934"
+    },
+    {
+      "path": "server/test/service-messages.test.ts",
+      "exists": true,
+      "bytes": 8637,
+      "sha256": "d0945ed879e221adfbd7bcc9fdc99128703ac2f5783919b29d6b9ca4ba18281a"
+    },
+    {
+      "path": "server/test/shipping-compensation.test.ts",
+      "exists": true,
+      "bytes": 19474,
+      "sha256": "21f9350b443c2f74f17815afde7e2999281cb0bcc4faaebf600811a512ef89ad"
+    },
+    {
+      "path": "server/test/stock-adjustment.test.ts",
+      "exists": true,
+      "bytes": 10494,
+      "sha256": "eac7ae69f8a9ddebc614c5b9fe9c2e12f3a65bd1365028110733d4cd0bf5c85f"
+    },
+    {
+      "path": "server/test/trade-network-fixture.test.ts",
+      "exists": true,
+      "bytes": 6220,
+      "sha256": "e09956038a8152756e6e9fde96d2c7f0f332bc4825e928bac71b24eb24ae2ed7"
+    },
+    {
+      "path": "server/test/trade-rules.test.ts",
+      "exists": true,
+      "bytes": 4260,
+      "sha256": "de75fdd9f9af46560f0adc7b0414aefbd4237c477b22cb1af6d52be50bce6943"
+    },
+    {
+      "path": "server/test/trade.test.ts",
+      "exists": true,
+      "bytes": 18724,
+      "sha256": "1eabc596293e554b7cf25c8eed54c73a50c141e19f071897b8430bc5031ef81e"
+    },
+    {
+      "path": "server/tsconfig.json",
+      "exists": true,
+      "bytes": 248,
+      "sha256": "6072d3a98694d931c689f218105180236804cec085a306dc2139ab31c14e79d2"
+    }
+  ]
+}

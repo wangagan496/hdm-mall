@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { appendAudit, type AuditAction } from './audit.ts'
 import { Database } from './database.ts'
 import type { Clock } from './clock.ts'
-import { Accounts, type User } from './accounts.ts'
+import { Accounts, requireBuyer, restrictOwnOrder, restrictOwnStore, type User } from './accounts.ts'
 import { Catalog } from './catalog.ts'
 import { AppError, ensure } from './errors.ts'
 import { recordStockMovement } from './inventory.ts'
@@ -12,8 +12,9 @@ import { localAvatarPath } from './avatar.ts'
 import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
-import { checkPublicContent } from './content-filter.ts'
+import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, saveFollowup, type EvaluationInput } from './evaluations.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
+import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -24,6 +25,7 @@ const ORDER_STATE = {
   COMPLETED: 5,
   CANCELLED: 6
 } as const
+const REVIEW_WINDOW_MS = 15 * 86_400_000
 const PAYMENT_WINDOW_MS = 15 * 60_000
 const EXPIRATION_READ_INTERVAL_MS = 1_000
 
@@ -177,7 +179,7 @@ export class Orders {
     const pending = request?.state === 'pending'
     const effective = order.state === 2 ? this.payments?.effectivePaymentId(order.id) : undefined
     const owner = order.owner_id === user.id
-    const merchant = merchantShipment && user.role === 'merchant'
+    const merchant = merchantShipment && user.identity === 'merchant'
     const actionable = pending && serverNow < request.deadline_at && order.state === 2
     const canRequestCancel = owner && order.state === 2 && !pending && Boolean(effective)
     let cancelRequestNotice = ''
@@ -197,11 +199,19 @@ export class Orders {
       cancelConfirmation: canRequestCancel ? { amountCents: order.amount, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
         message: '取消申请提交后，商家同意即不再发货，¥' + (order.amount / 100).toFixed(2) + '将原路退回' + destination + '。确定申请取消吗？' } : null, serverNow }
   }
-  private present(order: Order, user: User, merchantShipment = false) {
+  private evaluationRule(order: Order): string {
+    if (order.received_at === null || (!order.received_by && !order.signed_at)) {
+      const refund = this.db.one('SELECT 1 FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=? LIMIT 1', order.id)
+      return refund ? '未收货仅退款的订单没有实际收货依据，不能评价商品' : '请确认收货后再评价'
+    }
+    if (this.clock.now() >= order.received_at + REVIEW_WINDOW_MS) return '已超过收货后15天的评价和改评时限'
+    return ''
+  }
+  private present(order: Order, user: User, merchantShipment = false, includePromises = false) {
     const isOrderOwner = order.owner_id === user.id
     const items = this.items(order.id)
-    const evaluation = this.db.one<{ score: number; content: string; created: number }>('SELECT * FROM evaluations WHERE order_id=?', order.id)
-    const hiddenReason = this.db.one<{ reason: string }>('SELECT reason FROM review_moderation WHERE order_id=?', order.id)?.reason ?? null
+    const evaluation = isOrderOwner && user.identity === 'buyer' ? buyerEvaluation(this.db,order.id,true) : null
+    const privateReview = user.identity === 'merchant' && !!this.db.one('SELECT 1 FROM evaluations WHERE order_id=?', order.id)
     const paymentFields = this.payments?.orderFields(order, user)
     const paymentOnly = !isOrderOwner && user.id !== order.paid_by &&
       !!this.db.one('SELECT id FROM payments WHERE order_id=? AND payer_id=? LIMIT 1', order.id, user.id)
@@ -210,6 +220,8 @@ export class Orders {
     if (paymentOnly) return { id: order.id, orderState: order.state, paymentMode: this.paymentMode(order),
       serverManaged: true, payMoney: order.amount / 100, skus: [], ...paymentFields, ...cancelFields }
     const logistics = shipmentDetail(this.db, order.id)
+    const promises = includePromises ? orderPromises(this.db, order.id, this.clock.now()) : undefined
+    const sizeReviewSkus=promises && isOrderOwner ? requiredEvaluationSizes(this.db,order.id) : []
     return {
       id: order.id, orderState: order.state, ownerAccount: this.account(order.owner_id),
       payerAccount: this.account(order.paid_by), invitedPayerAccount: this.account(order.invited_payer), receivedByAccount: this.account(order.received_by),
@@ -218,7 +230,9 @@ export class Orders {
       signedAt: logistics?.events.find(event => event.state === 'signed')?.occurredAt ?? null, logistics, serverManaged: true,
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
-      canEvaluate: isOrderOwner && (order.state === ORDER_STATE.AWAITING_REVIEW || Boolean(hiddenReason)),
+      ...(promises ? { canCheckPromises: promises.snapshots.size > 0 && canCheckOrderPromises(this.db, user, order) } : {}),
+      canEvaluate: isOrderOwner && user.identity === 'buyer' && !this.evaluationRule(order) && !evaluation?.followup,
+      evaluationRule: isOrderOwner ? (evaluation?.followup ? '已追加处理后感受，原评价保持不变' : this.evaluationRule(order)) : '',
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
       countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
@@ -230,31 +244,37 @@ export class Orders {
         attrsText: item.spec, properties: [{ propertyMainName: '规格', propertyValueName: item.spec }],
         quantity: item.count, realPay: item.price / 100, curPrice: item.price / 100,
         discountShareCents: item.discount_share,
+        ...(promises ? { sizeReviewRequired:sizeReviewSkus.includes(item.sku_id),promiseSnapshot: promises.snapshots.get(item.sku_id) ?? null,
+          ...(promises.sources.has(item.sku_id) ? { promiseSources: promises.sources.get(item.sku_id) } : {}),
+          promiseChecks: isOrderOwner && user.identity === 'buyer' ? promises.checks.filter(check => check.skuId === item.sku_id)
+            .map(check => ({ fieldId: check.fieldId, result: check.result })) : [] } : {}),
         ...presentPolicy(item),returnPolicyConfirmed:item.return_policy_confirmed===1,
+        sizeApplicable: afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.sizeApplicable ?? false,
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
-      evaluation: evaluation ? { orderId: order.id, score: evaluation.score, content: evaluation.content, createdAt: evaluation.created, hiddenReason } : null,
-      ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
-      ...(isOrderOwner || (merchantShipment && user.role === 'merchant') ? { address: JSON.parse(order.address) } : {}),
+      evaluation,
+      ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
+      ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
         canCancel: order.state === ORDER_STATE.AWAITING_PAYMENT && isOrderOwner }),
-      ...cancelFields, ...afterSaleFields
+      ...cancelFields, ...afterSaleFields,
+      ...(privateReview ? { address: undefined, invoice: undefined, ownerAccount: '', payerAccount: '', invitedPayerAccount: '', receivedByAccount: '' } : {})
     }
   }
   /** 物流等订单附属信息与订单详情使用同一读取权限，商家可读全部订单。 */
   readable(user: User, id: string) {
     const order = this.db.one<Order>('SELECT * FROM orders WHERE id=?', id)
-    return Boolean(order) && (user.role === 'merchant' || this.canRead(user, order!))
+    return Boolean(order) && (user.identity === 'merchant' || this.canRead(user, order!))
   }
   detail(user: User, id: string) {
     this.expireIfDue()
     const order = this.get(id)
     ensure(this.canRead(user, order), 403, '无权查看此订单')
     this.payments?.markViewed(order.id, user.id)
-    return this.present(order, user)
+    return this.present(order, user, false, true)
   }
   merchantDetail(user:User,id:string){
-    ensure(user.role==='merchant',403,'需要商家权限')
+    ensure(user.identity==='merchant',403,'需要商家权限')
     return this.present(this.get(id),user,true)
   }
   private listFilter(user: User, state: number, family: boolean) {
@@ -325,6 +345,7 @@ export class Orders {
     return { id: order.id, orderState: order.state, expiresAt: order.expires }
   }
   preOrder(user: User, selection?: { skuId: string; count: number }) {
+    requireBuyer(user)
     this.expireIfDue()
     // 只预览购物车里已勾选的商品，不扣库存、不创建订单。
     const selectedSku = selection ? this.catalog.sku(selection.skuId) : undefined
@@ -351,13 +372,14 @@ export class Orders {
     return {
       goods,
       promotion,
-      returnPolicyToken:policyToken(goods),
+      returnPolicyToken:policyToken(goods,user),
       excludedGoods,
       userAddresses: this.accounts.addresses(user),
       summary: { discountPrice: promotion.discountCents / 100, goodsCount, postFee: 0, totalPayPrice: promotion.amountCents / 100, totalPrice: totalYuan }
     }
   }
   create(user: User, data: CreateOrder) {
+    requireBuyer(user)
     ensure(Number.isSafeInteger(data.expectedAmountCents) && data.expectedAmountCents > 0, 400, '请提供整数分报价')
     this.expire()
     // 按规格编号排好再记录：同样的商品即使提交顺序不同，也算同一次下单。
@@ -395,7 +417,7 @@ export class Orders {
       const promotion = promotionQuote(this.db, items.reduce((sum, item) => sum + item.price * item.count, 0))
       const totalAmountCents = promotion.amountCents
       const policyGoods=items.map(item=>({skuId:item.id,name:item.name,...presentPolicy(item)}))
-      const currentPolicyToken=policyToken(policyGoods)
+      const currentPolicyToken=policyToken(policyGoods,user)
       if(data.expectedReturnPolicyToken&&data.expectedReturnPolicyToken!==currentPolicyToken)throw new AppError(409,'商品退货规则有变化，请核对后重新确认','RETURN_POLICY_CHANGED',{goods:policyGoods,returnPolicyToken:currentPolicyToken})
       if(items.some(i=>i.return_policy==='confirm-required')&&(!data.returnPolicyConfirmed||data.expectedReturnPolicyToken!==currentPolicyToken))throw new AppError(409,'请先了解并确认商品的退货限制','RETURN_POLICY_CONFIRM_REQUIRED',{goods:policyGoods,returnPolicyToken:currentPolicyToken})
       if (totalAmountCents !== data.expectedAmountCents || data.expectedPromotionRevision !== undefined && data.expectedPromotionRevision !== promotion.rule.revision) {
@@ -434,6 +456,7 @@ export class Orders {
       id, user.id, ORDER_STATE.AWAITING_PAYMENT, promotion.amountCents, address, requestKey, requestBody, now, now + PAYMENT_WINDOW_MS, promotion.discountCents, JSON.stringify(promotion.rule))
     for (const [index,item] of items.entries()) {
       this.db.run('INSERT INTO order_items(order_id,sku_id,product_id,name,picture,spec,price,count,return_policy,return_policy_reason,return_policy_note,return_policy_confirmed,discount_share) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', id, item.id, item.product_id, item.name, item.picture, item.spec, item.price, item.count,item.return_policy,item.return_policy_reason,item.return_policy_note,Number(item.return_policy==='confirm-required'&&confirmed),shares[index]!)
+      freezeOrderItemPromise(this.db, id, item.id, item.product_id, now)
     }
     return id
   }
@@ -469,7 +492,7 @@ export class Orders {
     })
   }
   cancelActionReceipt(user: User, requestKey: string): CancelReceipt {
-    const action = this.db.one<{ result: string }>('SELECT result FROM order_cancel_actions WHERE request_key=? AND actor_id=?', requestKey, user.id)
+    const action = this.db.one<{ result: string }>('SELECT result FROM order_cancel_actions WHERE request_key=? AND actor_id=? AND acting_identity=?', requestKey, user.id, user.identity)
     if (!action) throw new AppError(404, '未找到本次取消操作', 'CANCEL_ACTION_NOT_FOUND')
     return JSON.parse(action.result) as CancelReceipt
   }
@@ -503,15 +526,17 @@ export class Orders {
     return { processed, failed }
   }
   private cancelOwner(user: User, order: Order) {
+    requireBuyer(user)
     if (user.id !== order.owner_id) throw new AppError(403, '只有下单人可以操作', 'CANCEL_OWNER_ONLY')
   }
   private pendingCancel(id: string) {
     return this.db.one<CancelRequest>("SELECT * FROM order_cancel_requests WHERE order_id=? AND state='pending'", id)
   }
   private replayCancelAction(user: User, requestKey: string, body: string): CancelReceipt | undefined {
-    const existing = this.db.one<{ actor_id: string | null; request_body: string; result: string }>('SELECT actor_id,request_body,result FROM order_cancel_actions WHERE request_key=?', requestKey)
+    const existing = this.db.one<{ actor_id: string | null; acting_identity: User['identity'] | null; request_body: string; result: string }>(
+      'SELECT actor_id,acting_identity,request_body,result FROM order_cancel_actions WHERE request_key=?', requestKey)
     if (!existing) return undefined
-    if (existing.actor_id !== user.id || existing.request_body !== body) {
+    if (existing.actor_id !== user.id || existing.acting_identity !== user.identity || existing.request_body !== body) {
       throw new AppError(409, '同一请求号不能用于不同的取消操作', 'CANCEL_REQUEST_KEY_CONFLICT')
     }
     return JSON.parse(existing.result) as CancelReceipt
@@ -519,8 +544,8 @@ export class Orders {
   private writeCancelAction(request: CancelRequest, user: User | null, action: CancelReceipt['action'], requestKey: string, body: string, now: number): CancelReceipt {
     const result: CancelReceipt = { id: randomUUID(), orderId: request.order_id, cancelRequestId: request.id,
       action, appliedState: request.state, appliedAt: now, refundId: request.refund_id }
-    this.db.run('INSERT INTO order_cancel_actions(id,order_id,cancel_request_id,actor_id,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?,?)',
-      result.id, request.order_id, request.id, user?.id ?? null, action, requestKey, body, JSON.stringify(result), now)
+    this.db.run('INSERT INTO order_cancel_actions(id,order_id,cancel_request_id,actor_id,acting_identity,action,request_key,request_body,result,created) VALUES(?,?,?,?,?,?,?,?,?,?)',
+      result.id, request.order_id, request.id, user?.id ?? null, user?.identity ?? null, action, requestKey, body, JSON.stringify(result), now)
     const auditAction:AuditAction|undefined=action==='approve'?'cancel.approve':action==='auto-approve'?'cancel.auto_approve':action==='reject-and-ship'?'order.reject_and_ship':undefined
     if(auditAction)appendAudit(this.db,{created:now,actor:user,action:auditAction,targetType:'order',targetId:request.order_id,orderId:request.order_id,requestKey,
       summary:request.reject_reason?{reason:request.reject_reason}:{}})
@@ -530,6 +555,7 @@ export class Orders {
     return this.cancelTransaction((refundIds) => {
       const order = this.get(id, 'ORDER_NOT_FOUND')
       this.cancelOwner(user, order)
+      restrictOwnStore(this.db, user.id)
       const body = JSON.stringify({ orderId: id, action: 'request' })
       const existing = this.replayCancelAction(user, requestKey, body)
       if (existing) return existing
@@ -597,12 +623,13 @@ export class Orders {
     return this.writeCancelAction(this.getCancelRequest(request.order_id, request.id), user, user ? 'approve' : 'auto-approve', requestKey, body, now)
   }
   resolveCancel(user: User, id: string, requestId: string, data: { requestKey: string; decision: 'approve' | 'reject-and-ship'; reason?: string; carrier?:string; trackingNo?:string }) {
-    if (user.role !== 'merchant') throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
+    if (user.identity !== 'merchant') throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
     const reason = data.reason?.trim()
     if (data.decision === 'reject-and-ship' && !reason) throw new AppError(400, '请填写拒绝原因', 'CANCEL_REASON_REQUIRED')
     if (reason && Array.from(reason).length > 200) throw new AppError(400, '拒绝原因最多填写200字', 'CANCEL_REASON_TOO_LONG')
     return this.cancelTransaction((refundIds) => {
-      this.get(id, 'ORDER_NOT_FOUND')
+      const order = this.get(id, 'ORDER_NOT_FOUND')
+      restrictOwnOrder(order.owner_id, user, '店主不能审核自己的取消申请')
       const request = this.getCancelRequest(id, requestId)
       const shipment = data.decision === 'reject-and-ship' ? shipmentSchema.parse(data) : undefined
       const body = JSON.stringify({ orderId: id, cancelRequestId: requestId, action: data.decision, ...(data.decision === 'reject-and-ship' ? { reason,...shipment } : {}) })
@@ -636,13 +663,14 @@ export class Orders {
     })
   }
   invitePayer(user: User, id: string, friendId: string | null) {
+    requireBuyer(user)
     this.expire()
     return this.db.transaction(() => {
       const order = this.get(id)
       this.owner(user, order)
       ensure(order.state === ORDER_STATE.AWAITING_PAYMENT, 409, '只能为待付款订单选择付款方式')
       ensure(!this.payments?.hasPending(id), 409, '支付确认中不能更改付款人')
-      ensure(!friendId || this.accounts.bound(user.id, friendId), 403, '只能邀请已确认绑定的亲友代付')
+      ensure(!friendId || this.accounts.bound(user.id, friendId) && this.accounts.identities(friendId).includes('buyer'), 403, '只能邀请已确认绑定的买家亲友代付')
       this.db.run('UPDATE orders SET invited_payer=? WHERE id=?', friendId, id)
       return { id }
     })
@@ -667,16 +695,16 @@ export class Orders {
     })
   }
   merchantList(user: User) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     const ordersToShip = this.db.all<Order>('SELECT * FROM orders WHERE state=2 ORDER BY created')
     return ordersToShip.map(order => this.present(order, user, true))
   }
   merchantPage(user: User, page: number, pageSize: number) {
-    ensure(user.role === 'merchant', 403, '需要商家权限')
+    ensure(user.identity === 'merchant', 403, '需要商家权限')
     return this.queryPage(user, { where: 'o.state=?', values: [ORDER_STATE.AWAITING_SHIPMENT] }, page, pageSize, true)
   }
   ship(user: User, id: string, input:unknown) {
-    ensure(user.role === 'merchant', 403, '只有商家可以发货')
+    ensure(user.identity === 'merchant', 403, '只有商家可以发货')
     return this.cancelTransaction((refundIds) => {
       const order = this.get(id)
       if (order.state === 6) throw new AppError(409, '买家已取消，不能发货', 'CANCELLED_ORDER_BLOCKS_SHIPMENT')
@@ -706,25 +734,21 @@ export class Orders {
       ensure(user.id === order.owner_id || this.canConfirmFamilyReceipt(user, order), 403, '仅下单人或代付订单中仍绑定的代收人可收货')
       ensure(order.state === ORDER_STATE.AWAITING_RECEIPT, 409, '订单尚未发货或已确认收货')
       this.db.run('UPDATE orders SET state=4,received_by=?,received_at=? WHERE id=? AND state=3', user.id, this.clock.now(), id)
-      return this.present(this.get(id), user)
+      return this.present(this.get(id), user, false, true)
     })
   }
-  evaluate(user: User, id: string, score: number, content: string) {
-    checkPublicContent(content)
+  evaluate(user: User, id: string, input: EvaluationInput | number, content = '') {
+    requireBuyer(user)
     return this.db.transaction(() => {
       const order = this.get(id)
       this.owner(user, order)
-      const hidden = this.db.one('SELECT order_id FROM review_moderation WHERE order_id=?', id)
-      ensure(order.state === ORDER_STATE.AWAITING_REVIEW || order.state === ORDER_STATE.COMPLETED && hidden, 409, '订单未收货或已评价')
-      if (hidden) {
-        const previous = this.db.one<{ content: string }>('SELECT content FROM evaluations WHERE order_id=?', id)!
-        ensure(previous.content !== content, 409, '请修改评价内容后再发布')
-        this.db.run('UPDATE evaluations SET score=?,content=?,created=? WHERE order_id=?', score, content, this.clock.now(), id)
-        this.db.run('DELETE FROM review_moderation WHERE order_id=?', id)
-        appendAudit(this.db, { created: this.clock.now(), actor: user, action: 'review.republish', targetType: 'order', targetId: id, orderId: id })
-      } else this.db.run('INSERT INTO evaluations VALUES(?,?,?,?)', id, score, content, this.clock.now())
-      this.db.run('UPDATE orders SET state=5 WHERE id=?', id)
-      return { id }
+      restrictOwnStore(this.db, user.id)
+      const rule = this.evaluationRule(order)
+      ensure(!rule, 409, rule)
+      return saveEvaluation(this.db,id,typeof input === 'number' ? { score: input, content, items: [] } : input,this.clock.now())
     })
+  }
+  appendEvaluationFollowup(user: User, id: string, input: unknown) {
+    return saveFollowup(this.db, user, id, input, this.clock.now())
   }
 }

@@ -10,7 +10,7 @@ const payment = { id: 'pay', orderState: 1, canPay: true, payMoney: 19, ownerAcc
 const receipt = { id: 'receipt', orderState: 3, canReceive: true, payMoney: 19 }
 const shipment = { id: 'shipment', orderState: 2, canShip: true }
 
-function fixture() {
+function fixture(identity = 'buyer') {
   const queries = [], writes = [], messages = [], dialogs = []
   let mutation = async () => ({ id: 'result' })
   const api = {
@@ -31,7 +31,8 @@ function fixture() {
     receiveOrderAPI: (...args) => write('receipt', args), startFamilyPaymentAPI: (...args) => write('pay', args),
     shipOrderAPI: (...args) => write('ship', args),
   })
-  const page = new View(); page.user = { token: 'token-a', account: 'member', role: 'merchant' }
+  const page = new View()
+  page.user = { token: 'token-a', account: 'member', identity, identities: ['buyer', 'merchant'], identityRevision: 1 }
   page.getUIContext = () => ({ getPromptAction: () => ({ showToast: value => messages.push(value.message) }),
     showAlertDialog: dialog => dialogs.push(dialog) })
   const invoke = action => {
@@ -57,7 +58,7 @@ test('G：亲友沙箱付款与续付打开统一收银台，失效账号不跳�
     f.page.confirmFamilyPayment(f.page.familyOrders[0])
     assert.equal(navigations[0]?.name,'pay');assert.equal(navigations[0]?.param,'pay')
     assert.equal(f.dialogs.length,0);assert.equal(f.writes.length,0)
-    f.page.user={token:'new-token',role:'buyer'}
+    f.page.user={token:'new-token',identity:'buyer'}
     f.page.confirmFamilyPayment(f.page.familyOrders[0]);assert.equal(navigations.length,1)
     f.page.aboutToDisappear()
   }
@@ -103,7 +104,7 @@ test('UX18 跨页数量决定初始筛选，切换从第一页查询并隔离迟
   f.page.familyPage = 3
   f.api.family = () => gate.promise
   f.page.selectFamilyGroup('all'); await tick()
-  f.page.user = { token: 'token-b', role: 'buyer' }
+  f.page.user = { token: 'token-b', identity: 'buyer' }
   f.page.reloadForCurrentAccount(); await tick()
   gate.resolve({ ...pageResult([], 1), groupCounts: { pay: 0, receipt: 0, pending: 0, all: 0 } })
   await tick()
@@ -113,7 +114,7 @@ test('UX18 跨页数量决定初始筛选，切换从第一页查询并隔离迟
 
 test('换账号清空邀请输入和全部列表，资料变化不重读，注销与隐藏不查询', async () => {
   const f = fixture(); await f.page.loadFamilyCenter(); f.page.friendAccount = 'private-friend'
-  f.page.user = { token: 'token-b', account: 'member-b', role: 'buyer' }
+  f.page.user = { token: 'token-b', account: 'member-b', identity: 'buyer' }
   f.page.sendFamilyInvitation(); assert.equal(f.writes.length, 0)
   const gate = deferred(); f.api.relations = () => gate.promise; f.page.reloadForCurrentAccount()
   assert.equal(f.page.friendAccount, ''); assert.equal(f.page.familyOrders.length, 0)
@@ -131,13 +132,14 @@ test('换账号清空邀请输入和全部列表，资料变化不重读，注�
 test('亲友全部写入口固定凭证，旧成功失败及收尾不能干扰重进后的新操作', async () => {
   for (const action of ['invite', 'accept', 'revoke', 'ship', 'pay', 'receipt'])
     for (const changedAccount of [false, true]) for (const failed of [false, true]) {
-    const f = fixture(), old = deferred(), newer = deferred(); await f.page.loadFamilyCenter()
+    const f = fixture(action === 'ship' ? 'merchant' : 'buyer'), old = deferred(), newer = deferred()
+    await f.page.loadFamilyCenter()
     f.setMutation(() => old.promise); f.invoke(action)
     assert.equal(f.writes.length, 1); assert.equal(action === 'ship' ? f.writes[0][2] : f.writes[0].at(-1), 'token-a')
     f.page.aboutToDisappear()
     if (changedAccount) f.page.user = { ...f.page.user, token: 'token-b' }
     f.page.aboutToAppear(); await tick()
-    f.setMutation(() => newer.promise); f.invoke('invite'); assert.equal(f.writes.length, 2)
+    f.setMutation(() => newer.promise); f.invoke(action === 'ship' ? 'ship' : 'invite'); assert.equal(f.writes.length, 2)
     const count = f.queries.length
     if (failed) old.reject(new Error('old failure')); else old.resolve({ id: 'old' })
     await tick()
@@ -149,12 +151,18 @@ test('亲友全部写入口固定凭证，旧成功失败及收尾不能干扰�
 })
 
 test('代付和代收旧确认框在账号切换、离页重进或刷新后不能提交', async () => {
-  for (const action of ['pay', 'receipt']) for (const change of ['account', 'reenter', 'refresh']) {
+  for (const action of ['pay', 'receipt']) for (const change of ['account', 'identity', 'reenter', 'refresh']) {
     const f = fixture(); await f.page.loadFamilyCenter()
     if (action === 'pay') f.page.confirmFamilyPayment(f.page.familyOrders[0])
     else f.page.confirmFamilyReceipt(f.page.familyOrders[1])
     const confirm = f.dialogs[0].secondaryButton.action
     if (change === 'account') { f.page.user = { ...f.page.user, token: 'token-b' }; f.page.reloadForCurrentAccount(); await tick() }
+    if (change === 'identity') {
+      f.page.user = { ...f.page.user, identity: 'merchant', identityRevision: 2 }
+      await f.page.loadFamilyCenter()
+      f.page.user = { ...f.page.user, identity: 'buyer', identityRevision: 3 }
+      await f.page.loadFamilyCenter()
+    }
     if (change === 'reenter') { f.page.aboutToDisappear(); f.page.aboutToAppear(); await tick() }
     if (change === 'refresh') await f.page.loadFamilyCenter()
     confirm(); await tick(); assert.equal(f.writes.length, 0, action + ':' + change)
@@ -175,8 +183,11 @@ test('亲友操作验证当前列表、身份和状态，确认时再次核对�
   f.page.familyOrders[0].payMoney = 21; confirmPay(); await tick(); assert.equal(f.writes.length, 0)
   f.page.confirmFamilyReceipt(f.page.familyOrders[1]); const confirmReceipt = f.dialogs.at(-1).secondaryButton.action
   f.page.familyOrders[1].canReceive = false; confirmReceipt(); await tick(); assert.equal(f.writes.length, 0)
-  f.page.ordersToShip[0].orderState = 3; f.invoke('ship'); assert.equal(f.writes.length, 0)
-  f.page.user = { ...f.page.user, role: 'buyer' }; f.invoke('ship'); assert.equal(f.writes.length, 0)
+  const store = fixture('merchant'); await store.page.loadFamilyCenter()
+  store.page.ordersToShip[0].orderState = 3; store.invoke('ship'); assert.equal(store.writes.length, 0)
+  store.page.ordersToShip[0].orderState = OrderState.AWAITING_SHIPMENT
+  store.page.user = { ...store.page.user, identity: 'buyer', identityRevision: 2 }
+  store.invoke('ship'); assert.equal(store.writes.length, 0)
 })
 
 test('普通刷新不吞当前操作成功，写结果未知后旧读取不能恢复操作', async () => {
@@ -208,11 +219,12 @@ test('隐藏后账号和角色变化清除旧列表，旧串行查询不继续�
     await loading; assert.equal(f.page.loading, true); assert.equal(f.queries.length, 2)
     current.resolve(pageResult([])); await tick()
     f.page.aboutToDisappear(); const count = f.queries.length
-    f.page.user = { ...f.page.user, role: 'buyer' }; f.page.reloadForCurrentAccount()
-    assert.equal(f.page.ordersToShip.length, 0); assert.equal(f.queries.length, count)
-    f.page.showFamilyCenter(); await tick(); assert.equal(f.page.ordersToShip.length, 0)
+    f.page.user = { ...f.page.user, identity: 'merchant', identityRevision: 2 }; f.page.reloadForCurrentAccount()
+    assert.equal(f.page.familyOrders.length, 0); assert.equal(f.queries.length, count)
+    f.page.showFamilyCenter(); await tick(); assert.equal(f.page.familyOrders.length, 0)
+    assert.equal(f.page.ordersToShip.length, 1)
     const visibleQueries = f.queries.length
-    f.page.refreshAfterForeground(); await tick(); assert.equal(f.queries.length, visibleQueries + 2)
+    f.page.refreshAfterForeground(); await tick(); assert.equal(f.queries.length, visibleQueries + 1)
   }
 })
 

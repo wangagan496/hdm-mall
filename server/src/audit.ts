@@ -7,9 +7,9 @@ export const auditActions = ['product.create','product.edit','product.status','p
   'order.ship','order.reject_and_ship','cancel.approve','cancel.auto_approve','aftersale.approve','aftersale.reject','aftersale.inspect',
   'aftersale.refund_reject','aftersale.auto_approve','aftersale.auto_close','aftersale.auto_refund','refund.create','refund.result',
   'refund.retry','payment.review','settings.return_address','access.denied','promotion.edit','aftersale.shipping_comp','invoice.request','invoice.issued',
-  'review.hide','review.republish','avatar.reset','reconciliation.resolve'] as const
+  'review.hide','review.republish','avatar.reset','reconciliation.resolve','identity.switch'] as const
 export type AuditAction = typeof auditActions[number]
-type Target = 'product'|'sku'|'order'|'after_sale'|'refund'|'payment'|'settings'
+type Target = 'product'|'sku'|'order'|'after_sale'|'refund'|'payment'|'settings'|'account'
 export interface AuditSummary {
   before?: string|number|boolean; after?: string|number|boolean; spec?: string; name?: string;
   descriptionChanged?: boolean; pictureChanged?: boolean; reason?: string; amountCents?: number; payerId?: string;
@@ -22,7 +22,7 @@ export function auditText(value: string) {
   return value.replace(/(?:https?:\/\/|\/uploads\/)[^\s，。]+/gi,'[图片或链接已隐藏]')
     .replace(/\+?\d[\d\s()-]{5,}\d/g,'[号码已隐藏]').slice(0,200)
 }
-export function appendAudit(db: Database, input: {created:number;actor?: Pick<User,'id'|'role'>|null;action:AuditAction;targetType:Target;targetId:string;
+export function appendAudit(db: Database, input: {created:number;actor?: Pick<User,'id'|'identity'>|null;action:AuditAction;targetType:Target;targetId:string;
   orderId?:string|null;summary?:AuditSummary;requestKey?:string|null;result?:'success'|'denied'}) {
   const s=input.summary??{}
   // Explicit projection is shared by live writes and migration; never serialize a request object.
@@ -33,7 +33,7 @@ export function appendAudit(db: Database, input: {created:number;actor?: Pick<Us
   }
   if(s.items)summary.items=s.items.map(i=>({skuId:i.skuId,spec:auditText(i.spec),restockCount:i.restockCount}))
   db.run('INSERT INTO audit_log(created,actor_id,actor_kind,action,target_type,target_id,order_id,summary,result,request_key) VALUES(?,?,?,?,?,?,?,?,?,?)',
-    input.created,input.actor?.id??null,input.actor?.role??'system',input.action,input.targetType,input.targetId,input.orderId??null,JSON.stringify(summary),input.result??'success',input.requestKey??null)
+    input.created,input.actor?.id??null,input.actor?.identity??'system',input.action,input.targetType,input.targetId,input.orderId??null,JSON.stringify(summary),input.result??'success',input.requestKey??null)
 }
 export function deniedAudit(db:Database,user:User,route:string,now:number){
   db.transaction(()=>{
@@ -47,7 +47,7 @@ export const auditQuerySchema=z.object({page:z.coerce.number().int().min(1).max(
   from:z.coerce.number().int().nonnegative().safe().optional(),to:z.coerce.number().int().nonnegative().safe().optional()
 }).refine(q=>q.from===undefined||q.to===undefined||q.from<=q.to)
 export function auditPage(db:Database,user:User,input:unknown){
-  ensure(user.role==='merchant',403,'需要商家权限')
+  ensure(user.identity==='merchant',403,'需要商家权限')
   const q=auditQuerySchema.parse(input),conditions:string[]=[],values:(string|number)[]=[]
   const groups:Record<string,readonly string[]>={products:['product.create','product.edit','product.status','product.return_policy','sku.price','sku.enable'],inventory:['sku.stock','stock.adjust'],shipping:['order.ship','order.reject_and_ship'],
     aftersales:auditActions.filter(a=>a.startsWith('aftersale.')||a.startsWith('refund.')||a.startsWith('cancel.')||a==='payment.review'),denied:['access.denied']}
@@ -58,7 +58,7 @@ export function auditPage(db:Database,user:User,input:unknown){
   if(q.to!==undefined){conditions.push('a.created<=?');values.push(q.to)}
   const where=conditions.length?'WHERE '+conditions.join(' AND '):''
   const counts=db.one<{n:number}>(`SELECT COUNT(*) n FROM audit_log a ${where}`,...values)!.n
-  const rows=db.all<{id:number;created:number;actorAccount:string;action:string;targetType:string;targetId:string;orderId:string|null;productId:string|null;objectName:string;orderCreated:number|null;summary:string;result:string}>(`SELECT a.id,a.created,a.action,a.target_type targetType,a.target_id targetId,a.order_id orderId,a.summary,a.result,
+  const rows=db.all<{id:number;created:number;actorAccount:string;actorKind:string;action:string;targetType:string;targetId:string;orderId:string|null;productId:string|null;objectName:string;orderCreated:number|null;summary:string;result:string}>(`SELECT a.id,a.created,a.actor_kind actorKind,a.action,a.target_type targetType,a.target_id targetId,a.order_id orderId,a.summary,a.result,
     CASE WHEN a.actor_id IS NULL THEN '系统自动' WHEN u.status='deleted' THEN '已注销用户' ELSE u.account END actorAccount,
     CASE WHEN a.target_type='product' THEN a.target_id WHEN a.target_type='sku' THEN (SELECT product_id FROM skus WHERE id=a.target_id) END productId,
     COALESCE((SELECT name FROM order_items WHERE order_id=a.order_id ORDER BY rowid LIMIT 1),(SELECT name FROM products WHERE id=a.target_id AND a.target_type='product'),
@@ -74,7 +74,7 @@ export function auditPage(db:Database,user:User,input:unknown){
 }
 
 export interface ProductAuditSnapshot {name:string;description:string;picture:string;status:string;returnPolicy?:string;returnPolicyReason?:string;returnPolicyNote?:string;skus:{id:string;spec:string;priceCents:number;stock:number;enabled:boolean}[]}
-export function productAudit(db:Database,user:Pick<User,'id'|'role'>,productId:string,key:string,created:number,current:ProductAuditSnapshot|undefined,next:ProductAuditSnapshot,backfilled=false){
+export function productAudit(db:Database,user:Pick<User,'id'|'identity'>,productId:string,key:string,created:number,current:ProductAuditSnapshot|undefined,next:ProductAuditSnapshot,backfilled=false){
   const write=(action:AuditAction,targetType:Target,targetId:string,summary:AuditSummary)=>appendAudit(db,{created,actor:user,action,targetType,targetId,requestKey:key,summary:{...summary,...(backfilled?{backfilled:true}:{})}})
   if(!current){write('product.create','product',productId,{name:next.name});return}
   if(current.name!==next.name||current.description!==next.description||current.picture!==next.picture)write('product.edit','product',productId,{...(current.name!==next.name?{before:current.name,after:next.name}:{}),descriptionChanged:current.description!==next.description,pictureChanged:current.picture!==next.picture})
