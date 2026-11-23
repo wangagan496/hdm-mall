@@ -46,7 +46,7 @@ test('商品评价按商品计数且一单多规格不重复，同毫秒评价�
       assert.equal(result.page, page); assert.equal(result.pageSize, 5)
       assert.equal(result.items.length, page === 5 ? 3 : 5)
       for (const item of result.items) {
-        assert.deepEqual(Object.keys(item).sort(), ['spec','content','createTime','id','member','pictures','score','productScore','logisticsScore','serviceScore','serviceOccurred','items','badges','receiptBasis','reply'].sort())
+        assert.deepEqual(Object.keys(item).sort(), ['spec','content','createTime','id','member','pictures','score','productScore','logisticsScore','serviceScore','serviceOccurred','items','badges','receiptBasis','reply','followup','serviceRecord'].sort())
         assert.deepEqual(item.badges, [])
         assert.deepEqual(item.member, { nickname: '😀***甲' })
         assert.deepEqual(item.pictures, [])

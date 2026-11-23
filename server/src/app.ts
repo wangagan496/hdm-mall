@@ -448,6 +448,9 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('PUT', '/member/order/:id/evaluation', (req, user) => {
     return orders.evaluate(user, key(req), evaluationSchema.parse(req.body))
   })
+  protectedRoute('POST', '/member/order/:id/evaluation/followup', (req, user) => {
+    return orders.appendEvaluationFollowup(user, key(req), req.body)
+  })
   protectedRoute('GET', '/merchant/orders', (_req, user) => orders.merchantList(user))
   protectedRoute('GET', '/merchant/orders/:id', (req,user) => orders.merchantDetail(user,key(req)))
   protectedRoute('GET', '/merchant/orders/page', (req, user) => {

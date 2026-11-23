@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { Database } from './database.ts'
+import { requireBuyer, restrictOwnStore, type User } from './accounts.ts'
 import type { PromiseSnapshot } from './promises/generated.ts'
 import { ensure } from './errors.ts'
 import { checkPublicContent } from './content-filter.ts'
@@ -18,6 +19,39 @@ export const evaluationSchema = z.strictObject({ score: score.optional(), produc
   revision: z.number().int().positive().optional(), items: z.array(itemSchema).default([]) })
   .refine(v => (v.productScore ?? v.score) !== undefined && (v.productScore === undefined || v.score === undefined || v.productScore === v.score))
 export type EvaluationInput = z.infer<typeof evaluationSchema>
+export const followupSchema = z.strictObject({
+  content: z.string().trim().refine(s => Array.from(s).length >= 5 && Array.from(s).length <= 300, '请填写5至300字的处理后感受')
+})
+const endedAfterSaleStates = "'refunded','completed','closed','rejected','refund-rejected'"
+const activeAfterSaleStates = "'pending','awaiting-return','returned','refunding'"
+// 阶段 6 案件接入前，处理记录关联位一律返回待接入与空列表，不读取或透出预留表中的任何残留行。
+export function evaluationServiceRecord(_db: Database, _orderId: string) {
+  return {
+    status: 'pending' as const,
+    connected: false,
+    label: '处理记录待接入',
+    records: [] as { id: string; source: string; summary: string; createdAt: number }[]
+  }
+}
+export function followupEligibility(db: Database, orderId: string): { allowed: boolean; reason: string } {
+  if (!db.one('SELECT 1 FROM evaluations WHERE order_id=?', orderId)) {
+    return { allowed: false, reason: '请先评价订单后再追加处理后感受' }
+  }
+  if (db.one('SELECT 1 FROM evaluation_followups WHERE order_id=?', orderId)) {
+    return { allowed: false, reason: '每条评价只能追加一次处理后感受' }
+  }
+  if (db.one(`SELECT 1 FROM after_sales WHERE order_id=? AND state IN (${activeAfterSaleStates})`, orderId)) {
+    return { allowed: false, reason: '当前售后尚未结束，结束后再追加处理后感受' }
+  }
+  if (!db.one(`SELECT 1 FROM after_sales WHERE order_id=? AND state IN (${endedAfterSaleStates})`, orderId)) {
+    return { allowed: false, reason: '仅售后已退款、已关闭或已拒绝的订单可追加处理后感受' }
+  }
+  if (db.one(`SELECT 1 FROM refunds r JOIN payments p ON p.id=r.payment_id LEFT JOIN after_sales a ON a.id=r.after_sale_id
+    WHERE (p.order_id=? OR a.order_id=?) AND r.state<>'succeeded'`, orderId, orderId)) {
+    return { allowed: false, reason: '售后或运费退款尚未全部到账，请待退款结清后再追加' }
+  }
+  return { allowed: true, reason: '' }
+}
 export function requiredEvaluationSizes(db:Database,id:string) {
   return db.all<{sku_id:string}>('SELECT sku_id FROM required_evaluation_sizes WHERE order_id=?',id).map(row=>row.sku_id)
 }
@@ -37,15 +71,20 @@ export function buyerEvaluation(db: Database, id: string, includeDispute=false) 
     CASE WHEN EXISTS(SELECT 1 FROM review_dispute_actions a JOIN review_dispute_conclusions c ON c.action_id=a.id
       WHERE a.review_id=? AND c.kind='hide' AND a.actor_id=m.hidden_by AND a.created=m.hidden_at)
     THEN 'platform' ELSE 'content' END source FROM review_moderation m WHERE m.order_id=?`,row.public_id,id)
+  const followupRow = db.one<{ content: string; created: number }>('SELECT content, created FROM evaluation_followups WHERE order_id=?', id)
   return { orderId:id, score:row.score, productScore:row.score, logisticsScore:row.logistics_score, serviceScore:row.service_score,
     ...(includeDispute ? {dispute:partyDispute(db,row.public_id,'buyer')} : {}),
     serviceOccurred:!!row.service_occurred, content:row.content, createdAt:row.created, updated:row.updated, revision:row.revision,
     sizes:db.all<{skuId:string;sizeFit:string;sizeShift:string|null}>('SELECT sku_id skuId,size_fit sizeFit,size_shift sizeShift FROM evaluation_sizes WHERE order_id=? ORDER BY sku_id',id),
     items:evaluationItems(db,id), history:db.all<{snapshot:string}>('SELECT snapshot FROM evaluation_revisions WHERE order_id=? ORDER BY revision',id)
-      .map(r=>JSON.parse(r.snapshot)), hiddenReason:moderation?.reason ?? null, hiddenSource:moderation?.source ?? null }
+      .map(r=>JSON.parse(r.snapshot)), hiddenReason:moderation?.reason ?? null, hiddenSource:moderation?.source ?? null,
+    followup: followupRow ? { content: followupRow.content, createdAt: followupRow.created } : null,
+    canFollowup: followupEligibility(db, id).allowed,
+    serviceRecord: evaluationServiceRecord(db, id) }
 }
 export function saveEvaluation(db: Database, id: string, input: EvaluationInput, now: number) {
   checkPublicContent(input.content)
+  ensure(!db.one('SELECT 1 FROM evaluation_followups WHERE order_id=?', id), 409, '已追加处理后感受，原评价不可修改')
   const previous = buyerEvaluation(db,id)
   if (previous) {
     ensure(previous.hiddenSource!=='platform',403,'已被平台复核隐藏，可请求更正')
@@ -99,4 +138,32 @@ export function saveEvaluation(db: Database, id: string, input: EvaluationInput,
   db.run('UPDATE evaluations SET size_fit=?,size_shift=? WHERE order_id=?',single?.sizeFit??null,single?.sizeShift??null,id)
   db.run('UPDATE orders SET state=5 WHERE id=? AND state=4',id)
   return { id }
+}
+
+function containsContactOrPrivateInfo(content: string, orderId: string, ownerId: string, account: string, addressJson: string) {
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(content)) return true
+  if (/(?<!\d)(?:\+?86[- ]?)?1[3-9](?:[- ]?\d){9}(?!\d)/.test(content)) return true
+  const address = JSON.parse(addressJson) as Record<string, unknown>
+  const privateTokens = [orderId, ownerId, account, address.contact, address.receiver, address.address, address.fullLocation]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  return privateTokens.some(token => content.includes(token))
+}
+
+export function saveFollowup(db: Database, user: User, id: string, input: unknown, now: number) {
+  requireBuyer(user)
+  const parsed = followupSchema.safeParse(input)
+  ensure(parsed.success, 400, '请填写5至300字的处理后感受')
+  const { content } = parsed.data
+  checkPublicContent(content)
+  return db.transaction(() => {
+    const order = db.one<{ id: string; owner_id: string; address: string }>('SELECT id, owner_id, address FROM orders WHERE id=?', id)
+    ensure(order, 404, '订单不存在')
+    ensure(order.owner_id === user.id, 403, '只有下单人可以追加处理后感受')
+    restrictOwnStore(db, user.id)
+    ensure(!containsContactOrPrivateInfo(content, order.id, order.owner_id, user.account, order.address), 400, '追加内容中请勿包含电话、邮箱或个人联系方式')
+    const eligibility = followupEligibility(db, id)
+    ensure(eligibility.allowed, 409, eligibility.reason)
+    db.run('INSERT INTO evaluation_followups(order_id, actor_id, content, created) VALUES(?,?,?,?)', id, user.id, content, now)
+    return { orderId: id, followup: { content, createdAt: now } }
+  })
 }

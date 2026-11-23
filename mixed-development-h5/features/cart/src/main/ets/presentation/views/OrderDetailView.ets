@@ -839,12 +839,44 @@ export struct OrderDetailView {
                     .lineHeight(22)
                     .fontColor($r('[ui_components].color.text'))
                     .width('100%')
+                  if (this.evaluation?.followup) {
+                    Column({ space: 4 }) {
+                      Text('买家追加 · ' + formatBeijingTime(this.evaluation.followup.createdAt))
+                        .fontSize(12)
+                        .fontWeight(500)
+                        .fontColor($r('[ui_components].color.red'))
+                      Text(this.evaluation.followup.content)
+                        .fontSize(13)
+                        .lineHeight(20)
+                        .fontColor($r('[ui_components].color.text'))
+                    }
+                    .width('100%')
+                    .padding(8)
+                    .backgroundColor($r('[ui_components].color.under'))
+                    .borderRadius(6)
+                    .alignItems(HorizontalAlign.Start)
+                  }
+                  if (this.evaluation?.canFollowup && !this.evaluation?.followup) {
+                    Button('追加处理后感受')
+                      .id('review-followup')
+                      .backgroundColor($r('[ui_components].color.red'))
+                      .fontColor($r('[ui_components].color.on_primary'))
+                      .onClick(() => this.runComment())
+                  }
                   if(this.evaluation?.dispute?.conclusion){
                     Button('查看平台复核').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
                       .onClick(()=>this.runComment())
                   }
-                  if(this.order.canEvaluate && !this.evaluation?.hiddenReason){
+                  if(this.order.canEvaluate && !this.evaluation?.hiddenReason && !this.evaluation?.followup){
                     Button('修改评价').id('review-edit').onClick(()=>this.runComment())
+                  }
+                  if (this.evaluation?.followup && !this.evaluation?.dispute?.conclusion) {
+                    Button('查看评价')
+                      .id('review-view')
+                      .backgroundColor($r('[ui_components].color.white'))
+                      .fontColor($r('[ui_components].color.text'))
+                      .border({ width: 0.5, color: $r('[ui_components].color.border') })
+                      .onClick(() => this.runComment())
                   }
                   if (this.evaluation?.hiddenReason) {
                     Text(this.evaluation.hiddenSource==='platform'?'已被平台复核隐藏':'已被商家隐藏：' + this.evaluation.hiddenReason).id('review-hidden-reason').fontColor($r('[ui_components].color.red'))

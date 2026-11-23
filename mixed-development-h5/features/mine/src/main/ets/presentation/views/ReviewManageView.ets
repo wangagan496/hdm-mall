@@ -1,5 +1,5 @@
 import { GlobalVariable } from 'constants'
-import { HDMUser, ReviewField } from 'models'
+import { HDMUser, ReviewField, PublicEvaluationFollowup, EvaluationServiceRecordSlot, formatReviewDate } from 'models'
 import { ReviewAction, ReviewDispute, reviewLabel } from 'models'
 import { HDMNavBar } from 'ui_components'
 import { RequestAxios } from 'network'
@@ -9,6 +9,7 @@ interface MerchantReview {
   canRegister?:boolean; dispute?:ReviewDispute
   id:string; member:ReviewMember; score:number; logisticsScore?:number; serviceScore?:number; serviceOccurred:boolean
   content:string; reply?:string; items:ReviewField[]
+  followup?: PublicEvaluationFollowup | null; serviceRecord?: EvaluationServiceRecordSlot
 }
 interface SizeSummary { conclusion:string }
 interface SizeGroup { spec:string; sizeSummary:SizeSummary }
@@ -134,7 +135,26 @@ export struct ReviewManageView {
                   Text(field.label+' · '+(field.result==='matches'?'符合':field.result==='mismatch'?'不符':'没注意')+(field.note?' · '+field.note:'')).fontColor($r('[ui_components].color.text'))
                 })
                 if(item.reply){Text('商家回复：'+item.reply).fontColor($r('[ui_components].color.text'))}
-                else{Button('公开回复').enabled(!this.busy).onClick(()=>this.open(item))}
+                else{Button('公开回复').backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).enabled(!this.busy).onClick(()=>this.open(item))}
+                if (item.followup) {
+                  Column({ space: 4 }) {
+                    Text('买家追加 · ' + formatReviewDate(item.followup.createTime))
+                      .fontSize(12)
+                      .fontWeight(500)
+                      .fontColor($r('[ui_components].color.red'))
+                    Text(item.followup.content)
+                      .fontSize(13)
+                      .fontColor($r('[ui_components].color.text'))
+                  }
+                  .width('100%')
+                  .padding(8)
+                  .backgroundColor($r('[ui_components].color.under'))
+                  .borderRadius(6)
+                  .alignItems(HorizontalAlign.Start)
+                }
+                Text('售后处理记录：' + (item.serviceRecord?.label || '处理记录待接入'))
+                  .fontSize(12)
+                  .fontColor($r('[ui_components].color.gray'))
                 if(item.dispute){
                   Text(reviewLabel(item.dispute.status))
                   ForEach(item.dispute.timeline || [],(action:ReviewAction)=>{
@@ -143,13 +163,13 @@ export struct ReviewManageView {
                   if(item.dispute.conclusion){
                     Text('平台复核 · '+reviewLabel(item.dispute.conclusion.kind))
                     Text(item.dispute.conclusion.reason+' · '+new Date(item.dispute.conclusion.time).toLocaleString())
-                    if(item.dispute.canCorrect){Button('请求更正').enabled(!this.busy).onClick(()=>this.open(item,'correct'))}
+                    if(item.dispute.canCorrect){Button('请求更正').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(()=>this.open(item,'correct'))}
                   }
                 }else if(item.canRegister){
-                  Button('登记疑似恶意差评').enabled(!this.busy).onClick(()=>this.open(item,'register'))
+                  Button('登记疑似恶意差评').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(!this.busy).onClick(()=>this.open(item,'register'))
                 }
               }.width('100%').padding(16).backgroundColor($r('[ui_components].color.white')).borderRadius(12).alignItems(HorizontalAlign.Start)
-            }, (item: MerchantReview) => item.id + ':' + (item.reply || '')+JSON.stringify(item.dispute || null))
+            }, (item: MerchantReview) => item.id + ':' + (item.reply || '')+JSON.stringify(item.dispute || null) + ':' + (item.followup?.content || ''))
             if (!this.loading && this.items.length === 0) { Text('暂无评价').fontColor($r('[ui_components].color.gray')) }
             Row({ space: 12 }) {
               Button('上一页').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).enabled(this.page > 1 && !this.loading && !this.busy).onClick(() => this.load(this.page - 1))

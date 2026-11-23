@@ -1,5 +1,5 @@
 import type { Database } from './database.ts'
-import { evaluationItems } from './evaluations.ts'
+import { evaluationItems, evaluationServiceRecord } from './evaluations.ts'
 import { partyDispute, ownsReview } from './review-disputes.ts'
 import { beijingDate } from './channel-bill.ts'
 
@@ -43,7 +43,7 @@ function publicGroups(db:Database,product:string,sku:string|undefined,version:st
 
 interface Query {page:number;pageSize:number;skuId?:string;templateVersion?:string}
 interface Row {
-  address:string; buyer_account:string; nickname:string; status:string; order_id:string; public_id:string; content:string; created:number; score:number; logistics_score:number|null;
+  address:string; owner_id:string; buyer_account:string; nickname:string; status:string; order_id:string; public_id:string; content:string; created:number; score:number; logistics_score:number|null;
   service_score:number|null; service_occurred:number; received_at:number|null; received_by:string|null; signed_at:number|null; reply:string|null
 }
 export function evaluationPage(db: Database, product: string, query: Query, merchant?:string) {
@@ -74,7 +74,7 @@ export function evaluationPage(db: Database, product: string, query: Query, merc
     ? {counts,sampleSufficient:true,neutral:group.neutral,negative:group.negative,product:group.product,logistics:group.logistics,service:group.service}
     : {counts,sampleSufficient:false,conclusion:limited}
   const offset = (query.page-1)*query.pageSize
-  const rows = offset>=counts ? [] : db.all<Row>(`SELECT e.*,u.nickname,u.status,u.account buyer_account,o.address,o.received_at,o.received_by,o.signed_at,
+  const rows = offset>=counts ? [] : db.all<Row>(`SELECT e.*,u.nickname,u.status,u.account buyer_account,o.owner_id,o.address,o.received_at,o.received_by,o.signed_at,
     (SELECT content FROM merchant_evaluation_replies r WHERE r.order_id=e.order_id) reply ${from}
     ORDER BY e.created DESC,e.order_id LIMIT ? OFFSET ?`,...bindings,query.pageSize,offset)
   const items = rows.map(row=>{
@@ -84,7 +84,7 @@ export function evaluationPage(db: Database, product: string, query: Query, merc
     const disclosed=(item:typeof orderSpecs[number])=>groups.some(g=>g.sku===item.sku && g.receipt===item.receipt && g.version===item.version && g.edition===item.edition && g.counts>=REVIEW_SAMPLE_THRESHOLD)
     const address=JSON.parse(row.address)
     const redactions=[address.contact,address.address,address.receiver,address.fullLocation,...String(address.fullLocation??'').split(/\s+/),
-      row.buyer_account,row.order_id,...orderSpecs.map(item=>item.sku),...orderSpecs.filter(item=>!disclosed(item)).map(item=>item.spec)].filter((s):s is string=>typeof s==='string' && s.length>0)
+      row.buyer_account,row.owner_id,row.order_id,...orderSpecs.map(item=>item.sku),...orderSpecs.filter(item=>!disclosed(item)).map(item=>item.spec)].filter((s):s is string=>typeof s==='string' && s.length>0)
     const safeText = (value:string) => {
       let masked=value.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[邮箱已隐藏]')
         .replace(/(?<!\d)(?:\+?86[- ]?)?1[3-9](?:[- ]?\d){9}(?!\d)/g,'[电话已隐藏]')
@@ -100,11 +100,15 @@ export function evaluationPage(db: Database, product: string, query: Query, merc
     if(receipt && fields.length && fields.every(f=>f.quote && f.templateVersion)) badges.push('对照承诺逐条打分')
     const name = Array.from(row.nickname)
     const nickname = row.status==='deleted' ? '已注销用户' : (name[0]??'')+'***'+(name.length>2 ? name.at(-1) : '')
+    const followupRow = db.one<{ content: string; created: number }>('SELECT content, created FROM evaluation_followups WHERE order_id=?', row.order_id)
+    const serviceRecord = evaluationServiceRecord(db, row.order_id)
     return { id:row.public_id,score:row.score,productScore:row.score,logisticsScore:row.logistics_score,
       ...(merchant?{canRegister:ownsReview(db,row.order_id,merchant),dispute:partyDispute(db,row.public_id,'merchant',merchant)}:{}),
       spec:[...new Set(orderSpecs.filter(item=>skuId===undefined || item.sku===skuId).map(item=>disclosed(item)?item.spec:'其他规格'))].join('、'),
       serviceScore:row.service_score,serviceOccurred:!!row.service_occurred,content:safeText(row.content),createTime:beijingDate(row.created),
-      member:{nickname},pictures:[],items:fields,badges,receiptBasis:receipt ? (row.signed_at?'订单签收':'买家确认收货') : null,reply:row.reply && safeText(row.reply) }
+      member:{nickname},pictures:[],items:fields,badges,receiptBasis:receipt ? (row.signed_at?'订单签收':'买家确认收货') : null,reply:row.reply && safeText(row.reply),
+      followup: followupRow ? { content: safeText(followupRow.content), createTime: beijingDate(followupRow.created) } : null,
+      serviceRecord }
   })
   return {items,counts,pages:Math.ceil(counts/query.pageSize),page:query.page,pageSize:query.pageSize,summary,sizeSummary:sizeSummary(group),
     ...(merchant?{sizeGroups:groups.filter(g=>g.larger+g.smaller+g.fits>0 && g.counts>=REVIEW_SAMPLE_THRESHOLD).map(g=>({spec:g.spec,sizeSummary:sizeSummary(g)}))}:{})}

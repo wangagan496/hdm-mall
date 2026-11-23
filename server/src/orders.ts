@@ -12,7 +12,7 @@ import { localAvatarPath } from './avatar.ts'
 import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
-import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, type EvaluationInput } from './evaluations.ts'
+import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, saveFollowup, type EvaluationInput } from './evaluations.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
 
@@ -231,8 +231,8 @@ export class Orders {
       canPay: paymentFields?.canPay ?? this.canPay(user, order),
       canReceive: order.state === ORDER_STATE.AWAITING_RECEIPT && (isOrderOwner || this.canConfirmFamilyReceipt(user, order)),
       ...(promises ? { canCheckPromises: promises.snapshots.size > 0 && canCheckOrderPromises(this.db, user, order) } : {}),
-      canEvaluate: isOrderOwner && user.identity === 'buyer' && !this.evaluationRule(order),
-      evaluationRule: isOrderOwner ? this.evaluationRule(order) : '',
+      canEvaluate: isOrderOwner && user.identity === 'buyer' && !this.evaluationRule(order) && !evaluation?.followup,
+      evaluationRule: isOrderOwner ? (evaluation?.followup ? '已追加处理后感受，原评价保持不变' : this.evaluationRule(order)) : '',
       canInvitePayer: isOrderOwner && order.state === ORDER_STATE.AWAITING_PAYMENT,
       countdown: paymentFields?.countdown ?? Math.max(0, Math.floor((order.expires - this.clock.now()) / 1000)),
       createTime: new Date(order.created).toISOString(), payLatestTime: new Date(order.expires).toISOString(),
@@ -747,5 +747,8 @@ export class Orders {
       ensure(!rule, 409, rule)
       return saveEvaluation(this.db,id,typeof input === 'number' ? { score: input, content, items: [] } : input,this.clock.now())
     })
+  }
+  appendEvaluationFollowup(user: User, id: string, input: unknown) {
+    return saveFollowup(this.db, user, id, input, this.clock.now())
   }
 }

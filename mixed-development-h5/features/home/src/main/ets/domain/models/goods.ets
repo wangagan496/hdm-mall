@@ -1,4 +1,4 @@
-import { HDMGoodsItem, ReviewField, PromiseMaterialSource, PromiseSnapshot } from 'models'
+import { HDMGoodsItem, ReviewField, PromiseMaterialSource, PromiseSnapshot, PublicEvaluationFollowup, EvaluationServiceRecordSlot } from 'models'
 import { HDMSkuType, HDMSpec } from 'ui_components'
 
 // 其他略
@@ -26,6 +26,8 @@ export interface GoodsEvaluation {
   badges?: string[]
   receiptBasis?: string
   reply?: string
+  followup?: PublicEvaluationFollowup | null
+  serviceRecord?: EvaluationServiceRecordSlot
   content: string
   createTime: string
   id: string

@@ -37,7 +37,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(26), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(27), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -130,7 +130,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 26) throw new Error('仅支持数据库版本 2 至 26')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 27) throw new Error('仅支持数据库版本 2 至 27')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -145,10 +145,28 @@ function inspectDatabase(path: string) {
       ...(version >= 20 ? ['user_identities','identity_layouts'] : []), ...(version >= 21 ? promiseTables : []),
       ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : []),
       ...(version >= 25 ? ['evaluation_sizes'] : []),
-      ...(version >= 26 ? ['review_disputes','review_dispute_actions','review_dispute_conclusions'] : [])]) {
+      ...(version >= 26 ? ['review_disputes','review_dispute_actions','review_dispute_conclusions'] : []),
+      ...(version >= 27 ? ['evaluation_followups','evaluation_service_records'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
+    if(version>=27) {
+      const held = historicalIdentity(db, version)
+      for (const f of db.prepare(`SELECT f.*, e.created eval_created, o.owner_id FROM evaluation_followups f
+        JOIN evaluations e ON e.order_id=f.order_id JOIN orders o ON o.id=f.order_id`).iterate()) {
+        if (f.actor_id !== f.owner_id || Number(f.created) < Number(f.eval_created) || !held(f.actor_id, 'buyer', f.created) ||
+          !db.prepare(`SELECT 1 FROM after_sales a WHERE a.order_id=? AND a.state IN ('refunded','completed','closed','rejected','refund-rejected')
+            AND (a.resolved_at IS NULL OR a.resolved_at<=?)`).get(f.order_id!, f.created!) ||
+          db.prepare(`SELECT 1 FROM refunds r JOIN payments p ON p.id=r.payment_id LEFT JOIN after_sales a ON a.id=r.after_sale_id
+            WHERE (p.order_id=? OR a.order_id=?) AND r.created<=? AND r.state<>'succeeded'`).get(f.order_id!, f.order_id!, f.created!)) {
+          throw new Error('评价追加记录依据无效')
+        }
+      }
+      if (db.prepare(`SELECT 1 FROM evaluation_service_records r WHERE r.after_sale_id IS NOT NULL
+        AND NOT EXISTS(SELECT 1 FROM after_sales a WHERE a.id=r.after_sale_id AND a.order_id=r.order_id)`).get()) {
+        throw new Error('评价售后处理记录关联无效')
+      }
+    }
     if(version>=26) inspectDisputes(db)
     if(version>=25){
       if(db.prepare(`SELECT 1 FROM evaluation_sizes z LEFT JOIN required_evaluation_sizes a USING(order_id,sku_id)

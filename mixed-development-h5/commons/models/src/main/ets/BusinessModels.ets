@@ -488,16 +488,40 @@ export function reviewLabel(code:string):string {
     default: return ''
   }
 }
+export interface EvaluationFollowup {
+  content: string
+  createdAt: number
+}
+export interface PublicEvaluationFollowup {
+  content: string
+  createTime: string
+}
+export interface EvaluationServiceRecordItem {
+  id: string
+  source: string
+  summary: string
+  createdAt: number
+}
+export interface EvaluationServiceRecordSlot {
+  status: 'pending' | 'connected'
+  connected: boolean
+  label: string
+  records: EvaluationServiceRecordItem[]
+}
 export interface LocalEvaluationItem {
   dispute?:ReviewDispute
   sizes?:SizeChoice[]
   logisticsScore?: number | null
   serviceScore?: number | null
+  serviceOccurred?: boolean
   items?: ReviewField[]
   revision?: number
   history?: ReviewHistory[]
   hiddenReason?: string | null
   hiddenSource?: 'platform' | 'content' | null
+  followup?: EvaluationFollowup | null
+  canFollowup?: boolean
+  serviceRecord?: EvaluationServiceRecordSlot
   orderId: string
   score: number
   content: string

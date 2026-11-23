@@ -20,6 +20,7 @@ import {
 } from '../utils/EvaluationPresentation'
 
 interface CorrectionRequest {reason:string}
+interface FollowupRequest {content:string}
 
 @Builder
 function EvaluationViewBuilder() {
@@ -54,6 +55,9 @@ export struct EvaluationView {
   @State resultUnknown: boolean = false
   @State correctionReason:string=''
   @State correcting:boolean=false
+  @State followupContent: string = ''
+  @State followupSubmitting: boolean = false
+  @State followupError: string = ''
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshEvaluationResult') foregroundSequence:number=0
   private pendingEvaluation:EvaluationSnapshot | undefined=undefined
   private evaluationMonitor:connection.NetConnection | undefined=undefined
@@ -96,6 +100,9 @@ export struct EvaluationView {
   private reloadForCurrentAccount(): void {
     this.correctionReason=''
     this.correcting=false
+    this.followupContent = ''
+    this.followupSubmitting = false
+    this.followupError = ''
     if (this.synchronizeEvaluationContext() && this.pageActive && !this.leaving) {
       this.loadOrderForEvaluation()
     }
@@ -124,6 +131,9 @@ export struct EvaluationView {
     this.sizes=[]
     this.content = ''
     this.errorText = ''
+    this.followupContent = ''
+    this.followupSubmitting = false
+    this.followupError = ''
     this.submitted = false
     this.pendingEvaluation=undefined;this.resultUnknown=false;this.stopEvaluationMonitor()
     this.submitting = false
@@ -237,7 +247,20 @@ export struct EvaluationView {
 
   private canEditEvaluation(): boolean {
     return this.isCurrentEvaluation(this.pageGeneration, this.sessionToken, this.orderId) &&
-      this.orderId.length > 0 && this.order?.evaluation?.hiddenSource!=='platform' && !this.submitting && !this.submitted
+      this.orderId.length > 0 && this.order?.evaluation?.hiddenSource!=='platform' &&
+      !this.order?.evaluation?.followup && !this.submitting && !this.submitted
+  }
+
+  private isOriginalEditable(): boolean {
+    return this.order?.evaluation?.hiddenSource !== 'platform' &&
+      !this.order?.evaluation?.followup &&
+      !(this.order?.evaluation && !this.order?.canEvaluate)
+  }
+
+  private canSubmitFollowup(): boolean {
+    return this.isCurrentEvaluation(this.pageGeneration, this.sessionToken, this.orderId) &&
+      !!this.order?.evaluation?.canFollowup && !this.order?.evaluation?.followup &&
+      !this.followupSubmitting && !this.loading && !this.loadFailed
   }
 
   private async loadOrderForEvaluation(): Promise<void> {
@@ -282,7 +305,7 @@ export struct EvaluationView {
         }
         this.errorText=''
       } else if (orderToReview.evaluation) {
-        this.errorText = '该订单已评价，当前输入保留为本机草稿'
+        this.errorText = (orderToReview.evaluation.followup || orderToReview.evaluation.canFollowup) ? '' : '该订单已评价，当前输入保留为本机草稿'
       } else if (!orderToReview.canEvaluate) {
         this.errorText = orderToReview.evaluationRule || '当前订单暂不能评价，输入已保留，请确认收货后重试'
       } else {
@@ -443,6 +466,42 @@ export struct EvaluationView {
       }
     } finally {
       if (this.isCurrentEvaluation(generation, token, orderId)) this.submitting = false
+    }
+  }
+
+  private async submitFollowup(): Promise<void> {
+    if (!this.canSubmitFollowup()) return
+    const trimmed: string = this.followupContent.trim()
+    const length: number = Array.from(trimmed).length
+    if (length < 5 || length > 300) {
+      this.followupError = '请填写5至300字的处理后感受'
+      return
+    }
+    const token: string = this.sessionToken
+    const generation: number = this.pageGeneration
+    const orderId: string = this.orderId
+    this.followupSubmitting = true
+    this.followupError = ''
+    try {
+      await RequestAxios.postWithSession<object>(
+        '/member/order/' + encodeURIComponent(orderId) + '/evaluation/followup',
+        { content: trimmed } as FollowupRequest,
+        token
+      )
+      if (this.isCurrentEvaluation(generation, token, orderId)) {
+        this.followupContent = ''
+        this.safeToast('已追加处理后感受')
+        await this.loadOrderForEvaluation()
+      }
+    } catch (error) {
+      if (this.isCurrentEvaluation(generation, token, orderId)) {
+        const failure = orderWriteFailure(error as Error)
+        this.followupError = failure.unknownResult
+          ? '结果确认中，请刷新查看是否已追加'
+          : (failure.message || '追加失败，请检查内容后重试')
+      }
+    } finally {
+      if (generation === this.pageGeneration) this.followupSubmitting = false
     }
   }
 
@@ -662,7 +721,7 @@ export struct EvaluationView {
               }
 
               Column({ space: 12 }) {
-                if(this.order?.evaluation?.hiddenSource!=='platform'){
+                if(this.isOriginalEditable()){
                 Row() {
                   Text('商品评分')
                     .fontSize(15)
@@ -687,6 +746,14 @@ export struct EvaluationView {
                 })
                 }
                 if(this.order?.evaluation){
+                  if (!this.isOriginalEditable() && this.order.evaluation.hiddenSource !== 'platform') {
+                    Text('原评分：' + this.order.evaluation.score.toString() + ' 星 · 物流 ' +
+                      (this.order.evaluation.logisticsScore ? this.order.evaluation.logisticsScore + '分' : '未评分') +
+                      ' · 售后 ' + (this.order.evaluation.serviceScore ? this.order.evaluation.serviceScore + '分' :
+                      this.order.evaluation.serviceOccurred ? '未评分' : '未发生'))
+                      .fontSize(13)
+                      .fontColor($r('[ui_components].color.text'))
+                  }
                   if(this.order.evaluation.hiddenSource==='platform'){
                     Text(this.order.evaluation.dispute?.canCorrect?'已被平台复核隐藏，可请求更正':'已被平台复核隐藏').fontColor($r('[ui_components].color.text'))
                   }
@@ -700,13 +767,84 @@ export struct EvaluationView {
                         .enabled(!this.correcting && Array.from(this.correctionReason.trim()).length>=5).onClick(()=>this.requestCorrection())
                     }
                   }
-                  Text((this.order.evaluation.hiddenSource==='platform'?'原评价：':'已发布：')+this.order.evaluation.content).fontColor($r('[ui_components].color.text'))
+                  Text((this.order.evaluation.hiddenSource==='platform' || !this.isOriginalEditable() ? '原评价：' : '已发布：') + this.order.evaluation.content)
+                    .fontColor($r('[ui_components].color.text'))
                   ForEach(this.order.evaluation.history || [],(entry:ReviewHistory)=>{
                     Text('第'+entry.revision+'版：'+entry.content).fontColor($r('[ui_components].color.gray'))
                   })
+                  Text('售后处理记录：' + (this.order.evaluation.serviceRecord?.label || '处理记录待接入'))
+                    .fontSize(12)
+                    .fontColor($r('[ui_components].color.gray'))
+                  if (this.order.evaluation.followup) {
+                    Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
+                    Column({ space: 6 }) {
+                      Text('买家追加 · ' + formatBeijingTime(this.order.evaluation.followup.createdAt))
+                        .fontSize(13)
+                        .fontWeight(500)
+                        .fontColor($r('[ui_components].color.red'))
+                      Text(this.order.evaluation.followup.content)
+                        .fontSize(14)
+                        .lineHeight(20)
+                        .fontColor($r('[ui_components].color.text'))
+                      Text('已追加处理后感受，原评价与追加内容均为只读')
+                        .fontSize(11)
+                        .fontColor($r('[ui_components].color.gray'))
+                    }
+                    .width('100%')
+                    .padding(10)
+                    .backgroundColor($r('[ui_components].color.under'))
+                    .borderRadius(8)
+                    .alignItems(HorizontalAlign.Start)
+                  } else if (this.order.evaluation.canFollowup) {
+                    Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
+                    Row() {
+                      Text('追加处理后感受')
+                        .fontSize(15)
+                        .fontWeight(500)
+                        .fontColor($r('[ui_components].color.text'))
+                      Blank()
+                      Text(Array.from(this.followupContent.trim()).length.toString() + '/300')
+                        .fontSize(11)
+                        .fontColor($r('[ui_components].color.gray'))
+                    }
+                    .width('100%')
+                    Text('售后已结束，可追加一次处理后感受（5至300字，不含联系方式，提交后不可修改，原评价保持不变）')
+                      .fontSize(12)
+                      .fontColor($r('[ui_components].color.gray'))
+                    TextArea({ placeholder: '说说售后处理后的真实感受，5至300字', text: this.followupContent })
+                      .id('evaluation-followup-input')
+                      .height(100)
+                      .width('100%')
+                      .fontSize(14)
+                      .backgroundColor($r('[ui_components].color.under'))
+                      .borderRadius(8)
+                      .padding(10)
+                      .maxLength(300)
+                      .enabled(!this.followupSubmitting)
+                      .onChange((value: string) => {
+                        if (this.followupSubmitting) return
+                        this.followupContent = value
+                        this.followupError = ''
+                      })
+                    if (this.followupError) {
+                      Text(this.followupError)
+                        .fontSize(12)
+                        .fontColor($r('[ui_components].color.red'))
+                    }
+                    Button(this.followupSubmitting ? '提交追加中...' : '提交处理后感受')
+                      .id('evaluation-followup-submit')
+                      .width('100%')
+                      .height(44)
+                      .fontSize(15)
+                      .fontWeight(500)
+                      .backgroundColor($r('[ui_components].color.red'))
+                      .fontColor($r('[ui_components].color.on_primary'))
+                      .enabled(this.canSubmitFollowup() && Array.from(this.followupContent.trim()).length >= 5 && Array.from(this.followupContent.trim()).length <= 300)
+                      .onClick(() => { void this.submitFollowup() })
+                  }
                 }
 
-                if(this.order?.evaluation?.hiddenSource!=='platform'){
+                if(this.isOriginalEditable()){
                 Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
 
                 Text('快捷评价')
@@ -769,7 +907,7 @@ export struct EvaluationView {
           .scrollBar(BarState.Off)
           .align(Alignment.Top)
 
-          if(this.order?.evaluation?.hiddenSource!=='platform'){
+          if(this.isOriginalEditable()){
           Column() {
             Divider().strokeWidth(0.5).color($r('[ui_components].color.border'))
             Button(this.submitted?'评价已发布':this.resultUnknown?'核对评价结果':this.submitting ? '提交中...' : this.errorText.includes('继续提交')?'继续提交':this.order?.evaluation?.hiddenReason?'修改后重新发布':this.order?.evaluation?'提交改评':'提交评价').fontColor($r('[ui_components].color.on_primary'))

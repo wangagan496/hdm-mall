@@ -1,0 +1,50 @@
+﻿[
+    {
+        "theme":  "dark",
+        "file":  "01-order-entry.jpg",
+        "bytes":  76649,
+        "sha256":  "D40296A9B4321C390D6C5E37140276CE6DD0F908BB519024C695DA0E50D9438F"
+    },
+    {
+        "theme":  "dark",
+        "file":  "02-evaluation-readonly.jpg",
+        "bytes":  59453,
+        "sha256":  "5EC8E61BE82B111B3626DA0CDCE6C658EEF262ADFA6195BFB823CCB3887F81DD"
+    },
+    {
+        "theme":  "dark",
+        "file":  "03-goods-detail.jpg",
+        "bytes":  85275,
+        "sha256":  "F435B4A0EF2867556271CF2A70881C8ADF1103E37ED0FD87EE6ED09E3F986F3E"
+    },
+    {
+        "theme":  "dark",
+        "file":  "04-merchant-review.jpg",
+        "bytes":  67242,
+        "sha256":  "706E5E532B6EB97B0FCAA7C3600D1C0ED13F537EB65E820EBA9C1F3484E21F03"
+    },
+    {
+        "theme":  "light",
+        "file":  "01-order-entry.jpg",
+        "bytes":  79870,
+        "sha256":  "6132474A48EE3DC2C6985C8DB01DD43D68FB35AF57ED72B0733B03C8DC1CFB10"
+    },
+    {
+        "theme":  "light",
+        "file":  "02-evaluation-readonly.jpg",
+        "bytes":  59583,
+        "sha256":  "593EDFDF97345677E7879119AAC0ABD1115388AEB824E42AB051CAAD2BC84990"
+    },
+    {
+        "theme":  "light",
+        "file":  "03-goods-detail.jpg",
+        "bytes":  86384,
+        "sha256":  "058C9F1979484167A0B83A973B8E46C96E4A4B7EB0B646D4FD4408B617AB46FC"
+    },
+    {
+        "theme":  "light",
+        "file":  "04-merchant-review.jpg",
+        "bytes":  70718,
+        "sha256":  "523434E26E80754B8DDE7345A51ACC8EB8043D99AA8F16622B3CAA5819BD8E6A"
+    }
+]

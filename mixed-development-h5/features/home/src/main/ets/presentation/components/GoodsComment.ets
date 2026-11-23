@@ -75,6 +75,26 @@ export struct GoodsComment {
               Text(field.label+' · '+(field.result==='matches'?'符合':field.result==='mismatch'?'不符':'没注意')+'：'+field.quote+(field.note?'（'+field.note+'）':'')).fontColor($r('[ui_components].color.text')).fontSize(13)
             })
             if(evaluation.reply){Text('商家回复：'+evaluation.reply).fontColor($r('[ui_components].color.text')).fontSize(13)}
+            if (evaluation.followup) {
+              Column({ space: 4 }) {
+                Text('买家追加 · ' + formatReviewDate(evaluation.followup.createTime))
+                  .fontSize(12)
+                  .fontWeight(500)
+                  .fontColor($r('[ui_components].color.red'))
+                Text(evaluation.followup.content)
+                  .fontSize(13)
+                  .fontColor($r('[ui_components].color.text'))
+                  .lineHeight(20)
+              }
+              .width('100%')
+              .padding(8)
+              .backgroundColor($r('[ui_components].color.under'))
+              .borderRadius(6)
+              .alignItems(HorizontalAlign.Start)
+            }
+            Text('售后处理记录：' + (evaluation.serviceRecord?.label || '处理记录待接入'))
+              .fontSize(12)
+              .fontColor($r('[ui_components].color.gray'))
             Text('规格：'+(evaluation.spec || '其他规格')).fontSize(13).fontColor($r('[ui_components].color.text'))
             Text(formatReviewDate(evaluation.createTime))
               .fontColor($r('[ui_components].color.gray'))
