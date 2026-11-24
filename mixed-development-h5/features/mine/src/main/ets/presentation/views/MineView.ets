@@ -272,6 +272,10 @@ export struct MineView {
               Button('满减设置').margin({ top: 12 }).id('merchant-promotion-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
                 .onClick(() => this.stackPath.pushPath({ name: 'PromotionSettingView' }))
             }
+            if (entryVisible(this.user, this.identityLayout, 'merchant-protection')) {
+              Button('价格保护').margin({ top: 12 }).id('merchant-protection-entry').backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).border({width:1,color:$r('[ui_components].color.red')})
+                .onClick(() => this.stackPath.pushPath({ name: 'ProtectionSettingView' }))
+            }
             if (entryVisible(this.user, this.identityLayout, 'merchant-audit')) {
               Button('操作记录').margin({ top: 12 }).id('merchant-audit-entry')
                 .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))

@@ -9,7 +9,8 @@ import {
   receiptOrderAPI
 } from '../../data/api'
 import { getPaymentDisplayLabel, getDisplayOrderStateText, getRefundDisplayLine, shouldShowPaymentCountdown, canOpenPayment,
-  mergeOrderState, OrderState, readPhoneClockMillis } from '../utils/OrderPresentation'
+  mergeOrderState, OrderState, readPhoneClockMillis, formatOrderProtectionBudget,
+  formatOrderProtectionEffective } from '../utils/OrderPresentation'
 import { getScoreLabel } from '../utils/EvaluationPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
@@ -666,6 +667,15 @@ export struct OrderDetailView {
                     Text(formatBeijingTime(event.occurredAt) + ' · ' + event.description).id('logistics-event-' + event.id).fontSize(14).fontColor($r('[ui_components].color.text'))
                   }, (event: LogisticsEvent) => event.id)
                   Button(this.logisticsLoading ? '正在刷新' : '刷新物流').id('order-logistics-refresh').enabled(!this.logisticsLoading && this.canOperateOrder()).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.refreshLogistics())
+                }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+              }
+              if (this.order.protectionBrief) {
+                Column({ space: 6 }) {
+                  Text('价格保护').id('order-protection-title').fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                  Text('本单保护 ' + this.order.protectionBrief.windowDays + ' 天').id('order-protection-window').fontSize(14).fontColor($r('[ui_components].color.text'))
+                  Text(formatOrderProtectionBudget(this.order.protectionBrief)).id('order-protection-budget').fontSize(14).fontColor($r('[ui_components].color.text'))
+                  Text(formatOrderProtectionEffective(this.order.protectionBrief)).id('order-protection-effective').fontSize(13).fontColor($r('[ui_components].color.gray'))
+                  Text('保价不保库存；降价后由你本人确认补差，不会自动退款。').id('order-protection-note').fontSize(13).fontColor($r('[ui_components].color.gray'))
                 }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
               }
               if(this.order.canApplyAfterSale) {

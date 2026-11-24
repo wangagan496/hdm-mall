@@ -3,6 +3,7 @@ import invoiceTest from './Invoice.test';
 import orderTabLoaderTest from './OrderTabLoader.test';
 import evaluationSubmitFlowTest from './EvaluationSubmitFlow.test';
 import evaluationNavigationTest from './EvaluationNavigation.test';
+import protectionCartTest from './Protection.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -10,4 +11,5 @@ export default function testsuite() {
   orderTabLoaderTest();
   evaluationSubmitFlowTest();
   evaluationNavigationTest();
+  protectionCartTest();
 }

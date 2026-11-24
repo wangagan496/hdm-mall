@@ -5,7 +5,7 @@ import { CartView } from 'cart'
 import { CategoryView } from 'category'
 import { HomeView } from 'home'
 import { ReviewQueueView } from 'mine'
-import { MineView, AuditLogView, ReconciliationView, MerchantOrderView, PromotionSettingView, ReviewManageView, MerchantServiceView, CustomerServiceView, IdentityLayoutView } from 'mine'
+import { MineView, AuditLogView, ReconciliationView, MerchantOrderView, PromotionSettingView, ProtectionSettingView, ReviewManageView, MerchantServiceView, CustomerServiceView, IdentityLayoutView } from 'mine'
 import { emitter } from '@kit.BasicServicesKit'
 import { common } from '@kit.AbilityKit'
 // 导入抽离的常量和枚举
@@ -199,6 +199,7 @@ struct Index {
     if (name === 'AuditLogView') { AuditLogView() }
     else if (name === 'ReconciliationView') { ReconciliationView() }
     else if (name === 'PromotionSettingView') { PromotionSettingView() }
+    else if (name === 'ProtectionSettingView') { ProtectionSettingView() }
     else if (name === 'MerchantOrderView') { MerchantOrderView() }
     else if (name === 'ReviewManageView') { ReviewManageView() }
     else if (name === 'ReviewQueueView') { ReviewQueueView() }

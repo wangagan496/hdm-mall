@@ -17,6 +17,7 @@ export const identityEntries = {
     { id: 'merchant-products', label: '商品管理', locked: false },
     { id: 'merchant-inventory', label: '库存管理', locked: false },
     { id: 'merchant-promotions', label: '满减设置', locked: false },
+    { id: 'merchant-protection', label: '价格保护', locked: false },
     { id: 'merchant-reconciliation', label: '对账', locked: false },
     { id: 'merchant-audit', label: '操作记录', locked: false }
   ]

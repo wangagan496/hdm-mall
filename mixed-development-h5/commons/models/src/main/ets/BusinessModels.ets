@@ -198,6 +198,52 @@ export interface Summary {
 }
 
 export interface PromotionRule { thresholdCents: number; discountCents: number; enabled: boolean; revision: number }
+
+// 价保：买家侧只看摘要；商家侧看全部版本与发布状态。
+export interface PriceProtectionBrief {
+  policyId: string
+  windowDays: number
+  budgetPerOrderCents: number
+  effectiveAt: number
+  announcedAt: number
+  receiptId: string
+}
+
+export interface PriceProtectionPolicy {
+  policyId: string
+  version: number
+  windowDays: number
+  budgetPerOrderCents: number
+  totalBudgetCents: number
+  announcedAt: number
+  effectiveAt: number
+  published: boolean
+  receiptId: string | null
+}
+
+export interface PriceProtectionDraftInput {
+  requestKey: string
+  windowDays: number
+  budgetPerOrderCents: number
+  totalBudgetCents: number
+  effectiveAtOffset: number
+}
+
+export interface PriceProtectionConfirmInput {
+  policyId: string
+  policyHash: string
+}
+
+export interface PriceProtectionPublishInput {
+  token: string
+  policyId: string
+  requestKey: string
+}
+
+export interface PriceProtectionDraftResult { policyId: string; policyHash: string }
+export interface PriceProtectionConfirmResult { token: string }
+export interface PriceProtectionPublishResult { receiptId: string; policyId: string; publishedAt: number }
+
 export interface PromotionQuote {
   rule: PromotionRule
   discountCents: number
@@ -242,6 +288,7 @@ export interface CreateOrderResult {
 }
 
 export interface OrderItem {
+  protectionBrief?: PriceProtectionBrief | null
   canCheckPromises?: boolean
   shippedAt?: number | null
   signedAt?: number | null
