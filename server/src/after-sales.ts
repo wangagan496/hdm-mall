@@ -10,6 +10,7 @@ import { ensure } from './errors.ts'
 import { appendAudit, type AuditAction } from './audit.ts'
 import { canReturnNoReason, requiresCondition, type PolicyRow } from './return-policy.ts'
 import { inspectionState, pendingReturnInspection } from './inventory.ts'
+import { orderCompensationByUnit, orderRefundableBalance } from './balance.ts'
 import { afterSalePromiseMismatch, attachPromiseMismatch, promiseItemRefSchema } from './promises/order-promises.ts'
 
 const DAY = 86400000
@@ -110,6 +111,7 @@ export class AfterSales {
       }
       const available = this.remaining(orderId)
       if (data.sizeReason) ensure(data.kind === 'return-no-reason', 400, '个人穿着不合适只能用于七日无理由退货')
+      const unitComp = orderCompensationByUnit(this.db, orderId, { now })
       const shares = new Map<string, number>()
       let amount = 0
       for (const item of data.items) {
@@ -126,8 +128,16 @@ export class AfterSales {
         const consumed = original.count - original.remaining
         const share = Math.floor(original.discount_share * (consumed + item.count) / original.count) - Math.floor(original.discount_share * consumed / original.count)
         shares.set(item.skuId, share)
-        amount += original.price * item.count - share
+        const unitRec = unitComp.unitReceiptedBySku.get(item.skuId) ?? []
+        let unitCompDeduct = 0
+        for (let u = consumed; u < consumed + item.count; u++) {
+          unitCompDeduct += unitRec[u] ?? 0
+        }
+        amount += Math.max(0, original.price * item.count - share - unitCompDeduct)
       }
+      const balance = orderRefundableBalance(this.db, orderId)
+      if (amount > 0) ensure(balance.remainingCents > 0, 409, '订单可退余额已被退款或补差占满')
+      amount = Math.min(amount, balance.remainingCents)
       ensure(Number.isSafeInteger(amount) && amount >= 0, 400, '退款金额不正确')
       const payment = this.payments.effectivePaymentId(orderId)
       ensure(payment, 409, '付款记录异常，请联系客服')
@@ -146,7 +156,28 @@ export class AfterSales {
     })
   }
   private refund(sale: Sale, user?: User, data?: ActionData) {
-    const refundId = sale.amount > 0 ? this.payments.createAfterSaleRefund(sale.order_id, sale.payment_id, sale.id, sale.amount, this.clock.now(),user) : null
+    let refundAmount = sale.amount
+    if (refundAmount > 0) {
+      const unitComp = orderCompensationByUnit(this.db, sale.order_id, { now: this.clock.now() })
+      const slices = unitComp.afterSaleSlices.get(sale.id)
+      let unitCap = refundAmount
+      if (slices) {
+        unitCap = 0
+        for (const [skuId, slice] of slices) {
+          const paidArr = unitComp.unitPaidBySku.get(skuId) ?? []
+          const recArr = unitComp.unitReceiptedBySku.get(skuId) ?? []
+          for (let u = slice.start; u < slice.end; u++) {
+            unitCap += Math.max(0, (paidArr[u] ?? 0) - (recArr[u] ?? 0))
+          }
+        }
+      }
+      const remaining = orderRefundableBalance(this.db, sale.order_id).remainingCents
+      refundAmount = Math.min(sale.amount, unitCap, remaining)
+      if (refundAmount !== sale.amount) {
+        this.db.run('UPDATE after_sales SET amount=? WHERE id=?', refundAmount, sale.id)
+      }
+    }
+    const refundId = refundAmount > 0 ? this.payments.createAfterSaleRefund(sale.order_id, sale.payment_id, sale.id, refundAmount, this.clock.now(),user) : null
     if (sale.shipping_amount !== null) {
       const compensation = data?.shippingCompensationCents ?? sale.shipping_amount
       ensure(compensation <= sale.shipping_amount, 400, '补偿不能超过买家填写的运费')
@@ -160,7 +191,7 @@ export class AfterSales {
       appendAudit(this.db, { created: this.clock.now(), actor: user, action: 'aftersale.shipping_comp', targetType: 'after_sale', targetId: sale.id,
         orderId: sale.order_id, summary: { before: sale.shipping_amount, after: compensation, ...(reason ? { reason } : {}) } })
     }
-    this.db.run("UPDATE after_sales SET state=?,approved_at=COALESCE(approved_at,?),refund_id=?,resolved_at=?,resolved_by=? WHERE id=?", sale.amount === 0 ? 'completed' : 'refunding', this.clock.now(), refundId, this.clock.now(), user?.id ?? null, sale.id)
+    this.db.run("UPDATE after_sales SET state=?,approved_at=COALESCE(approved_at,?),refund_id=?,resolved_at=?,resolved_by=? WHERE id=?", refundAmount === 0 ? 'completed' : 'refunding', this.clock.now(), refundId, this.clock.now(), user?.id ?? null, sale.id)
   }
   private approve(sale: Sale, address: ReturnAddress | null, user?: User) {
     if (sale.kind === 'refund-missing') this.refund(sale, user)

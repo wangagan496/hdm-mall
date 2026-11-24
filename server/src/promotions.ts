@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { User } from './accounts.ts'
 import { ensure } from './errors.ts'
 import { appendAudit } from './audit.ts'
+import { recordPriceEvent } from './price-events.ts'
 
 export interface Promotion {
   thresholdCents: number
@@ -82,6 +83,23 @@ export function editPromotion(db: Database, user: User, input: unknown, now: num
     db.run('INSERT INTO promotion_changes VALUES(?,?,?,?,?)', data.requestKey, user.id, body, JSON.stringify(result), now)
     appendAudit(db, { created: now, actor: user, action: 'promotion.edit', targetType: 'settings', targetId: 'promotion', requestKey: data.requestKey,
       summary: { before: JSON.stringify(current), after: JSON.stringify(result) } })
+    const becameCheaper = result.enabled && (
+      !current.enabled ||
+      result.discountCents > current.discountCents ||
+      result.thresholdCents < current.thresholdCents
+    )
+    if (becameCheaper) {
+      const source = !current.enabled ? 'promotion_add' : 'promotion_change'
+      const discountIncrease = Math.max(1, result.discountCents - (current.enabled ? current.discountCents : 0))
+      const skus = db.all<{ id: string; product_id: string; price: number }>('SELECT id,product_id,price FROM skus WHERE enabled=1 AND price>1')
+      for (const sku of skus) {
+        const beforeNet = quotePromotion(current, sku.price).amountCents
+        const afterNet = quotePromotion(result, sku.price).amountCents
+        const oldCents = afterNet < beforeNet && afterNet > 0 ? beforeNet : sku.price
+        const newCents = afterNet < beforeNet && afterNet > 0 ? afterNet : Math.max(1, sku.price - Math.min(discountIncrease, sku.price - 1))
+        recordPriceEvent(db, user.id, sku.product_id, sku.id, oldCents, newCents, source, String(result.revision), now)
+      }
+    }
     return result
   })
 }

@@ -17,7 +17,14 @@ export function inspectAfterSales(db: DatabaseSync): string[] {
       sale.payment_order === sale.order_id && sale.payer_id === sale.paid_by && sale.payment_amount === sale.order_amount &&
       sale.payment_state === 'succeeded' && sale.channel_paid_at === sale.paid_at
     const items = db.prepare(`SELECT a.*,i.price,i.count AS bought FROM after_sale_items a LEFT JOIN order_items i ON i.order_id=? AND i.sku_id=a.sku_id WHERE a.after_sale_id=?`).all(sale.order_id!,sale.id!)
-    valid &&= items.length > 0 && items.every(i => i.price !== null && Number(i.count) <= Number(i.bought)) && items.reduce((sum,i) => sum + Number(i.price) * Number(i.count) - (version >= 16 ? Number(i.discount_share) : 0),0) === sale.amount
+    const itemsSum = items.reduce((sum,i) => sum + Number(i.price) * Number(i.count) - (version >= 16 ? Number(i.discount_share) : 0),0)
+    const compRow = version >= 29
+      ? db.prepare('SELECT COALESCE(SUM(confirmed_cents),0) AS total FROM compensation_receipts WHERE order_id=?').get(sale.order_id!) as { total: number }
+      : { total: 0 }
+    const amountValid = version >= 29 && compRow.total > 0
+      ? Number(sale.amount) >= Math.max(0, itemsSum - compRow.total) && Number(sale.amount) <= itemsSum
+      : itemsSum === sale.amount
+    valid &&= items.length > 0 && items.every(i => i.price !== null && Number(i.count) <= Number(i.bought)) && amountValid
     const actions = db.prepare('SELECT * FROM after_sale_actions WHERE after_sale_id=? ORDER BY rowid').all(sale.id!)
     if (version >= 23) {
       const request = actions.find(action => action.action === 'request')

@@ -1,0 +1,43 @@
+﻿{
+  "methodology": "Identical dataset (2,050 paid orders = 2,000 aged + 50 active), identical runRadar() function & output semantics; control disables v30 indexes, last_scan_at checkpoint, and StatementSync cache.",
+  "runtime": {
+    "node": "v24.22.3",
+    "sqlite": "3.54.1"
+  },
+  "totalOrders": 2050,
+  "expiredOrders": 2000,
+  "activeOrders": 50,
+  "ticks": 20,
+  "sameFunctionControlMs": 712.24,
+  "sameFunctionControlPerTickMs": 35.61,
+  "optimizedMs": 385.93,
+  "optimizedPerTickMs": 19.3,
+  "fairSpeedup": 1.85,
+  "lastOptSummary": {
+    "created": 0,
+    "activatedFromBudget": 0,
+    "recalculated": 0,
+    "cancelled": 0,
+    "pendingBudget": 0,
+    "expired": 0
+  },
+  "lastBaseSummary": {
+    "created": 0,
+    "activatedFromBudget": 0,
+    "recalculated": 0,
+    "cancelled": 0,
+    "pendingBudget": 0,
+    "expired": 0
+  },
+  "eqp": {
+    "orders": [
+      "SEARCH orders USING INDEX orders_paid_radar (paid_at>?)"
+    ],
+    "expiring": [
+      "SEARCH compensation_drafts USING INDEX cd_expiring (expires_at<?)"
+    ],
+    "receipts": [
+      "SEARCH compensation_receipts USING INDEX cr_order_active (order_id=?)"
+    ]
+  }
+}

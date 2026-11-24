@@ -1,0 +1,22 @@
+{
+  "theme": "light",
+  "target": "127.0.0.1:5555",
+  "apiVersion": "24",
+  "packageSha256": "55DD0E4298EF12CA5E307AF9F9DD48140F8BD332C1103F65D9EF9DF57E14D345",
+  "orderId": "9cda3fdc-6341-466c-b829-3f750a00c6c7",
+  "productId": "5f9b0334-5819-4e33-bb23-af09139dfc7f",
+  "policyReceiptId": "7c6659d9-1f4a-4355-ba5c-74f24aa54a1d",
+  "draftId": "986612e1-3632-4da0-a1a6-643cf9b2890c",
+  "receiptId": "60384196-67b2-496f-9c71-36f7a285556d",
+  "basketDeltaCents": 1000,
+  "cappedCents": 1000,
+  "confirmedCents": 1000,
+  "channelStatus": "pending",
+  "radarSummary": {
+    "created": 1,
+    "activatedFromBudget": 0,
+    "pendingBudget": 0,
+    "expired": 0
+  },
+  "result": "passed"
+}

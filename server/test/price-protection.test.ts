@@ -183,21 +183,21 @@ test('买家订单详情无价保（paid_at 在 effective_at 之前）', async (
   } finally { await f.ctx.app.close() }
 })
 
-test('paid_at 超出价保窗口后 protectionBrief 为 null', async () => {
+test('policy window_days 仅限每单窗口期而非政策寿命，第9天新付款订单仍展示 protectionBrief', async () => {
   const f = await fixture()
   try {
-    // 推进 effective_at 已过，然后下单
     const draftRes = await f.draft()
     const { policyId, policyHash } = draftRes.result as { policyId: string; policyHash: string }
     const confirmRes = await f.confirm(policyId, policyHash)
     const { token } = confirmRes.result as { token: string }
     assert.equal((await f.publish(token, policyId, randomUUID())).status, 200)
-    // 推进到窗口之外（> 7 天）
+    // 推进 9 天后下单付款：新订单在各自窗口内仍受保并展示 protectionBrief
     f.tick(9 * ONE_DAY_MS)
     await f.relogin()
     const orderId = await f.placeAndPayOrder()
     const detailRes = await f.call('GET', '/member/order/' + orderId)
     assert.equal(detailRes.status, 200)
-    assert.equal(detailRes.result.protectionBrief, null)
+    assert.ok(detailRes.result.protectionBrief !== null && typeof detailRes.result.protectionBrief === 'object')
+    assert.equal(detailRes.result.protectionBrief.windowDays, 7)
   } finally { await f.ctx.app.close() }
 })

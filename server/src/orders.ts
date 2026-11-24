@@ -16,6 +16,8 @@ import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, saveFollowup,
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
 import { activePolicy, policyBrief } from './protection.ts'
+import { listOrderCompensationReceipts } from './compensation.ts'
+import { orderRefundableBalance } from './balance.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -182,7 +184,9 @@ export class Orders {
     const owner = order.owner_id === user.id
     const merchant = merchantShipment && user.identity === 'merchant'
     const actionable = pending && serverNow < request.deadline_at && order.state === 2
-    const canRequestCancel = owner && order.state === 2 && !pending && Boolean(effective)
+    const balance = effective ? orderRefundableBalance(this.db, order.id) : null
+    const refundAmountCents = balance ? balance.remainingCents : order.amount
+    const canRequestCancel = owner && order.state === 2 && !pending && Boolean(effective) && refundAmountCents > 0
     let cancelRequestNotice = ''
     if (request) {
       if (pending) cancelRequestNotice = serverNow >= request.deadline_at ? '已到自动处理时间，正在处理' :
@@ -193,12 +197,13 @@ export class Orders {
       else cancelRequestNotice = '商家拒绝取消申请：' + request.reject_reason + '。如有问题请联系客服'
     }
     const destination = this.paymentMode(order) === 'family' ? '亲友 ' + this.account(order.paid_by) + ' 的付款账户' : '付款账户'
+    const compensatedNote = balance && balance.compensatedCents > 0 ? `（已扣除价保补差 ¥${(balance.compensatedCents / 100).toFixed(2)}）` : ''
     return { cancelRequest: request ? { id: request.id, sequence: request.sequence, state: request.state, createdAt: request.created,
       deadlineAt: request.deadline_at, resolvedAt: request.resolved_at, rejectReason: request.reject_reason, refundId: request.refund_id } : null,
       canRequestCancel, canWithdrawCancel: owner && Boolean(actionable), canResolveCancel: merchant && Boolean(actionable),
       canShip: merchant && order.state === 2 && !pending && Boolean(effective), cancelRequestNotice,
-      cancelConfirmation: canRequestCancel ? { amountCents: order.amount, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
-        message: '取消申请提交后，商家同意即不再发货，¥' + (order.amount / 100).toFixed(2) + '将原路退回' + destination + '。确定申请取消吗？' } : null, serverNow }
+      cancelConfirmation: canRequestCancel ? { amountCents: refundAmountCents, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
+        message: '取消申请提交后，商家同意即不再发货，¥' + (refundAmountCents / 100).toFixed(2) + '将原路退回' + destination + compensatedNote + '。确定申请取消吗？' } : null, serverNow }
   }
   private evaluationRule(order: Order): string {
     if (order.received_at === null || (!order.received_by && !order.signed_at)) {
@@ -257,11 +262,10 @@ export class Orders {
       protectionBrief: (() => {
         if (!isOrderOwner || order.paid_at === null) return null
         const policy = activePolicy(this.db, order.paid_at)
-        if (!policy) return null
-        const windowEnd = policy.effective_at + policy.window_days * 86_400_000
-        if (order.paid_at < policy.effective_at || order.paid_at >= windowEnd) return null
+        if (!policy || order.paid_at < policy.effective_at || policy.window_days <= 0) return null
         return policyBrief(policy)
       })(),
+      ...(isOrderOwner && user.identity === 'buyer' ? { compensationReceipts: listOrderCompensationReceipts(this.db, user.id, order.id) } : {}),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
@@ -624,6 +628,10 @@ export class Orders {
         { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: request.order_id }, this.clock)
     }
     const refundId = this.payments.createOrderCancellationRefund(request.order_id, request.payment_id, now,user??undefined)
+    this.db.run(
+      "UPDATE compensation_drafts SET status='cancelled' WHERE order_id=? AND status IN ('pending','pending_budget')",
+      request.order_id
+    )
     const state = user ? 'approved' : 'auto-approved'
     const resolved = this.db.run("UPDATE order_cancel_requests SET state=?,resolved_at=?,resolved_by=?,refund_id=? WHERE id=? AND state='pending'",
       state, now, user?.id ?? null, refundId, request.id)

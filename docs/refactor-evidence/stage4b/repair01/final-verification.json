@@ -1,0 +1,132 @@
+{
+  "taskId": "hdm-stage4b-repair-opt-20261124-01",
+  "head": "4467aa9419eb252d5d2feb1220c0d1f27b37e9b4",
+  "branch": "mall-crazy-design-20261116",
+  "runtime": {
+    "node": "v24.22.3",
+    "sqlite": "3.54.1",
+    "fastifyInstalled": "5.12.7",
+    "fastifyDeclaredRange": "^5.12.8"
+  },
+  "officialReferences": [
+    {
+      "topic": "Node.js node:sqlite DatabaseSync & StatementSync",
+      "applicableVersions": "Node.js v22.5.0+ (verified locally on v24.22.3)",
+      "url": "https://nodejs.org/docs/latest-v24.x/api/sqlite.html",
+      "httpStatus": 200
+    },
+    {
+      "topic": "SQLite Partial Indexes",
+      "applicableVersions": "SQLite 3.8.0+ (verified locally on 3.54.1)",
+      "url": "https://www.sqlite.org/partialindex.html",
+      "httpStatus": 200
+    },
+    {
+      "topic": "SQLite Query Planning & EXPLAIN QUERY PLAN",
+      "applicableVersions": "SQLite 3.x (verified locally on 3.54.1)",
+      "url": "https://www.sqlite.org/queryplanner.html",
+      "httpStatus": 200
+    },
+    {
+      "topic": "SQLite Write-Ahead Logging (WAL)",
+      "applicableVersions": "SQLite 3.7.0+ (verified locally on 3.54.1)",
+      "url": "https://www.sqlite.org/wal.html",
+      "httpStatus": 200
+    },
+    {
+      "topic": "Fastify v5 Server Factory & Lifecycle (forceCloseConnections/idle/onClose)",
+      "applicableVersions": "Fastify v5 (installed 5.12.7, package.json ^5.12.8)",
+      "url": "https://fastify.dev/docs/v5.6.x/Reference/Server/",
+      "httpStatus": 200
+    },
+    {
+      "topic": "Fastify Latest Server Reference",
+      "applicableVersions": "Fastify v5",
+      "url": "https://fastify.dev/docs/latest/Reference/Server/"
+    },
+    {
+      "topic": "Fastify Latest Lifecycle Reference (onClose)",
+      "applicableVersions": "Fastify v5",
+      "url": "https://fastify.dev/docs/latest/Reference/Lifecycle/"
+    }
+  ],
+  "benchmark": {
+    "methodology": "Same-function configuration A/B control (not across historical program builds): identical 2,050-order dataset (2,000 aged + 50 active), identical runRadar() function & output semantics; control disables v30 indexes, last_scan_at checkpoint, and StatementSync cache.",
+    "scriptPath": "docs/refactor-evidence/stage4b/repair01/benchmark-radar.mjs",
+    "resultPath": "docs/refactor-evidence/stage4b/repair01/benchmark-result.json",
+    "totalOrders": 2050,
+    "expiredOrders": 2000,
+    "activeOrders": 50,
+    "ticks": 20,
+    "sameFunctionControlMs": 566.14,
+    "sameFunctionControlPerTickMs": 28.31,
+    "optimizedMs": 306.19,
+    "optimizedPerTickMs": 15.31,
+    "fairSpeedup": 1.85,
+    "explainQueryPlan": {
+      "orders": "SEARCH orders USING INDEX orders_paid_radar (paid_at>?)",
+      "expiring": "SEARCH compensation_drafts USING INDEX cd_expiring (expires_at<?)",
+      "receipts": "SEARCH compensation_receipts USING INDEX cr_order_active (order_id=?)"
+    }
+  },
+  "checks": {
+    "rawLogPath": "docs/refactor-evidence/stage4b/repair01/final-checks.log",
+    "contractKitCheck": { "passed": true },
+    "serverTscCheck": { "passed": true },
+    "serverTest": { "total": 546, "pass": 546, "fail": 0, "skipped": 0, "durationMs": 39925.3912, "compensationTestCount": 24 },
+    "codexIndependentTotal": { "total": 35, "pass": 35, "fail": 0, "skipped": 0 },
+    "stage4bSpecAcceptance": { "total": 16, "pass": 16, "fail": 0, "skipped": 0, "durationMs": 5516.2506, "note": "Spec-aligned Test 12 (3333 / 18333); legacy stage4b-acceptance.test.mjs kept untouched" },
+    "stage4bCancelBackup": { "total": 3, "pass": 3, "fail": 0, "skipped": 0, "durationMs": 1593.4499 },
+    "stage4bCapFilter": { "total": 2, "pass": 2, "fail": 0, "skipped": 0, "durationMs": 966.212 },
+    "stage4bMixedLow": { "total": 1, "pass": 1, "fail": 0, "skipped": 0, "durationMs": 744.2988 },
+    "stage4bSuccessorBoundaries": { "total": 3, "pass": 3, "fail": 0, "skipped": 0, "durationMs": 1280.0526 },
+    "stage4bEventGroups": { "total": 4, "pass": 4, "fail": 0, "skipped": 0, "durationMs": 1666.0158 },
+    "stage4bMultipleRemainder": { "total": 1, "pass": 1, "fail": 0, "skipped": 0, "durationMs": 781.1235 },
+    "stage4bRequestKeyScope": { "total": 1, "pass": 1, "fail": 0, "skipped": 0, "durationMs": 751.2417 },
+    "stage4bOrderBoundary": { "total": 3, "pass": 3, "fail": 0, "skipped": 0, "durationMs": 1267.0784 },
+    "stage4bExistingV30": { "total": 1, "pass": 1, "fail": 0, "skipped": 0, "durationMs": 733.3453 },
+    "clientIsolatedTests": { "total": 666, "pass": 666, "fail": 0, "skipped": 0, "durationMs": 20809.8963 },
+    "hvigorModuleTests": { "total": 184, "pass": 184, "fail": 0, "ignore": 0, "note": "Historical run; ArkTS source unchanged since task-1545", "modules": { "models": 90, "network": 5, "cart": 45, "category": 6, "home": 27, "mine": 11 } },
+    "signedBuild": {
+      "passed": true,
+      "skipH5Used": true,
+      "h5Rebuilt": false,
+      "note": "-SkipH5 reused pre-built H5 assets while verifying packaged H5 hash matches source output",
+      "appPath": "mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app",
+      "sizeBytes": 10714893,
+      "sha256": "5515E6A31A1EFB7522A3894A531CC62797166651B669ED8D3146D0F581A0BBD3",
+      "packagedWebIndexSha256": "60CF0418BDC79FDB49B3A065652EE4B13B8CB730A05F978249F9AFA645154EE7",
+      "logPath": "docs/refactor-evidence/stage4b/repair01/signed-build.log"
+    }
+  },
+  "deviceEvidence": {
+    "deviceRunInThisRound": false,
+    "reusedUnaffectedDir": "docs/refactor-evidence/stage4b/device",
+    "note": "No UI changes in check3-check6; sealed light/dark device evidence remains valid without re-running device acceptance"
+  },
+  "fileHashes": [
+    { "path": "server/src/migrations/030-compensation-repair.sql", "size": 2756, "sha256": "595047D94CC2FD9EDD4368AC12B80F4CB4BF8C843D501DE8A8DA0C9B9B1F55DB" },
+    { "path": "server/src/migrations/030b-order-audit-anchors.sql", "size": 1266, "sha256": "FAC9CD695BD67A5219A36CBE7D9F349E61A8D14C2C095B05B8F36806F82B2228" },
+    { "path": "server/src/balance.ts", "size": 12098, "sha256": "132DB1253517B386BC10ABF0CF6D8EE183DC23961D95EAED73A9F90F06275ADF" },
+    { "path": "server/src/compensation-calc.ts", "size": 24545, "sha256": "2BE450236555F5D6E5745394F9E5BF3CD3E6338AC5B74C9B3C99FE5491E8287D" },
+    { "path": "server/src/compensation.ts", "size": 14069, "sha256": "7063CA8154297279AA8AFB69A77A39F6F3FB571A1F10BF7E572B114C4726BCDE" },
+    { "path": "server/src/price-radar.ts", "size": 13214, "sha256": "2FE28DDE85C48DEAB232ED176DFDBD22FB447E87E25968A88E184A3434A45704" },
+    { "path": "server/src/payments.ts", "size": 40347, "sha256": "36D2CB69147E8C86580405870E6C273308F1A5FD7B8C68361132AAFFF612C8F2" },
+    { "path": "server/src/orders.ts", "size": 51004, "sha256": "519DC1104E523F377914D48FE44060BB46FBD286E44B2EB980431F88BA263504" },
+    { "path": "server/src/after-sales.ts", "size": 34159, "sha256": "C37280A15BB2101531D2423127049F787292A319A069AAD074BE5AC356BD96E8" },
+    { "path": "server/src/after-sale-backup.ts", "size": 9504, "sha256": "833E804FAED60E430C16F896A745EC18AC536C4FC427AE3601F29F7BD0C9BCB8" },
+    { "path": "server/src/backup.ts", "size": 35034, "sha256": "62F904EA39755E1612875F35F16BDDE646A9B05D6EEFAFF9124957F60404D4A0" },
+    { "path": "server/src/protection.ts", "size": 8402, "sha256": "51952936A3CCFCA2F0CFA31CCE13929AE02BFB3190D9BD446E1E66714C088634" },
+    { "path": "server/src/database.ts", "size": 11472, "sha256": "EF16D05F04528DC9598A3C77A2F75695D7A9C3252DE4565B444F8C9C6F940A15" },
+    { "path": "server/test/compensation.test.ts", "size": 100794, "sha256": "351D63FC535B21DBF0022D1ECD39268B0E9FF2EFA98FA737F66C7FBEB303D07B" },
+    { "path": "server/test/price-protection.test.ts", "size": 10011, "sha256": "150432438F6F1C96901ECBEF4AC7DED77B0323881B4F4EE90464AF1FBF4FEC17" },
+    { "path": "server/test/helpers/legacy-v20.ts", "size": 3457, "sha256": "A18996E332A0167A93842E81EC38D6FDEE9BE11CD75D4E06628F5EBFFB09F209" },
+    { "path": "mixed-development-h5/features/cart/src/main/ets/presentation/utils/CompensationPresentation.ets", "size": 1386, "sha256": "9BCC05B59F0B159022A916D7C3EB19252252998B8FDDDD601F1FE28ADD22FFD0" },
+    { "path": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets", "size": 65966, "sha256": "5104139A6AFB06ADEE4AFC22FC17BAA10D575002F545142A1D09B6AB2C95D09A" },
+    { "path": "mixed-development-h5/features/cart/src/test/Protection.test.ets", "size": 3520, "sha256": "3CB2CE75ABF636F873685BCB43393B047806E20F02F723F314D1D6DCDA76B31A" },
+    { "path": "docs/refactor-evidence/stage4b/repair01/benchmark-radar.mjs", "size": 7805, "sha256": "6E74A4CB503AF8847BCEC4666AF2133F13114854D95050687975206F80DDD273" },
+    { "path": "docs/refactor-evidence/stage4b/repair01/benchmark-result.json", "size": 1192, "sha256": "7BBBD472B650D111928E824CA4441E3AB225477FD730E2E6776161D2B32BB5F5" },
+    { "path": "docs/refactor-evidence/stage4b/repair01/final-checks.log", "size": 126365, "sha256": "F160CFCE29F8727DC99735E3772D1BD1166FCE5D1A1F5A9FB384FBCA1CB5AC33" },
+    { "path": "docs/refactor-evidence/stage4b/repair01/signed-build.log", "size": 1280, "sha256": "38D43D2BB3EDE0D996D56FCC12268DD98EE81D451D743032DF30BA5E01F78406" }
+  ]
+}

@@ -79,3 +79,9 @@ export { formatBeijingTime, formatReviewDate } from './src/main/ets/TimeFormat'
 export { afterSaleDiscount, amountInputCents, returnShippingError, shippingAdjustmentError, shippingCompensationText } from './src/main/ets/AfterSaleModels'
 export { AfterSale, AfterSaleAddress, AfterSaleLine, AfterSaleImage, AfterSaleQuantity, AfterSaleRestock, AfterSaleBody, AfterSalePhoto, AfterSalePending, AfterSaleReceipt, AfterSalePage, AfterSaleCounts, afterSaleAmount, afterSaleInputError, afterSaleStatus, afterSaleKind, sizeReasonLabel } from './src/main/ets/AfterSaleModels'
 export { SourceRecord, ProductMaterials, PromiseMaterialSource, parseProductMaterials, parsePromiseMaterialSource, parseSourceRecord } from './src/main/ets/SourceRecords'
+export {
+  CompensationChannelStatus, CompensationDraftStatus, CompensationDraftLine, CompensationDraftBrief,
+  CompensationDraftDetail, CompensationConfirmInput, CompensationReceipt,
+  parseCompensationDraftLine, parseCompensationDraftBrief, parseCompensationDraftDetail,
+  parseCompensationConfirmInput, parseCompensationReceipt
+} from './src/main/ets/CompensationModels'

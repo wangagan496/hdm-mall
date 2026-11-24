@@ -5,6 +5,7 @@ import { AppError, ensure } from './errors.ts'
 import { requireBuyer, restrictOwnOrder, type Accounts, type User } from './accounts.ts'
 import { recordStockMovement } from './inventory.ts'
 import { appendAudit } from './audit.ts'
+import { orderRefundableBalance } from './balance.ts'
 import { MockPaymentChannel, type ChannelPayment, type ChannelResult, type PaymentCallback, type PaymentChannel } from './payment-channel.ts'
 
 const PAYMENT_WINDOW_MS = 15 * 60_000
@@ -291,7 +292,11 @@ export class Payments {
 
   createOrderCancellationRefund(orderId: string, paymentId: string, now: number, actor?: User) {
     if (this.effectivePaymentId(orderId) !== paymentId) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
-    return this.createRefund(this.payment(paymentId)!, 'cancelled', now,undefined,undefined,actor)
+    const payment = this.payment(paymentId)!
+    const balance = orderRefundableBalance(this.db, orderId)
+    const amount = Math.min(payment.amount, balance.remainingCents)
+    ensure(amount > 0, 409, '订单可退余额已被补差全部占用')
+    return this.createRefund(payment, 'cancelled', now, amount, undefined, actor)
   }
 
   createAfterSaleRefund(orderId: string, paymentId: string, afterSaleId: string, amount: number, now: number, actor?: User) {
@@ -309,8 +314,17 @@ export class Payments {
       this.db.one<{ id: string }>("SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')", payment.id)
     if (existing) return existing.id
     const id = randomUUID()
-    const reserved = this.db.one<{ amount: number }>("SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=? AND reason<>'shipping'", payment.id)!.amount
-    ensure(Number.isSafeInteger(amount) && amount > 0 && (reason === 'shipping' || amount + reserved <= payment.amount), 409, '退款合计不能超过实付金额')
+    if (reason !== 'shipping') {
+      if (reason === 'cancelled' || reason === 'after-sale') {
+        const balance = orderRefundableBalance(this.db, payment.order_id)
+        ensure(Number.isSafeInteger(amount) && amount > 0 && amount <= balance.remainingCents, 409, '退款与补差合计不能超过实付金额')
+      } else {
+        const reserved = this.db.one<{ amount: number }>("SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=? AND reason<>'shipping'", payment.id)!.amount
+        ensure(Number.isSafeInteger(amount) && amount > 0 && amount + reserved <= payment.amount, 409, '退款合计不能超过实付金额')
+      }
+    } else {
+      ensure(Number.isSafeInteger(amount) && amount > 0, 409, '退款金额无效')
+    }
     this.db.run(`INSERT INTO refunds(id,payment_id,amount,reason,after_sale_id,state,attempts,next_attempt_at,created) VALUES(?,?,?,?,?,'pending',0,?,?)`,
       id, payment.id, amount, reason, afterSaleId ?? null, now, now)
     this.createRefundNotices(payment, id, now)

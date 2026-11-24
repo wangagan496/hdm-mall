@@ -128,7 +128,7 @@ export function activePolicy(db: Database, now: number): (PolicyRow & { receipt_
   return db.one<PolicyRow & { receipt_id: string }>(
     `SELECT p.*, pub.receipt_id FROM price_protection_publications pub
      JOIN price_protection_policies p ON p.id=pub.policy_id
-     WHERE p.effective_at <= ? ORDER BY pub.published_at DESC LIMIT 1`, now
+     WHERE p.effective_at <= ? ORDER BY pub.published_at DESC, p.version DESC LIMIT 1`, now
   ) ?? null
 }
 

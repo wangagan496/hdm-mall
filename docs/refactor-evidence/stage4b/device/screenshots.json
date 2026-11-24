@@ -1,0 +1,50 @@
+[
+  {
+    "theme": "light",
+    "file": "01-merchant-price-drop.jpg",
+    "bytes": 52797,
+    "sha256": "14905FC32E599E29DE2093FD94A170AB9D7DF57D35615AEA21BA48EDD8884652"
+  },
+  {
+    "theme": "light",
+    "file": "02-buyer-order-draft.jpg",
+    "bytes": 85719,
+    "sha256": "EA9D904CD96E5BC536206C92F3AEBF36DEE91FC71E40FC2567829353C79CF678"
+  },
+  {
+    "theme": "light",
+    "file": "03-buyer-confirm-receipt.jpg",
+    "bytes": 91108,
+    "sha256": "C32783C55431D00CC543A62B4707DEDD9732CE87CB328FAAA39917A142E2382D"
+  },
+  {
+    "theme": "light",
+    "file": "04-buyer-receipt-detail.jpg",
+    "bytes": 93081,
+    "sha256": "B877DE9D00C3F88CD7B17DFF2841125D094C30FBFEE215B96E48C106E5254B4B"
+  },
+  {
+    "theme": "dark",
+    "file": "01-merchant-price-drop.jpg",
+    "bytes": 50496,
+    "sha256": "1536DE8AAAE57A625A3B0B2B3D3B27848CA2706BDA25F16673DD497DC2E580DC"
+  },
+  {
+    "theme": "dark",
+    "file": "02-buyer-order-draft.jpg",
+    "bytes": 83340,
+    "sha256": "C111FAC699B6A42E966D69702934B3CA54CC604464DD91841918BFD9D6DD459B"
+  },
+  {
+    "theme": "dark",
+    "file": "03-buyer-confirm-receipt.jpg",
+    "bytes": 86434,
+    "sha256": "30F289B68D613BD4E724CA964E07AAC3A66ED00E8D9C591ED99669BA03F31A1B"
+  },
+  {
+    "theme": "dark",
+    "file": "04-buyer-receipt-detail.jpg",
+    "bytes": 80240,
+    "sha256": "CAB32C9D189BD04E905CF3F7E18A69DF969FF1670A154CB0F03288F56E79BE37"
+  }
+]

@@ -41,6 +41,8 @@ import { PromisePublications, confirmPromisesSchema, publishPromisesSchema } fro
 import { checkOrderPromise, promiseCheckSchema } from './promises/order-promises.ts'
 import { materialBatchSchema, materialLimit, materialUploadSchema, SourceMaterials } from './source-verification/materials.ts'
 import { draftPolicy, draftSchema as protectionDraftSchema, issueConfirmToken, confirmSchema as protectionConfirmSchema, publishPolicy, publishSchema as protectionPublishSchema, merchantPolicyList, activePolicy, policyBrief } from './protection.ts'
+import { confirmCompensation, confirmSchema as compensationConfirmSchema, getDraftDetail, getReceipt, listBuyerDrafts } from './compensation.ts'
+import { RADAR_INTERVAL_MS, scheduledRadarTick } from './price-radar.ts'
 
 export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
   promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
@@ -138,7 +140,7 @@ export async function buildApp(options: AppOptions) {
         deniedAudit(db, user, req.method + ' ' + url, clock.now())
         throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
       }
-      if (url.startsWith('/member/') && !sharedMemberRoutes.has(url)) requireBuyer(user)
+      if ((url.startsWith('/member/') && !sharedMemberRoutes.has(url)) || url.startsWith('/buyer/')) requireBuyer(user)
       const followUp = [
         '/logout','/member/consents','/member/consents/withdraw','/member/account-deletion','/member/account-deletion/cancel',
         '/member/order/:id/receipt','/member/order/:id/payments/refresh',
@@ -218,6 +220,13 @@ export async function buildApp(options: AppOptions) {
   protectedRoute('POST', '/merchant/settings/protection/draft', (req,user) => draftPolicy(db,user,req.body,clock.now()))
   protectedRoute('POST', '/merchant/settings/protection/confirm', (req,user) => issueConfirmToken(db,user,req.body,clock.now()))
   protectedRoute('POST', '/merchant/settings/protection/publish', (req,user) => publishPolicy(db,user,req.body,clock.now()))
+  protectedRoute('GET', '/buyer/orders/:id/compensation/drafts', (req, user) => listBuyerDrafts(db, user.id, key(req), clock.now()))
+  protectedRoute('GET', '/buyer/compensation/drafts/:draftId', (req, user) => getDraftDetail(db, user.id, z.object({ draftId: idSchema }).parse(req.params).draftId))
+  protectedRoute('POST', '/buyer/compensation/confirm', (req, user) => {
+    const body = compensationConfirmSchema.parse(req.body)
+    return confirmCompensation(db, user, body.draftId, body.requestKey, body.confirmedCents, clock.now())
+  })
+  protectedRoute('GET', '/buyer/compensation/receipts/:id', (req, user) => getReceipt(db, user.id, key(req)))
   protectedRoute('PUT', '/merchant/settings/return-address', (req,user) => afterSales.setAddress(user,returnAddressSchema.parse(req.body)))
   protectedRoute('POST', '/member/after-sales/images', async (req,user) => {
     let image: Buffer | undefined
@@ -512,7 +521,10 @@ export async function buildApp(options: AppOptions) {
     void lifecycle.scan().catch(() => app.log.error('Account lifecycle scan failed'))
     void processReconciliation().catch(() => app.log.error('Daily reconciliation scan failed'))
   }, 30_000).unref()
+  const radarTimer = setInterval(() => {
+    try { scheduledRadarTick(db, clock.now()) } catch { app.log.error('Price radar scan failed') }
+  }, RADAR_INTERVAL_MS).unref()
   await backups?.start()
-  app.addHook('onClose', async () => { clearInterval(timer); await reconciliation.stop(); await backups?.stop(); db.close() })
+  app.addHook('onClose', async () => { clearInterval(timer); clearInterval(radarTimer); await reconciliation.stop(); await backups?.stop(); db.close() })
   return { app, db, accounts, catalog, orders, payments, reconciliation, logistics, afterSales, lifecycle, clock, fixtures, backups }
 }

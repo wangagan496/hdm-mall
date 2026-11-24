@@ -7,6 +7,7 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import { MockPaymentChannel } from '../../server/src/payment-channel.ts'
 import { beijingDate } from '../../server/src/channel-bill.ts'
 import { createPromiseDriver } from '../../server/src/promises/extract.ts'
+import { scheduledRadarTick } from '../../server/src/price-radar.ts'
 const sizingProbe = process.argv.includes('--sizing-probe')
 const promisesProbe = process.argv.includes('--promises-probe')
 const paymentCallbackSecret = randomUUID()
@@ -121,7 +122,8 @@ f.app.post<{Body:{milliseconds:number}}>('/device-fixture/advance',async(req,rep
  clockOffset+=req.body.milliseconds
  f.db.run('UPDATE sessions SET expires=?',f.clock.now()+86400000)
  await f.payments.reconcile();await f.orders.processDueCancelRequests(f.clock.now());await f.afterSales.processDue();await f.lifecycle.scan()
- return {now:f.clock.now()}
+ const radar = scheduledRadarTick(f.db, f.clock.now())
+ return {now:f.clock.now(), radar}
 })
 f.app.get('/device-fixture/lifecycle',async()=>({
  users:f.db.all('SELECT id,account,status,deletion_due_at FROM users'),

@@ -5,6 +5,20 @@ import { Identity } from './IdentityContext'
 import { PromiseSnapshot } from './Promises'
 import { OrderPromiseCheck } from './OrderPromises'
 import { PromiseMaterialSource } from './SourceRecords'
+import {
+  CompensationDraftLine,
+  CompensationDraftBrief,
+  CompensationDraftDetail,
+  CompensationConfirmInput,
+  CompensationReceipt
+} from './CompensationModels'
+export {
+  CompensationDraftLine,
+  CompensationDraftBrief,
+  CompensationDraftDetail,
+  CompensationConfirmInput,
+  CompensationReceipt
+} from './CompensationModels'
 
 export interface HDMGoodsItem extends ReturnPolicyFields {
   id: string
@@ -289,6 +303,7 @@ export interface CreateOrderResult {
 
 export interface OrderItem {
   protectionBrief?: PriceProtectionBrief | null
+  compensationReceipts?: CompensationReceipt[]
   canCheckPromises?: boolean
   shippedAt?: number | null
   signedAt?: number | null
