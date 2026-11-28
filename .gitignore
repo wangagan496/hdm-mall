@@ -55,7 +55,9 @@ Thumbs.db
 ui_dump*.json
 
 # Device acceptance dumps and screenshots (uiautomator output, regenerated locally)
-_device_acceptance/
+_device_acceptance/*
+# 新对话交接记录需要跨机器保留，单独放行
+!_device_acceptance/新对话交接.md
 
 # Local interview / job-search material, not part of the source tree
 interview_*
