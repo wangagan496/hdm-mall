@@ -1,0 +1,50 @@
+﻿[
+    {
+        "theme":  "light",
+        "file":  "01-spending-setting.jpg",
+        "bytes":  121153,
+        "sha256":  "1EAE321C332F019971B90985C6DA1A114C43027C05B5917ABB58DE0C914429E1"
+    },
+    {
+        "theme":  "light",
+        "file":  "02-spending-pause.jpg",
+        "bytes":  127819,
+        "sha256":  "B762856605C73FE1F278D91B3B34494604DF594E6C1BA4528482046A5C4BE16D"
+    },
+    {
+        "theme":  "light",
+        "file":  "03-wishlist-waiting.jpg",
+        "bytes":  74847,
+        "sha256":  "CA951C8E1BE75B12E298FF152B0462F336DAA1EA32D7277CA69A2A165D35217E"
+    },
+    {
+        "theme":  "light",
+        "file":  "04-wishlist-cancelled.jpg",
+        "bytes":  69829,
+        "sha256":  "CB1E84B88803C91E3C0DB5FCB829F5A6D62FBD4F5C7C171CF064E32F6D97FC77"
+    },
+    {
+        "theme":  "dark",
+        "file":  "01-spending-setting.jpg",
+        "bytes":  117842,
+        "sha256":  "6790EDB49C177F5D6753777DACDB5562B42670BBE4ABFAC8DDEA29A92C880CF9"
+    },
+    {
+        "theme":  "dark",
+        "file":  "02-spending-pause.jpg",
+        "bytes":  120514,
+        "sha256":  "7DA4576031444E81E5CE6423895777D01AD97D69CC3390632B79AFE6AB79BD87"
+    },
+    {
+        "theme":  "dark",
+        "file":  "03-wishlist-waiting.jpg",
+        "bytes":  71523,
+        "sha256":  "1A35C6670D608B200E4BB363B9565E1943EE52788643288FCC8DFD94F1CABEA2"
+    },
+    {
+        "theme":  "dark",
+        "file":  "04-wishlist-cancelled.jpg",
+        "bytes":  67247,
+        "sha256":  "D2031A79F4D66DCDFC8545BD14011A6500F6A9A216DA14BE809D49666818D195"
+    }
+]

@@ -1,7 +1,9 @@
+import { util } from '@kit.ArkTS'
 import { GlobalVariable, PAGE_PATH } from 'constants'
 import { orderWriteFailure } from '../utils/OrderWriteFailure'
 import { HDMNavBar } from 'ui_components'
-import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, LogisticsEvent, OrderLogistics, formatBeijingTime } from 'models'
+import { HDMUser, CancelActionIntent, LocalEvaluationItem, OrderItem, OrderSku, OrderRefund, LogisticsEvent, OrderLogistics, formatBeijingTime,
+  CompensationDraftBrief, CompensationDraftLine, CompensationConfirmInput, CompensationReceipt } from 'models'
 import { demoOrderStore, cancelActions, RecoveryQuery } from 'storage'
 import {
   remindShipmentAPI,
@@ -9,7 +11,15 @@ import {
   receiptOrderAPI
 } from '../../data/api'
 import { getPaymentDisplayLabel, getDisplayOrderStateText, getRefundDisplayLine, shouldShowPaymentCountdown, canOpenPayment,
-  mergeOrderState, OrderState, readPhoneClockMillis } from '../utils/OrderPresentation'
+  mergeOrderState, OrderState, readPhoneClockMillis, formatOrderProtectionBudget,
+  formatOrderProtectionEffective } from '../utils/OrderPresentation'
+import {
+  formatCompensationAmount,
+  formatCompensationExpiry,
+  compensationStatusLabel,
+  isCompensationDraftAvailable,
+  compensationConfirmErrorMessage
+} from '../utils/CompensationPresentation'
 import { getScoreLabel } from '../utils/EvaluationPresentation'
 import { advanceOrderState } from '../utils/DemoOrderFlow'
 import { OrderCountdown } from '../components'
@@ -21,12 +31,16 @@ import { RequestAxios } from 'network'
 import { InvoiceForm } from '../components/InvoiceForm'
 import { OrderPromisesCard } from '../components/OrderPromisesCard'
 import { OrderPromiseCheck, PromiseAfterSaleRoute, frozenOrderPromise } from 'models'
+import { spendingOrderSummaryText } from '../utils/SpendingPresentation'
 
 interface OrderServiceRoute { orderId: string; orderName: string; orderCreatedAt: number }
 interface LogisticsErrorBody { reason?: string }
 interface LogisticsErrorResponse { data?: LogisticsErrorBody }
 interface LogisticsRequestError extends Error { response?: LogisticsErrorResponse }
 interface PromiseCheckBody { skuId: string; fieldId: string; result: string }
+interface CompensationErrorBody { reason?: string }
+interface CompensationErrorResponse { status?: number; data?: CompensationErrorBody }
+interface CompensationError extends Error { httpStatus?: number; response?: CompensationErrorResponse }
 
 @Builder
 function OrderDetailViewBuilder() {
@@ -147,6 +161,13 @@ export struct OrderDetailView {
     this.logisticsLoading = false
     this.promiseCheckSaving = false
     this.promiseCheckMessage = ''
+    this.compensationDrafts = []
+    this.compensationBusy = false
+    this.compensationMessage = ''
+    this.compensationDetailVisible = false
+    this.selectedDraft = null
+    this.receiptVisible = false
+    this.selectedReceipt = null
   }
 
   private showOrderDetail(): void {
@@ -178,6 +199,13 @@ export struct OrderDetailView {
     this.detailIdentityRevision = this.user.identityRevision
     this.promiseCheckSaving = false
     this.promiseCheckMessage = ''
+    this.compensationDrafts = []
+    this.compensationBusy = false
+    this.compensationMessage = ''
+    this.compensationDetailVisible = false
+    this.selectedDraft = null
+    this.receiptVisible = false
+    this.selectedReceipt = null
     this.logisticsLoading = false
     this.invoiceDraft = { titleType: 'individual', title: '', email: '' }
     this.invoiceEditing = false; this.invoiceSaving = false; this.invoiceMessage = ''
@@ -271,6 +299,13 @@ export struct OrderDetailView {
   @State busy: string = ''
   @State cancellationPending: boolean = false
   @State cancelActionPending: boolean = false
+  @State compensationDrafts: CompensationDraftBrief[] = []
+  @State compensationBusy: boolean = false
+  @State compensationMessage: string = ''
+  @State compensationDetailVisible: boolean = false
+  @State selectedDraft: CompensationDraftBrief | null = null
+  @State receiptVisible: boolean = false
+  @State selectedReceipt: CompensationReceipt | null = null
   @Consume stackPath: NavPathStack
 
   @State orderId: string = ''
@@ -307,6 +342,13 @@ export struct OrderDetailView {
       this.updateOrderStatusAndEvaluation()
       this.cancellationPending = orderCancellation.pendingIds().includes(this.orderId)
       this.cancelActionPending = cancelActions.pending().some(record => record.orderId === this.orderId)
+      const isPaid = order.orderState === OrderState.AWAITING_SHIPMENT || order.orderState === OrderState.AWAITING_RECEIPT ||
+        order.orderState === OrderState.AWAITING_REVIEW || order.orderState === OrderState.COMPLETED
+      if (this.user.identity === 'buyer' && order.ownerAccount === this.user.account && isPaid) {
+        void this.loadCompensationDrafts(orderId, token, generation, sequence)
+      } else {
+        this.compensationDrafts = []
+      }
     } catch {
       if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) {
         this.loadFailed = true
@@ -524,6 +566,113 @@ export struct OrderDetailView {
     return getDisplayOrderStateText(this.displayedOrderState, this.hasEvaluation())
   }
 
+  private compensationFailureStatus(error: Error): number {
+    const failure = error as CompensationError
+    return failure.httpStatus || failure.response?.status || 0
+  }
+
+  private compensationFailureReason(error: Error): string | undefined {
+    const failure = error as CompensationError
+    return failure.response?.data?.reason
+  }
+
+  private visibleCompensationDrafts(): CompensationDraftBrief[] {
+    const now = Date.now()
+    return this.compensationDrafts.filter((draft: CompensationDraftBrief) => isCompensationDraftAvailable(draft, now))
+  }
+
+  private async loadCompensationDrafts(orderId: string, token: string, generation: number, sequence: number): Promise<void> {
+    try {
+      const drafts = await RequestAxios.getForSession<CompensationDraftBrief[]>(
+        '/buyer/orders/' + encodeURIComponent(orderId) + '/compensation/drafts',
+        token
+      )
+      if (sequence !== this.querySequence || !this.isCurrentDetail(generation, token, orderId)) return
+      this.compensationDrafts = drafts || []
+    } catch {
+      if (sequence === this.querySequence && this.isCurrentDetail(generation, token, orderId)) {
+        this.compensationDrafts = []
+      }
+    }
+  }
+
+  private async openCompensationDraftDetail(draft: CompensationDraftBrief): Promise<void> {
+    if (!this.canOperateOrder() || this.compensationBusy) return
+    const generation: number = this.pageGeneration, token: string = this.detailToken, orderId: string = this.orderId
+    this.selectedDraft = draft
+    this.compensationDetailVisible = true
+    try {
+      const fresh = await RequestAxios.getForSession<CompensationDraftBrief>(
+        '/buyer/compensation/drafts/' + encodeURIComponent(draft.draftId),
+        token
+      )
+      if (this.isCurrentDetail(generation, token, orderId) && this.compensationDetailVisible) {
+        this.selectedDraft = fresh
+      }
+    } catch {
+    }
+  }
+
+  private async confirmCompensationDraft(draft: CompensationDraftBrief): Promise<void> {
+    if (this.compensationBusy || this.busy || !this.canOperateOrder() || this.user.identity !== 'buyer') return
+    const generation: number = this.pageGeneration, token: string = this.detailToken, orderId: string = this.orderId
+    const input: CompensationConfirmInput = {
+      draftId: draft.draftId,
+      requestKey: util.generateRandomUUID(),
+      confirmedCents: draft.cappedCents
+    }
+    this.compensationBusy = true
+    this.compensationMessage = ''
+    try {
+      const receipt = await RequestAxios.postWithSession<CompensationReceipt>('/buyer/compensation/confirm', input, token)
+      if (!this.isCurrentDetail(generation, token, orderId)) return
+      this.compensationDetailVisible = false
+      this.selectedDraft = null
+      this.selectedReceipt = receipt
+      this.compensationMessage = receipt.statusLabel + ' · 回执编号：' + receipt.receiptId
+      this.compensationBusy = false
+      await this.loadOrderDetail()
+    } catch (error) {
+      if (!this.isCurrentDetail(generation, token, orderId)) return
+      const status = this.compensationFailureStatus(error as Error)
+      const reason = this.compensationFailureReason(error as Error)
+      this.compensationMessage = compensationConfirmErrorMessage(status, reason)
+      if (status === 403 || status === 400 || status === 409) {
+        this.compensationDetailVisible = false
+        this.selectedDraft = null
+        this.compensationBusy = false
+        await this.loadOrderDetail()
+      }
+    } finally {
+      if (this.isCurrentDetail(generation, token, orderId)) {
+        this.compensationBusy = false
+      }
+    }
+  }
+
+  private async openCompensationReceipt(receiptId: string): Promise<void> {
+    if (!this.canOperateOrder() || this.compensationBusy) return
+    const generation: number = this.pageGeneration, token: string = this.detailToken, orderId: string = this.orderId
+    this.compensationBusy = true
+    try {
+      const detail = await RequestAxios.getForSession<CompensationReceipt>(
+        '/buyer/compensation/receipts/' + encodeURIComponent(receiptId),
+        token
+      )
+      if (!this.isCurrentDetail(generation, token, orderId)) return
+      this.selectedReceipt = detail
+      this.receiptVisible = true
+    } catch {
+      if (this.isCurrentDetail(generation, token, orderId)) {
+        this.compensationMessage = '补差回执读取失败，请重试'
+      }
+    } finally {
+      if (this.isCurrentDetail(generation, token, orderId)) {
+        this.compensationBusy = false
+      }
+    }
+  }
+
   @Builder
   private DetailActions() {
     Column() {
@@ -611,6 +760,58 @@ export struct OrderDetailView {
     }
   }
 
+  @Builder
+  CompensationDetailSheet() {
+    Column({ space: 12 }) {
+      Text('降价补差草稿详情').id('compensation-draft-sheet-title').fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+      if (this.selectedDraft) {
+        Text('适用政策：第 ' + this.selectedDraft.policyVersion + ' 版（保护 ' + this.selectedDraft.windowDays + ' 天 · 单笔上限 ' + formatCompensationAmount(this.selectedDraft.budgetPerOrderCents) + '）')
+          .id('compensation-draft-sheet-policy').fontSize(13).fontColor($r('[ui_components].color.gray'))
+        Text('整篮降价差额：' + formatCompensationAmount(this.selectedDraft.basketDeltaCents) + ' · 本单可补差：' + formatCompensationAmount(this.selectedDraft.cappedCents))
+          .id('compensation-draft-sheet-amount').fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.red'))
+        ForEach(this.selectedDraft.perLine, (line: CompensationDraftLine) => {
+          Text('规格 ' + line.order_line_id + ' 分摊：' + formatCompensationAmount(line.delta_cents))
+            .fontSize(13).fontColor($r('[ui_components].color.text'))
+        }, (line: CompensationDraftLine) => line.order_line_id)
+        Text('有效期至：' + formatCompensationExpiry(this.selectedDraft.expiresAt))
+          .id('compensation-draft-sheet-expiry').fontSize(13).fontColor($r('[ui_components].color.gray'))
+        Button(this.compensationBusy ? '确认中...' : '一键确认补差')
+          .id('compensation-draft-sheet-confirm')
+          .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary')).width('100%')
+          .enabled(!this.compensationBusy && this.canOperateOrder())
+          .onClick(() => { if (this.selectedDraft) void this.confirmCompensationDraft(this.selectedDraft) })
+      }
+      Button('关闭').id('compensation-draft-sheet-close')
+        .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+        .border({ width: 1, color: $r('[ui_components].color.border') }).width('100%')
+        .enabled(!this.compensationBusy)
+        .onClick(() => { this.compensationDetailVisible = false; this.selectedDraft = null })
+    }.width('100%').padding(20).alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  CompensationReceiptSheet() {
+    Column({ space: 12 }) {
+      Text('价保补差回执').id('compensation-receipt-sheet-title').fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+      if (this.selectedReceipt) {
+        Text('补差金额：' + formatCompensationAmount(this.selectedReceipt.confirmedCents))
+          .id('compensation-receipt-sheet-amount').fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.red'))
+        Text('处理状态：' + (this.selectedReceipt.statusLabel || compensationStatusLabel(this.selectedReceipt.channelStatus)))
+          .id('compensation-receipt-sheet-status').fontSize(14).fontColor($r('[ui_components].color.text'))
+        Text('适用政策：第 ' + this.selectedReceipt.policyVersion + ' 版（保护 ' + this.selectedReceipt.windowDays + ' 天）')
+          .id('compensation-receipt-sheet-policy').fontSize(13).fontColor($r('[ui_components].color.gray'))
+        Text('回执编号：' + this.selectedReceipt.receiptId)
+          .id('compensation-receipt-sheet-id').fontSize(12).fontColor($r('[ui_components].color.gray'))
+        Text('确认时间：' + formatBeijingTime(this.selectedReceipt.confirmedAt))
+          .id('compensation-receipt-sheet-time').fontSize(12).fontColor($r('[ui_components].color.gray'))
+      }
+      Button('关闭').id('compensation-receipt-sheet-close')
+        .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+        .border({ width: 1, color: $r('[ui_components].color.border') }).width('100%')
+        .onClick(() => { this.receiptVisible = false; this.selectedReceipt = null })
+    }.width('100%').padding(20).alignItems(HorizontalAlign.Start)
+  }
+
   build() {
     NavDestination() {
       Column() {
@@ -668,10 +869,65 @@ export struct OrderDetailView {
                   Button(this.logisticsLoading ? '正在刷新' : '刷新物流').id('order-logistics-refresh').enabled(!this.logisticsLoading && this.canOperateOrder()).backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red')).onClick(() => this.refreshLogistics())
                 }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
               }
+              if (this.order.protectionBrief) {
+                Column({ space: 6 }) {
+                  Text('价格保护').id('order-protection-title').fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                  Text('本单保护 ' + this.order.protectionBrief.windowDays + ' 天').id('order-protection-window').fontSize(14).fontColor($r('[ui_components].color.text'))
+                  Text(formatOrderProtectionBudget(this.order.protectionBrief)).id('order-protection-budget').fontSize(14).fontColor($r('[ui_components].color.text'))
+                  Text(formatOrderProtectionEffective(this.order.protectionBrief)).id('order-protection-effective').fontSize(13).fontColor($r('[ui_components].color.gray'))
+                  Text('保价不保库存；降价后由你本人确认补差，不会自动退款。').id('order-protection-note').fontSize(13).fontColor($r('[ui_components].color.gray'))
+                }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+              }
+              if (spendingOrderSummaryText(this.order.spending)) {
+                Column({ space: 6 }) {
+                  Text('消费保护参考').id('order-spending-title').fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                  Text(spendingOrderSummaryText(this.order.spending)).id('order-spending-summary').fontSize(14).fontColor($r('[ui_components].color.gray'))
+                }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+              }
               if(this.order.canApplyAfterSale) {
                 Button('申请售后').id('order-apply-after-sale').enabled(this.canOperateOrder()&&!this.busy)
                   .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
                   .onClick(()=>this.stackPath.pushPath({name:PAGE_PATH.AFTER_SALE_APPLY_PAGE,param:this.orderId}))
+              }
+              if (this.visibleCompensationDrafts().length > 0 || (this.order.compensationReceipts && this.order.compensationReceipts.length > 0) || this.compensationMessage) {
+                Column({ space: 8 }) {
+                  Text('降价补差').id('order-compensation-title').fontSize(18).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                  if (this.compensationMessage) {
+                    Text(this.compensationMessage).id('order-compensation-message').fontSize(13).fontColor($r('[ui_components].color.red'))
+                  }
+                  ForEach(this.visibleCompensationDrafts(), (draft: CompensationDraftBrief) => {
+                    Column({ space: 6 }) {
+                      Text('发现降价可补差 ' + formatCompensationAmount(draft.cappedCents) + '（第 ' + draft.policyVersion + ' 版价保）')
+                        .id('order-compensation-draft-' + draft.draftId).fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                      Text('有效期至：' + formatCompensationExpiry(draft.expiresAt))
+                        .fontSize(12).fontColor($r('[ui_components].color.gray'))
+                      Row({ space: 8 }) {
+                        Button('查看详情').id('order-compensation-detail-' + draft.draftId).height(34).fontSize(13)
+                          .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.text'))
+                          .border({ width: 1, color: $r('[ui_components].color.border') })
+                          .enabled(!this.compensationBusy && this.canOperateOrder())
+                          .onClick(() => { void this.openCompensationDraftDetail(draft) })
+                        Button(this.compensationBusy ? '确认中...' : '一键确认').id('order-compensation-confirm-' + draft.draftId).height(34).fontSize(13)
+                          .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
+                          .enabled(!this.compensationBusy && this.canOperateOrder())
+                          .onClick(() => { void this.confirmCompensationDraft(draft) })
+                      }.width('100%')
+                    }.width('100%').padding(12).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.under')).borderRadius(8)
+                  }, (draft: CompensationDraftBrief) => draft.draftId + ':' + draft.status)
+                  ForEach(this.order.compensationReceipts || [], (receipt: CompensationReceipt) => {
+                    Column({ space: 6 }) {
+                      Text((receipt.statusLabel || compensationStatusLabel(receipt.channelStatus)) + ' · ' + formatCompensationAmount(receipt.confirmedCents))
+                        .id('order-compensation-receipt-status-' + receipt.receiptId).fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                      Text('回执编号：' + receipt.receiptId)
+                        .id('order-compensation-receipt-id-' + receipt.receiptId).fontSize(12).fontColor($r('[ui_components].color.gray'))
+                      Button('查看回执').id('order-compensation-receipt-' + receipt.receiptId).height(34).fontSize(13)
+                        .backgroundColor($r('[ui_components].color.white')).fontColor($r('[ui_components].color.red'))
+                        .border({ width: 1, color: $r('[ui_components].color.red') })
+                        .enabled(!this.compensationBusy && this.canOperateOrder())
+                        .onClick(() => { void this.openCompensationReceipt(receipt.receiptId) })
+                    }.width('100%').padding(12).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.under')).borderRadius(8)
+                  }, (receipt: CompensationReceipt) => receipt.receiptId + ':' + receipt.channelStatus)
+                }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
               }
               if(this.order.afterSaleNotice) {
                 Text(this.order.afterSaleNotice).fontColor($r('[ui_components].color.text'))
@@ -942,9 +1198,21 @@ export struct OrderDetailView {
       .height('100%')
       .justifyContent(FlexAlign.Start)
       .backgroundColor($r('[ui_components].color.under'))
+      .bindSheet($$this.compensationDetailVisible, this.CompensationDetailSheet(), {
+        height: SheetSize.FIT_CONTENT,
+        dragBar: false,
+        backgroundColor: $r('[ui_components].color.white'),
+        onDisappear: () => { if (!this.compensationBusy) { this.selectedDraft = null } }
+      })
     }
     .hideTitleBar(true)
     .padding({ top: this.topHeight })
+    .bindSheet($$this.receiptVisible, this.CompensationReceiptSheet(), {
+      height: SheetSize.FIT_CONTENT,
+      dragBar: false,
+      backgroundColor: $r('[ui_components].color.white'),
+      onDisappear: () => { this.selectedReceipt = null }
+    })
     .onReady((orderDetailPage: NavDestinationContext) => {
       // 取出用户选中的订单号；pathInfo.param 是框架存放本次跳转参数的位置。
       const selectedOrderId = orderDetailPage.pathInfo.param as string

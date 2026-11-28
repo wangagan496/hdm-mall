@@ -1,0 +1,1017 @@
+=== hvigor test module=cart ===
+> hvigor [32mUP-TO-DATE :cart:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :models:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :network:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@PreBuild...  [39m
+> hvigor [32mFinished :cart:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :cart:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :cart:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :constants:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@CreateBuildProfile...  [39m
+> hvigor [32mFinished :constants:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :models:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :models:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :models:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :network:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :network:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :network:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :storage:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :storage:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :ui_components:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :utils:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :utils:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :utils:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :cart:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :constants:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :models:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :network:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :storage:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :ui_components:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :utils:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :utils:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :models:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateLoaderJson...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@CreateBuildProfile...  [39m
+> hvigor [32mFinished :constants:default@UnitTestProcessProfile... after 4 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :network:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessResource...  [39m
+> hvigor [32mFinished :models:default@UnitTestProcessProfile... after 4 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessProfile...  [39m
+> hvigor [32mFinished :constants:default@CompileResource... after 594 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessResource...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@MergeProfile...  [39m
+> hvigor [32mFinished :network:default@UnitTestProcessProfile... after 5 ms [39m
+> hvigor [32mFinished :utils:default@UnitTestProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :ui_components:default@UnitTestProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :constants:default@ReplaceUnitTestIndexFile... after 74 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :models:default@CompileResource... after 560 ms [39m
+> hvigor [32mFinished :storage:default@UnitTestProcessProfile... after 5 ms [39m
+> hvigor [32mUP-TO-DATE :cart:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessResource...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@ProcessResource...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessResource...  [39m
+> hvigor [32mFinished :constants:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :models:default@ReplaceUnitTestIndexFile... after 45 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@GenerateLoaderJson...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@GenerateLoaderJson...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GenerateLoaderJson...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessResource...  [39m
+> hvigor [32mFinished :cart:default@UnitTestProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :network:default@CompileResource... after 528 ms [39m
+> hvigor [32mFinished :utils:default@CompileResource... after 559 ms [39m
+> hvigor [32mFinished :ui_components:default@CompileResource... after 745 ms [39m
+> hvigor [32mFinished :models:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :storage:default@CompileResource... after 466 ms [39m
+> hvigor [32mUP-TO-DATE :cart:default@ProcessResource...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :network:default@ReplaceUnitTestIndexFile... after 64 ms [39m
+> hvigor [32mFinished :utils:default@ReplaceUnitTestIndexFile... after 43 ms [39m
+> hvigor [32mFinished :ui_components:default@ReplaceUnitTestIndexFile... after 55 ms [39m
+> hvigor [32mFinished :storage:default@ReplaceUnitTestIndexFile... after 45 ms [39m
+> hvigor [32mUP-TO-DATE :cart:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :cart:default@CompileResource... after 630 ms [39m
+> hvigor [32mFinished :network:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :utils:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :storage:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :cart:default@ReplaceUnitTestIndexFile... after 67 ms [39m
+> hvigor [32mFinished :cart:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :constants:default@UnitTestArkTS... after 5 s 216 ms [39m
+> hvigor [32mFinished :models:default@UnitTestArkTS... after 7 s 75 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:41:25
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:18
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:86
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:43:12
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:52:25
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:55:18
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:62:24
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:80:31
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:26
+ The system capacity of this api 'request' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets:33:29
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :utils:default@UnitTestArkTS... after 11 s 752 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :ui_components:default@UnitTestArkTS... after 13 s 321 ms [39m
+> hvigor [32mFinished :network:default@UnitTestArkTS... after 13 s 510 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :storage:default@UnitTestArkTS... after 9 s 691 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:41:25
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:18
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:86
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:43:12
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:52:25
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:55:18
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:62:24
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:80:31
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:26
+ The system capacity of this api 'request' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:34
+ To use this API, you need to apply for the permissions: ohos.permission.INTERNET
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:147:19
+ To use this API, you need to apply for the permissions: ohos.permission.INTERNET
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets:33:29
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/ImagePreload.ets:21:21
+ To use this API, you need to apply for the permissions: ohos.permission.INTERNET
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:40:34
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:43:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:44:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:218:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:251:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:276:45
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:330:85
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets:638:15
+ To use this API, you need to apply for the permissions: ohos.permission.GET_NETWORK_INFO
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/EvaluationView.ets:339:15
+ To use this API, you need to apply for the permissions: ohos.permission.GET_NETWORK_INFO
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets:236:17
+ To use this API, you need to apply for the permissions: ohos.permission.GET_NETWORK_INFO
+[39m[39m
+[39m
+> hvigor [32mFinished :cart:default@UnitTestArkTS... after 14 s 204 ms [39m
+> hvigor [32mWindows_NT[39m
+[32m[2026-11-24T22:31:34.686] [INFO] default - [39mFinished write html report
+> hvigor [32mFinished :cart:default@GenerateUnitTestResult... after 3 s 363 ms [39m
+> hvigor [32mFinished :cart:test... after 1 ms [39m
+> hvigor [32mBUILD SUCCESSFUL in 30 s 799 ms [39m
+
+128 tasks in total: 58 executed, 70 up-to-date
+[32m[2026-11-24T22:31:35.161] [INFO] default - [39mFinished file written successfully
+=== hvigor test module=mine ===
+> hvigor [32mUP-TO-DATE :mine:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :models:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :network:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :device:default@PreBuild...  [39m
+> hvigor [32mFinished :mine:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :mine:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :mine:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mFinished :mine:default@GeneratePkgContextInfo... after 9 ms [39m
+> hvigor [32mFinished :constants:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@CreateBuildProfile...  [39m
+> hvigor [32mFinished :constants:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :models:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :models:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :models:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :network:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :network:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :network:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :storage:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :storage:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :ui_components:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :device:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :device:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :device:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :device:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mFinished :device:default@GeneratePkgContextInfo... after 52 ms [39m
+> hvigor [32mFinished :mine:default@ProcessRouterMap... after 14 ms [39m
+> hvigor [32mFinished :mine:default@ProcessShareConfig... after 52 ms [39m
+> hvigor [32mFinished :mine:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :constants:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :models:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :network:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :storage:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :ui_components:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :device:default@MergeProfile... after 26 ms [39m
+> hvigor [32mFinished :device:default@ProcessRouterMap... after 39 ms [39m
+> hvigor [32mFinished :device:default@ProcessShareConfig... after 23 ms [39m
+> hvigor [32mFinished :device:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@CreateBuildProfile...  [39m
+> hvigor [32mFinished :constants:default@ProcessProfile... after 89 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :device:default@ProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :device:default@GenerateLoaderJson... after 9 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@CreateBuildProfile...  [39m
+> hvigor [32mFinished :constants:default@UnitTestProcessProfile... after 3 ms [39m
+> hvigor [32mFinished :models:default@ProcessProfile... after 3 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@MergeProfile...  [39m
+> hvigor [32mFinished :device:default@UnitTestProcessProfile... after 3 ms [39m
+> hvigor [32mFinished :mine:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessResource...  [39m
+> hvigor [32mFinished :models:default@UnitTestProcessProfile... after 3 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@MergeProfile...  [39m
+> hvigor [32mFinished :network:default@ProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :device:default@ProcessResource... after 94 ms [39m
+> hvigor [32mFinished :constants:default@CompileResource... after 580 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessResource...  [39m
+> hvigor [32mFinished :storage:default@ProcessProfile... after 7 ms [39m
+> hvigor [32mFinished :mine:default@MergeProfile... after 9 ms [39m
+> hvigor [32mFinished :network:default@UnitTestProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :ui_components:default@UnitTestProcessProfile... after 5 ms [39m
+> hvigor [32mFinished :device:default@CompileResource... after 482 ms [39m
+> hvigor [32mFinished :constants:default@ReplaceUnitTestIndexFile... after 33 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :models:default@CompileResource... after 537 ms [39m
+> hvigor [32mFinished :storage:default@UnitTestProcessProfile... after 5 ms [39m
+> hvigor [32mFinished :mine:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessResource...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessResource...  [39m
+> hvigor [32mFinished :device:default@ReplaceUnitTestIndexFile... after 57 ms [39m
+> hvigor [32mFinished :constants:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :models:default@ReplaceUnitTestIndexFile... after 28 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@GenerateLoaderJson...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GenerateLoaderJson...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessResource...  [39m
+> hvigor [32mFinished :mine:default@UnitTestProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :network:default@CompileResource... after 450 ms [39m
+> hvigor [32mFinished :ui_components:default@CompileResource... after 808 ms [39m
+> hvigor [32mFinished :device:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :models:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :storage:default@CompileResource... after 452 ms [39m
+> hvigor [32mFinished :mine:default@ProcessResource... after 23 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :network:default@ReplaceUnitTestIndexFile... after 38 ms [39m
+> hvigor [32mFinished :ui_components:default@ReplaceUnitTestIndexFile... after 21 ms [39m
+> hvigor [32mFinished :storage:default@ReplaceUnitTestIndexFile... after 31 ms [39m
+> hvigor [32mFinished :mine:default@GenerateLoaderJson... after 26 ms [39m
+> hvigor [32mFinished :mine:default@CompileResource... after 701 ms [39m
+> hvigor [32mFinished :network:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :storage:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :mine:default@ReplaceUnitTestIndexFile... after 40 ms [39m
+> hvigor [32mFinished :mine:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :constants:default@UnitTestArkTS... after 5 s 585 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:77:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :device:default@UnitTestArkTS... after 7 s 572 ms [39m
+> hvigor [32mFinished :models:default@UnitTestArkTS... after 8 s 130 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :storage:default@UnitTestArkTS... after 12 s 24 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :ui_components:default@UnitTestArkTS... after 7 s 39 ms [39m
+> hvigor [32mFinished :network:default@UnitTestArkTS... after 5 s 509 ms [39m
+> hvigor [33mWARN: [33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:15:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:66:26
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:67:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:70:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:11:41
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:53:26
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:55:30
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:56:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:57:27
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:59:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:60:29
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets:56:21
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets:57:56
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets:57:88
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SensorPlugin.ets:6:22
+ To use this API, you need to apply for the permissions: ohos.permission.VIBRATE
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+ The system capacity of this api 'audio' is not supported on all devices
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:77:19
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets:139:45
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:38:97
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:39:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:40:47
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets:63:26
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets:64:11
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets:68:13
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:25:51
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:30:64
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:41:53
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[33mWARN: [33m[33mArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:72:45
+ Function may throw exceptions. Special handling is required.
+[39m[39m
+[39m
+> hvigor [32mFinished :mine:default@UnitTestArkTS... after 15 s 317 ms [39m
+> hvigor [32mWindows_NT[39m
+[32m[2026-11-24T22:32:05.846] [INFO] default - [39mFinished write html report
+> hvigor [32mFinished :mine:default@GenerateUnitTestResult... after 4 s 887 ms [39m
+> hvigor [32mFinished :mine:test... after 1 ms [39m
+> hvigor [32mBUILD SUCCESSFUL in 29 s 783 ms [39m
+
+128 tasks in total: 79 executed, 49 up-to-date
+[32m[2026-11-24T22:32:06.262] [INFO] default - [39mFinished file written successfully
+=== hvigor test module=models ===
+> hvigor [32mUP-TO-DATE :models:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@PreBuild...  [39m
+> hvigor [32mFinished :models:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :models:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :models:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mFinished :constants:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@CreateBuildProfile...  [39m
+> hvigor [32mFinished :constants:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateUnitTestTemplate...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@GeneratePkgContextInfo...  [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :models:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@CreateBuildProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessRouterMap...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessShareConfig...  [39m
+> hvigor [32mFinished :constants:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :models:default@MergeProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :constants:default@UnitTestProcessProfile... after 5 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessProfile...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessResource...  [39m
+> hvigor [32mFinished :models:default@UnitTestProcessProfile... after 4 ms [39m
+> hvigor [32mFinished :constants:default@CompileResource... after 559 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessResource...  [39m
+> hvigor [32mFinished :constants:default@ReplaceUnitTestIndexFile... after 34 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateLoaderJson...  [39m
+> hvigor [32mFinished :models:default@CompileResource... after 515 ms [39m
+> hvigor [32mFinished :constants:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :models:default@ReplaceUnitTestIndexFile... after 12 ms [39m
+> hvigor [32mFinished :models:default@BuildUnitTestHook... after 1 ms [39m
+> hvigor [32mFinished :constants:default@UnitTestArkTS... after 4 s 949 ms [39m
+> hvigor [32mFinished :models:default@UnitTestArkTS... after 5 s 980 ms [39m
+> hvigor [32mWindows_NT[39m
+[32m[2026-11-24T22:32:21.217] [INFO] default - [39mFinished write html report
+> hvigor [32mFinished :models:default@GenerateUnitTestResult... after 2 s 445 ms [39m
+> hvigor [32mFinished :models:test... after 1 ms [39m
+> hvigor [32mBUILD SUCCESSFUL in 14 s 65 ms [39m
+
+38 tasks in total: 18 executed, 20 up-to-date
+[32m[2026-11-24T22:32:21.687] [INFO] default - [39mFinished file written successfully
+HVIGOR_SERIAL_ALL_PASS

@@ -39,6 +39,14 @@ export {
   PreOrder,
   PromotionRule,
   PromotionQuote,
+  PriceProtectionBrief,
+  PriceProtectionPolicy,
+  PriceProtectionDraftInput,
+  PriceProtectionConfirmInput,
+  PriceProtectionPublishInput,
+  PriceProtectionDraftResult,
+  PriceProtectionConfirmResult,
+  PriceProtectionPublishResult,
   ExcludedCheckoutGoods,
   CreateOrderParamsGoods,
   CreateOrderParams,
@@ -71,3 +79,16 @@ export { formatBeijingTime, formatReviewDate } from './src/main/ets/TimeFormat'
 export { afterSaleDiscount, amountInputCents, returnShippingError, shippingAdjustmentError, shippingCompensationText } from './src/main/ets/AfterSaleModels'
 export { AfterSale, AfterSaleAddress, AfterSaleLine, AfterSaleImage, AfterSaleQuantity, AfterSaleRestock, AfterSaleBody, AfterSalePhoto, AfterSalePending, AfterSaleReceipt, AfterSalePage, AfterSaleCounts, afterSaleAmount, afterSaleInputError, afterSaleStatus, afterSaleKind, sizeReasonLabel } from './src/main/ets/AfterSaleModels'
 export { SourceRecord, ProductMaterials, PromiseMaterialSource, parseProductMaterials, parsePromiseMaterialSource, parseSourceRecord } from './src/main/ets/SourceRecords'
+export {
+  CompensationChannelStatus, CompensationDraftStatus, CompensationDraftLine, CompensationDraftBrief,
+  CompensationDraftDetail, CompensationConfirmInput, CompensationReceipt,
+  parseCompensationDraftLine, parseCompensationDraftBrief, parseCompensationDraftDetail,
+  parseCompensationConfirmInput, parseCompensationReceipt
+} from './src/main/ets/CompensationModels'
+export { OrderSpendingSummary } from './src/main/ets/BusinessModels'
+export {
+  SpendingLimitType, WishlistStatus, WishlistGoodsLine, SpendingRule, SpendingRuleInput,
+  SpendingSummary, SpendingPauseDetail, WishlistItem, WishlistConfirmInput,
+  parseWishlistGoodsLine, parseSpendingRule, parseSpendingRuleInput,
+  parseSpendingSummary, parseSpendingPauseDetail, parseWishlistItem, parseWishlistConfirmInput
+} from './src/main/ets/SpendingGuardModels'

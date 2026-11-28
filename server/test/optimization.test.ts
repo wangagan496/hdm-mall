@@ -28,7 +28,7 @@ async function fixture() {
   const address = f.accounts.saveAddress(user, { receiver: '测试', contact: '13800000000', address: '测试地址' })
   const catalog = new Catalog(f.db, 'http://127.0.0.1:3000')
   const orders = new Orders(f.db, f.accounts, catalog, true)
-  const create = () => orders.create(user, { requestKey: randomUUID(), expectedAmountCents: priceCents, addressId: address.id, goods: [{ skuId: 'optimization-product-a', count: 1 }] }).id
+  const create = () => (orders.create(user, { requestKey: randomUUID(), expectedAmountCents: priceCents, addressId: address.id, goods: [{ skuId: 'optimization-product-a', count: 1 }] }) as { id: string }).id
   return { ...f, catalog, orders, login, user, create }
 }
 test('资料读写返回本次凭证和完整资料，不更新会话期限，地区可回显', async () => {
@@ -298,7 +298,7 @@ test('旧版数据库迁移保留商品，分类编号重启后保持稳定', ()
     const reloaded = new Catalog(migrated, 'http://fixture'); reloaded.seed()
     assert.equal(reloaded.categories().find(row => row.name === '原有分类')!.id, category.id)
     assert.equal(reloaded.categories().find(row => row.id === category.id)!.children[0]!.id, child.id)
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 27)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 31)
   } finally {
     migrated?.close()
     rmSync(directory, { recursive: true, force: true })

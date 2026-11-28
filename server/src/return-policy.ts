@@ -17,6 +17,10 @@ export interface PolicyRow {return_policy:ReturnPolicy['returnPolicy'];return_po
 export function presentPolicy(row:PolicyRow):ReturnPolicy {
  return {returnPolicy:row.return_policy,returnPolicyReason:row.return_policy_reason,returnPolicyNote:row.return_policy_note}
 }
+export function policyDigest(items:({skuId:string}&ReturnPolicy)[]) {
+ const policies = [...items].sort((a,b)=>a.skuId.localeCompare(b.skuId)).map(i=>[i.skuId,i.returnPolicy,i.returnPolicyReason,i.returnPolicyNote])
+ return createHash('sha256').update(JSON.stringify(policies)).digest('hex')
+}
 export function policyToken(items:({skuId:string}&ReturnPolicy)[], user: User) {
  const policies = [...items].sort((a,b)=>a.skuId.localeCompare(b.skuId)).map(i=>[i.skuId,i.returnPolicy,i.returnPolicyReason,i.returnPolicyNote])
  return createHash('sha256').update(JSON.stringify([confirmationSubject(user, 'return-policy'), policies])).digest('hex')

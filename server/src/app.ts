@@ -40,6 +40,11 @@ import { PromiseExtractor, type PromiseDriver } from './promises/extract.ts'
 import { PromisePublications, confirmPromisesSchema, publishPromisesSchema } from './promises/publication.ts'
 import { checkOrderPromise, promiseCheckSchema } from './promises/order-promises.ts'
 import { materialBatchSchema, materialLimit, materialUploadSchema, SourceMaterials } from './source-verification/materials.ts'
+import { draftPolicy, draftSchema as protectionDraftSchema, issueConfirmToken, confirmSchema as protectionConfirmSchema, publishPolicy, publishSchema as protectionPublishSchema, merchantPolicyList, activePolicy, policyBrief } from './protection.ts'
+import { confirmCompensation, confirmSchema as compensationConfirmSchema, getDraftDetail, getReceipt, listBuyerDrafts } from './compensation.ts'
+import { RADAR_INTERVAL_MS, scheduledRadarTick } from './price-radar.ts'
+import { listRules as listSpendingRules, saveRule as saveSpendingRule, spendingSummary } from './spending-guard.ts'
+import { cancelWishlist, confirmWishlist, detailWishlist, listWishlist } from './purchase-wishlist.ts'
 
 export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
   promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
@@ -137,7 +142,7 @@ export async function buildApp(options: AppOptions) {
         deniedAudit(db, user, req.method + ' ' + url, clock.now())
         throw new AppError(403, '需要商家权限', 'MERCHANT_REQUIRED')
       }
-      if (url.startsWith('/member/') && !sharedMemberRoutes.has(url)) requireBuyer(user)
+      if ((url.startsWith('/member/') && !sharedMemberRoutes.has(url)) || url.startsWith('/buyer/')) requireBuyer(user)
       const followUp = [
         '/logout','/member/consents','/member/consents/withdraw','/member/account-deletion','/member/account-deletion/cancel',
         '/member/order/:id/receipt','/member/order/:id/payments/refresh',
@@ -213,6 +218,17 @@ export async function buildApp(options: AppOptions) {
     return currentPromotion(db)
   })
   protectedRoute('PUT', '/merchant/settings/promotion', (req,user) => editPromotion(db,user,req.body,clock.now()))
+  protectedRoute('GET', '/merchant/settings/protection', (_req,user) => merchantPolicyList(db,user))
+  protectedRoute('POST', '/merchant/settings/protection/draft', (req,user) => draftPolicy(db,user,req.body,clock.now()))
+  protectedRoute('POST', '/merchant/settings/protection/confirm', (req,user) => issueConfirmToken(db,user,req.body,clock.now()))
+  protectedRoute('POST', '/merchant/settings/protection/publish', (req,user) => publishPolicy(db,user,req.body,clock.now()))
+  protectedRoute('GET', '/buyer/orders/:id/compensation/drafts', (req, user) => listBuyerDrafts(db, user.id, key(req), clock.now()))
+  protectedRoute('GET', '/buyer/compensation/drafts/:draftId', (req, user) => getDraftDetail(db, user.id, z.object({ draftId: idSchema }).parse(req.params).draftId))
+  protectedRoute('POST', '/buyer/compensation/confirm', (req, user) => {
+    const body = compensationConfirmSchema.parse(req.body)
+    return confirmCompensation(db, user, body.draftId, body.requestKey, body.confirmedCents, clock.now())
+  })
+  protectedRoute('GET', '/buyer/compensation/receipts/:id', (req, user) => getReceipt(db, user.id, key(req)))
   protectedRoute('PUT', '/merchant/settings/return-address', (req,user) => afterSales.setAddress(user,returnAddressSchema.parse(req.body)))
   protectedRoute('POST', '/member/after-sales/images', async (req,user) => {
     let image: Buffer | undefined
@@ -386,7 +402,20 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('GET', '/member/order/by-request/:requestKey', (req, user) => orders.byRequest(user,
     z.object({ requestKey: z.string().min(16).max(100) }).parse(req.params).requestKey))
-  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional(),expectedPromotionRevision:z.number().int().positive().safe().optional(),invoice:invoiceSchema.optional() }).parse(req.body)))
+  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now', 'wishlist']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional(),expectedPromotionRevision:z.number().int().positive().safe().optional(),invoice:invoiceSchema.optional() }).parse(req.body)))
+  protectedRoute('GET', '/member/spending/rules', (_req, user) => listSpendingRules(db, user))
+  protectedRoute('PUT', '/member/spending/rules', (req, user) => saveSpendingRule(db, user, req.body, clock.now()))
+  protectedRoute('GET', '/member/spending/summary', (_req, user) => {
+    requireBuyer(user)
+    orders.expireIfDue()
+    return spendingSummary(db, user.id, clock.now())
+  })
+  protectedRoute('GET', '/member/spending/wishlist', (_req, user) => listWishlist(db, catalog, user, clock.now()))
+  protectedRoute('GET', '/member/spending/wishlist/:id', (req, user) => detailWishlist(db, catalog, user, key(req), clock.now()))
+  protectedRoute('POST', '/member/spending/wishlist/:id/cancel', (req, user) => cancelWishlist(db, catalog, user, key(req), clock.now()))
+  protectedRoute('POST', '/member/spending/wishlist/:id/confirm', (req, user) => confirmWishlist(
+    db, catalog, user, key(req), req.body, (u, input, wid) => orders.createFromWishlist(u, input, wid), clock.now()
+  ))
   protectedRoute('POST', '/merchant/orders/:id/invoice/issued', (req, user) => issueInvoice(db, user, key(req), req.body, clock.now()))
   protectedRoute('PUT', '/member/order/:id/invoice', (req, user) => registerCompletedInvoice(db, user, key(req), req.body, clock.now()))
   protectedRoute('GET', '/member/order', (req, user) => {
@@ -507,7 +536,10 @@ export async function buildApp(options: AppOptions) {
     void lifecycle.scan().catch(() => app.log.error('Account lifecycle scan failed'))
     void processReconciliation().catch(() => app.log.error('Daily reconciliation scan failed'))
   }, 30_000).unref()
+  const radarTimer = setInterval(() => {
+    try { scheduledRadarTick(db, clock.now()) } catch { app.log.error('Price radar scan failed') }
+  }, RADAR_INTERVAL_MS).unref()
   await backups?.start()
-  app.addHook('onClose', async () => { clearInterval(timer); await reconciliation.stop(); await backups?.stop(); db.close() })
+  app.addHook('onClose', async () => { clearInterval(timer); clearInterval(radarTimer); await reconciliation.stop(); await backups?.stop(); db.close() })
   return { app, db, accounts, catalog, orders, payments, reconciliation, logistics, afterSales, lifecycle, clock, fixtures, backups }
 }

@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "theme": "light",
+  "target": "127.0.0.1:5555",
+  "packagePath": "D:\\hdm-mall\\mixed-development-h5\\build\\outputs\\default\\mixed-development-h5-default-all-signed.app",
+  "packageSha256": "F5EEF8668D4B19402E2D46BB9BA9A09AE4A40B27E79C664F2066797412997668",
+  "amountCents": 2371,
+  "ruleVersionAfterPause": 1,
+  "ruleVersionAfterAdjust": 2,
+  "wishlistId": "ed0f6d35-7072-40c5-9dd1-95f37019cf12",
+  "wishlistStatus": "cancelled",
+  "ordersCreated": 0,
+  "screenshots": [
+    {
+      "theme": "light",
+      "file": "01-spending-setting.jpg",
+      "bytes": 121153,
+      "sha256": "1EAE321C332F019971B90985C6DA1A114C43027C05B5917ABB58DE0C914429E1"
+    },
+    {
+      "theme": "light",
+      "file": "02-spending-pause.jpg",
+      "bytes": 127819,
+      "sha256": "B762856605C73FE1F278D91B3B34494604DF594E6C1BA4528482046A5C4BE16D"
+    },
+    {
+      "theme": "light",
+      "file": "03-wishlist-waiting.jpg",
+      "bytes": 74847,
+      "sha256": "CA951C8E1BE75B12E298FF152B0462F336DAA1EA32D7277CA69A2A165D35217E"
+    },
+    {
+      "theme": "light",
+      "file": "04-wishlist-cancelled.jpg",
+      "bytes": 69829,
+      "sha256": "CB1E84B88803C91E3C0DB5FCB829F5A6D62FBD4F5C7C171CF064E32F6D97FC77"
+    }
+  ]
+}

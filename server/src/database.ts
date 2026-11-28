@@ -1,13 +1,17 @@
-import { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { SQLInputValue } from 'node:sqlite'
 import { migrateAvatarPaths } from './migrations/005-avatar-path.ts'
 import { backfillAudit } from './migrations/014-audit-backfill.ts'
+import { backfillSpendingReservations } from './spending-guard.ts'
 import { systemClock, type Clock } from './clock.ts'
+
+const MAX_STATEMENT_CACHE = 512
 
 export class Database {
   private connection: DatabaseSync
+  private statementCache = new Map<string, StatementSync>()
+  private cacheReady = false
   constructor(path: string, clock: Clock = systemClock) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
     this.connection = new DatabaseSync(path)
@@ -15,7 +19,7 @@ export class Database {
       this.connection.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;')
       const version = this.one<{ user_version: number }>('PRAGMA user_version')!.user_version
       if (version === 0) this.connection.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
-      else if (version < 1 || version > 27) throw new Error('Unsupported database version')
+      else if (version < 1 || version > 31) throw new Error('Unsupported database version')
       if (version < 2) {
         this.connection.exec(`BEGIN IMMEDIATE;
         CREATE TABLE categories(id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT REFERENCES categories(id), source_key TEXT UNIQUE NOT NULL);
@@ -118,19 +122,88 @@ export class Database {
         if (this.one<{user_version:number}>('PRAGMA user_version')!.user_version >= 27) return
         this.connection.exec(readFileSync(new URL('./migrations/027-evaluation-followups.sql', import.meta.url), 'utf8'))
       })
+      if (version < 28) this.transaction(() => {
+        if (this.one<{user_version:number}>('PRAGMA user_version')!.user_version >= 28) return
+        this.connection.exec(readFileSync(new URL('./migrations/028-price-protection.sql', import.meta.url), 'utf8'))
+      })
+      if (version < 29) this.transaction(() => {
+        if (this.one<{user_version:number}>('PRAGMA user_version')!.user_version >= 29) return
+        this.connection.exec(readFileSync(new URL('./migrations/029-price-events-radar.sql', import.meta.url), 'utf8'))
+      })
+      if (version < 30) {
+        this.connection.exec('PRAGMA foreign_keys=OFF')
+        try {
+          this.transaction(() => {
+            if (this.one<{ user_version: number }>('PRAGMA user_version')!.user_version >= 30) return
+            this.connection.exec(readFileSync(new URL('./migrations/030-compensation-repair.sql', import.meta.url), 'utf8'))
+            if (this.all('PRAGMA foreign_key_check').length) throw new Error('Compensation repair migration foreign key check failed')
+          })
+        } finally { this.connection.exec('PRAGMA foreign_keys=ON') }
+      }
+      if (this.one<{ user_version: number }>('PRAGMA user_version')!.user_version >= 30) {
+        const hasOrderAnchors = Boolean(
+          this.one("SELECT 1 FROM sqlite_master WHERE type='table' AND name='order_audit_anchors'") &&
+          this.one("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='orders_anchor_insert'") &&
+          this.one("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='orders_anchor_paid'")
+        )
+        if (!hasOrderAnchors) {
+          this.transaction(() => {
+            this.connection.exec(readFileSync(new URL('./migrations/030b-order-audit-anchors.sql', import.meta.url), 'utf8'))
+            if (this.all('PRAGMA foreign_key_check').length) throw new Error('Order audit anchors compatibility check failed')
+          })
+        }
+      }
+      if (version < 31) {
+        this.transaction(() => {
+          if (this.one<{ user_version: number }>('PRAGMA user_version')!.user_version >= 31) return
+          this.connection.exec(readFileSync(new URL('./migrations/031-spending-guard.sql', import.meta.url), 'utf8'))
+          backfillSpendingReservations(this.connection)
+          if (this.all('PRAGMA foreign_key_check').length) throw new Error('Spending guard migration foreign key check failed')
+        })
+      } else {
+        // 兼容既已升至 v31 的库：补齐待买退货确认冻结列，并幂等回填未入占额表的历史订单
+        const pwCols = this.all<{ name: string }>('PRAGMA table_info(purchase_wishlist)').map(c => c.name)
+        const needPolicyCols = !pwCols.includes('return_policy_confirmed') || !pwCols.includes('expected_return_policy_token')
+        const missingReservation = this.one<{ n: number }>('SELECT 1 AS n FROM orders o WHERE NOT EXISTS(SELECT 1 FROM spending_reservations sr WHERE sr.order_id=o.id) LIMIT 1')
+        if (needPolicyCols || missingReservation) {
+          this.transaction(() => {
+            if (!pwCols.includes('return_policy_confirmed')) {
+              this.connection.exec('ALTER TABLE purchase_wishlist ADD COLUMN return_policy_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(return_policy_confirmed IN (0,1))')
+            }
+            if (!pwCols.includes('expected_return_policy_token')) {
+              this.connection.exec('ALTER TABLE purchase_wishlist ADD COLUMN expected_return_policy_token TEXT')
+            }
+            backfillSpendingReservations(this.connection)
+          })
+        }
+      }
+      this.statementCache.clear()
+      this.cacheReady = true
     } catch (error) {
       this.connection.close()
       throw error
     }
   }
+  private statement(sql: string): StatementSync {
+    if (!this.cacheReady) return this.connection.prepare(sql)
+    let cached = this.statementCache.get(sql)
+    if (cached) return cached
+    if (this.statementCache.size >= MAX_STATEMENT_CACHE) {
+      const oldest = this.statementCache.keys().next().value
+      if (oldest !== undefined) this.statementCache.delete(oldest)
+    }
+    cached = this.connection.prepare(sql)
+    this.statementCache.set(sql, cached)
+    return cached
+  }
   one<T>(sql: string, ...params: SQLInputValue[]): T | undefined {
-    return this.connection.prepare(sql).get(...params) as T | undefined
+    return this.statement(sql).get(...params) as T | undefined
   }
   all<T>(sql: string, ...params: SQLInputValue[]): T[] {
-    return this.connection.prepare(sql).all(...params) as T[]
+    return this.statement(sql).all(...params) as T[]
   }
   run(sql: string, ...params: SQLInputValue[]) {
-    return this.connection.prepare(sql).run(...params)
+    return this.statement(sql).run(...params)
   }
   transaction<T>(action: () => T): T {
     this.connection.exec('BEGIN IMMEDIATE')
@@ -143,5 +216,9 @@ export class Database {
       throw error
     }
   }
-  close() { this.connection.close() }
+  close() {
+    this.statementCache.clear()
+    this.cacheReady = false
+    this.connection.close()
+  }
 }

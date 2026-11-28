@@ -9,12 +9,28 @@ import { recordStockMovement } from './inventory.ts'
 import type { Payments } from './payments.ts'
 import type { AfterSales } from './after-sales.ts'
 import { localAvatarPath } from './avatar.ts'
-import { policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
+import { policyDigest, policyToken, presentPolicy, type PolicyRow } from './return-policy.ts'
 import { promotionQuote, discountShares } from './promotions.ts'
 import { invoiceDetail, requestInvoice, type InvoiceInput } from './invoices.ts'
 import { buyerEvaluation, requiredEvaluationSizes, saveEvaluation, saveFollowup, type EvaluationInput } from './evaluations.ts'
 import { registerShipment, shipmentDetail, shipmentSchema } from './logistics.ts'
 import { canCheckOrderPromises, freezeOrderItemPromise, orderPromises } from './promises/order-promises.ts'
+import { activePolicy, policyBrief } from './protection.ts'
+import { listOrderCompensationReceipts } from './compensation.ts'
+import { orderRefundableBalance } from './balance.ts'
+import {
+  evaluate as evaluateSpending,
+  orderSpendingOverview,
+  release as releaseSpendingReservation,
+  reserve as reserveSpendingReservation,
+  settle as settleSpendingReservation
+} from './spending-guard.ts'
+import {
+  enqueue as enqueueWishlist,
+  findActiveCooldownBlocker,
+  normalizeGoodsKey,
+  type WishlistOrderCreationInput
+} from './purchase-wishlist.ts'
 
 // 与手机端 models/OrderState.ets 的状态码保持一致；数据库仍保存原来的数字。
 const ORDER_STATE = {
@@ -62,7 +78,7 @@ interface Item extends PolicyRow {
 }
 type CheckoutItem = ReturnType<Catalog['sku']> & { count: number }
 export interface CreateOrder {
-  source?: 'cart' | 'buy-now'
+  source?: 'cart' | 'buy-now' | 'wishlist'
   requestKey: string
   expectedAmountCents: number
   addressId: string
@@ -181,7 +197,9 @@ export class Orders {
     const owner = order.owner_id === user.id
     const merchant = merchantShipment && user.identity === 'merchant'
     const actionable = pending && serverNow < request.deadline_at && order.state === 2
-    const canRequestCancel = owner && order.state === 2 && !pending && Boolean(effective)
+    const balance = effective ? orderRefundableBalance(this.db, order.id) : null
+    const refundAmountCents = balance ? balance.remainingCents : order.amount
+    const canRequestCancel = owner && order.state === 2 && !pending && Boolean(effective) && refundAmountCents > 0
     let cancelRequestNotice = ''
     if (request) {
       if (pending) cancelRequestNotice = serverNow >= request.deadline_at ? '已到自动处理时间，正在处理' :
@@ -192,12 +210,13 @@ export class Orders {
       else cancelRequestNotice = '商家拒绝取消申请：' + request.reject_reason + '。如有问题请联系客服'
     }
     const destination = this.paymentMode(order) === 'family' ? '亲友 ' + this.account(order.paid_by) + ' 的付款账户' : '付款账户'
+    const compensatedNote = balance && balance.compensatedCents > 0 ? `（已扣除价保补差 ¥${(balance.compensatedCents / 100).toFixed(2)}）` : ''
     return { cancelRequest: request ? { id: request.id, sequence: request.sequence, state: request.state, createdAt: request.created,
       deadlineAt: request.deadline_at, resolvedAt: request.resolved_at, rejectReason: request.reject_reason, refundId: request.refund_id } : null,
       canRequestCancel, canWithdrawCancel: owner && Boolean(actionable), canResolveCancel: merchant && Boolean(actionable),
       canShip: merchant && order.state === 2 && !pending && Boolean(effective), cancelRequestNotice,
-      cancelConfirmation: canRequestCancel ? { amountCents: order.amount, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
-        message: '取消申请提交后，商家同意即不再发货，¥' + (order.amount / 100).toFixed(2) + '将原路退回' + destination + '。确定申请取消吗？' } : null, serverNow }
+      cancelConfirmation: canRequestCancel ? { amountCents: refundAmountCents, payerAccount: this.account(order.paid_by), paymentMode: this.paymentMode(order),
+        message: '取消申请提交后，商家同意即不再发货，¥' + (refundAmountCents / 100).toFixed(2) + '将原路退回' + destination + compensatedNote + '。确定申请取消吗？' } : null, serverNow }
   }
   private evaluationRule(order: Order): string {
     if (order.received_at === null || (!order.received_by && !order.signed_at)) {
@@ -253,6 +272,16 @@ export class Orders {
         afterSaleKinds:afterSaleFields?.afterSaleRemaining.find(value=>value.skuId===item.sku_id)?.kinds??[],
         afterSaleRemaining: afterSaleFields?.afterSaleRemaining.find(value => value.skuId === item.sku_id)?.count ?? 0 })),
       evaluation,
+      protectionBrief: (() => {
+        if (!isOrderOwner || order.paid_at === null) return null
+        const policy = activePolicy(this.db, order.paid_at)
+        if (!policy || order.paid_at < policy.effective_at || policy.window_days <= 0) return null
+        return policyBrief(policy)
+      })(),
+      ...(isOrderOwner && user.identity === 'buyer' ? {
+        compensationReceipts: listOrderCompensationReceipts(this.db, user.id, order.id),
+        spending: orderSpendingOverview(this.db, user.id, this.clock.now())
+      } : {}),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { invoice: invoiceDetail(this.db, order.id) } : {}),
       ...(isOrderOwner || (merchantShipment && user.identity === 'merchant') ? { address: JSON.parse(order.address) } : {}),
       ...(paymentFields ?? { paymentState: 'none', refunds: [], paymentNotice: '', needsAttention: false,
@@ -378,7 +407,14 @@ export class Orders {
       summary: { discountPrice: promotion.discountCents / 100, goodsCount, postFee: 0, totalPayPrice: promotion.amountCents / 100, totalPrice: totalYuan }
     }
   }
-  create(user: User, data: CreateOrder) {
+  createFromWishlist(user: User, data: WishlistOrderCreationInput, wishlistId: string): { id: string } {
+    const out = this.create(user, { ...data, source: 'wishlist' }, { skipCooldown: true, bypassWishlistId: wishlistId })
+    if (!('id' in out) || !out.id) {
+      throw new AppError(409, '待买确认未生成订单，请刷新重试')
+    }
+    return { id: out.id }
+  }
+  create(user: User, data: CreateOrder, options?: { skipCooldown?: boolean; bypassWishlistId?: string }): { id: string } | { wishlistItemId: string; cooldownUntil: number; quotedTotalCents: number } {
     requireBuyer(user)
     ensure(Number.isSafeInteger(data.expectedAmountCents) && data.expectedAmountCents > 0, 400, '请提供整数分报价')
     this.expire()
@@ -391,9 +427,9 @@ export class Orders {
       returnPolicyConfirmed:data.returnPolicyConfirmed??false,expectedReturnPolicyToken:data.expectedReturnPolicyToken??'',expectedPromotionRevision:data.expectedPromotionRevision??null,
       invoice: data.invoice ?? null
     })
-    // 查重、扣库存、保存订单和移除购物车商品必须一起成功；任何一步失败都回滚。
+    // 查重、消费保护判定、扣库存、保存订单、占额和移除购物车商品必须一起成功；任何一步失败都回滚。
     return this.db.transaction(() => {
-      // 第一步：同一个用户用同一个 requestKey 重试时，找回原订单。
+      // 第一步：同一个用户用同一个 requestKey 重试时，找回原订单或原待买项。
       const existing = this.db.one<Order>('SELECT * FROM orders WHERE owner_id=? AND request_key=?', user.id, data.requestKey)
       if (existing) {
         const previous = JSON.parse(existing.request_body) as Omit<CreateOrder, 'requestKey'>
@@ -403,6 +439,25 @@ export class Orders {
           invoice: previous.invoice ?? null })
         ensure(previousBody === normalizedRequestBody, 409, '同一次下单不能修改来源、商品或地址，请重新结算')
         return { id: existing.id }
+      }
+      const existingWishlist = this.db.one<{ id: string; address_id: string; expected_amount_cents: number; goods: string; quoted_total_cents: number; cooldown_until: number }>(
+        'SELECT id,address_id,expected_amount_cents,goods,quoted_total_cents,cooldown_until FROM purchase_wishlist WHERE user_id=? AND request_key=?',
+        user.id, data.requestKey
+      )
+      if (existingWishlist && !options?.skipCooldown) {
+        const existingParsed = JSON.parse(existingWishlist.goods) as Array<{ skuId: string; count: number }>
+        ensure(
+          existingWishlist.address_id === data.addressId &&
+          existingWishlist.expected_amount_cents === data.expectedAmountCents &&
+          normalizeGoodsKey(existingParsed) === normalizeGoodsKey(data.goods),
+          409,
+          '同一次下单不能修改来源、商品或地址，请重新结算'
+        )
+        return {
+          wishlistItemId: existingWishlist.id,
+          cooldownUntil: existingWishlist.cooldown_until,
+          quotedTotalCents: existingWishlist.quoted_total_cents
+        }
       }
       // 第二步：检查规格是否重复、地址是否属于下单人，价格从服务端商品资料取。
       const uniqueSkuIds = new Set(data.goods.map(item => item.skuId))
@@ -426,12 +481,74 @@ export class Orders {
             priceCents: item.price, count: item.count, subtotalCents: item.price * item.count }))
         })
       }
+      // 第三步：消费保护硬限优先判定（单笔 → 月度），再判定冷静期及同购买意图防绕过拦截
+      const now = this.clock.now()
+      const hardEval = evaluateSpending(this.db, user.id, totalAmountCents, now, { hardOnly: true })
+      if (hardEval.decision === 'pause') {
+        throw new AppError(409, hardEval.message, 'SPENDING_PAUSED', hardEval.pauseDetail)
+      }
+      let activeRuleVersion: number | null = hardEval.rule.enabled ? hardEval.rule.version : null
+      if (!options?.skipCooldown) {
+        const blocker = findActiveCooldownBlocker(
+          this.db, user.id, data.goods, totalAmountCents, now,
+          { excludeWishlistId: options?.bypassWishlistId, ruleCooldownThresholdCents: hardEval.rule.cooldownThresholdCents }
+        )
+        if (blocker.waitingBlocker) {
+          throw new AppError(409, '该商品已在待买清单冷静期中，请于冷静结束后本人确认', 'COOLDOWN_ACTIVE', {
+            wishlistItemId: blocker.waitingBlocker.id,
+            cooldownUntil: blocker.waitingBlocker.cooldown_until
+          })
+        }
+        const fullEval = evaluateSpending(this.db, user.id, totalAmountCents, now)
+        if (fullEval.decision === 'cooldown' || blocker.maxUnexpiredUntil > now) {
+          const wishlistResult = enqueueWishlist(this.db, user, {
+            requestKey: data.requestKey,
+            goods: items.map(item => ({
+              skuId: item.id,
+              productId: item.product_id,
+              name: item.name,
+              spec: item.spec,
+              picture: item.picture,
+              unitPriceCents: item.price,
+              count: item.count
+            })),
+            addressId: data.addressId,
+            expectedAmountCents: data.expectedAmountCents,
+            quotedTotalCents: totalAmountCents,
+            promotionRevision: promotion.rule.revision,
+            ruleVersion: fullEval.rule.enabled ? fullEval.rule.version : null,
+            returnPolicyConfirmed: data.returnPolicyConfirmed === true,
+            expectedReturnPolicyToken: data.returnPolicyConfirmed === true ? policyDigest(policyGoods) : null,
+            cooldownHours: fullEval.decision === 'cooldown' ? fullEval.cooldownHours : 1,
+            minCooldownUntil: blocker.maxUnexpiredUntil
+          }, now)
+          return {
+            wishlistItemId: wishlistResult.wishlistItemId,
+            cooldownUntil: wishlistResult.cooldownUntil,
+            quotedTotalCents: wishlistResult.quotedTotalCents
+          }
+        }
+        activeRuleVersion = fullEval.rule.enabled ? fullEval.rule.version : null
+      }
+
       this.reserveStock(items)
+      if (options?.bypassWishlistId) {
+        const updatedWish = this.db.run(
+          "UPDATE purchase_wishlist SET status='confirmed', return_policy_confirmed=?, expected_return_policy_token=? WHERE id=? AND user_id=? AND status='waiting' AND cooldown_until<=?",
+          Number(data.returnPolicyConfirmed === true),
+          data.returnPolicyConfirmed === true ? policyDigest(policyGoods) : null,
+          options.bypassWishlistId, user.id, now
+        )
+        ensure(updatedWish.changes === 1, 409, '该待买记录状态已变化，请刷新查看')
+      }
       const id = this.saveOrderAndItems(user, data.requestKey, normalizedRequestBody, address.data, items, data.returnPolicyConfirmed===true)
-      if (data.invoice) requestInvoice(this.db, user, id, data.invoice, this.clock.now())
+      reserveSpendingReservation(this.db, id, user.id, totalAmountCents, activeRuleVersion, now)
+      if (data.invoice) requestInvoice(this.db, user, id, data.invoice, now)
       for (const item of items) {
         recordStockMovement(this.db, { kind: 'reserve', skuId: item.id, delta: -item.count, orderId: id, actorId: user.id }, this.clock)
-        if (data.source !== 'buy-now') this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
+        if (data.source !== 'buy-now' && data.source !== 'wishlist') {
+          this.db.run('DELETE FROM carts WHERE user_id=? AND sku_id=?', user.id, item.id)
+        }
       }
       return { id }
     })
@@ -469,6 +586,7 @@ export class Orders {
         { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: order.id }, this.clock)
     }
     this.db.run('UPDATE orders SET state=? WHERE id=? AND state=?', ORDER_STATE.CANCELLED, order.id, ORDER_STATE.AWAITING_PAYMENT)
+    releaseSpendingReservation(this.db, order.id, actor ? 'cancelled' : 'expired', this.clock.now())
   }
   expireIfDue(now = this.clock.now()) {
     if (now >= this.lastExpirationReadCheck && now < this.nextExpirationReadCheck) return
@@ -615,6 +733,10 @@ export class Orders {
         { kind: 'expire', skuId: item.sku_id, delta: item.count, orderId: request.order_id }, this.clock)
     }
     const refundId = this.payments.createOrderCancellationRefund(request.order_id, request.payment_id, now,user??undefined)
+    this.db.run(
+      "UPDATE compensation_drafts SET status='cancelled' WHERE order_id=? AND status IN ('pending','pending_budget')",
+      request.order_id
+    )
     const state = user ? 'approved' : 'auto-approved'
     const resolved = this.db.run("UPDATE order_cancel_requests SET state=?,resolved_at=?,resolved_by=?,refund_id=? WHERE id=? AND state='pending'",
       state, now, user?.id ?? null, refundId, request.id)
@@ -690,7 +812,9 @@ export class Orders {
       } else {
         this.owner(user, order)
       }
-      this.db.run('UPDATE orders SET state=2,paid_by=?,paid_at=? WHERE id=? AND state=1', user.id, this.clock.now(), id)
+      const paidAt = this.clock.now()
+      this.db.run('UPDATE orders SET state=2,paid_by=?,paid_at=? WHERE id=? AND state=1', user.id, paidAt, id)
+      settleSpendingReservation(this.db, id, paidAt, paidAt)
       return { id }
     })
   }

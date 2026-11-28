@@ -37,7 +37,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(27), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(31), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -84,6 +84,27 @@ async function fingerprint(root: string, path: string) {
   return { path, bytes: after.size, sha256: hash.digest('hex') }
 }
 
+function isValidCancellationRefundAmount(
+  db: DatabaseSync,
+  version: number,
+  orderId: unknown,
+  paymentAmount: unknown,
+  refundAmount: unknown
+): boolean {
+  if (version < 29) return refundAmount === paymentAmount
+  const compRow = db.prepare(
+    "SELECT COALESCE(SUM(CASE WHEN channel_status<>'failed' THEN confirmed_cents ELSE 0 END),0) AS active, COALESCE(SUM(confirmed_cents),0) AS total FROM compensation_receipts WHERE order_id=?"
+  ).get(orderId as string) as { active: number; total: number }
+  if (compRow.total <= 0) return refundAmount === paymentAmount
+  const paid = Number(paymentAmount)
+  const refunded = Number(refundAmount)
+  return Number.isSafeInteger(refunded) &&
+    refunded > 0 &&
+    refunded + compRow.active <= paid &&
+    refunded >= paid - compRow.total &&
+    refunded <= paid - compRow.active
+}
+
 function inspectCancellations(db: DatabaseSync, version: number) {
   const held = historicalIdentity(db, version)
   const ownerIdentity = version >= 20 ? historicalOwnerIdentity(db) : undefined
@@ -97,7 +118,8 @@ function inspectCancellations(db: DatabaseSync, version: number) {
     if (request.state === 'pending') valid &&= request.order_state === 2 && request.shipped_at === null && request.payment_refunded === 0
     if (request.state === 'rejected-shipped') valid &&= [3, 4, 5].includes(Number(request.order_state)) && request.shipped_at === request.resolved_at && request.payment_refunded === 0
     if (approved) valid &&= request.order_state === 6 && request.shipped_at === null && request.refund_payment === request.payment_id &&
-      request.refund_amount === request.payment_amount && request.refund_reason === 'cancelled'
+      isValidCancellationRefundAmount(db, version, request.order_id, request.payment_amount, request.refund_amount) &&
+      request.refund_reason === 'cancelled'
     const actions = db.prepare('SELECT * FROM order_cancel_actions WHERE cancel_request_id=?').all(request.id!)
     const terminalAction = request.state === 'withdrawn' ? 'withdraw' : request.state === 'approved' ? 'approve' : request.state === 'auto-approved' ? 'auto-approve' : 'reject-and-ship'
     valid &&= actions.length === (request.state === 'pending' ? 1 : 2) && actions.filter(action => action.action === 'request').length === 1
@@ -130,7 +152,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 27) throw new Error('仅支持数据库版本 2 至 27')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 31) throw new Error('仅支持数据库版本 2 至 31')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -146,10 +168,45 @@ function inspectDatabase(path: string) {
       ...(version >= 22 ? sourceRecordTables : []), ...(version >= 24 ? ['evaluation_items','evaluation_revisions','merchant_evaluation_replies'] : []),
       ...(version >= 25 ? ['evaluation_sizes'] : []),
       ...(version >= 26 ? ['review_disputes','review_dispute_actions','review_dispute_conclusions'] : []),
-      ...(version >= 27 ? ['evaluation_followups','evaluation_service_records'] : [])]) {
+      ...(version >= 27 ? ['evaluation_followups','evaluation_service_records'] : []),
+      ...(version >= 28 ? ['price_protection_policies','price_protection_confirmations','price_protection_publications'] : []),
+      ...(version >= 29 ? ['price_events','compensation_drafts','compensation_receipts'] : []),
+      ...(version >= 30 ? ['compensation_radar_state'] : []),
+      ...(version >= 30 && db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='order_audit_anchors'").get() ? ['order_audit_anchors'] : []),
+      ...(version >= 31 ? ['spending_rules', 'spending_reservations', 'purchase_wishlist'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
+    if (version >= 30 && counts['order_audit_anchors'] !== undefined) {
+      const maxAuditId = Number((db.prepare('SELECT COALESCE(MAX(id),0) AS max_id FROM audit_log').get() as { max_id: number }).max_id)
+      const invalidAnchor = db.prepare(`
+        SELECT a.order_id FROM order_audit_anchors a
+        JOIN orders o ON o.id = a.order_id
+        WHERE (a.created_audit_seq IS NOT NULL AND (typeof(a.created_audit_seq) <> 'integer' OR a.created_audit_seq < 0 OR a.created_audit_seq > ?))
+           OR (a.paid_audit_seq IS NOT NULL AND (typeof(a.paid_audit_seq) <> 'integer' OR a.paid_audit_seq < 0 OR a.paid_audit_seq > ? OR o.paid_at IS NULL))
+           OR (a.created_audit_seq IS NOT NULL AND a.paid_audit_seq IS NOT NULL AND a.paid_audit_seq < a.created_audit_seq)
+        LIMIT 1
+      `).get(maxAuditId, maxAuditId)
+      if (invalidAnchor) throw new Error('订单因果锚点记录无效')
+    }
+    if (version >= 29) {
+      for (const receipt of db.prepare(`SELECT r.*, d.order_id AS d_order, d.policy_id AS d_policy, d.buyer_id AS d_buyer,
+        d.capped_cents, d.status AS d_status, o.owner_id, o.amount AS order_amount
+        FROM compensation_receipts r JOIN compensation_drafts d ON d.id=r.draft_id JOIN orders o ON o.id=r.order_id`).iterate()) {
+        if (receipt.order_id !== receipt.d_order || receipt.policy_id !== receipt.d_policy ||
+          receipt.buyer_id !== receipt.d_buyer || receipt.buyer_id !== receipt.owner_id ||
+          receipt.d_status !== 'confirmed' || Number(receipt.confirmed_cents) !== Number(receipt.capped_cents)) {
+          throw new Error('补差回执与草稿或订单归属不一致')
+        }
+      }
+      if (db.prepare(`SELECT o.id FROM orders o WHERE (
+        SELECT COALESCE(SUM(r.amount),0) FROM refunds r JOIN payments p ON p.id=r.payment_id WHERE p.order_id=o.id AND r.reason IN ('cancelled','after-sale')
+      ) + (
+        SELECT COALESCE(SUM(cr.confirmed_cents),0) FROM compensation_receipts cr WHERE cr.order_id=o.id AND cr.channel_status<>'failed'
+      ) > o.amount`).get()) {
+        throw new Error('补差与退款总额超过订单实付')
+      }
+    }
     if(version>=27) {
       const held = historicalIdentity(db, version)
       for (const f of db.prepare(`SELECT f.*, e.created eval_created, o.owner_id FROM evaluation_followups f
@@ -230,8 +287,9 @@ function inspectDatabase(path: string) {
           const cancellation = db.prepare("SELECT c.payment_id,r.payment_id AS refund_payment,r.reason,r.amount,p.amount AS paid_amount,p.state AS payment_state,p.order_id,p.payer_id,p.channel_paid_at FROM order_cancel_requests c LEFT JOIN refunds r ON r.id=c.refund_id LEFT JOIN payments p ON p.id=c.payment_id WHERE c.order_id=? AND c.state IN ('approved','auto-approved')").all(order.id!)
           if (cancellation.length) {
             const request = cancellation[0]!
+            const cancelAmountValid = isValidCancellationRefundAmount(db, version, order.id, order.amount, request.amount)
             valid = cancellation.length === 1 && effective === 0 && order.shipped_at === null && request.payment_id === request.refund_payment &&
-              request.reason === 'cancelled' && request.amount === order.amount && request.paid_amount === order.amount && request.payment_state === 'succeeded' &&
+              request.reason === 'cancelled' && cancelAmountValid && request.paid_amount === order.amount && request.payment_state === 'succeeded' &&
               request.order_id === order.id && request.payer_id === order.paid_by && request.channel_paid_at === order.paid_at
           }
         }
@@ -293,6 +351,37 @@ function inspectDatabase(path: string) {
     }
     const serviceImages = version >= 17 ? inspectServices(db, version) : []
     for (const image of serviceImages) uploads.add(image.path)
+    if (version >= 31) {
+      for (const sr of db.prepare(`
+        SELECT sr.*, o.owner_id, o.amount AS order_amount, o.state AS order_state, o.paid_at
+        FROM spending_reservations sr
+        JOIN orders o ON o.id = sr.order_id
+      `).iterate()) {
+        const orderState = Number(sr.order_state)
+        const expectedStateOk =
+          (orderState === 1 && sr.state === 'reserved') ||
+          ([2, 3, 4, 5].includes(orderState) && sr.state === 'settled') ||
+          (orderState === 6 && sr.paid_at === null && sr.state === 'released') ||
+          (orderState === 6 && sr.paid_at !== null && (sr.state === 'settled' || sr.state === 'released'))
+        const ruleValid = sr.rule_version === null ||
+          Boolean(db.prepare('SELECT 1 FROM spending_rules WHERE user_id=? AND version=?').get(sr.user_id!, sr.rule_version!))
+        if (sr.user_id !== sr.owner_id || Number(sr.cents) !== Number(sr.order_amount) || !expectedStateOk || !ruleValid) {
+          throw new Error('消费预算占额与订单或规则状态不一致')
+        }
+      }
+      for (const pw of db.prepare('SELECT * FROM purchase_wishlist').iterate()) {
+        let parsed: unknown = null
+        try { parsed = JSON.parse(String(pw.goods)) } catch { parsed = null }
+        const ruleValid = pw.rule_version === null ||
+          Boolean(db.prepare('SELECT 1 FROM spending_rules WHERE user_id=? AND version=?').get(pw.user_id!, pw.rule_version!))
+        const policyConfirmed = Number(pw.return_policy_confirmed ?? 0)
+        const policyValid = [0, 1].includes(policyConfirmed) &&
+          (policyConfirmed === 0 || /^[a-f0-9]{64}$/.test(String(pw.expected_return_policy_token ?? '')))
+        if (!Array.isArray(parsed) || parsed.length === 0 || !ruleValid || !policyValid) {
+          throw new Error('待买清单快照或规则版本归属无效')
+        }
+      }
+    }
     return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages, serviceImages,
       issues, schemaVersion: version }
   } finally { db.close() }

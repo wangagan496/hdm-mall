@@ -1,0 +1,1471 @@
+==> HarmonyOS assembleApp
+> hvigor [32mFinished ::PreBuildApp... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :phone:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :models:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :network:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :category:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :home:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :device:default@PreBuild...  [39m
+> hvigor [32mUP-TO-DATE :mine:default@PreBuild...  [39m
+> hvigor [32mFinished ::DuplicateDependencyCheck... after 1 ms [39m
+> hvigor [32mFinished :phone:default@CreateModuleInfo... after 2 ms [39m
+> hvigor [32mFinished :phone:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :phone:default@GeneratePkgContextInfo... after 12 ms [39m
+> hvigor [32mFinished :phone:default@GeneratePkgSdkInfo... after 3 ms [39m
+> hvigor [32mFinished :phone:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :constants:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :constants:default@GenerateMetadata...  [39m
+> hvigor [32mFinished :constants:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :constants:default@MergeProfile... after 22 ms [39m
+> hvigor [32mFinished :constants:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :constants:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :constants:default@GeneratePkgContextInfo... after 56 ms [39m
+> hvigor [32mFinished :constants:default@GeneratePkgSdkInfo... after 1 ms [39m
+> hvigor [32mFinished :constants:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :constants:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :models:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :models:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :models:default@GeneratePkgContextInfo... after 31 ms [39m
+> hvigor [32mFinished :models:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :models:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :models:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :storage:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :storage:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :storage:default@GeneratePkgContextInfo... after 4 ms [39m
+> hvigor [32mFinished :storage:default@GeneratePkgSdkInfo... after 1 ms [39m
+> hvigor [32mFinished :storage:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :storage:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :network:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :network:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :network:default@GeneratePkgContextInfo... after 6 ms [39m
+> hvigor [32mFinished :network:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :network:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :network:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :utils:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :utils:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :utils:default@GeneratePkgContextInfo... after 4 ms [39m
+> hvigor [32mFinished :utils:default@GeneratePkgSdkInfo... after 1 ms [39m
+> hvigor [32mFinished :utils:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :utils:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@GeneratePkgContextInfo... after 5 ms [39m
+> hvigor [32mFinished :ui_components:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :cart:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :cart:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :cart:default@GeneratePkgContextInfo... after 5 ms [39m
+> hvigor [32mFinished :cart:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :cart:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :cart:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :category:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :category:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :category:default@GeneratePkgContextInfo... after 4 ms [39m
+> hvigor [32mFinished :category:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :category:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :category:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :home:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :home:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :home:default@GeneratePkgContextInfo... after 4 ms [39m
+> hvigor [32mFinished :home:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :home:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :home:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :device:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :device:default@GenerateMetadata...  [39m
+> hvigor [32mFinished :device:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :device:default@MergeProfile... after 35 ms [39m
+> hvigor [32mFinished :device:default@CreateBuildProfile... after 2 ms [39m
+> hvigor [32mFinished :device:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :device:default@GeneratePkgContextInfo... after 42 ms [39m
+> hvigor [32mFinished :device:default@GeneratePkgSdkInfo... after 1 ms [39m
+> hvigor [32mFinished :device:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :device:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :mine:default@CreateModuleInfo... after 1 ms [39m
+> hvigor [32mFinished :mine:default@PreCheckSyscap... after 1 ms [39m
+> hvigor [32mFinished :mine:default@GeneratePkgContextInfo... after 3 ms [39m
+> hvigor [32mFinished :mine:default@GeneratePkgSdkInfo... after 2 ms [39m
+> hvigor [32mFinished :mine:default@ProcessIntegratedHsp... after 1 ms [39m
+> hvigor [32mFinished :mine:default@ProcessModulePrivacyProfile... after 1 ms [39m
+> hvigor [32mFinished :phone:default@SyscapTransform... after 9 ms [39m
+> hvigor [32mFinished :phone:default@ProcessRouterMap... after 87 ms [39m
+> hvigor [32mFinished :phone:default@ProcessShareConfig... after 31 ms [39m
+> hvigor [32mFinished :phone:default@ProcessStartupConfig... after 3 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@GenerateMetadata...  [39m
+> hvigor [32mFinished :constants:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :constants:default@MakePackInfo... after 32 ms [39m
+> hvigor [32mFinished :models:default@MergeProfile... after 27 ms [39m
+> hvigor [32mFinished :models:default@CreateBuildProfile... after 4 ms [39m
+> hvigor [32mFinished :constants:default@SyscapTransform... after 3 ms [39m
+> hvigor [32mFinished :constants:default@ProcessProfile... after 82 ms [39m
+> hvigor [32mFinished :constants:default@ProcessRouterMap... after 68 ms [39m
+> hvigor [32mFinished :constants:default@ProcessShareConfig... after 31 ms [39m
+> hvigor [32mFinished :constants:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :models:default@SyscapTransform... after 4 ms [39m
+> hvigor [32mFinished :models:default@ProcessRouterMap... after 58 ms [39m
+> hvigor [32mFinished :models:default@ProcessShareConfig... after 32 ms [39m
+> hvigor [32mFinished :models:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :storage:default@SyscapTransform... after 3 ms [39m
+> hvigor [32mFinished :storage:default@ProcessRouterMap... after 49 ms [39m
+> hvigor [32mFinished :storage:default@ProcessShareConfig... after 33 ms [39m
+> hvigor [32mFinished :storage:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :network:default@SyscapTransform... after 2 ms [39m
+> hvigor [32mFinished :network:default@ProcessRouterMap... after 59 ms [39m
+> hvigor [32mFinished :network:default@ProcessShareConfig... after 33 ms [39m
+> hvigor [32mFinished :network:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :utils:default@SyscapTransform... after 3 ms [39m
+> hvigor [32mFinished :utils:default@ProcessRouterMap... after 49 ms [39m
+> hvigor [32mFinished :utils:default@ProcessShareConfig... after 32 ms [39m
+> hvigor [32mFinished :utils:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :ui_components:default@SyscapTransform... after 2 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessRouterMap... after 60 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessShareConfig... after 32 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :cart:default@SyscapTransform... after 3 ms [39m
+> hvigor [32mFinished :cart:default@ProcessRouterMap... after 16 ms [39m
+> hvigor [32mFinished :cart:default@ProcessShareConfig... after 44 ms [39m
+> hvigor [32mFinished :cart:default@ProcessStartupConfig... after 12 ms [39m
+> hvigor [32mFinished :category:default@SyscapTransform... after 5 ms [39m
+> hvigor [32mFinished :category:default@ProcessRouterMap... after 50 ms [39m
+> hvigor [32mFinished :category:default@ProcessShareConfig... after 31 ms [39m
+> hvigor [32mFinished :category:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :home:default@SyscapTransform... after 3 ms [39m
+> hvigor [32mFinished :home:default@ProcessRouterMap... after 9 ms [39m
+> hvigor [32mFinished :home:default@ProcessShareConfig... after 51 ms [39m
+> hvigor [32mFinished :home:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mFinished :device:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :device:default@MakePackInfo... after 28 ms [39m
+> hvigor [32mFinished :device:default@SyscapTransform... after 4 ms [39m
+> hvigor [32mFinished :device:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :device:default@ProcessRouterMap... after 54 ms [39m
+> hvigor [32mFinished :device:default@ProcessShareConfig... after 34 ms [39m
+> hvigor [32mFinished :device:default@ProcessStartupConfig... after 1 ms [39m
+> hvigor [32mFinished :mine:default@SyscapTransform... after 2 ms [39m
+> hvigor [32mFinished :mine:default@ProcessRouterMap... after 12 ms [39m
+> hvigor [32mFinished :mine:default@ProcessShareConfig... after 38 ms [39m
+> hvigor [32mFinished :mine:default@ProcessStartupConfig... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@GenerateMetadata...  [39m
+> hvigor [32mFinished :constants:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :models:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :models:default@MakePackInfo... after 24 ms [39m
+> hvigor [32mFinished :models:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :network:default@MergeProfile... after 36 ms [39m
+> hvigor [32mFinished :utils:default@MergeProfile... after 15 ms [39m
+> hvigor [32mFinished :ui_components:default@MergeProfile... after 27 ms [39m
+> hvigor [32mFinished :network:default@CreateBuildProfile... after 4 ms [39m
+> hvigor [32mFinished :utils:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :ui_components:default@CreateBuildProfile... after 4 ms [39m
+> hvigor [32mFinished :constants:default@ProcessResource... after 78 ms [39m
+> hvigor [32mFinished :constants:default@GenerateLoaderJson... after 50 ms [39m
+> hvigor [32mFinished :device:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :device:default@ProcessResource... after 47 ms [39m
+> hvigor [32mFinished :device:default@GenerateLoaderJson... after 53 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :category:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@ProcessLibs...  [39m
+> hvigor [32mFinished :models:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :models:default@ProcessResource... after 46 ms [39m
+> hvigor [32mFinished :storage:default@MergeProfile... after 33 ms [39m
+> hvigor [32mFinished :network:default@MakePackInfo... after 40 ms [39m
+> hvigor [32mFinished :network:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :utils:default@MakePackInfo... after 36 ms [39m
+> hvigor [32mFinished :utils:default@ProcessProfile... after 22 ms [39m
+> hvigor [32mFinished :ui_components:default@MakePackInfo... after 44 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :category:default@MergeProfile... after 20 ms [39m
+> hvigor [32mFinished :storage:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :category:default@CreateBuildProfile... after 6 ms [39m
+> hvigor [32mFinished :constants:default@CompileResource... after 613 ms [39m
+> hvigor [32mUP-TO-DATE :device:default@ProcessLibs...  [39m
+> hvigor [32mFinished :device:default@CompileResource... after 723 ms [39m
+> hvigor [32mUP-TO-DATE :home:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :mine:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@DoNativeStrip...  [39m
+> hvigor [32mFinished :network:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :utils:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :models:default@CompileResource... after 478 ms [39m
+> hvigor [32mFinished :storage:default@MakePackInfo... after 30 ms [39m
+> hvigor [32mFinished :storage:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :home:default@MergeProfile... after 31 ms [39m
+> hvigor [32mFinished :cart:default@MergeProfile... after 24 ms [39m
+> hvigor [32mFinished :mine:default@MergeProfile... after 28 ms [39m
+> hvigor [32mFinished :network:default@ProcessResource... after 65 ms [39m
+> hvigor [32mFinished :utils:default@ProcessResource... after 43 ms [39m
+> hvigor [32mFinished :ui_components:default@ProcessResource... after 40 ms [39m
+> hvigor [32mFinished :category:default@MakePackInfo... after 41 ms [39m
+> hvigor [32mFinished :category:default@ProcessProfile... after 6 ms [39m
+> hvigor [32mFinished :home:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :cart:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :mine:default@CreateBuildProfile... after 3 ms [39m
+> hvigor [32mFinished :constants:default@BuildJS... after 2 ms [39m
+> hvigor [32mFinished :models:default@GenerateLoaderJson... after 36 ms [39m
+> hvigor [32mUP-TO-DATE :device:default@DoNativeStrip...  [39m
+> hvigor [32mFinished :device:default@BuildJS... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :phone:default@GenerateMetadata...  [39m
+> hvigor [32mUP-TO-DATE :constants:default@CacheNativeLibs...  [39m
+> hvigor [32mFinished :models:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :network:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :utils:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :network:default@GenerateLoaderJson... after 34 ms [39m
+> hvigor [32mFinished :utils:default@GenerateLoaderJson... after 52 ms [39m
+> hvigor [32mFinished :ui_components:default@GenerateLoaderJson... after 35 ms [39m
+> hvigor [32mFinished :storage:default@ProcessResource... after 53 ms [39m
+> hvigor [32mFinished :home:default@MakePackInfo... after 46 ms [39m
+> hvigor [32mFinished :home:default@ProcessProfile... after 5 ms [39m
+> hvigor [32mFinished :cart:default@MakePackInfo... after 48 ms [39m
+> hvigor [32mFinished :cart:default@ProcessProfile... after 5 ms [39m
+> hvigor [32mFinished :phone:default@MergeProfile... after 20 ms [39m
+> hvigor [32mFinished :mine:default@MakePackInfo... after 62 ms [39m
+> hvigor [32mFinished :mine:default@ProcessProfile... after 5 ms [39m
+> hvigor [32mFinished :network:default@CompileResource... after 723 ms [39m
+> hvigor [32mFinished :utils:default@CompileResource... after 527 ms [39m
+> hvigor [32mFinished :ui_components:default@CompileResource... after 957 ms [39m
+> hvigor [32mFinished :category:default@ProcessResource... after 66 ms [39m
+> hvigor [32mFinished :phone:default@CreateBuildProfile... after 4 ms [39m
+> hvigor [32mFinished :models:default@BuildJS... after 3 ms [39m
+> hvigor [32mUP-TO-DATE :device:default@CacheNativeLibs...  [39m
+> hvigor [32mUP-TO-DATE :models:default@ProcessLibs...  [39m
+> hvigor [32mFinished :storage:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :category:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :storage:default@CompileResource... after 575 ms [39m
+> hvigor [32mFinished :home:default@ProcessResource... after 96 ms [39m
+> hvigor [32mFinished :cart:default@ProcessResource... after 48 ms [39m
+> hvigor [32mUP-TO-DATE :phone:default@MakePackInfo...  [39m
+> hvigor [32mFinished :phone:default@ProcessProfile... after 22 ms [39m
+> hvigor [32mFinished :mine:default@ProcessResource... after 49 ms [39m
+> hvigor [32mFinished :storage:default@GenerateLoaderJson... after 48 ms [39m
+> hvigor [32mFinished :network:default@BuildJS... after 2 ms [39m
+> hvigor [32mFinished :utils:default@BuildJS... after 3 ms [39m
+> hvigor [32mFinished :ui_components:default@BuildJS... after 2 ms [39m
+> hvigor [32mFinished :category:default@GenerateLoaderJson... after 29 ms [39m
+> hvigor [32mFinished :category:default@CompileResource... after 826 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@DoNativeStrip...  [39m
+> hvigor [32mFinished :storage:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :category:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :home:default@GenerateLoaderJson... after 56 ms [39m
+> hvigor [32mFinished :cart:default@GenerateLoaderJson... after 49 ms [39m
+> hvigor [32mFinished :mine:default@GenerateLoaderJson... after 67 ms [39m
+> hvigor [32mFinished :home:default@CompileResource... after 2 s 185 ms [39m
+> hvigor [32mFinished :cart:default@CompileResource... after 604 ms [39m
+> hvigor [32mFinished :phone:default@ProcessResource... after 48 ms [39m
+> hvigor [32mFinished :mine:default@CompileResource... after 1 s 338 ms [39m
+> hvigor [32mFinished :storage:default@BuildJS... after 3 ms [39m
+> hvigor [32mFinished :category:default@BuildJS... after 3 ms [39m
+> hvigor [32mUP-TO-DATE :models:default@CacheNativeLibs...  [39m
+> hvigor [32mFinished :network:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :utils:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :home:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :cart:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :mine:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :home:default@BuildJS... after 3 ms [39m
+> hvigor [32mFinished :cart:default@BuildJS... after 3 ms [39m
+> hvigor [32mFinished :constants:default@CompileArkTS... after 6 s 779 ms [39m
+> hvigor [32mFinished :phone:default@GenerateLoaderJson... after 35 ms [39m
+> hvigor [32mFinished :mine:default@BuildJS... after 2 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@ProcessLibs...  [39m
+> hvigor [32mFinished :home:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :cart:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :mine:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mFinished :constants:default@PrepareSharedHarResource... after 1 s 154 ms [39m
+> hvigor [32mFinished :constants:default@GeneratePkgModuleJson... after 65 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@DoNativeStrip...  [39m
+> hvigor [32mFinished :phone:default@ConfigureCmake... after 1 ms [39m
+> hvigor [32mFinished :constants:default@PackageSharedHar... after 192 ms [39m
+> hvigor [32mFinished :storage:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :network:default@CacheNativeLibs...  [39m
+> hvigor [32mUP-TO-DATE :utils:default@CacheNativeLibs...  [39m
+> hvigor [32mUP-TO-DATE :ui_components:default@CacheNativeLibs...  [39m
+> hvigor [32mFinished :category:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :phone:default@BuildNativeWithCmake... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :storage:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :category:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :category:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :storage:default@CacheNativeLibs...  [39m
+> hvigor [32mFinished :home:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :cart:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mFinished :mine:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :category:default@CacheNativeLibs...  [39m
+> hvigor [32mUP-TO-DATE :home:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :mine:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :home:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :mine:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :home:default@CacheNativeLibs...  [39m
+> hvigor [32mUP-TO-DATE :cart:default@CacheNativeLibs...  [39m
+> hvigor [32mFinished :phone:default@BuildNativeWithNinja... after 1 ms [39m
+> hvigor [32mUP-TO-DATE :mine:default@CacheNativeLibs...  [39m
+> hvigor [32mUP-TO-DATE :phone:default@ProcessLibs...  [39m
+> hvigor [32mUP-TO-DATE :phone:default@DoNativeStrip...  [39m
+> hvigor [32mUP-TO-DATE :phone:default@CacheNativeLibs...  [39m
+> hvigor [32mFinished :phone:default@CompileResource... after 2 s 75 ms [39m
+> hvigor [32mFinished :phone:default@BuildJS... after 2 ms [39m
+> hvigor [32mFinished :constants:default@PackageHsp... after 899 ms [39m
+> hvigor [32mFinished :constants:default@PackingCheck... after 8 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:77:19
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :device:default@CompileArkTS... after 9 s 818 ms [39m
+> hvigor [32mFinished :constants:default@CollectDebugSymbol... after 2 ms [39m
+> hvigor [32mFinished :device:default@PrepareSharedHarResource... after 741 ms [39m
+> hvigor [32mFinished :device:default@GeneratePkgModuleJson... after 33 ms [39m
+> hvigor [32mFinished :device:default@PackageSharedHar... after 96 ms [39m
+> hvigor [32mFinished :device:default@PackageHsp... after 839 ms [39m
+> hvigor [32mFinished :device:default@PackingCheck... after 9 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:41:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:86
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:43:12
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:52:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:55:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:62:24
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:80:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:26
+ The system capacity of this api 'request' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets:33:29
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :utils:default@CompileArkTS... after 9 s 225 ms [39m
+> hvigor [32mFinished :device:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :utils:default@PrepareSharedHarResource... after 687 ms [39m
+> hvigor [32mFinished :utils:default@GeneratePkgModuleJson... after 6 ms [39m
+> hvigor [32mFinished :utils:default@PackageSharedHar... after 121 ms [39m
+> hvigor [32mFinished :constants:default@SignHsp... after 3 s 768 ms [39m
+> hvigor [32mFinished :constants:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :constants:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :utils:default@PackageHsp... after 890 ms [39m
+> hvigor [32mFinished :utils:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :models:default@CompileArkTS... after 12 s 461 ms [39m
+> hvigor [32mFinished :utils:default@CollectDebugSymbol... after 2 ms [39m
+> hvigor [32mFinished :models:default@PrepareSharedHarResource... after 1 s 50 ms [39m
+> hvigor [32mFinished :models:default@GeneratePkgModuleJson... after 4 ms [39m
+> hvigor [32mFinished :device:default@SignHsp... after 4 s 42 ms [39m
+> hvigor [32mFinished :device:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :device:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :models:default@PackageSharedHar... after 118 ms [39m
+> hvigor [32mFinished :models:default@PackageHsp... after 802 ms [39m
+> hvigor [32mFinished :models:default@PackingCheck... after 5 ms [39m
+> hvigor [32mFinished :utils:default@SignHsp... after 4 s 151 ms [39m
+> hvigor [32mFinished :models:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :utils:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :utils:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :network:default@CompileArkTS... after 15 s 744 ms [39m
+> hvigor [32mFinished :network:default@PrepareSharedHarResource... after 286 ms [39m
+> hvigor [32mFinished :network:default@GeneratePkgModuleJson... after 21 ms [39m
+> hvigor [32mFinished :network:default@PackageSharedHar... after 46 ms [39m
+> hvigor [32mFinished :network:default@PackageHsp... after 695 ms [39m
+> hvigor [32mFinished :network:default@PackingCheck... after 7 ms [39m
+> hvigor [32mFinished :models:default@SignHsp... after 4 s 272 ms [39m
+> hvigor [32mFinished :network:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :models:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :models:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :network:default@SignHsp... after 3 s 535 ms [39m
+> hvigor [32mFinished :network:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :network:assembleHsp... after 1 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:41:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:86
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:43:12
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:52:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:55:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:62:24
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:80:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:26
+ The system capacity of this api 'request' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets:33:29
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:77:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:38:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:39:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:43:64
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:99:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:134:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets:139:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:38:97
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:39:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:40:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:218:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:251:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:276:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:330:85
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:40:34
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:43:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:44:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/products/phone/src/main/ets/pages/Index.ets:148:45
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :phone:default@CompileArkTS... after 14 s 688 ms [39m
+> hvigor [32mFinished :phone:default@GeneratePkgModuleJson... after 42 ms [39m
+> hvigor [32mFinished :phone:default@ProcessCompiledResources... after 1 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :category:default@CompileArkTS... after 6 s 550 ms [39m
+> hvigor [32mFinished :phone:default@PackageHap... after 599 ms [39m
+> hvigor [32mFinished :category:default@GeneratePkgModuleJson... after 110 ms [39m
+> hvigor [32mFinished :phone:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :category:default@PrepareSharedHarResource... after 1 s 454 ms [39m
+> hvigor [32mFinished :phone:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :category:default@PackageSharedHar... after 59 ms [39m
+> hvigor [32mFinished :category:default@PackageHsp... after 658 ms [39m
+> hvigor [32mFinished :category:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :phone:default@SignHap... after 3 s 557 ms [39m
+> hvigor [32mFinished :category:default@CollectDebugSymbol... after 2 ms [39m
+> hvigor [32mFinished :phone:assembleHap... after 1 ms [39m
+> hvigor [32mFinished :category:default@SignHsp... after 3 s 648 ms [39m
+> hvigor [32mFinished :category:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :category:assembleHsp... after 1 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :ui_components:default@CompileArkTS... after 10 s 957 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:41:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:86
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:43:12
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:52:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:55:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:62:24
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:80:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:26
+ The system capacity of this api 'request' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets:33:29
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:77:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:38:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:39:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:43:64
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:99:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/home/src/main/ets/presentation/components/HDMAudioSearch.ets:134:47
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :home:default@CompileArkTS... after 21 s 931 ms [39m
+> hvigor [32mFinished :ui_components:default@GeneratePkgModuleJson... after 19 ms [39m
+> hvigor [32mFinished :ui_components:default@PrepareSharedHarResource... after 4 s 991 ms [39m
+> hvigor [32mFinished :home:default@GeneratePkgModuleJson... after 68 ms [39m
+> hvigor [32mFinished :home:default@PrepareSharedHarResource... after 4 s 357 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :storage:default@CompileArkTS... after 13 s 723 ms [39m
+> hvigor [32mFinished :home:default@PackageHsp... after 1 s 928 ms [39m
+> hvigor [32mFinished :storage:default@GeneratePkgModuleJson... after 58 ms [39m
+> hvigor [32mFinished :home:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :storage:default@PrepareSharedHarResource... after 4 s 69 ms [39m
+> hvigor [32mFinished :home:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@PackageSharedHar... after 5 s 935 ms [39m
+> hvigor [32mFinished :storage:default@PackageSharedHar... after 447 ms [39m
+> hvigor [32mFinished :home:default@PackageSharedHar... after 5 s 34 ms [39m
+> hvigor [32mFinished :ui_components:default@PackageHsp... after 1 s 955 ms [39m
+> hvigor [32mFinished :ui_components:default@PackingCheck... after 6 ms [39m
+> hvigor [32mFinished :storage:default@PackageHsp... after 1 s 338 ms [39m
+> hvigor [32mFinished :ui_components:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :storage:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :home:default@SignHsp... after 4 s 661 ms [39m
+> hvigor [32mFinished :storage:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :home:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :home:assembleHsp... after 1 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:15:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:66:26
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:67:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/InventoryAdjustment.ets:70:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:11:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:53:26
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:55:30
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:56:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:57:27
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:59:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/utils/ProductSave.ets:60:29
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets:56:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets:57:56
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/AccountDeletionView.ets:57:88
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SensorPlugin.ets:6:22
+ To use this API, you need to apply for the permissions: ohos.permission.VIBRATE
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:10:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:11:17
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:12:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:13:21
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:16:15
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/AudioCapturerManager.ets:23:18
+ The system capacity of this api 'audio' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:23:39
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/device/src/main/ets/SpeechToTextManager.ets:77:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets:139:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:38:97
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:39:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/PromotionSettingView.ets:40:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets:63:26
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets:64:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/ProductPromisesView.ets:68:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:25:51
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:30:64
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:41:53
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/mine/src/main/ets/presentation/views/SettingView.ets:72:45
+ Function may throw exceptions. Special handling is required.
+
+
+> hvigor [32mFinished :mine:default@CompileArkTS... after 40 s 4 ms [39m
+> hvigor [32mFinished :mine:default@PrepareSharedHarResource... after 2 s 989 ms [39m
+> hvigor [32mFinished :mine:default@GeneratePkgModuleJson... after 22 ms [39m
+> hvigor WARN: WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:86:33
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:93:28
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:98:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:108:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:118:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/StoreManager.ets:127:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/CancelActions.ets:29:56
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:40:43
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:78:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:82:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:83:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/LocalGoodsStore.ets:84:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:19:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:44:84
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:45:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/AfterSaleActions.ets:46:44
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:21:41
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:34:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:35:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:44:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:45:96
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:53:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:55:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:61:23
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:58
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:62:108
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:65:13
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:71:42
+ 'createModuleContext' has been deprecated.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:72:49
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:73:32
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/storage/src/main/ets/ConsentManager.ets:89:38
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:20:36
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:36:66
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:43:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:45:21
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:48:22
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/ui-components/src/main/ets/utils/ProductImage.ets:60:19
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:26:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:41:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:42:86
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:43:12
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:52:25
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:55:18
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:62:24
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:80:31
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:26
+ The system capacity of this api 'request' is not supported on all devices
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:128:34
+ To use this API, you need to apply for the permissions: ohos.permission.INTERNET
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/DownLoadManager.ets:147:19
+ To use this API, you need to apply for the permissions: ohos.permission.INTERNET
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/PushCardManager.ets:33:29
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/commons/utils/src/main/ets/ImagePreload.ets:21:21
+ To use this API, you need to apply for the permissions: ohos.permission.INTERNET
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:40:34
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:43:11
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/utils/OrderCancellation.ets:44:17
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:218:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:251:47
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:276:45
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CartView.ets:330:85
+ Function may throw exceptions. Special handling is required.
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets:638:15
+ To use this API, you need to apply for the permissions: ohos.permission.GET_NETWORK_INFO
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/EvaluationView.ets:339:15
+ To use this API, you need to apply for the permissions: ohos.permission.GET_NETWORK_INFO
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/views/PayResultView.ets:236:17
+ To use this API, you need to apply for the permissions: ohos.permission.GET_NETWORK_INFO
+
+WARN: ArkTS:WARN File: D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/components/AfterSaleCard.ets:85:28
+ The current component id "after-sale-withdraw" is duplicate with D:/hdm-mall/mixed-development-h5/features/cart/src/main/ets/presentation/components/AfterSaleCard.ets:76:189.
+
+> hvigor [32mFinished :cart:default@CompileArkTS... after 49 s 95 ms [39m
+> hvigor [32mFinished :storage:default@SignHsp... after 8 s 391 ms [39m
+> hvigor [32mFinished :cart:default@GeneratePkgModuleJson... after 4 ms [39m
+> hvigor [32mFinished :storage:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :storage:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :ui_components:default@SignHsp... after 8 s 916 ms [39m
+> hvigor [32mFinished :ui_components:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :ui_components:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :cart:default@PrepareSharedHarResource... after 1 s 574 ms [39m
+> hvigor [32mFinished :cart:default@PackageSharedHar... after 191 ms [39m
+> hvigor [32mFinished :mine:default@PackageSharedHar... after 1 s 848 ms [39m
+> hvigor [32mFinished :mine:default@PackageHsp... after 1 s 816 ms [39m
+> hvigor [32mFinished :mine:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :cart:default@PackageHsp... after 610 ms [39m
+> hvigor [32mFinished :mine:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :cart:default@PackingCheck... after 4 ms [39m
+> hvigor [32mFinished :mine:default@SignHsp... after 2 s 811 ms [39m
+> hvigor [32mFinished :cart:default@CollectDebugSymbol... after 1 ms [39m
+> hvigor [32mFinished :mine:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :mine:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished :cart:default@SignHsp... after 2 s 652 ms [39m
+> hvigor [32mFinished :cart:default@PackageSharedTgz... after 1 ms [39m
+> hvigor [32mFinished :cart:assembleHsp... after 1 ms [39m
+> hvigor [32mFinished ::MakeProjectPackInfo... after 31 ms [39m
+> hvigor [32mUP-TO-DATE ::ProcessProjectPrivacyProfile...  [39m
+> hvigor [32mFinished ::GeneratePackRes... after 2 ms [39m
+> hvigor [32mFinished ::PackageApp... after 3 s 323 ms [39m
+> hvigor [32mFinished ::SignPackagesFromApp... after 9 s 934 ms [39m
+> hvigor [32mFinished ::SignApp... after 4 s 477 ms [39m
+> hvigor [32mFinished ::assembleApp... after 1 ms [39m
+> hvigor [32mBUILD SUCCESSFUL in 1 min 27 s 976 ms [39m
+
+438 tasks in total: 376 executed, 62 up-to-date
+==> Signed app package
+Path: D:\hdm-mall\mixed-development-h5\build\outputs\default\mixed-development-h5-default-all-signed.app
+Size: 10,715,518 bytes
+Updated: 2026-11-24 17:01:26
+MATCH mine-default.hsp/resources/rawfile/index.html SHA256 60CF0418BDC79FDB49B3A065652EE4B13B8CB730A05F978249F9AFA645154EE7
+SCRIPT D:\hdm-mall\scripts\verify-package-web.ps1 RESULT packaged H5 matches source output (1 file)
+Project verification completed.

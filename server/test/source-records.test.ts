@@ -152,7 +152,7 @@ test('材料版本、批次与访问权限均受服务端约束，提示注入�
     assert.equal(afterEdit.json().result.skus[0].promiseSources[0].record.sha256, undefined)
 
     const backup = await createBackup({ databasePath, uploadsPath, destination: backupPath })
-    assert.equal(backup.manifest.schemaVersion, 27)
+    assert.equal(backup.manifest.schemaVersion, 31)
     for (const table of sourceRecordTables) assert.ok(table in backup.counts)
     const restored = await restoreBackup({ backupPath: backup.root, destination: restorePath })
     const recovered = new Database(join(restored.root, 'mall.sqlite'))

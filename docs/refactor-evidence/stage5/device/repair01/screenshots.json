@@ -1,0 +1,26 @@
+[
+  {
+    "theme": "light",
+    "file": "01-wishlist-policy-changed.jpg",
+    "bytes": 97942,
+    "sha256": "7D4185C0BF1562337201BE369BC721B8CE694369A1FEE733429B5A7E99FBE38F"
+  },
+  {
+    "theme": "light",
+    "file": "02-wishlist-policy-reconfirmed.jpg",
+    "bytes": 73369,
+    "sha256": "908D84B3A0FB82C55FF8BF397213D3077F37CE39773309D4F6CD8E43467C4EBD"
+  },
+  {
+    "theme": "dark",
+    "file": "01-wishlist-policy-changed.jpg",
+    "bytes": 92423,
+    "sha256": "02E3E122E232B29613512152AAA264BF3DD6A6897C91E7A094DAE0F734B16D0E"
+  },
+  {
+    "theme": "dark",
+    "file": "02-wishlist-policy-reconfirmed.jpg",
+    "bytes": 71303,
+    "sha256": "37F798636A7D08373F8024A029E91805C520AE592F05D91F82F13F3F67BFAA46"
+  }
+]

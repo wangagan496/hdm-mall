@@ -1,4 +1,4 @@
-import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderRefund, OrderState, formatBeijingTime } from 'models'
+import { DemoOrderOverlay, LocalEvaluationItem, OrderItem, OrderRefund, OrderState, PriceProtectionBrief, formatBeijingTime } from 'models'
 import { systemDateTime } from '@kit.BasicServicesKit'
 
 /**
@@ -152,4 +152,16 @@ export function isDemoOverlayApplied(
   evaluation: LocalEvaluationItem | null
 ): boolean {
   return mergeOrderState(order, overlay, evaluation) !== order.orderState
+}
+
+export function hasOrderProtection(order: OrderItem | null | undefined): boolean {
+  return !!(order && order.protectionBrief)
+}
+
+export function formatOrderProtectionBudget(brief: PriceProtectionBrief): string {
+  return '单笔最多补 ¥' + (brief.budgetPerOrderCents / 100).toFixed(2)
+}
+
+export function formatOrderProtectionEffective(brief: PriceProtectionBrief): string {
+  return '本政策自 ' + formatBeijingTime(brief.effectiveAt) + ' 起生效'
 }

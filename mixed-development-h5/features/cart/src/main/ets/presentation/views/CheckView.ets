@@ -10,9 +10,27 @@ import { normalizeCheckoutAddress } from '../utils/CartPresentation'
 import { ReturnPolicyConfirmation, ReturnPolicyGoods, returnPolicyLabel } from 'models'
 import { InvoiceInput, normalizedInvoice, invoiceInputError } from 'models'
 import { InvoiceForm } from '../components/InvoiceForm'
-import { QuoteResponse, QuoteItem } from 'models'
+import { QuoteResponse, QuoteItem, SpendingPauseDetail } from 'models'
 import { QuotePanel } from '../components/QuotePanel'
 import { QuoteMemory, getQuotePreviewAPI, hasMultipleQuoteItems, quoteFailureText, quoteRemovalText } from '../utils/QuotePreview'
+import {
+  formatCooldownUntilText,
+  formatYuanFromCents,
+  spendingPauseHeadline,
+  spendingPauseRemainingText,
+  spendingPauseSummaryText
+} from '../utils/SpendingPresentation'
+
+interface CheckoutWishlistNotice {
+  wishlistItemId: string
+  cooldownUntil: number
+  quotedTotalCents: number
+}
+
+interface CheckoutCooldownBlock {
+  wishlistItemId: string
+  cooldownUntil: number
+}
 
 // 用业务名称区分弹层，避免读者猜测 1、2 各代表什么。
 enum CheckoutSheet {
@@ -112,6 +130,9 @@ export struct CheckView {
   @State confirmingOrder: boolean = false
   @State confirmingRequest: boolean = false
   @State confirmationExhausted: boolean = false
+  @State spendingPause: SpendingPauseDetail | null = null
+  @State wishlistNotice: CheckoutWishlistNotice | null = null
+  @State cooldownActive: CheckoutCooldownBlock | null = null
   @StorageProp(GlobalVariable.APP_FOREGROUND_SEQUENCE) @Watch('refreshAfterForeground') foregroundSequence: number = 0
   private confirmationTimer: number = -1
   private confirmationAttempt: number = 0
@@ -248,6 +269,9 @@ export struct CheckView {
     const sequence: number = ++this.checkoutQuerySequence
     this.checkoutLoading = true
     this.checkoutRefreshFailed = false
+    this.spendingPause = null
+    this.wishlistNotice = null
+    this.cooldownActive = null
     void this.refreshExactQuote()
     try {
       if (!GlobalVariable.DEMO_ORDER_FLOW && storeManager.getPendingOrder(this.user.id || '')) {
@@ -325,6 +349,9 @@ export struct CheckView {
       return
     }
     this.isSubmittingOrder = true
+    this.spendingPause = null
+    this.wishlistNotice = null
+    this.cooldownActive = null
     const token: string = this.checkoutToken
     const generation: number = this.pageGeneration
     const accountId: string = this.user.id || ''
@@ -343,9 +370,20 @@ export struct CheckView {
       }
       if (!GlobalVariable.DEMO_ORDER_FLOW) await storeManager.clearPendingOrder(accountId, request.requestKey || '')
       if (!this.isCurrentCheckout(generation, token)) return
+      if (createdOrder.wishlistItemId) {
+        this.wishlistNotice = {
+          wishlistItemId: createdOrder.wishlistItemId,
+          cooldownUntil: createdOrder.cooldownUntil || 0,
+          quotedTotalCents: createdOrder.quotedTotalCents || Math.round(this.summary.totalPayPrice * 100)
+        }
+        this.orderRequestKey = util.generateRandomUUID(true)
+        this.showSheet = false
+        this.safeToast('已加入待买清单，请于冷静结束后本人确认下单')
+        return
+      }
       // 下单后服务端会移除对应购物袋商品；角标刷新不阻塞进入收银台。
       void authCart.updateCartCount()
-      this.openCashier(createdOrder.id)
+      this.openCashier(createdOrder.id || '')
     } catch (error) {
       // 401 明确未通过鉴权；即使登录拦截器已切换页面状态，也只清理本次原账号的记录。
       if (sent && !GlobalVariable.DEMO_ORDER_FLOW && checkoutFailure(error as Error).status === 401) {
@@ -425,6 +463,27 @@ export struct CheckView {
           this.orderRequestKey = util.generateRandomUUID(true)
           this.showSheet = false
           this.safeToast('库存不足：' + shortages.map((item: CheckoutShortage) => item.name + '（' + item.spec + '）').join('、'))
+        } else if (failure.reason === 'SPENDING_PAUSED' && failure.result) {
+          const pause: SpendingPauseDetail = {
+            limitType: failure.result.limitType || 'monthly_budget',
+            amountCents: failure.result.amountCents || 0,
+            limitCents: failure.result.limitCents || 0,
+            ruleVersion: failure.result.ruleVersion || 0,
+            monthKey: failure.result.monthKey || '',
+            spentCents: failure.result.spentCents || 0,
+            reservedCents: failure.result.reservedCents || 0,
+            remainingBudgetCents: failure.result.remainingBudgetCents ?? null
+          }
+          this.spendingPause = pause
+          this.showSheet = false
+          this.safeToast(spendingPauseHeadline(pause))
+        } else if (failure.reason === 'COOLDOWN_ACTIVE' && failure.result) {
+          this.cooldownActive = {
+            wishlistItemId: failure.result.wishlistItemId || '',
+            cooldownUntil: failure.result.cooldownUntil || 0
+          }
+          this.showSheet = false
+          this.safeToast('该商品已在待买清单冷静期中，请于到期后确认下单')
         } else {
           this.safeToast('提交订单失败，请稍后重试')
         }
@@ -839,6 +898,42 @@ export struct CheckView {
             .onClick(() => this.stackPath.replacePath({ name: PAGE_PATH.CART_PAGE, param: true }))
         }
         List({ scroller: this.checkoutScroller }) {
+          if (this.spendingPause) {
+            ListItem() {
+              Column({ space: 8 }) {
+                Text(spendingPauseHeadline(this.spendingPause)).id('checkout-spending-pause-title')
+                  .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.red')).width('100%')
+                Text(spendingPauseSummaryText(this.spendingPause)).id('checkout-spending-pause-detail')
+                  .fontSize(13).fontColor($r('[ui_components].color.text')).width('100%')
+                Text(spendingPauseRemainingText(this.spendingPause)).id('checkout-spending-pause-remaining')
+                  .fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+                Button('去调整预算').id('checkout-adjust-budget').height(38)
+                  .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
+                  .onClick(() => { this.stackPath.pushPath({ name: 'SpendingSettingView' }) })
+              }.id('checkout-spending-pause').width('100%').padding(14).alignItems(HorizontalAlign.Start)
+                .backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+                .border({ width: 1, color: $r('[ui_components].color.red') })
+            }.padding({ top: 8, left: 8, right: 8 })
+          }
+          if (this.wishlistNotice || this.cooldownActive) {
+            ListItem() {
+              Column({ space: 8 }) {
+                Text(this.wishlistNotice ? '已为您加入待买清单' : '商品冷静期等待中').id('checkout-wishlist-title')
+                  .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text')).width('100%')
+                if (this.wishlistNotice) {
+                  Text(`待买金额：${formatYuanFromCents(this.wishlistNotice.quotedTotalCents)} · 不生成订单、不占用库存`)
+                    .fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+                }
+                Text(`预计可确认时间（北京时间）：${formatCooldownUntilText((this.wishlistNotice?.cooldownUntil || this.cooldownActive?.cooldownUntil || 0))}`)
+                  .id('checkout-wishlist-until').fontSize(13).fontColor($r('[ui_components].color.gray')).width('100%')
+                Button('查看待买清单').id('checkout-open-wishlist').height(38)
+                  .backgroundColor($r('[ui_components].color.red')).fontColor($r('[ui_components].color.on_primary'))
+                  .onClick(() => { this.stackPath.pushPath({ name: 'WishlistView' }) })
+              }.id('checkout-wishlist-notice').width('100%').padding(14).alignItems(HorizontalAlign.Start)
+                .backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+                .border({ width: 1, color: $r('[ui_components].color.border') })
+            }.padding({ top: 8, left: 8, right: 8 })
+          }
           ListItem() { QuotePanel({ quote: this.exactQuote, busy: this.quoteBusy, error: this.quoteError, expanded: $quoteExpanded,
             onRetry: () => { void this.refreshExactQuote() } }) }
           ListItem() {

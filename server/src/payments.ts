@@ -5,6 +5,9 @@ import { AppError, ensure } from './errors.ts'
 import { requireBuyer, restrictOwnOrder, type Accounts, type User } from './accounts.ts'
 import { recordStockMovement } from './inventory.ts'
 import { appendAudit } from './audit.ts'
+import { orderRefundableBalance } from './balance.ts'
+import { evaluate as evaluateSpending, release as releaseSpending, settle as settleSpending } from './spending-guard.ts'
+import { findActiveCooldownBlocker } from './purchase-wishlist.ts'
 import { MockPaymentChannel, type ChannelPayment, type ChannelResult, type PaymentCallback, type PaymentChannel } from './payment-channel.ts'
 
 const PAYMENT_WINDOW_MS = 15 * 60_000
@@ -106,8 +109,8 @@ export class Payments {
 
   async start(user: User, orderId: string, expectedAmount: number, forceSuccess = false) {
     const channel = this.channelRequired()
-    const beforeStart = this.order(orderId)
-    if (beforeStart.state === 1 && this.clock.now() >= beforeStart.expires) this.expireOrders(this.clock.now())
+    this.order(orderId)
+    this.expireOrders(this.clock.now())
     let payment: PaymentRow
     this.db.transaction(() => {
       const order = this.order(orderId)
@@ -117,6 +120,21 @@ export class Payments {
       ensure(order.state === 1 && this.clock.now() < order.expires, 409, '订单已超时，请重新购买')
       this.payerAllowed(user, order)
       const now = this.clock.now()
+      // 发起支付前重验订单 owner 的硬限与冷静期（亲友代付看订单 owner 规则）
+      const spendingEval = evaluateSpending(this.db, order.owner_id, order.amount, now, { hardOnly: true, excludeOrderId: order.id })
+      if (spendingEval.decision === 'pause') {
+        throw new AppError(409, spendingEval.message, 'SPENDING_PAUSED', spendingEval.pauseDetail)
+      }
+      const orderGoods = this.db.all<{ sku_id: string; count: number }>('SELECT sku_id, count FROM order_items WHERE order_id=?', orderId)
+      const cooldownBlocker = findActiveCooldownBlocker(
+        this.db, order.owner_id, orderGoods.map(g => ({ skuId: g.sku_id, count: g.count })), order.amount, now
+      )
+      if (cooldownBlocker.maxUnexpiredUntil > now) {
+        throw new AppError(409, '该商品仍在冷静期中，暂不可发起付款', 'COOLDOWN_ACTIVE', {
+          wishlistItemId: cooldownBlocker.waitingBlocker?.id ?? null,
+          cooldownUntil: cooldownBlocker.maxUnexpiredUntil
+        })
+      }
       const id = randomUUID()
       this.db.run(`INSERT INTO payments(id,order_id,payer_id,amount,state,created,grace_deadline,next_query_at)
         VALUES(?,?,?,?,'pending',?,?,?)`, id, orderId, user.id, order.amount, now, now + PAYMENT_GRACE_MS, now + 5000)
@@ -245,6 +263,7 @@ export class Payments {
     const onTime = paidAt <= payment.grace_deadline
     if (order.state !== 6 && onTime && !order.paid_by) {
       this.db.run('UPDATE orders SET state=2,paid_by=?,paid_at=? WHERE id=? AND state=1 AND paid_by IS NULL', payment.payer_id, paidAt, order.id)
+      settleSpending(this.db, order.id, paidAt, now)
       return 'succeeded'
     }
     if (order.state === 1) this.releaseStock(order, now)
@@ -274,6 +293,7 @@ export class Payments {
       }
     }
     this.db.run('UPDATE orders SET state=6 WHERE id=? AND state=1', order.id)
+    releaseSpending(this.db, order.id, actor ? 'cancelled' : 'expired', now)
   }
 
   private expireOrders(now: number) {
@@ -291,7 +311,11 @@ export class Payments {
 
   createOrderCancellationRefund(orderId: string, paymentId: string, now: number, actor?: User) {
     if (this.effectivePaymentId(orderId) !== paymentId) throw new AppError(409, '付款记录异常，请联系客服', 'CANCEL_PAYMENT_INVALID')
-    return this.createRefund(this.payment(paymentId)!, 'cancelled', now,undefined,undefined,actor)
+    const payment = this.payment(paymentId)!
+    const balance = orderRefundableBalance(this.db, orderId)
+    const amount = Math.min(payment.amount, balance.remainingCents)
+    ensure(amount > 0, 409, '订单可退余额已被补差全部占用')
+    return this.createRefund(payment, 'cancelled', now, amount, undefined, actor)
   }
 
   createAfterSaleRefund(orderId: string, paymentId: string, afterSaleId: string, amount: number, now: number, actor?: User) {
@@ -309,8 +333,17 @@ export class Payments {
       this.db.one<{ id: string }>("SELECT id FROM refunds WHERE payment_id=? AND reason IN ('late','duplicate','cancelled')", payment.id)
     if (existing) return existing.id
     const id = randomUUID()
-    const reserved = this.db.one<{ amount: number }>("SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=? AND reason<>'shipping'", payment.id)!.amount
-    ensure(Number.isSafeInteger(amount) && amount > 0 && (reason === 'shipping' || amount + reserved <= payment.amount), 409, '退款合计不能超过实付金额')
+    if (reason !== 'shipping') {
+      if (reason === 'cancelled' || reason === 'after-sale') {
+        const balance = orderRefundableBalance(this.db, payment.order_id)
+        ensure(Number.isSafeInteger(amount) && amount > 0 && amount <= balance.remainingCents, 409, '退款与补差合计不能超过实付金额')
+      } else {
+        const reserved = this.db.one<{ amount: number }>("SELECT COALESCE(SUM(amount),0) amount FROM refunds WHERE payment_id=? AND reason<>'shipping'", payment.id)!.amount
+        ensure(Number.isSafeInteger(amount) && amount > 0 && amount + reserved <= payment.amount, 409, '退款合计不能超过实付金额')
+      }
+    } else {
+      ensure(Number.isSafeInteger(amount) && amount > 0, 409, '退款金额无效')
+    }
     this.db.run(`INSERT INTO refunds(id,payment_id,amount,reason,after_sale_id,state,attempts,next_attempt_at,created) VALUES(?,?,?,?,?,'pending',0,?,?)`,
       id, payment.id, amount, reason, afterSaleId ?? null, now, now)
     this.createRefundNotices(payment, id, now)

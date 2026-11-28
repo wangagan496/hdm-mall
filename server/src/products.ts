@@ -9,6 +9,7 @@ import { recordStockMovement } from './inventory.ts'
 import { systemClock, type Clock } from './clock.ts'
 import { productAudit } from './audit.ts'
 import { policyFields, presentPolicy, returnPolicySchema, type PolicyRow } from './return-policy.ts'
+import { recordPriceEvent } from './price-events.ts'
 
 const specFields = z.object({ spec: z.string().trim().min(1).max(60), priceCents: z.number().int().min(1).max(100000000),
   stock: z.number().int().min(0).max(2147483647), enabled: z.boolean().default(true) }).strict()
@@ -195,6 +196,9 @@ export class Products {
           ensure(balance === previous.stock, 409, '库存与流水存在差异，请核查记录')
         }
         this.db.run('UPDATE skus SET spec=?,price=?,stock=?,enabled=? WHERE id=?', sku.spec, sku.priceCents, sku.stock, Number(sku.enabled), sku.id)
+        if (sku.enabled && sku.priceCents < previous.priceCents) {
+          recordPriceEvent(this.db, user.id, id, sku.id, previous.priceCents, sku.priceCents, 'merchant_edit', null, this.clock.now())
+        }
         if (sku.stock !== previous.stock) this.db.run(`INSERT INTO inventory_movements(sku_id,actor_id,kind,delta,balance,business_key,created,reason)
           VALUES(?,?,'adjust',?,?,?,?,?)`, sku.id, user.id, sku.stock - previous.stock, sku.stock,
           `product-edit:${user.id}:${data.requestKey}:${sku.id}`, this.clock.now(), '商品编辑调整')

@@ -1,6 +1,17 @@
 import type { DatabaseSync } from 'node:sqlite'
 
 export function removeEvaluationSchema(db: DatabaseSync) {
+  if (db.prepare('PRAGMA user_version').get()!.user_version === 31) {
+    db.exec(`DROP TABLE IF EXISTS purchase_wishlist; DROP TABLE IF EXISTS spending_reservations; DROP TABLE IF EXISTS spending_rules; PRAGMA user_version=30;`)
+  }
+  if (db.prepare('PRAGMA user_version').get()!.user_version === 30) {
+    db.exec(`DROP TRIGGER IF EXISTS orders_anchor_insert; DROP TRIGGER IF EXISTS orders_anchor_paid; DROP TABLE IF EXISTS order_audit_anchors; DROP TABLE compensation_radar_state; DROP INDEX IF EXISTS orders_paid_radar; DROP INDEX IF EXISTS ppp_effective; PRAGMA user_version=29;`)
+  }
+  if (db.prepare('PRAGMA user_version').get()!.user_version === 29) {
+    db.exec(`DROP TABLE compensation_receipts; DROP TABLE compensation_drafts; DROP TABLE price_events; PRAGMA user_version=28;`)
+  }
+  if(db.prepare('PRAGMA user_version').get()!.user_version===28) db.exec(`DROP TABLE price_protection_publications;
+    DROP TABLE price_protection_confirmations; DROP TABLE price_protection_policies; PRAGMA user_version=27;`)
   if(db.prepare('PRAGMA user_version').get()!.user_version===27) db.exec(`DROP TABLE evaluation_service_records;
     DROP TRIGGER evaluation_followup_no_delete; DROP TRIGGER evaluation_followup_no_update; DROP TABLE evaluation_followups; PRAGMA user_version=26;`)
   if(db.prepare('PRAGMA user_version').get()!.user_version===26) db.exec(`DROP TABLE review_dispute_conclusions;
