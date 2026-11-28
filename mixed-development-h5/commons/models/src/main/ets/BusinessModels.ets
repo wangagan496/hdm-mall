@@ -298,12 +298,25 @@ export interface CreateOrderParams {
 }
 
 export interface CreateOrderResult {
-  id: string
+  id?: string
+  wishlistItemId?: string
+  cooldownUntil?: number
+  quotedTotalCents?: number
+}
+
+export interface OrderSpendingSummary {
+  monthKey: string
+  ruleVersion: number
+  enabled: boolean
+  monthlyBudgetCents: number | null
+  spentCents: number
+  remainingBudgetCents: number | null
 }
 
 export interface OrderItem {
   protectionBrief?: PriceProtectionBrief | null
   compensationReceipts?: CompensationReceipt[]
+  spending?: OrderSpendingSummary
   canCheckPromises?: boolean
   shippedAt?: number | null
   signedAt?: number | null

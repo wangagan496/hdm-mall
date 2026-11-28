@@ -43,6 +43,8 @@ import { materialBatchSchema, materialLimit, materialUploadSchema, SourceMateria
 import { draftPolicy, draftSchema as protectionDraftSchema, issueConfirmToken, confirmSchema as protectionConfirmSchema, publishPolicy, publishSchema as protectionPublishSchema, merchantPolicyList, activePolicy, policyBrief } from './protection.ts'
 import { confirmCompensation, confirmSchema as compensationConfirmSchema, getDraftDetail, getReceipt, listBuyerDrafts } from './compensation.ts'
 import { RADAR_INTERVAL_MS, scheduledRadarTick } from './price-radar.ts'
+import { listRules as listSpendingRules, saveRule as saveSpendingRule, spendingSummary } from './spending-guard.ts'
+import { cancelWishlist, confirmWishlist, detailWishlist, listWishlist } from './purchase-wishlist.ts'
 
 export interface AppOptions extends RuntimeOptions { databasePath: string; uploadsPath: string; logger?: boolean; clock?: Clock; backup?: BackupOptions; logisticsChannel?:LogisticsChannel;
   promiseDriver?: PromiseDriver; promiseBudgetTokens?: number; promiseTimeoutMs?: number }
@@ -400,7 +402,20 @@ export async function buildApp(options: AppOptions) {
   })
   protectedRoute('GET', '/member/order/by-request/:requestKey', (req, user) => orders.byRequest(user,
     z.object({ requestKey: z.string().min(16).max(100) }).parse(req.params).requestKey))
-  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional(),expectedPromotionRevision:z.number().int().positive().safe().optional(),invoice:invoiceSchema.optional() }).parse(req.body)))
+  protectedRoute('POST', '/member/order', (req, user) => orders.create(user, z.object({ source: z.enum(['cart', 'buy-now', 'wishlist']).default('cart'), requestKey: z.string().min(16).max(100), expectedAmountCents: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), addressId: idSchema, goods: z.array(z.object({ skuId: idSchema, count: z.number().int().min(1).max(999) })).min(1).max(100),returnPolicyConfirmed:z.boolean().optional(),expectedReturnPolicyToken:z.string().regex(/^[a-f0-9]{64}$/).optional(),expectedPromotionRevision:z.number().int().positive().safe().optional(),invoice:invoiceSchema.optional() }).parse(req.body)))
+  protectedRoute('GET', '/member/spending/rules', (_req, user) => listSpendingRules(db, user))
+  protectedRoute('PUT', '/member/spending/rules', (req, user) => saveSpendingRule(db, user, req.body, clock.now()))
+  protectedRoute('GET', '/member/spending/summary', (_req, user) => {
+    requireBuyer(user)
+    orders.expireIfDue()
+    return spendingSummary(db, user.id, clock.now())
+  })
+  protectedRoute('GET', '/member/spending/wishlist', (_req, user) => listWishlist(db, catalog, user, clock.now()))
+  protectedRoute('GET', '/member/spending/wishlist/:id', (req, user) => detailWishlist(db, catalog, user, key(req), clock.now()))
+  protectedRoute('POST', '/member/spending/wishlist/:id/cancel', (req, user) => cancelWishlist(db, catalog, user, key(req), clock.now()))
+  protectedRoute('POST', '/member/spending/wishlist/:id/confirm', (req, user) => confirmWishlist(
+    db, catalog, user, key(req), req.body, (u, input, wid) => orders.createFromWishlist(u, input, wid), clock.now()
+  ))
   protectedRoute('POST', '/merchant/orders/:id/invoice/issued', (req, user) => issueInvoice(db, user, key(req), req.body, clock.now()))
   protectedRoute('PUT', '/member/order/:id/invoice', (req, user) => registerCompletedInvoice(db, user, key(req), req.body, clock.now()))
   protectedRoute('GET', '/member/order', (req, user) => {

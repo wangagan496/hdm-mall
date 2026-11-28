@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { migrateAvatarPaths } from './migrations/005-avatar-path.ts'
 import { backfillAudit } from './migrations/014-audit-backfill.ts'
+import { backfillSpendingReservations } from './spending-guard.ts'
 import { systemClock, type Clock } from './clock.ts'
 
 const MAX_STATEMENT_CACHE = 512
@@ -18,7 +19,7 @@ export class Database {
       this.connection.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;')
       const version = this.one<{ user_version: number }>('PRAGMA user_version')!.user_version
       if (version === 0) this.connection.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
-      else if (version < 1 || version > 30) throw new Error('Unsupported database version')
+      else if (version < 1 || version > 31) throw new Error('Unsupported database version')
       if (version < 2) {
         this.connection.exec(`BEGIN IMMEDIATE;
         CREATE TABLE categories(id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT REFERENCES categories(id), source_key TEXT UNIQUE NOT NULL);
@@ -149,6 +150,30 @@ export class Database {
           this.transaction(() => {
             this.connection.exec(readFileSync(new URL('./migrations/030b-order-audit-anchors.sql', import.meta.url), 'utf8'))
             if (this.all('PRAGMA foreign_key_check').length) throw new Error('Order audit anchors compatibility check failed')
+          })
+        }
+      }
+      if (version < 31) {
+        this.transaction(() => {
+          if (this.one<{ user_version: number }>('PRAGMA user_version')!.user_version >= 31) return
+          this.connection.exec(readFileSync(new URL('./migrations/031-spending-guard.sql', import.meta.url), 'utf8'))
+          backfillSpendingReservations(this.connection)
+          if (this.all('PRAGMA foreign_key_check').length) throw new Error('Spending guard migration foreign key check failed')
+        })
+      } else {
+        // 兼容既已升至 v31 的库：补齐待买退货确认冻结列，并幂等回填未入占额表的历史订单
+        const pwCols = this.all<{ name: string }>('PRAGMA table_info(purchase_wishlist)').map(c => c.name)
+        const needPolicyCols = !pwCols.includes('return_policy_confirmed') || !pwCols.includes('expected_return_policy_token')
+        const missingReservation = this.one<{ n: number }>('SELECT 1 AS n FROM orders o WHERE NOT EXISTS(SELECT 1 FROM spending_reservations sr WHERE sr.order_id=o.id) LIMIT 1')
+        if (needPolicyCols || missingReservation) {
+          this.transaction(() => {
+            if (!pwCols.includes('return_policy_confirmed')) {
+              this.connection.exec('ALTER TABLE purchase_wishlist ADD COLUMN return_policy_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(return_policy_confirmed IN (0,1))')
+            }
+            if (!pwCols.includes('expected_return_policy_token')) {
+              this.connection.exec('ALTER TABLE purchase_wishlist ADD COLUMN expected_return_policy_token TEXT')
+            }
+            backfillSpendingReservations(this.connection)
           })
         }
       }

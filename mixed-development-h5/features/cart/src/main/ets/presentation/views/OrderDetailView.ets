@@ -31,6 +31,7 @@ import { RequestAxios } from 'network'
 import { InvoiceForm } from '../components/InvoiceForm'
 import { OrderPromisesCard } from '../components/OrderPromisesCard'
 import { OrderPromiseCheck, PromiseAfterSaleRoute, frozenOrderPromise } from 'models'
+import { spendingOrderSummaryText } from '../utils/SpendingPresentation'
 
 interface OrderServiceRoute { orderId: string; orderName: string; orderCreatedAt: number }
 interface LogisticsErrorBody { reason?: string }
@@ -875,6 +876,12 @@ export struct OrderDetailView {
                   Text(formatOrderProtectionBudget(this.order.protectionBrief)).id('order-protection-budget').fontSize(14).fontColor($r('[ui_components].color.text'))
                   Text(formatOrderProtectionEffective(this.order.protectionBrief)).id('order-protection-effective').fontSize(13).fontColor($r('[ui_components].color.gray'))
                   Text('保价不保库存；降价后由你本人确认补差，不会自动退款。').id('order-protection-note').fontSize(13).fontColor($r('[ui_components].color.gray'))
+                }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
+              }
+              if (spendingOrderSummaryText(this.order.spending)) {
+                Column({ space: 6 }) {
+                  Text('消费保护参考').id('order-spending-title').fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('[ui_components].color.text'))
+                  Text(spendingOrderSummaryText(this.order.spending)).id('order-spending-summary').fontSize(14).fontColor($r('[ui_components].color.gray'))
                 }.width('100%').padding(16).alignItems(HorizontalAlign.Start).backgroundColor($r('[ui_components].color.white')).borderRadius(12)
               }
               if(this.order.canApplyAfterSale) {

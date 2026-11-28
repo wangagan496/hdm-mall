@@ -73,7 +73,7 @@ test('同一时钟覆盖付款、发货、收货、评价、关系和商家库�
     const product = f.testData.product({ name: '共用时钟', skus: [{ spec: '标准', priceCents: 3157, stock: 9 }] })
     const sku = product.skus[0]!
     const user = f.accounts.authenticate('Bearer ' + buyer.token)
-    const order = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] })
+    const order = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] }) as { id: string }
     assert.equal(f.db.one<{ created: number }>('SELECT created FROM orders WHERE id=?', order.id)!.created, 0)
     now = 1000
     f.testData.relation({ ownerId: buyer.id, friendId: friend.id })
@@ -98,7 +98,7 @@ test('同一时钟覆盖付款、发货、收货、评价、关系和商家库�
     })).statusCode, 200)
     assert.equal(f.db.one<{ created: number }>("SELECT created FROM inventory_movements WHERE kind='adjust'")!.created, now)
     now = 7000
-    const cancelled = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] })
+    const cancelled = f.orders.create(user, { requestKey: randomUUID(), expectedAmountCents: sku.priceCents, addressId: address.id, goods: [{ skuId: sku.id, count: 1 }] }) as { id: string }
     now = 8000
     f.orders.cancel(user, cancelled.id)
     assert.equal(f.db.one<{ created: number }>("SELECT created FROM inventory_movements WHERE kind='cancel'")!.created, now)

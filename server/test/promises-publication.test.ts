@@ -367,7 +367,7 @@ test('仅收货买家可核对，售后保存原文引用并可随备份恢复',
     assert.deepEqual((await sale()).promiseMismatch, stored)
 
     const backup = await createBackup({ databasePath, uploadsPath, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 30)
+    assert.equal(backup.manifest.schemaVersion, 31)
     for (const table of promiseTables) assert.ok(backup.counts[table]! > 0, table)
     const restored = await restoreBackup({ backupPath: backup.root, destination: join(root, 'restored') })
     const restoredDb = new Database(join(restored.root, 'mall.sqlite'))

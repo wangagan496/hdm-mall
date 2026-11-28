@@ -415,7 +415,7 @@ test('备份与恢复包含版本 29 三张表并拒绝超额/篡改回执', asy
 
     const options = { databasePath: join(root, 'data', 'mall.sqlite'), uploadsPath: join(root, 'uploads') }
     const backup = await createBackup({ ...options, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 30)
+    assert.equal(backup.manifest.schemaVersion, 31)
     assert.equal(backup.counts.price_events, 1)
     assert.equal(backup.counts.compensation_drafts, 1)
     assert.equal(backup.counts.compensation_receipts, 1)
@@ -515,7 +515,7 @@ test('P1修复1：补差后取消/售后/未知通道占额双向守恒 R+C+U<=F
       uploadsPath: join(root, 'uploads'),
       destination: join(root, 'backup')
     })
-    assert.equal(backup.manifest.schemaVersion, 30)
+    assert.equal(backup.manifest.schemaVersion, 31)
   } finally {
     rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
   }
@@ -725,6 +725,9 @@ test('真实 v29 数据库升级到 v30 保留三表并验证旧草稿在部分�
     try {
       raw.exec(`
         PRAGMA foreign_keys=OFF;
+        DROP TABLE IF EXISTS purchase_wishlist;
+        DROP TABLE IF EXISTS spending_reservations;
+        DROP TABLE IF EXISTS spending_rules;
         DROP TRIGGER IF EXISTS orders_anchor_insert;
         DROP TRIGGER IF EXISTS orders_anchor_paid;
         DROP TABLE IF EXISTS order_audit_anchors;
@@ -766,7 +769,7 @@ test('真实 v29 数据库升级到 v30 保留三表并验证旧草稿在部分�
       clock: { now: () => f.getNow() }
     })
     try {
-      assert.equal(app2.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 30)
+      assert.equal(app2.db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 31)
       assert.equal(app2.db.one<{ n: number }>('SELECT COUNT(*) n FROM compensation_drafts WHERE id=?', draft.draftId)!.n, 1)
       assert.equal(app2.db.one<{ id: number }>('SELECT id FROM compensation_radar_state WHERE id=1')!.id, 1)
 
@@ -911,7 +914,7 @@ test('按件精确归因：补差->退1件->二次降价->退第2件全链路金
     await f.ctx.app.close()
     const options = { databasePath: join(root, 'data', 'mall.sqlite'), uploadsPath: join(root, 'uploads') }
     const backup = await createBackup({ ...options, destination: join(root, 'backup') })
-    assert.equal(backup.manifest.schemaVersion, 30)
+    assert.equal(backup.manifest.schemaVersion, 31)
     const verified = await verifyBackup(backup.root)
     assert.equal(verified.manifest.format, 1)
     assert.equal(verified.counts.compensation_receipts, 2)
@@ -1770,6 +1773,9 @@ test('check6-schema: 已存在无锚点 v30 文件级兼容迁移、不伪造旧
       const rawPre = new DatabaseSync(dbPath)
       try {
         rawPre.exec(`
+          DROP TABLE IF EXISTS purchase_wishlist;
+          DROP TABLE IF EXISTS spending_reservations;
+          DROP TABLE IF EXISTS spending_rules;
           DROP TRIGGER IF EXISTS orders_anchor_insert;
           DROP TRIGGER IF EXISTS orders_anchor_paid;
           DROP TABLE IF EXISTS order_audit_anchors;
@@ -1784,9 +1790,9 @@ test('check6-schema: 已存在无锚点 v30 文件级兼容迁移、不伪造旧
       assert.equal(preBackup.manifest.issues.length, 0)
       assert.equal(preBackup.counts.order_audit_anchors, undefined)
 
-      // 用当前 Database 重新打开旧 v30 库：补建表与触发器但不伪造旧单锚点
+      // 用当前 Database 重新打开旧 v30 库：补建表与触发器但不伪造旧单锚点，并自动升至 v31
       reopened = new Database(preAnchorPath, { now: () => nowBeforeClose })
-      assert.equal(reopened.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 30)
+      assert.equal(reopened.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 31)
       assert.equal(reopened.one<{ amount: number }>('SELECT amount FROM orders WHERE id=?', oDistinct)!.amount, 10000)
       assert.equal(reopened.one('SELECT * FROM order_audit_anchors WHERE order_id=?', oDistinct), undefined)
       assert.equal(reopened.one('SELECT * FROM order_audit_anchors WHERE order_id=?', oSameMs.result.id), undefined)

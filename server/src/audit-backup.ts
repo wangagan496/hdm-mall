@@ -25,7 +25,7 @@ export function inspectAudit(db:DatabaseSync){
     const action=String(r.action)
     if(!auditActions.includes(action as typeof auditActions[number])||(version<15&&action==='product.return_policy')||(version<16&&['promotion.edit','aftersale.shipping_comp'].includes(action))||
       (version<17&&['invoice.request','invoice.issued','review.hide','review.republish','avatar.reset'].includes(action))||(version<18&&action==='reconciliation.resolve')||
-      (version<20&&action==='identity.switch')||(version<29&&action==='compensation.confirm'))throw new Error('审计操作类型无效')
+      (version<20&&action==='identity.switch')||(version<29&&action==='compensation.confirm')||(version<31&&action==='spending.rule'))throw new Error('审计操作类型无效')
     if((r.actor_kind==='system')!==(r.actor_id===null)||(r.actor_id!==null&&!held(r.actor_id,r.actor_kind,r.created)))throw new Error('审计操作人无效')
     if((action==='access.denied')!==(r.result==='denied'))throw new Error('审计结果无效')
     if(action==='identity.switch'){

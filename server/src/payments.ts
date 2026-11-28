@@ -6,6 +6,8 @@ import { requireBuyer, restrictOwnOrder, type Accounts, type User } from './acco
 import { recordStockMovement } from './inventory.ts'
 import { appendAudit } from './audit.ts'
 import { orderRefundableBalance } from './balance.ts'
+import { evaluate as evaluateSpending, release as releaseSpending, settle as settleSpending } from './spending-guard.ts'
+import { findActiveCooldownBlocker } from './purchase-wishlist.ts'
 import { MockPaymentChannel, type ChannelPayment, type ChannelResult, type PaymentCallback, type PaymentChannel } from './payment-channel.ts'
 
 const PAYMENT_WINDOW_MS = 15 * 60_000
@@ -107,8 +109,8 @@ export class Payments {
 
   async start(user: User, orderId: string, expectedAmount: number, forceSuccess = false) {
     const channel = this.channelRequired()
-    const beforeStart = this.order(orderId)
-    if (beforeStart.state === 1 && this.clock.now() >= beforeStart.expires) this.expireOrders(this.clock.now())
+    this.order(orderId)
+    this.expireOrders(this.clock.now())
     let payment: PaymentRow
     this.db.transaction(() => {
       const order = this.order(orderId)
@@ -118,6 +120,21 @@ export class Payments {
       ensure(order.state === 1 && this.clock.now() < order.expires, 409, '订单已超时，请重新购买')
       this.payerAllowed(user, order)
       const now = this.clock.now()
+      // 发起支付前重验订单 owner 的硬限与冷静期（亲友代付看订单 owner 规则）
+      const spendingEval = evaluateSpending(this.db, order.owner_id, order.amount, now, { hardOnly: true, excludeOrderId: order.id })
+      if (spendingEval.decision === 'pause') {
+        throw new AppError(409, spendingEval.message, 'SPENDING_PAUSED', spendingEval.pauseDetail)
+      }
+      const orderGoods = this.db.all<{ sku_id: string; count: number }>('SELECT sku_id, count FROM order_items WHERE order_id=?', orderId)
+      const cooldownBlocker = findActiveCooldownBlocker(
+        this.db, order.owner_id, orderGoods.map(g => ({ skuId: g.sku_id, count: g.count })), order.amount, now
+      )
+      if (cooldownBlocker.maxUnexpiredUntil > now) {
+        throw new AppError(409, '该商品仍在冷静期中，暂不可发起付款', 'COOLDOWN_ACTIVE', {
+          wishlistItemId: cooldownBlocker.waitingBlocker?.id ?? null,
+          cooldownUntil: cooldownBlocker.maxUnexpiredUntil
+        })
+      }
       const id = randomUUID()
       this.db.run(`INSERT INTO payments(id,order_id,payer_id,amount,state,created,grace_deadline,next_query_at)
         VALUES(?,?,?,?,'pending',?,?,?)`, id, orderId, user.id, order.amount, now, now + PAYMENT_GRACE_MS, now + 5000)
@@ -246,6 +263,7 @@ export class Payments {
     const onTime = paidAt <= payment.grace_deadline
     if (order.state !== 6 && onTime && !order.paid_by) {
       this.db.run('UPDATE orders SET state=2,paid_by=?,paid_at=? WHERE id=? AND state=1 AND paid_by IS NULL', payment.payer_id, paidAt, order.id)
+      settleSpending(this.db, order.id, paidAt, now)
       return 'succeeded'
     }
     if (order.state === 1) this.releaseStock(order, now)
@@ -275,6 +293,7 @@ export class Payments {
       }
     }
     this.db.run('UPDATE orders SET state=6 WHERE id=? AND state=1', order.id)
+    releaseSpending(this.db, order.id, actor ? 'cancelled' : 'expired', now)
   }
 
   private expireOrders(now: number) {

@@ -85,3 +85,10 @@ export {
   parseCompensationDraftLine, parseCompensationDraftBrief, parseCompensationDraftDetail,
   parseCompensationConfirmInput, parseCompensationReceipt
 } from './src/main/ets/CompensationModels'
+export { OrderSpendingSummary } from './src/main/ets/BusinessModels'
+export {
+  SpendingLimitType, WishlistStatus, WishlistGoodsLine, SpendingRule, SpendingRuleInput,
+  SpendingSummary, SpendingPauseDetail, WishlistItem, WishlistConfirmInput,
+  parseWishlistGoodsLine, parseSpendingRule, parseSpendingRuleInput,
+  parseSpendingSummary, parseSpendingPauseDetail, parseWishlistItem, parseWishlistConfirmInput
+} from './src/main/ets/SpendingGuardModels'

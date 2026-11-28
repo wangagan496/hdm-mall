@@ -14,6 +14,8 @@ import { sourceRecordEnums, sourceRecordSchemas } from '../source-records/schema
 import { sourceRecordVectors } from '../vectors/source-records.ts'
 import { compensationEnums, compensationSchemas } from '../compensation.ts'
 import { compensationVectors } from '../vectors/compensation.ts'
+import { spendingGuardEnums, spendingGuardSchemas } from '../spending-guard.ts'
+import { spendingGuardVectors } from '../vectors/spending-guard.ts'
 
 // 故意只支持本协议用到的类型；不认识的 schema 立即失败，不能静默放宽解析。
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -141,4 +143,9 @@ writeGenerated('server/src/compensation/generated.ts', renderContract('compensat
 writeGenerated(models + '/main/ets/CompensationModels.ets', renderContract('compensation', compensationSchemas, compensationEnums, true))
 writeGenerated(models + '/test/CompensationVectors.test.ets', renderVectors('compensation', 'CompensationModels', 'compensation',
   compensationVectors.map(vector => ({ ...vector, parser: 'parse' + vector.kind }))))
-console.log('quote, identity, promise, source record and compensation contracts: ' + (checking ? 'verified' : 'generated') + ' TS + ArkTS')
+
+writeGenerated('server/src/spending-guard/generated.ts', renderContract('spending-guard', spendingGuardSchemas, spendingGuardEnums, false))
+writeGenerated(models + '/main/ets/SpendingGuardModels.ets', renderContract('spending-guard', spendingGuardSchemas, spendingGuardEnums, true))
+writeGenerated(models + '/test/SpendingGuardVectors.test.ets', renderVectors('spending-guard', 'SpendingGuardModels', 'spendingGuard',
+  spendingGuardVectors.map(vector => ({ ...vector, parser: 'parse' + vector.kind }))))
+console.log('quote, identity, promise, source record, compensation and spending-guard contracts: ' + (checking ? 'verified' : 'generated') + ' TS + ArkTS')

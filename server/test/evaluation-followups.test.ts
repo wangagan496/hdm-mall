@@ -249,13 +249,13 @@ test('迁移 027 备份恢复与篡改校验，旧版本评价迁移后可读且
 
   const options = { databasePath: join(f.root, 'data', 'mall.sqlite'), uploadsPath: join(f.root, 'uploads') }
   const backup = await createBackup({ ...options, destination: join(f.root, 'backup') })
-  assert.equal(backup.manifest.schemaVersion, 30)
+  assert.equal(backup.manifest.schemaVersion, 31)
   assert.deepEqual(backup.manifest.issues, [])
 
   const restored = await restoreBackup({ backupPath: backup.root, destination: join(f.root, 'restored') })
   const db = new Database(join(restored.root, 'mall.sqlite'))
   try {
-    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 30)
+    assert.equal(db.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 31)
     const review = buyerEvaluation(db, orderId)!
     assert.equal(review.content, '收到商品整体满意')
     assert.equal(review.followup?.content, '售后已退款，体验满意')
@@ -277,7 +277,7 @@ test('迁移 027 备份恢复与篡改校验，旧版本评价迁移后可读且
   const legacyRestored = await restoreBackup({ backupPath: legacyBackup.root, destination: join(f.root, 'legacy-restored') })
   const migrated = new Database(join(legacyRestored.root, 'mall.sqlite'))
   try {
-    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 30)
+    assert.equal(migrated.one<{ user_version: number }>('PRAGMA user_version')!.user_version, 31)
     const review = buyerEvaluation(migrated, legacyOrder)!
     assert.equal(review.content, '历史旧评价记录')
     assert.equal(review.followup, null)

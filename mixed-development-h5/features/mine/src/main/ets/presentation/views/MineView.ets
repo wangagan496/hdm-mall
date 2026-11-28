@@ -357,6 +357,24 @@ export struct MineView {
             .borderRadius(10)
 
             if (this.user.identity !== 'merchant') {
+            Column({ space: 8 }) {
+              Row({ space: 8 }) {
+                Text('花钱守护').fontSize(14).fontWeight(500).fontColor($r('[ui_components].color.black')).layoutWeight(1)
+                Button('花钱设置').id('mine-spending-setting-entry').height(34).fontSize(13)
+                  .backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.text'))
+                  .enabled(this.user.status !== 'deleting')
+                  .onClick(() => this.stackPath.pushPath({ name: this.user.token ? 'SpendingSettingView' : PAGE_PATH.LOGIN_PAGE }))
+                Button('待买清单').id('mine-wishlist-entry').height(34).fontSize(13)
+                  .backgroundColor($r('[ui_components].color.under')).fontColor($r('[ui_components].color.red'))
+                  .enabled(this.user.status !== 'deleting')
+                  .onClick(() => this.stackPath.pushPath({ name: this.user.token ? 'WishlistView' : PAGE_PATH.LOGIN_PAGE }))
+              }.width('100%')
+            }
+            .width('100%')
+            .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+            .backgroundColor($r('[ui_components].color.white'))
+            .borderRadius(10)
+
             Column() {
               Row() {
                 Text('我的订单')

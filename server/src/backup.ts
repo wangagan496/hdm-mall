@@ -37,7 +37,7 @@ const issueSchema = z.discriminatedUnion('type', [
 ])
 type BackupIssue = z.infer<typeof issueSchema>
 const manifestSchema = z.object({
-  format: z.literal(1), schemaVersion: z.number().int().min(2).max(30), createdAt: z.iso.datetime(),
+  format: z.literal(1), schemaVersion: z.number().int().min(2).max(31), createdAt: z.iso.datetime(),
   issues: z.array(issueSchema).default([]),
   files: z.array(z.object({
     path: z.string().refine(path => path === 'mall.sqlite' ||
@@ -152,7 +152,7 @@ function inspectDatabase(path: string) {
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('数据库完整性检查失败')
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
     const version = db.prepare('PRAGMA user_version').get()?.user_version
-    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 30) throw new Error('仅支持数据库版本 2 至 30')
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 2 || version > 31) throw new Error('仅支持数据库版本 2 至 31')
     const counts: Record<string, number> = {}
     for (const table of [...tables, ...(version >= 3 ? ['inventory_movements'] : []),
       ...(version >= 6 ? ['address_save_sessions', 'address_tombstones'] : []),
@@ -172,7 +172,8 @@ function inspectDatabase(path: string) {
       ...(version >= 28 ? ['price_protection_policies','price_protection_confirmations','price_protection_publications'] : []),
       ...(version >= 29 ? ['price_events','compensation_drafts','compensation_receipts'] : []),
       ...(version >= 30 ? ['compensation_radar_state'] : []),
-      ...(version >= 30 && db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='order_audit_anchors'").get() ? ['order_audit_anchors'] : [])]) {
+      ...(version >= 30 && db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='order_audit_anchors'").get() ? ['order_audit_anchors'] : []),
+      ...(version >= 31 ? ['spending_rules', 'spending_reservations', 'purchase_wishlist'] : [])]) {
       counts[table] = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count)
     }
     const issues: BackupIssue[] = []
@@ -350,6 +351,37 @@ function inspectDatabase(path: string) {
     }
     const serviceImages = version >= 17 ? inspectServices(db, version) : []
     for (const image of serviceImages) uploads.add(image.path)
+    if (version >= 31) {
+      for (const sr of db.prepare(`
+        SELECT sr.*, o.owner_id, o.amount AS order_amount, o.state AS order_state, o.paid_at
+        FROM spending_reservations sr
+        JOIN orders o ON o.id = sr.order_id
+      `).iterate()) {
+        const orderState = Number(sr.order_state)
+        const expectedStateOk =
+          (orderState === 1 && sr.state === 'reserved') ||
+          ([2, 3, 4, 5].includes(orderState) && sr.state === 'settled') ||
+          (orderState === 6 && sr.paid_at === null && sr.state === 'released') ||
+          (orderState === 6 && sr.paid_at !== null && (sr.state === 'settled' || sr.state === 'released'))
+        const ruleValid = sr.rule_version === null ||
+          Boolean(db.prepare('SELECT 1 FROM spending_rules WHERE user_id=? AND version=?').get(sr.user_id!, sr.rule_version!))
+        if (sr.user_id !== sr.owner_id || Number(sr.cents) !== Number(sr.order_amount) || !expectedStateOk || !ruleValid) {
+          throw new Error('消费预算占额与订单或规则状态不一致')
+        }
+      }
+      for (const pw of db.prepare('SELECT * FROM purchase_wishlist').iterate()) {
+        let parsed: unknown = null
+        try { parsed = JSON.parse(String(pw.goods)) } catch { parsed = null }
+        const ruleValid = pw.rule_version === null ||
+          Boolean(db.prepare('SELECT 1 FROM spending_rules WHERE user_id=? AND version=?').get(pw.user_id!, pw.rule_version!))
+        const policyConfirmed = Number(pw.return_policy_confirmed ?? 0)
+        const policyValid = [0, 1].includes(policyConfirmed) &&
+          (policyConfirmed === 0 || /^[a-f0-9]{64}$/.test(String(pw.expected_return_policy_token ?? '')))
+        if (!Array.isArray(parsed) || parsed.length === 0 || !ruleValid || !policyValid) {
+          throw new Error('待买清单快照或规则版本归属无效')
+        }
+      }
+    }
     return { counts, uploads: [...uploads].sort(), avatarUsers, productImages: [...productImages].sort(), orderImages, registeredImages, afterSaleImages, serviceImages,
       issues, schemaVersion: version }
   } finally { db.close() }

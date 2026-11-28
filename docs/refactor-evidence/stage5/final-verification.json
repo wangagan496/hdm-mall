@@ -1,0 +1,95 @@
+{
+  "task_id": "hdm-stage5-fix-20261128-01",
+  "supplement_task_id": "hdm-stage5-device-20261128-04",
+  "origin_task_id": "hdm-stage5-20261124-01",
+  "baseline_branch": "mall-crazy-design-20261116",
+  "baseline_commit": "28fdbf18ea66d055f35dd8eb9628e669f8dba95a",
+  "schema_version": 31,
+  "source_fingerprint_sha256": "25eff18bcd56abfea7023180c6686e87e1f5a6898a83ea40c2f97373a1f8a1d6",
+  "source_fingerprint_manifest": "docs/refactor-evidence/stage5/repair01/fix06-fingerprint.json",
+  "package": {
+    "path": "D:/hdm-mall/mixed-development-h5/build/outputs/default/mixed-development-h5-default-all-signed.app",
+    "bytes": 10984384,
+    "sha256": "33BFD7A2EA03BF9F6A82152EC9421F1CEE1017FEBA17F70383F8837BCBCEA06A",
+    "sha1": "E40EC72591C50E44D2B2B6B0EDE83A57CC909770"
+  },
+  "checks": {
+    "contract_check": "passed",
+    "server_tsc": "passed",
+    "server_tests": {
+      "total": 559,
+      "passed": 559,
+      "failed": 0,
+      "skipped": 0
+    },
+    "boundary_review_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "client_isolated_tests": {
+      "total": 671,
+      "passed": 671,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hvigor_module_tests_serial": {
+      "models": {
+        "total": 104,
+        "passed": 104,
+        "failed": 0,
+        "ignored": 0
+      },
+      "mine": {
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "ignored": 0
+      },
+      "cart": {
+        "total": 48,
+        "passed": 48,
+        "failed": 0,
+        "ignored": 0
+      },
+      "sum_passed": 165
+    }
+  },
+  "device": {
+    "name": "Pura 90 API24",
+    "target": "127.0.0.1:5555",
+    "themes_verified": [
+      "light",
+      "dark"
+    ],
+    "screenshots_count": 8,
+    "screenshots_package_sha256": "F5EEF8668D4B19402E2D46BB9BA9A09AE4A40B27E79C664F2066797412997668",
+    "screenshots_manifest": "docs/refactor-evidence/stage5/device/screenshots.json",
+    "cleanup": {
+      "light": "docs/refactor-evidence/stage5/device/light/cleanup.json",
+      "dark": "docs/refactor-evidence/stage5/device/dark/cleanup.json"
+    },
+    "repair01_supplement": {
+      "themes_verified": [
+        "light",
+        "dark"
+      ],
+      "screenshots_count": 4,
+      "screenshots_package_sha256": "33BFD7A2EA03BF9F6A82152EC9421F1CEE1017FEBA17F70383F8837BCBCEA06A",
+      "screenshots_manifest": "docs/refactor-evidence/stage5/device/repair01/screenshots.json",
+      "results": {
+        "light": "docs/refactor-evidence/stage5/device/repair01/light/result.json",
+        "dark": "docs/refactor-evidence/stage5/device/repair01/dark/result.json"
+      },
+      "cleanup": {
+        "light": "docs/refactor-evidence/stage5/device/repair01/light/cleanup.json",
+        "dark": "docs/refactor-evidence/stage5/device/repair01/dark/cleanup.json"
+      }
+    }
+  },
+  "rework_rounds": [
+    "hdm-stage5-fix-20261128-01/02（2×P1+1×P2）",
+    "hdm-stage5-fix-20261128-06（付款前清扫他人过期占额）"
+  ]
+}

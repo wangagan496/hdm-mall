@@ -1,0 +1,38 @@
+{
+  "startedAt": "2026-11-28T10:42:17.9346196+08:00",
+  "completedAt": "2026-11-28T10:44:27.4732408+08:00",
+  "durationSeconds": 129.54,
+  "target": "127.0.0.1:5555",
+  "theme": "light",
+  "result": "passed",
+  "packageSha256": "33BFD7A2EA03BF9F6A82152EC9421F1CEE1017FEBA17F70383F8837BCBCEA06A",
+  "productId": "992d491d-3ba9-4473-b7c9-864b3e578f64",
+  "skuId": "0c742362-dfbb-406c-9edb-8f80ab9ca496",
+  "ruleVersion": 1,
+  "cooldownThresholdCents": 5000,
+  "cooldownHours": 1,
+  "initialReturnPolicy": "confirm-required",
+  "initialReturnPolicyReason": "unsealed",
+  "updatedReturnPolicy": "standard",
+  "clockAdvancedMs": 3605000,
+  "clockNowAfterAdvance": 1795837454707,
+  "ordersBeforeReconfirm": 0,
+  "ordersAfterReconfirm": 1,
+  "createdOrderId": "cd1e24cf-cf00-487a-9e8d-618999acd55d",
+  "createdOrderState": 1,
+  "wishlistStatusAfterReconfirm": "confirmed",
+  "screenshots": [
+    {
+      "theme": "light",
+      "file": "01-wishlist-policy-changed.jpg",
+      "bytes": 97942,
+      "sha256": "7D4185C0BF1562337201BE369BC721B8CE694369A1FEE733429B5A7E99FBE38F"
+    },
+    {
+      "theme": "light",
+      "file": "02-wishlist-policy-reconfirmed.jpg",
+      "bytes": 73369,
+      "sha256": "908D84B3A0FB82C55FF8BF397213D3077F37CE39773309D4F6CD8E43467C4EBD"
+    }
+  ]
+}

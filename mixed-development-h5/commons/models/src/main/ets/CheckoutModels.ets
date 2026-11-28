@@ -20,7 +20,17 @@ export interface CheckoutDetail {
   returnPolicyToken?: string
   promotion?: PromotionQuote
   totalAmountCents?: number
-  goods: CheckoutPrice[] | CheckoutShortage[] | ExcludedCheckoutGoods[] | ReturnPolicyGoods[]
+  goods?: CheckoutPrice[] | CheckoutShortage[] | ExcludedCheckoutGoods[] | ReturnPolicyGoods[]
+  limitType?: string
+  amountCents?: number
+  limitCents?: number
+  ruleVersion?: number
+  monthKey?: string
+  spentCents?: number
+  reservedCents?: number
+  remainingBudgetCents?: number | null
+  wishlistItemId?: string
+  cooldownUntil?: number
 }
 export interface CheckoutFailure {
   status: number

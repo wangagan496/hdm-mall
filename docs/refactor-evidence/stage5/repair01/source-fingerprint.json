@@ -1,0 +1,330 @@
+{
+  "observedAt": "2026-11-27T16:51:05.898Z",
+  "root": "D:/hdm-mall",
+  "branch": "mall-crazy-design-20261116",
+  "head": "28fdbf18ea66d055f35dd8eb9628e669f8dba95a",
+  "fileCount": 64,
+  "fingerprint": "2a0d3c3b4828b3ec16413bc3376c0d602602b4263a3e0d62ccb518f9937faa75",
+  "files": [
+    {
+      "path": "contract-kit/v1/generators/generate.ts",
+      "bytes": 11953,
+      "sha256": "7e18b1d1a53361d616933c79c5e950ccc13c653fa36fc8a4a262e15da333383b"
+    },
+    {
+      "path": "contract-kit/v1/spending-guard.ts",
+      "bytes": 4609,
+      "sha256": "32871b55957c84e816abae123bc832ef35a3702dc84f5914ef68b22afe22b80a"
+    },
+    {
+      "path": "contract-kit/v1/vectors/spending-guard.ts",
+      "bytes": 3691,
+      "sha256": "493b98051e439a35e8d0e2b5b44b823c7ffa528a7e4617e03abdeff0d614ad41"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/Index.ets",
+      "bytes": 4866,
+      "sha256": "b48e758a0193a044134c610cce9980a3b4e2abdc4f79d377dd55bbbaac86303a"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/BusinessModels.ets",
+      "bytes": 15367,
+      "sha256": "b4c4bd8954e3e89c9d933eade9110c4401054bb0c9ffc8faf3d3e89bc9b8e9fa"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/CheckoutModels.ets",
+      "bytes": 1203,
+      "sha256": "f83b6864a5d8b4a9fc47dbcb656c258e87c08c98916407023c10080ee042d161"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/main/ets/SpendingGuardModels.ets",
+      "bytes": 15380,
+      "sha256": "9d3966f770776dbe4854f3368cd74283631feb4168eebdad0711f5fea0b00a56"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/test/List.test.ets",
+      "bytes": 559,
+      "sha256": "8b69edc7632c7ff0ccfa5e134e3bca86415c713a763d301dabeb0f667cab8b9c"
+    },
+    {
+      "path": "mixed-development-h5/commons/models/src/test/SpendingGuardVectors.test.ets",
+      "bytes": 5708,
+      "sha256": "3bb4aa605728f313bd4313ac210f59cc37fb578aba327240aa45a371b0cec7ad"
+    },
+    {
+      "path": "mixed-development-h5/features/cart/src/main/ets/presentation/utils/SpendingPresentation.ets",
+      "bytes": 3073,
+      "sha256": "edf521e0fa90ef5f8aeae959d226e326ae93393fe2986490fde0e8c1eedc9cb7"
+    },
+    {
+      "path": "mixed-development-h5/features/cart/src/main/ets/presentation/views/CheckView.ets",
+      "bytes": 58314,
+      "sha256": "fcf28aec3ebfca0b9235fc3fb77682a0328d22c40b585a7e8bb6f8668f1216a0"
+    },
+    {
+      "path": "mixed-development-h5/features/cart/src/main/ets/presentation/views/OrderDetailView.ets",
+      "bytes": 66629,
+      "sha256": "99919644aa561c489dcfa5e95eaaea0ae044caae6794995b5346fe6320e5709f"
+    },
+    {
+      "path": "mixed-development-h5/features/cart/src/test/List.test.ets",
+      "bytes": 615,
+      "sha256": "531e10438ca81107b5d0f66cb356b82ece42f7a85c02c074ef9cb06361b7f000"
+    },
+    {
+      "path": "mixed-development-h5/features/cart/src/test/SpendingPresentation.test.ets",
+      "bytes": 3663,
+      "sha256": "9fb86edab811e9e137954e9fe722bb1309a354f7fbe272520896bdbaf4869eab"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/index.ets",
+      "bytes": 130,
+      "sha256": "d8ca2cbd9d695b19cfb9844aa5ef1f0a63bd3e29f287b84336dd542691bdb7b4"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/data/api/spending.ets",
+      "bytes": 1575,
+      "sha256": "3f85a0efd11c587a76b24e2b4884a4a7a3101d87e1d6f8d1a1a3fc59f7df9f01"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/utils/SpendingSettingPresentation.ets",
+      "bytes": 6384,
+      "sha256": "361b578faa27d9ac50f9b1a60ef5658cc2424023fc373afffddc9a228739e4f1"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/MineView.ets",
+      "bytes": 20540,
+      "sha256": "d104c5815de2786dd4b60e61785b6306bb84788bf8d937e2551af71c3a06b9b8"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/SpendingSettingView.ets",
+      "bytes": 14861,
+      "sha256": "f19d67dfbf435c3405c92fb071787cd5f89d05f4dc471575427e77e77517c455"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/WishlistView.ets",
+      "bytes": 14895,
+      "sha256": "09db3963167225155ba420e8ba15ab4e24aa7e845d06784dca78a1766b336c5a"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/main/ets/presentation/views/index.ets",
+      "bytes": 791,
+      "sha256": "74e3c9a577d6c35ee435beef6c010693c75421f783d6a3befb14c295fd1d2459"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/test/List.test.ets",
+      "bytes": 338,
+      "sha256": "857804b08e58fae13bdc3a3e318fa9831c406ed5dadb1d7ddc316ecbdc9a1f7f"
+    },
+    {
+      "path": "mixed-development-h5/features/mine/src/test/SpendingSetting.test.ets",
+      "bytes": 3319,
+      "sha256": "65bf859d97c1da03c4faeefb1bffbcc65f11b2a2352b1dab2ba075356c3f600f"
+    },
+    {
+      "path": "mixed-development-h5/products/phone/src/main/ets/pages/Index.ets",
+      "bytes": 9564,
+      "sha256": "b8c074476e86fee61ffc6409129a612d67c7cafa02995f0a097179926924a345"
+    },
+    {
+      "path": "scripts/tests/spending-guard-native.test.mjs",
+      "bytes": 12359,
+      "sha256": "1622d636dc65d70278fb77c5333e98b6fd62c25d1e45d4f6fc153a01129a9a6f"
+    },
+    {
+      "path": "server/src/app.ts",
+      "bytes": 45240,
+      "sha256": "f29f458248040d9770b217dc61e4d01953370ccccabae215953c51eade526b41"
+    },
+    {
+      "path": "server/src/audit-backup.ts",
+      "bytes": 4166,
+      "sha256": "0b143997eb991c84e095b5bea382bf68601d14f22f7fe8d25df3333cda94b4d7"
+    },
+    {
+      "path": "server/src/audit.ts",
+      "bytes": 9530,
+      "sha256": "c8b4016c08f943f2c7a8696c1bc60f4c12cdfae92c48d694a6d756bb8e08c5a9"
+    },
+    {
+      "path": "server/src/backup.ts",
+      "bytes": 37039,
+      "sha256": "9fa6138ceba8b135c1ff2c8047c57f6102bd26d9953da5dd25e4606c7a8bbe7d"
+    },
+    {
+      "path": "server/src/database.ts",
+      "bytes": 13206,
+      "sha256": "b03d1aeae350f34decf61cb8fe777bdee7a80f4e91f62efa9b0a110e0b0c8ae1"
+    },
+    {
+      "path": "server/src/migrations/031-spending-guard.sql",
+      "bytes": 2271,
+      "sha256": "2b271c5fd863d13d6d77701b7572ca6e98d8358c39e3ab506d7f6d40a53f1db3"
+    },
+    {
+      "path": "server/src/orders.ts",
+      "bytes": 56777,
+      "sha256": "ad0af56b7e0c878e1cf849bdff3791c7fab15bc241d74091abda19ba251bac49"
+    },
+    {
+      "path": "server/src/payments.ts",
+      "bytes": 41701,
+      "sha256": "762d3c2b08543c2361e1abc39f3b8742c0a81673751e237ba1e310d655c48a84"
+    },
+    {
+      "path": "server/src/purchase-wishlist.ts",
+      "bytes": 15422,
+      "sha256": "c0dba9688be13ed6e47cf2d7ece79439617a00cfa431945fda4e47a2869a9a57"
+    },
+    {
+      "path": "server/src/return-policy.ts",
+      "bytes": 2463,
+      "sha256": "c745391a74e30ed54681f208bde04400d85de0159578b0d66171850b0f2c7bd1"
+    },
+    {
+      "path": "server/src/spending-guard.ts",
+      "bytes": 13766,
+      "sha256": "4e19430785509f26b53e2726cf99b8111b4c9067048a31c2356bf03229d4bb41"
+    },
+    {
+      "path": "server/src/spending-guard/generated.ts",
+      "bytes": 15447,
+      "sha256": "1aa3b163f2cbe4ee5eae9bb60f6c1b8e98ece8e28b05907610efeff6e563b4ba"
+    },
+    {
+      "path": "server/test/account-lifecycle.test.ts",
+      "bytes": 24147,
+      "sha256": "064c9af368aebdd7b725eca6539b741213ed88d4497b920cef2be92e7f670696"
+    },
+    {
+      "path": "server/test/after-sales.test.ts",
+      "bytes": 34640,
+      "sha256": "3bd13a22e547d024139c6d5842d9ff64121372fc8a69330e8e1f345a33eb9c56"
+    },
+    {
+      "path": "server/test/audit-log.test.ts",
+      "bytes": 17907,
+      "sha256": "7420af01fe1db831eab9e79ee25d4fd8c41e98a36a2ebf1a8b2c0d59e4980bac"
+    },
+    {
+      "path": "server/test/avatar-portability.test.ts",
+      "bytes": 10646,
+      "sha256": "78beaac0cae7f7c27aef5c254ea2d114b872f09c041f83cd325d3301d7a2e9c3"
+    },
+    {
+      "path": "server/test/cart-migration.test.ts",
+      "bytes": 9728,
+      "sha256": "c03b1e88afdd6179ca3c8fb1f6ee39d185e52ab0345c63447b09aa18fc8372b4"
+    },
+    {
+      "path": "server/test/category-index-migration.test.ts",
+      "bytes": 3596,
+      "sha256": "46243a081417294c3a74c8fd71ea07d63bf5aedb376e441d3d5b48a8cd7d06fe"
+    },
+    {
+      "path": "server/test/clock.test.ts",
+      "bytes": 7379,
+      "sha256": "7efa0a088aacf5584e946911f5edc913a4f12bf5f1d6f67ca39d6f81ba1dda13"
+    },
+    {
+      "path": "server/test/compensation.test.ts",
+      "bytes": 101112,
+      "sha256": "3958b82a7a86081227808b231ff333574a7fc8555881de54050a04a17a6d836a"
+    },
+    {
+      "path": "server/test/evaluation-followups.test.ts",
+      "bytes": 25712,
+      "sha256": "47edf8bff01f97eb044b9eab62cea0312bbf380669c4f74ff807aeb96c098592"
+    },
+    {
+      "path": "server/test/evaluation-migration.test.ts",
+      "bytes": 1809,
+      "sha256": "8443e34f01802546a7ae88d43f9affcc257a21b132ed060cbcb365c60a832a11"
+    },
+    {
+      "path": "server/test/helpers/legacy-v20.ts",
+      "bytes": 3694,
+      "sha256": "0b878133302e3b806e0722cc15e07ccfe02167f676c0749928399d44381b4de3"
+    },
+    {
+      "path": "server/test/identity-backup.test.ts",
+      "bytes": 7025,
+      "sha256": "ac8a4aa27ca0d4c50633c2cd20c5204f6fa073a5c37d8d7ce252aa337da30763"
+    },
+    {
+      "path": "server/test/inventory-acceptance.test.ts",
+      "bytes": 30377,
+      "sha256": "b1d12a8b8989e559fc0658ab4dc23454643b0d008f274c3b0015c78470e165a6"
+    },
+    {
+      "path": "server/test/inventory.test.ts",
+      "bytes": 16979,
+      "sha256": "b30c7f93f5ed295269876f6e7bf46c6f308d9f97d39b4e2e2cf7a6241c3c36bd"
+    },
+    {
+      "path": "server/test/optimization.test.ts",
+      "bytes": 18656,
+      "sha256": "940018d019ad1ebcd5304569cfd7ef58edcd6f9c2730e3968d8a6954fd7070ae"
+    },
+    {
+      "path": "server/test/order-cancellation.test.ts",
+      "bytes": 52635,
+      "sha256": "9b5375057e1c11e4629e90b1f54c7fbecb7972482929acbc7998299071ff9d68"
+    },
+    {
+      "path": "server/test/payments.test.ts",
+      "bytes": 80940,
+      "sha256": "a39a22b3cdc1389486ad08700ec158f6e347346324d5c4b976b09722e90fb036"
+    },
+    {
+      "path": "server/test/product-backup.test.ts",
+      "bytes": 3986,
+      "sha256": "1aea1d595125b1273efbfe1fe5ec9c1a2c060f541c5607824cb84770302165ab"
+    },
+    {
+      "path": "server/test/product-revision-migration.test.ts",
+      "bytes": 2551,
+      "sha256": "6efb0bbdf4b5122629b80ccae1c78eff9b04aeec0fe1f4180e785600f2f8d080"
+    },
+    {
+      "path": "server/test/promises-publication.test.ts",
+      "bytes": 29253,
+      "sha256": "938f1eb9a331e76e8eb1f87c671da9c73e4105ef2d1b78d2fa209babda800980"
+    },
+    {
+      "path": "server/test/reconciliation-backup.test.ts",
+      "bytes": 5474,
+      "sha256": "75814f32c4bb7b3f281b595988491e2c3ea1aad9644943f505e874055d2aae42"
+    },
+    {
+      "path": "server/test/return-policy.test.ts",
+      "bytes": 14240,
+      "sha256": "82cf39cabc3807f4f6151b0ee6d41d687f70faf4c1cddc5e985de3a8d808bf54"
+    },
+    {
+      "path": "server/test/service-backup.test.ts",
+      "bytes": 5203,
+      "sha256": "3b8d6c05561278d3fa92ceb5066aa4604617b7895ad63944d1ffdaae4f132234"
+    },
+    {
+      "path": "server/test/shipping-compensation.test.ts",
+      "bytes": 19269,
+      "sha256": "719528e45025a1efbfe62bf76bbb58c8ea719f7e9861b92eddcb90ad627a375a"
+    },
+    {
+      "path": "server/test/source-records.test.ts",
+      "bytes": 12067,
+      "sha256": "c7b2612e8fa4fd1cf79edd2149534cedd54c265f6c0fb7977fde2b2bec434ac7"
+    },
+    {
+      "path": "server/test/spending-guard.test.ts",
+      "bytes": 52048,
+      "sha256": "5e034bb3fc26d34afa8afd3dc38fe0860d322de1eaa8cac4ec7705027d0a7a2a"
+    },
+    {
+      "path": "server/test/stock-adjustment.test.ts",
+      "bytes": 10452,
+      "sha256": "4415a7130ac35b432ca88529ca638efa680916d6696e6953c1937a29ed654db8"
+    }
+  ]
+}

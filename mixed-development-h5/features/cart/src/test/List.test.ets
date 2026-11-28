@@ -4,6 +4,7 @@ import orderTabLoaderTest from './OrderTabLoader.test';
 import evaluationSubmitFlowTest from './EvaluationSubmitFlow.test';
 import evaluationNavigationTest from './EvaluationNavigation.test';
 import protectionCartTest from './Protection.test';
+import spendingPresentationTest from './SpendingPresentation.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -12,4 +13,5 @@ export default function testsuite() {
   evaluationSubmitFlowTest();
   evaluationNavigationTest();
   protectionCartTest();
+  spendingPresentationTest();
 }
